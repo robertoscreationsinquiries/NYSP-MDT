@@ -444,6 +444,17 @@ body {
     }
 }
 
+@keyframes pulse {
+    0%, 100% {
+        opacity: 0.4;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.6;
+        transform: scale(1.05);
+    }
+}
+
 /* Visual Feedback Animations */
 @keyframes pulse-data {
     0%, 100% { 
@@ -1373,9 +1384,76 @@ const [showWelcomePopup, setShowWelcomePopup] = useState(false);
 const [hfAPIKey, setHfAPIKey] = useState('');
 const [groqConsoleAPIKey, setGroqConsoleAPIKey] = useState('');
 const [databaseSearchUsername, setDatabaseSearchUsername] = useState('');
+const [showLoginScreen, setShowLoginScreen] = useState(true); // Show login first
+const [loginUsername, setLoginUsername] = useState('');
+const [loginPassword, setLoginPassword] = useState('');
+const [loginError, setLoginError] = useState('');
+const [isLoggingIn, setIsLoggingIn] = useState(false);
+const [authenticatedUser, setAuthenticatedUser] = useState(null);
 
 
 const [databaseStatus, setDatabaseStatus] = useState({ connected: false, checking: true });
+
+useEffect(() => {
+    const storedUser = localStorage.getItem('nysp_authenticated_user');
+    if (storedUser) {
+        try {
+            const user = JSON.parse(storedUser);
+            console.log('[AUTH] Found existing session for:', user.robloxUsername);
+            
+            // Verify user still exists in AUTHORIZED_USERS and not banned
+            if (window.AUTHORIZED_USERS && window.AUTHORIZED_USERS[user.robloxUsername]) {
+                const currentUser = window.AUTHORIZED_USERS[user.robloxUsername];
+                
+                // Check if user is now banned
+                if (currentUser.banned === true) {
+                    console.warn('[AUTH] User is now banned, clearing session');
+                    localStorage.removeItem('nysp_authenticated_user');
+                    setShowLoginScreen(true);
+                    return;
+                }
+                
+                // Restore session
+                setAuthenticatedUser(user);
+                setTrooperName(user.robloxUsername);
+                setTrooperBadge(user.badgeId);
+                setShowLoginScreen(false);
+                console.log('[AUTH] ✅ Session restored');
+            } else {
+                // User no longer exists, clear session
+                console.warn('[AUTH] User no longer in database, clearing session');
+                localStorage.removeItem('nysp_authenticated_user');
+                setShowLoginScreen(true);
+            }
+        } catch (e) {
+            console.error('[AUTH] Failed to restore session:', e);
+            localStorage.removeItem('nysp_authenticated_user');
+            setShowLoginScreen(true);
+        }
+    }
+}, []);
+
+const handleLogout = () => {
+    console.log('[AUTH] Logging out user:', authenticatedUser?.robloxUsername);
+    
+    // Clear all auth data
+    localStorage.removeItem('nysp_authenticated_user');
+    localStorage.removeItem('nysp_username');
+    localStorage.removeItem('nysp_zone');
+    localStorage.removeItem('nysp_firstname');
+    localStorage.removeItem('nysp_lastname');
+    localStorage.removeItem('nysp_badgeid');
+    
+    // Reset state
+    setAuthenticatedUser(null);
+    setLoginUsername('');
+    setLoginPassword('');
+    setLoginError('');
+    setShowLoginScreen(true);
+    
+    console.log('[AUTH] ✅ Logout complete');
+};
+
 
 
 useEffect(() => {
@@ -1428,6 +1506,31 @@ useEffect(() => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
 }, []);
+
+const formatDate = (date, includeTime = false) => {
+      const d = new Date(date);
+      const americanFormat = trooperSettings?.AmericanDateFormat === 'TRUE';
+      
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      
+      const dateStr = americanFormat ? `${month}/${day}/${year}` : `${day}/${month}/${year}`;
+      
+      if (includeTime) {
+          const hours = String(d.getHours()).padStart(2, '0');
+          const minutes = String(d.getMinutes()).padStart(2, '0');
+          return `${dateStr} ${hours}:${minutes}`;
+      }
+      
+      return dateStr;
+  };
+
+  const getCurrentDateTime = () => {
+    return formatDate(currentTime, true);
+};
+
+
 
 const checkDatabaseConnection = async () => {
     if (!tokenSaved || !discordToken || !trooperSettings) {
@@ -1579,21 +1682,6 @@ useEffect(() => {
                 
                 settings[key.trim()] = value;
                 
-                // Load specific settings
-                if (key.trim() === 'Username') {
-                    setTrooperName(value);
-                    console.log('✅ [SETTINGS] Loaded Username:', value);
-                }
-                
-                if (key.trim() === 'CallSign') {
-                    setTrooperCallsign(value);
-                    console.log('✅ [SETTINGS] Loaded CallSign:', value);
-                }
-                
-                if (key.trim() === 'Badge') {
-                    setTrooperBadge(value);
-                    console.log('✅ [SETTINGS] Loaded Badge:', value);
-                }
                 
                 if (key.trim() === 'DiscordAccountToken') {
                     if (value !== 'HIDDEN' && value !== 'YOUR_TOKEN_HERE') {
@@ -1630,6 +1718,77 @@ useEffect(() => {
             console.warn('⚠️ [SETTINGS] No settings file content found');
         }
     }, []);
+
+const handleLogin = () => {
+    setLoginError('');
+    setIsLoggingIn(true);
+
+    // Small delay for UI feedback
+    setTimeout(() => {
+        // Check if auth backend loaded
+        if (!window.AUTHORIZED_USERS) {
+            setLoginError('Authentication system not loaded. Please restart the application.');
+            setIsLoggingIn(false);
+            return;
+        }
+
+        // Normalize username (case-insensitive lookup)
+        const normalizedUsername = loginUsername.trim();
+        const user = window.AUTHORIZED_USERS[normalizedUsername];
+
+        // Check if user exists
+        if (!user) {
+            setLoginError('Login details were not correct. Make sure you have put the correct details including your username and the password provided.');
+            setIsLoggingIn(false);
+            return;
+        }
+
+        // Check if banned
+        if (user.banned === true) {
+            setLoginError(user.bannedReason || 'You have been banned from the NYSP app.');
+            setIsLoggingIn(false);
+            return;
+        }
+
+        // Check password
+        if (user.password !== loginPassword) {
+            setLoginError('Login details were not correct. Make sure you have put the correct details including your username and the password provided.');
+            setIsLoggingIn(false);
+            return;
+        }
+
+        // ✅ Authentication successful
+        console.log('[AUTH] ✅ Login successful for user:', normalizedUsername);
+        
+        // Store authenticated user
+        setAuthenticatedUser(user);
+        
+        // Inject user details into trooper settings
+        setTrooperName(user.robloxUsername);
+        setTrooperBadge(user.badgeId);
+        
+        // Store in localStorage for persistence
+        localStorage.setItem('nysp_authenticated_user', JSON.stringify(user));
+        localStorage.setItem('nysp_username', user.robloxUsername);
+        localStorage.setItem('nysp_zone', user.patrolZone);
+        localStorage.setItem('nysp_firstname', user.firstName);
+        localStorage.setItem('nysp_lastname', user.lastName);
+        localStorage.setItem('nysp_badgeid', user.badgeId);
+        
+        console.log('[AUTH] User details injected:', {
+            username: user.robloxUsername,
+            zone: user.patrolZone,
+            name: `${user.firstName} ${user.lastName}`,
+            badge: user.badgeId
+        });
+        
+        // Hide login screen and show loader
+        setShowLoginScreen(false);
+        setIsLoggingIn(false);
+        
+    }, 800); // Small delay for better UX
+};
+
 
 useEffect(() => {
     // Helper: update one row in the check list
@@ -7187,6 +7346,276 @@ const tokenInstructions = `(webpackChunkdiscord_app.push([[''],{},e=>{m=[];for(l
 
 return (
     <React.Fragment>
+        
+
+        {/* ═══════════════════════════════════════════════════════════════════ */}
+{/* LOGIN SCREEN */}
+{/* ═══════════════════════════════════════════════════════════════════ */}
+{showLoginScreen && (
+    <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 99999,
+        padding: '20px'
+    }}>
+        <div style={{
+            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95), rgba(51, 65, 85, 0.95))',
+            border: '2px solid rgba(59, 130, 246, 0.5)',
+            borderRadius: '16px',
+            padding: '48px 40px',
+            maxWidth: '480px',
+            width: '100%',
+            boxShadow: '0 0 60px rgba(59, 130, 246, 0.4), inset 0 0 40px rgba(59, 130, 246, 0.1)',
+            position: 'relative',
+            overflow: 'hidden'
+        }}>
+            {/* Animated background effect */}
+            <div style={{
+                position: 'absolute',
+                top: '-50%',
+                left: '-50%',
+                right: '-50%',
+                bottom: '-50%',
+                background: 'radial-gradient(circle at center, rgba(59, 130, 246, 0.15) 0%, transparent 70%)',
+                animation: 'pulse 4s ease-in-out infinite',
+                pointerEvents: 'none'
+            }}></div>
+
+            {/* Shield icon header */}
+            <div style={{
+                width: '80px',
+                height: '80px',
+                margin: '0 auto 24px',
+                background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                borderRadius: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 8px 32px rgba(59, 130, 246, 0.6)',
+                position: 'relative',
+                zIndex: 1
+            }}>
+                <Shield size={48} />
+            </div>
+
+            {/* Title */}
+            <h1 style={{
+                fontSize: '28px',
+                fontWeight: '700',
+                color: '#f8fafc',
+                textAlign: 'center',
+                marginBottom: '8px',
+                textShadow: '0 2px 8px rgba(59, 130, 246, 0.5)',
+                position: 'relative',
+                zIndex: 1
+            }}>
+                NEW YORK STATE POLICE
+            </h1>
+            
+            <p style={{
+                fontSize: '14px',
+                color: 'rgba(248, 250, 252, 0.6)',
+                textAlign: 'center',
+                marginBottom: '32px',
+                letterSpacing: '0.5px',
+                position: 'relative',
+                zIndex: 1
+            }}>
+                MOBILE DATA TERMINAL — AUTHENTICATION REQUIRED
+            </p>
+
+            {/* Error message */}
+            {loginError && (
+                <div style={{
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    borderRadius: '8px',
+                    padding: '12px 16px',
+                    marginBottom: '24px',
+                    color: '#fca5a5',
+                    fontSize: '13px',
+                    lineHeight: '1.5',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '10px',
+                    position: 'relative',
+                    zIndex: 1
+                }}>
+                    <XCircle size={18} style={{ flexShrink: 0, marginTop: '1px' }} />
+                    <span>{loginError}</span>
+                </div>
+            )}
+
+            {/* Username input */}
+            <div style={{ marginBottom: '20px', position: 'relative', zIndex: 1 }}>
+                <label style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    color: 'rgba(248, 250, 252, 0.8)',
+                    marginBottom: '8px',
+                    letterSpacing: '0.5px',
+                    textTransform: 'uppercase'
+                }}>
+                    ROBLOX USERNAME
+                </label>
+                <input
+                    type="text"
+                    value={loginUsername}
+                    onChange={(e) => setLoginUsername(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                    disabled={isLoggingIn}
+                    placeholder="Enter your username"
+                    style={{
+                        width: '100%',
+                        padding: '14px 16px',
+                        background: 'rgba(15, 23, 42, 0.8)',
+                        border: '2px solid rgba(59, 130, 246, 0.3)',
+                        borderRadius: '8px',
+                        color: '#f8fafc',
+                        fontSize: '15px',
+                        outline: 'none',
+                        transition: 'all 0.2s ease',
+                        fontFamily: "'Courier New', monospace"
+                    }}
+                    onFocus={(e) => {
+                        e.target.style.borderColor = 'rgba(59, 130, 246, 0.6)';
+                        e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                    }}
+                    onBlur={(e) => {
+                        e.target.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+                        e.target.style.boxShadow = 'none';
+                    }}
+                />
+            </div>
+
+            {/* Password input */}
+            <div style={{ marginBottom: '28px', position: 'relative', zIndex: 1 }}>
+                <label style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    color: 'rgba(248, 250, 252, 0.8)',
+                    marginBottom: '8px',
+                    letterSpacing: '0.5px',
+                    textTransform: 'uppercase'
+                }}>
+                    PASSWORD
+                </label>
+                <input
+                    type="password"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                    disabled={isLoggingIn}
+                    placeholder="Enter your password"
+                    style={{
+                        width: '100%',
+                        padding: '14px 16px',
+                        background: 'rgba(15, 23, 42, 0.8)',
+                        border: '2px solid rgba(59, 130, 246, 0.3)',
+                        borderRadius: '8px',
+                        color: '#f8fafc',
+                        fontSize: '15px',
+                        outline: 'none',
+                        transition: 'all 0.2s ease',
+                        fontFamily: "'Courier New', monospace"
+                    }}
+                    onFocus={(e) => {
+                        e.target.style.borderColor = 'rgba(59, 130, 246, 0.6)';
+                        e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                    }}
+                    onBlur={(e) => {
+                        e.target.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+                        e.target.style.boxShadow = 'none';
+                    }}
+                />
+            </div>
+
+            {/* Login button */}
+            <button
+                onClick={handleLogin}
+                disabled={isLoggingIn || !loginUsername.trim() || !loginPassword}
+                style={{
+                    width: '100%',
+                    padding: '16px',
+                    background: isLoggingIn || !loginUsername.trim() || !loginPassword
+                        ? 'rgba(59, 130, 246, 0.3)'
+                        : 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '15px',
+                    fontWeight: '700',
+                    cursor: isLoggingIn || !loginUsername.trim() || !loginPassword ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    boxShadow: isLoggingIn || !loginUsername.trim() || !loginPassword
+                        ? 'none'
+                        : '0 4px 16px rgba(59, 130, 246, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    position: 'relative',
+                    zIndex: 1
+                }}
+                onMouseEnter={(e) => {
+                    if (!isLoggingIn && loginUsername.trim() && loginPassword) {
+                        e.target.style.transform = 'translateY(-2px)';
+                        e.target.style.boxShadow = '0 6px 24px rgba(59, 130, 246, 0.6)';
+                    }
+                }}
+                onMouseLeave={(e) => {
+                    e.target.style.transform = 'translateY(0)';
+                    e.target.style.boxShadow = isLoggingIn || !loginUsername.trim() || !loginPassword
+                        ? 'none'
+                        : '0 4px 16px rgba(59, 130, 246, 0.4)';
+                }}
+            >
+                {isLoggingIn ? (
+                    <>
+                        <Loader2 size={20} />
+                        <span>AUTHENTICATING...</span>
+                    </>
+                ) : (
+                    <>
+                        <Shield size={20} />
+                        <span>LOGIN</span>
+                    </>
+                )}
+            </button>
+
+            {/* Footer */}
+            <div style={{
+                marginTop: '32px',
+                paddingTop: '24px',
+                borderTop: '1px solid rgba(59, 130, 246, 0.2)',
+                textAlign: 'center',
+                position: 'relative',
+                zIndex: 1
+            }}>
+                <p style={{
+                    fontSize: '12px',
+                    color: 'rgba(248, 250, 252, 0.4)',
+                    lineHeight: '1.6'
+                }}>
+                    Authorized personnel only. Unauthorized access is prohibited<br />
+                    and will be reported to system administrators.
+                </p>
+            </div>
+        </div>
+    </div>
+)}
+
 
        {showLoader && (
     <div className="mdt-loader-overlay">
@@ -7260,6 +7689,7 @@ return (
 
         </div>
     </div>
+    
 )}
 
 
@@ -8899,6 +9329,35 @@ localStorage.setItem('groqConsoleAPIKey', apiKey);
                     <p style={{ fontSize: '11px', color: '#64748b', marginTop: '8px' }}>
                         Instructions on how to install is present in a .txt file.
                     </p>
+                    <button
+    onClick={handleLogout}
+    style={{
+        padding: '12px 24px',
+        background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+        border: 'none',
+        borderRadius: '8px',
+        color: '#fff',
+        fontSize: '14px',
+        fontWeight: '600',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)'
+    }}
+    onMouseEnter={(e) => {
+        e.target.style.transform = 'translateY(-2px)';
+        e.target.style.boxShadow = '0 4px 16px rgba(239, 68, 68, 0.5)';
+    }}
+    onMouseLeave={(e) => {
+        e.target.style.transform = 'translateY(0)';
+        e.target.style.boxShadow = '0 2px 8px rgba(239, 68, 68, 0.3)';
+    }}
+>
+    <XCircle size={18} />
+    LOGOUT
+</button>
+
                 </div>
 
                     
