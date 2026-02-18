@@ -16,8 +16,7 @@ const AUTHORIZED_USERS = {
         banned: false,
         bannedReason: ""
     },
-    
-    // Example user 2 (based on your settings)
+
     "DAREALROBZ": {
         robloxUsername: "DAREALROBZ",
         patrolZone: "0G",
@@ -27,6 +26,28 @@ const AUTHORIZED_USERS = {
         password: "MySecurePassword123",  // ← SET A SECURE PASSWORD
         banned: true,
         bannedReason: "Sharing access to unauthorized users."
+    },
+
+    "Pigscheme12345": {
+        robloxUsername: "PIGSCHEME12345",
+        patrolZone: "0G",
+        firstName: "Tim",
+        lastName: "Bradford",
+        badgeId: "00404",
+        password: "Raf88",  // ← SET A SECURE PASSWORD
+        banned: false,
+        bannedReason: ""
+    },
+
+    "ProBBLOKA": {
+        robloxUsername: "ProBBLOKA",
+        patrolZone: "0G",
+        firstName: "Tim",
+        lastName: "Bradford",
+        badgeId: "00404",
+        password: "PRO4040GBATESON",  // ← SET A SECURE PASSWORD
+        banned: false,
+        bannedReason: ""
     },
     
     // Example banned user
