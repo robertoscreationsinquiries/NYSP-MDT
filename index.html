@@ -1384,12 +1384,14 @@ const [showWelcomePopup, setShowWelcomePopup] = useState(false);
 const [hfAPIKey, setHfAPIKey] = useState('');
 const [groqConsoleAPIKey, setGroqConsoleAPIKey] = useState('');
 const [databaseSearchUsername, setDatabaseSearchUsername] = useState('');
-const [showLoginScreen, setShowLoginScreen] = useState(true); // Show login first
+const [showLoginScreen, setShowLoginScreen] = useState(true);
 const [loginUsername, setLoginUsername] = useState('');
 const [loginPassword, setLoginPassword] = useState('');
 const [loginError, setLoginError] = useState('');
 const [isLoggingIn, setIsLoggingIn] = useState(false);
 const [authenticatedUser, setAuthenticatedUser] = useState(null);
+const [showBanScreen, setShowBanScreen] = useState(false);
+const [banReason, setBanReason] = useState('');
 
 
 const [databaseStatus, setDatabaseStatus] = useState({ connected: false, checking: true });
