@@ -1738,21 +1738,21 @@ const handleLogin = () => {
 
         // Check if user exists
         if (!user) {
-            setLoginError('Login details were not correct. Make sure you have put the correct details including your username and the password provided.');
+            setLoginError('Login details were not correct. Make sure you have put the correct details including your username and the password provided. If you have not been provided a password nor username by the owner, DM the owner to get yourself registered within the application.');
             setIsLoggingIn(false);
             return;
         }
 
         // Check if banned
         if (user.banned === true) {
-            setLoginError(user.bannedReason || 'You have been banned from the NYSP app.');
+            setLoginError(user.bannedReason || 'Your permission to view and utilize this app has been revoked permanently. If you believe this is an issue, contact the owner.');
             setIsLoggingIn(false);
             return;
         }
 
         // Check password
         if (user.password !== loginPassword) {
-            setLoginError('Login details were not correct. Make sure you have put the correct details including your username and the password provided.');
+            setLoginError('Login details were not correct. Make sure you have put the correct details including your username and the password provided. If you have not been provided a password nor username by the owner, DM the owner to get yourself registered within the application.');
             setIsLoggingIn(false);
             return;
         }
@@ -2258,6 +2258,25 @@ const faqData = [
 ];
 
 const updateLogsData = [
+        {
+        title: "NYSP MDT SYSTEM - APP OVERHAUL",
+        version: "0.1.0",
+        description: "Thank you to all testers for reporting all the bugs to me. This hotfix should cover all the bugs reported so far.",
+        new: [
+            'NEW - Added a Login screen upon launch. This allows a trooper to instantly login, and let the app do the rest in terms of registering their ID, first- & last name, etc.',
+            'NEW - The main file that makes the app function now automatically updates upon launch (if update is available). (NOTE: If there are any changes to other files, manual download will be required.)'
+        ],
+        bugs: [
+            'Fixed a bug where it failed to show the correct user Roblox profile after searching an individal up. (Also includes a fix for the citation fields)',
+        ],
+        modifications: [
+            'CHANGE - Less files are now required to be installed.',
+        ],
+        removed: [],
+        planned: [
+            'PLANNED - A hotfix is planned in the near future to fix all bugs reported by testers, this includes optimization of the app.'
+        ]
+    },
     {
         title: "NYSP MDT SYSTEM - HOTFIX",
         version: "0.0.8.2",
@@ -7416,7 +7435,7 @@ return (
                 position: 'relative',
                 zIndex: 1
             }}>
-                NEW YORK STATE POLICE
+                NYSP MDT APP
             </h1>
             
             <p style={{
@@ -7428,7 +7447,7 @@ return (
                 position: 'relative',
                 zIndex: 1
             }}>
-                MOBILE DATA TERMINAL — AUTHENTICATION REQUIRED
+                NYSP MDT - Authentication is required to access the application.
             </p>
 
             {/* Error message */}
@@ -7608,8 +7627,8 @@ return (
                     color: 'rgba(248, 250, 252, 0.4)',
                     lineHeight: '1.6'
                 }}>
-                    Authorized personnel only. Unauthorized access is prohibited<br />
-                    and will be reported to system administrators.
+                    Authorized personnel only.<br />
+                    Unauthorized access is prohibited.
                 </p>
             </div>
         </div>
