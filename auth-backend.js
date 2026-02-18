@@ -1,7 +1,6 @@
 // ═══════════════════════════════════════════════════════════════════════════
 //  NYSP MDT — AUTHENTICATION BACKEND
 //  This file contains the authorized user database
-//  Upload this to your GitHub repo (keep it PRIVATE!)
 // ═══════════════════════════════════════════════════════════════════════════
 
 const AUTHORIZED_USERS = {
