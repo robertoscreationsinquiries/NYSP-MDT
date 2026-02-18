@@ -25,8 +25,8 @@ const AUTHORIZED_USERS = {
         lastName: "Mendoza",
         badgeId: "00706",
         password: "MySecurePassword123",  // ← SET A SECURE PASSWORD
-        banned: false,
-        bannedReason: ""
+        banned: true,
+        bannedReason: "Sharing access to unauthorized users."
     },
     
     // Example banned user
