@@ -1433,6 +1433,64 @@ useEffect(() => {
     }
 }, []);
 
+useEffect(() => {
+    const handleKeyDown = (e) => {
+        if (e.key === 'F12') {
+            e.preventDefault();
+            if (window.require) {
+                try {
+                    const { ipcRenderer } = window.require('electron');
+                    ipcRenderer.send('open-dev-tools');
+                    console.log('[DEVTOOLS] F12 pressed - opening DevTools');
+                } catch (err) {
+                    console.error('[DEVTOOLS] Error opening DevTools:', err);
+                }
+            }
+        }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+}, []);
+
+useEffect(() => {
+    const storedUser = localStorage.getItem('nysp_authenticated_user');
+    if (storedUser) {
+        try {
+            const user = JSON.parse(storedUser);
+            console.log('[AUTH] Found existing session for:', user.robloxUsername);
+            
+            // Verify user still exists and not banned
+            if (window.AUTHORIZED_USERS && window.AUTHORIZED_USERS[user.robloxUsername]) {
+                const currentUser = window.AUTHORIZED_USERS[user.robloxUsername];
+                
+                if (currentUser.banned === true) {
+                    console.warn('[AUTH] User is now banned, clearing session');
+                    localStorage.removeItem('nysp_authenticated_user');
+                    setBanReason(currentUser.bannedReason || 'No reason provided.');
+                    setShowBanScreen(true);
+                    setShowLoginScreen(false);
+                    return;
+                }
+                
+                // Restore session
+                setAuthenticatedUser(user);
+                setShowLoginScreen(false);
+                console.log('[AUTH] ✅ Session restored');
+            } else {
+                console.warn('[AUTH] User no longer in database, clearing session');
+                localStorage.removeItem('nysp_authenticated_user');
+                setShowLoginScreen(true);
+            }
+        } catch (e) {
+            console.error('[AUTH] Failed to restore session:', e);
+            localStorage.removeItem('nysp_authenticated_user');
+            setShowLoginScreen(true);
+        }
+    }
+}, []);
+
+
 const handleLogout = () => {
     console.log('[AUTH] Logging out user:', authenticatedUser?.robloxUsername);
     
@@ -7366,6 +7424,152 @@ const tokenInstructions = `(webpackChunkdiscord_app.push([[''],{},e=>{m=[];for(l
 return (
     <React.Fragment>
         
+        {/* ═══════════════════════════════════════════════════════════════════ */}
+{/* BAN SCREEN - Shown if user is banned */}
+{/* ═══════════════════════════════════════════════════════════════════ */}
+{showBanScreen && (
+    <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'linear-gradient(135deg, #1a0505 0%, #2d0a0a 50%, #1a0505 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 100000,
+        padding: '20px'
+    }}>
+        <div style={{
+            background: 'linear-gradient(135deg, rgba(30, 10, 10, 0.95), rgba(50, 15, 15, 0.95))',
+            border: '2px solid rgba(239, 68, 68, 0.6)',
+            borderRadius: '16px',
+            padding: '48px 40px',
+            maxWidth: '500px',
+            width: '100%',
+            boxShadow: '0 0 60px rgba(239, 68, 68, 0.5), inset 0 0 40px rgba(239, 68, 68, 0.1)',
+            position: 'relative',
+            overflow: 'hidden',
+            textAlign: 'center'
+        }}>
+            {/* Animated background pulse */}
+            <div style={{
+                position: 'absolute',
+                top: '-50%',
+                left: '-50%',
+                right: '-50%',
+                bottom: '-50%',
+                background: 'radial-gradient(circle at center, rgba(239, 68, 68, 0.2) 0%, transparent 70%)',
+                animation: 'pulse 3s ease-in-out infinite',
+                pointerEvents: 'none'
+            }}></div>
+
+            {/* Warning icon */}
+            <div style={{
+                width: '100px',
+                height: '100px',
+                margin: '0 auto 24px',
+                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 8px 32px rgba(239, 68, 68, 0.6)',
+                position: 'relative',
+                zIndex: 1
+            }}>
+                <svg width="60" height="60" fill="none" stroke="white" viewBox="0 0 24 24" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+
+            {/* Title */}
+            <h1 style={{
+                fontSize: '32px',
+                fontWeight: '700',
+                color: '#fca5a5',
+                marginBottom: '16px',
+                textShadow: '0 2px 8px rgba(239, 68, 68, 0.5)',
+                position: 'relative',
+                zIndex: 1,
+                letterSpacing: '1px'
+            }}>
+                YOU HAVE BEEN BANNED
+            </h1>
+
+            {/* Reason */}
+            <div style={{
+                background: 'rgba(0, 0, 0, 0.3)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: '8px',
+                padding: '20px',
+                marginBottom: '24px',
+                position: 'relative',
+                zIndex: 1
+            }}>
+                <p style={{
+                    fontSize: '15px',
+                    color: '#fecaca',
+                    lineHeight: '1.8',
+                    margin: 0,
+                    fontFamily: "'Courier New', monospace"
+                }}>
+                    {banReason}
+                </p>
+            </div>
+
+            {/* Contact message */}
+            <p style={{
+                fontSize: '13px',
+                color: 'rgba(252, 165, 165, 0.7)',
+                marginBottom: '32px',
+                position: 'relative',
+                zIndex: 1,
+                lineHeight: '1.6'
+            }}>
+                If you believe this is false, contact the owner.
+            </p>
+
+            {/* Close button */}
+            <button
+                onClick={() => {
+                    setShowBanScreen(false);
+                    setShowLoginScreen(true);
+                    setLoginUsername('');
+                    setLoginPassword('');
+                }}
+                style={{
+                    padding: '14px 32px',
+                    background: 'rgba(239, 68, 68, 0.2)',
+                    border: '2px solid rgba(239, 68, 68, 0.4)',
+                    borderRadius: '8px',
+                    color: '#fca5a5',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    position: 'relative',
+                    zIndex: 1
+                }}
+                onMouseEnter={(e) => {
+                    e.target.style.background = 'rgba(239, 68, 68, 0.3)';
+                    e.target.style.borderColor = 'rgba(239, 68, 68, 0.6)';
+                }}
+                onMouseLeave={(e) => {
+                    e.target.style.background = 'rgba(239, 68, 68, 0.2)';
+                    e.target.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                }}
+            >
+                BACK TO LOGIN
+            </button>
+        </div>
+    </div>
+)}
+
+
 
         {/* ═══════════════════════════════════════════════════════════════════ */}
 {/* LOGIN SCREEN */}
@@ -7712,6 +7916,7 @@ return (
 )}
 
 
+{!showLoginScreen && !showLoader && (
         <div className="app-container">
 {activeView === 'home' ? (
     <div style={{ 
@@ -11579,6 +11784,7 @@ onClick={() => {
                 </>
             )}
         </div>
+    )}
 
         {/* UPDATE LOG MODAL */}
 {showUpdateLog && (
@@ -14735,6 +14941,7 @@ if (shiftPlateSearches.length > 0 && yPosition > 150) {
         </div>
     </div>
 )}
+
 <button 
     className={`scroll-to-top ${showScrollTop ? 'visible' : ''}`}
     onClick={scrollToTop}
