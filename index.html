@@ -1371,8 +1371,7 @@ const [loaderChecks, setLoaderChecks] = React.useState([
     { label: 'CREDENTIALS',    status: 'pending', result: '—' },
     { label: 'TROOPER DATA',   status: 'pending', result: '—' },
     { label: 'DISCORD',        status: 'pending', result: '—' },
-    { label: 'ROBLOX API',     status: 'pending', result: '—' },
-    { label: 'AI PARSER',      status: 'pending', result: '—' },
+    { label: 'ROBLOX API',     status: 'pending', result: '—' }
 ]);
 const [showWelcome, setShowWelcome] = useState(false);
 const [isOffline, setIsOffline] = useState(false);
@@ -1409,7 +1408,11 @@ const [soundSettings, setSoundSettings] = useState({
     platePass: true,
     plateFail: true,
     callAlert: true,
-    warrantAlert: true
+    warrantAlert: true,
+    StartupSFX: true,
+    LoginAccessDenied: true,
+    LoginIncorrect: true,
+    LoginPageCorrect: true
 });
 const [showWelcomePopup, setShowWelcomePopup] = useState(false);
 const [hfAPIKey, setHfAPIKey] = useState('');
@@ -1719,31 +1722,30 @@ useEffect(() => {
                 settings[key.trim()] = value;
                 
                 
-                if (key.trim() === 'DiscordAccountToken') {
-                    if (value !== 'HIDDEN' && value !== 'YOUR_TOKEN_HERE') {
+if (key.trim() === 'DiscordAccountToken') {
+                    if (value && value !== 'HIDDEN' && value !== 'YOUR_TOKEN_HERE') {
                         setDiscordToken(value);
-                        console.log('✅ [SETTINGS] Loaded Discord Token');
+                        localStorage.setItem('discordToken', value);
+                        setTokenSaved(true);
+                        console.log('✅ [SETTINGS] Discord token loaded');
                     }
                 }
                 
-                if (key.trim() === 'GroqConsoleAPIKey') {
-                    console.log('🔍 [SETTINGS] Found GroqConsoleAPIKey');
-                    console.log('🔑 [SETTINGS] Raw value:', value);
-                    
-                    if (value && value !== '' && value !== 'HIDDEN' && value !== 'YOUR_API_KEY_HERE' && value !== 'PLACEHOLDER') {
-                        setGroqConsoleAPIKey(value);
-                        console.log('✅ [SETTINGS] Hugging Face API key loaded successfully');
-                        console.log('✅ [SETTINGS] Key length:', value.length, 'characters');
-                        
-                        // Store in window for AI parser to use
-                        window.GROQ_CONSOLE_API_KEY = value;
-                        console.log('✅ [SETTINGS] API key stored in window.GROQ_CONSOLE_API_KEY');
-                        
-                        addLog('✅ Hugging Face API key loaded from settings file', 'success');
-                    } else {
-                        console.warn('⚠️ [SETTINGS] Groq Console API key is empty or placeholder');
-                    }
+                if (key.trim() === 'RegistrationChannelID') {
+                    localStorage.setItem('registrationChannelID', value);
+                    console.log('✅ [SETTINGS] Registration Channel ID loaded:', value);
                 }
+                
+                if (key.trim() === 'DatabaseChannelID') {
+                    localStorage.setItem('databaseChannelID', value);
+                    console.log('✅ [SETTINGS] Database Channel ID loaded:', value);
+                }
+                
+                if (key.trim() === 'GuildID') {
+                    localStorage.setItem('guildID', value);
+                    console.log('✅ [SETTINGS] Guild ID loaded:', value);
+                }
+
                 
                 // Add other settings as needed...
             });
@@ -7368,7 +7370,7 @@ const handleLogin = () => {
         // Check if banned
         if (user.banned === true) {
             // Play access denied sound
-            if (soundSettings?.LoginAccessDenied && SOUNDS.LoginAccessDenied) {
+            if (soundSettings.LoginAccessDenied && SOUNDS.LoginAccessDenied) {
                 try {
                     const audio = new Audio(SOUNDS.LoginAccessDenied);
                     audio.volume = 0.5;
@@ -7400,7 +7402,7 @@ const handleLogin = () => {
         }
 
         // ✅ Login successful - Play success sound
-        if (soundSettings?.LoginPageCorrect && SOUNDS.LoginPageCorrect) {
+        if (soundSettings.LoginPageCorrect && SOUNDS.LoginPageCorrect) {
             try {
                 const audio = new Audio(SOUNDS.LoginPageCorrect);
                 audio.volume = 0.5;
@@ -8012,7 +8014,7 @@ return (
             }}
             style={{
                 position: 'absolute',
-                top: '24px',
+                bottom: '24px',
                 right: '24px',
                 padding: '10px 20px',
                 background: 'rgba(59, 130, 246, 0.1)',
@@ -9924,7 +9926,9 @@ localStorage.setItem('groqConsoleAPIKey', apiKey);
                     <p style={{ fontSize: '11px', color: '#64748b', marginTop: '8px' }}>
                         Instructions on how to install is present in a .txt file.
                     </p>
-                    <button
+                </div>
+
+                                   <button
     onClick={handleLogout}
     style={{
         padding: '12px 24px',
@@ -9952,8 +9956,6 @@ localStorage.setItem('groqConsoleAPIKey', apiKey);
     <XCircle size={18} />
     LOGOUT
 </button>
-
-                </div>
 
                     
                     {tokenSaved && (
