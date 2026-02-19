@@ -7434,6 +7434,16 @@ const handleLogin = () => {
             name: `${user.firstName} ${user.lastName}`,
             badge: user.badgeId
         });
+
+                // Update trooperSettings with login data
+        setTrooperSettings({
+            Username: user.robloxUsername,
+            Zone: user.patrolZone,
+            BadgeID: user.badgeId,
+            FirstName: user.firstName,
+            LastName: user.lastName
+        });
+
         
         // Hide login, show loader
         setShowLoginScreen(false);
@@ -7482,6 +7492,22 @@ useEffect(() => {
                 setAuthenticatedUser(user);
                 setShowLoginScreen(false);
                 console.log('[AUTH] Session restored');
+                setTrooperData({
+                    robloxUsername: user.robloxUsername,
+                    patrolZone: user.patrolZone,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    badgeId: user.badgeId
+                });
+                
+                setTrooperSettings({
+                    Username: user.robloxUsername,
+                    Zone: user.patrolZone,
+                    BadgeID: user.badgeId,
+                    FirstName: user.firstName,
+                    LastName: user.lastName
+                });
+
             } else {
                 localStorage.removeItem('nysp_authenticated_user');
             }
