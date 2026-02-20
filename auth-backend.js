@@ -11,6 +11,7 @@ const AUTHORIZED_USERS = {
         firstName: "firsttroopername",
         lastName: "lasttroopername",
         badgeId: "000000",
+        department: "NYSP",
         password: "testhere",
         banned: false,
         bannedReason: ""
@@ -22,6 +23,7 @@ const AUTHORIZED_USERS = {
         firstName: "Robert",
         lastName: "Mendoza",
         badgeId: "00706",
+        department: "NYSP",
         password: "MySecurePassword123",  // ← SET A SECURE PASSWORD
         banned: true,
         bannedReason: "Sharing access to unauthorized users."
@@ -33,6 +35,7 @@ const AUTHORIZED_USERS = {
         firstName: "Tim",
         lastName: "Bradford",
         badgeId: "00404",
+        department: "NYSP",
         password: "Raf88",  // ← SET A SECURE PASSWORD
         banned: false,
         bannedReason: ""
@@ -44,6 +47,7 @@ const AUTHORIZED_USERS = {
         firstName: "Tim",
         lastName: "Bradford",
         badgeId: "00404",
+        department: "NYSP",
         password: "PRO4040GBATESON",  // ← SET A SECURE PASSWORD
         banned: false,
         bannedReason: ""
@@ -56,6 +60,7 @@ const AUTHORIZED_USERS = {
         firstName: "John",
         lastName: "Doe",
         badgeId: "99999",
+        department: "NYSP",
         password: "password",
         banned: true,
         bannedReason: "You have been banned from the NYSP app for violating department policy."
