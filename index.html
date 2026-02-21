@@ -8171,7 +8171,7 @@ return (
                 e.target.style.borderColor = 'rgba(59, 130, 246, 0.3)';
             }}
         >
-            Skip ›
+            Enter app
         </button>
 
         {/* Main loader container */}
@@ -8424,685 +8424,397 @@ return (
 
 {!showLoginScreen && !showLoader && (
         <div className="app-container">
+
+
 {activeView === 'home' ? (
     <div style={{ 
-        maxWidth: '100%',  /* ðŸ”¥ REDUCED from 1400px */
-        margin: '0 auto', 
-        padding: '20px', 
-        width: '100%',
-        animation: 'fadeIn 0.3s ease-out',
-        boxSizing: 'border-box' /* ðŸ”¥ ADD THIS */
+        padding: '32px',
+        height: '100%',
+        overflowY: 'auto',
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
     }}>
-        <div className="card" style={{ 
-            height: 'calc(100vh - 80px)',
-            overflowY: 'auto'
+        {/* Welcome Header */}
+        <div style={{
+            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.9))',
+            border: '2px solid rgba(59, 130, 246, 0.3)',
+            borderRadius: '20px',
+            padding: '32px',
+            marginBottom: '32px',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(59, 130, 246, 0.1)',
+            position: 'relative',
+            overflow: 'hidden'
         }}>
-            {/* HOME CONTENT */}
-            <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '20px',
-                marginBottom: '32px',
-                paddingBottom: '20px',
-                borderBottom: '2px solid rgba(59, 130, 246, 0.3)'
+            {/* Animated background glow */}
+            <div style={{
+                position: 'absolute',
+                top: '-50%',
+                right: '-20%',
+                width: '60%',
+                height: '200%',
+                background: 'radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%)',
+                animation: 'pulse 4s ease-in-out infinite',
+                pointerEvents: 'none'
+            }}></div>
+
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '24px',
+                position: 'relative',
+                zIndex: 1
             }}>
+                {/* Shield Icon */}
                 <div style={{
                     width: '80px',
                     height: '80px',
-                    background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)',
-                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                    borderRadius: '20px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: '0 8px 24px rgba(59, 130, 246, 0.4)'
+                    boxShadow: '0 8px 32px rgba(59, 130, 246, 0.5)',
+                    flexShrink: 0
                 }}>
-                    <Shield size={48} style={{ color: 'white' }} />
+                    <Shield size={48} />
                 </div>
-                <div>
-    <h1 style={{ color: 'white', fontSize: '32px', fontWeight: '700', marginBottom: '4px' }}>
-        LEO - {currentTime.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-    </h1>
-    <p style={{ color: '#60a5fa', fontSize: '14px', marginBottom: '2px' }}>
-        LEO - Mobile Data Terminal
-    </p>
-    <p style={{ color: '#3b82f6', fontSize: '11px', fontWeight: '600', letterSpacing: '1px' }}>
-        EST. 2025
-    </p>
-</div>
-            </div>
 
-            {/* TOKEN EXPIRY WARNING */}
-            {tokenExpiryWarning && (
+                {/* Welcome Text */}
+                <div style={{ flex: 1 }}>
+                    <h1 style={{
+                        fontSize: '36px',
+                        fontWeight: '700',
+                        color: '#f8fafc',
+                        margin: 0,
+                        marginBottom: '8px',
+                        textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)'
+                    }}>
+                        Welcome Back, Trooper {trooperSettings?.FirstName || 'Officer'}
+                    </h1>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '24px',
+                        flexWrap: 'wrap'
+                    }}>
+                        <span style={{
+                            fontSize: '15px',
+                            color: '#94a3b8',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}>
+                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Badge #{trooperSettings?.BadgeID || 'N/A'}
+                        </span>
+                        <span style={{
+                            fontSize: '15px',
+                            color: '#94a3b8',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}>
+                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            Zone {trooperSettings?.Zone || 'N/A'}
+                        </span>
+                        <span style={{
+                            fontSize: '15px',
+                            color: '#94a3b8',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}>
+                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Status Badge */}
                 <div style={{
-                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.15))',
-                    border: '2px solid #ef4444',
-                    borderRadius: '8px',
-                    padding: '16px',
-                    marginBottom: '20px',
+                    padding: '12px 24px',
+                    background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(22, 163, 74, 0.2))',
+                    border: '1px solid rgba(34, 197, 94, 0.4)',
+                    borderRadius: '12px',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px',
-                    animation: 'fadeIn 0.3s ease-out'
+                    gap: '10px',
+                    boxShadow: '0 0 20px rgba(34, 197, 94, 0.2)'
                 }}>
-                    <span style={{ fontSize: '24px' }}> </span>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ color: '#fca5a5', fontSize: '14px', fontWeight: '700', marginBottom: '4px' }}>
-                            TOKEN EXPIRY WARNING
-                        </div>
-                        <div style={{ color: '#fecaca', fontSize: '12px' }}>
-                            Your Discord token may be invalid or expired. Please update it in Settings.
-                        </div>
-                    </div>
-                    <Tooltip text="Go to settings to update your token">
-                        <button
-                            onClick={() => {
-                                setActiveView('settings');
-                                setSettingsWarningDismissed(false);
-                                setContinueButtonEnabled(false);
-                            }}
-                            style={{
-                                padding: '8px 16px',
-                                background: '#ef4444',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '6px',
-                                fontSize: '12px',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                whiteSpace: 'nowrap'
-                            }}
-                        >
-                            UPDATE TOKEN
-                        </button>
-                    </Tooltip>
-                </div>
-            )}
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
-                <div style={{
-                    background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.3), rgba(30, 58, 138, 0.1))',
-                    border: '2px solid rgba(59, 130, 246, 0.4)',
-                    borderRadius: '8px',
-                    padding: '20px'
-                }}>
-                    <div style={{ color: '#60a5fa', fontSize: '12px', fontWeight: '600', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                        Officer Information
-                    </div>
-                    <div style={{ marginBottom: '12px' }}>
-                        <div style={{ color: '#93c5fd', fontSize: '11px', marginBottom: '4px' }}>NAME</div>
-                        <div style={{ color: 'white', fontSize: '16px', fontWeight: '700' }}>
-                            {trooperSettings?.FirstName || 'UNKNOWN'} {trooperSettings?.LastName || ''}
-                        </div>
-                    </div>
-                    <div style={{ marginBottom: '12px' }}>
-                        <div style={{ color: '#93c5fd', fontSize: '11px', marginBottom: '4px' }}>BADGE ID</div>
-                        <div style={{ color: 'white', fontSize: '16px', fontWeight: '700', fontFamily: 'monospace' }}>
-                            #{trooperSettings?.BadgeID || '00000'}
-                        </div>
-                    </div>
-                    <div style={{ marginBottom: '12px' }}>
-                        <div style={{ color: '#93c5fd', fontSize: '11px', marginBottom: '4px' }}>TROOPER ZONE</div>
-                        <div style={{ color: 'white', fontSize: '16px', fontWeight: '700' }}>
-                            ZONE {trooperSettings?.Zone || 'UNKNOWN'}
-                        </div>
-                    </div>
-                    <div>
-                        <div style={{ color: '#93c5fd', fontSize: '11px', marginBottom: '4px' }}>USERNAME</div>
-                        <div style={{ color: 'white', fontSize: '14px', fontWeight: '600' }}>
-                            {trooperSettings?.Username || 'UNKNOWN'}
-                        </div>
-                    </div>
-                </div>
-
-                <div style={{
-                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.05))',
-                    border: '2px solid rgba(16, 185, 129, 0.4)',
-                    borderRadius: '8px',
-                    padding: '20px'
-                }}>
-                    <div style={{ color: '#86efac', fontSize: '12px', fontWeight: '600', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                        System Status
-                    </div>
-                    <div style={{ marginBottom: '12px' }}>
-                        <div style={{ color: '#6ee7b7', fontSize: '11px', marginBottom: '4px' }}>MDT STATUS</div>
-                        <div style={{ color: 'white', fontSize: '14px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-    <div style={{ 
-        width: '8px', 
-        height: '8px', 
-        borderRadius: '50%', 
-        background: '#10b981', 
-        boxShadow: '0 0 8px #10b981, 0 0 16px rgba(16, 185, 129, 0.5)',
-        animation: 'pulse-dot 2s ease-in-out infinite'
-    }}></div>
-    ONLINE
-</div>
-                    </div>
-                    <div style={{ marginBottom: '12px' }}>
-    <div style={{ color: '#6ee7b7', fontSize: '11px', marginBottom: '4px' }}>DATABASE CONNECTION</div>
-    <div style={{ color: 'white', fontSize: '14px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <div style={{ 
-            width: '8px', 
-            height: '8px', 
-            borderRadius: '50%', 
-            background: databaseStatus.checking ? '#fbbf24' : (databaseStatus.connected ? '#10b981' : '#ef4444'), 
-            boxShadow: databaseStatus.checking ? '0 0 8px #fbbf24' : (databaseStatus.connected ? '0 0 8px #10b981, 0 0 16px rgba(16, 185, 129, 0.5)' : '0 0 8px #ef4444, 0 0 16px rgba(239, 68, 68, 0.5)'),
-            animation: databaseStatus.checking ? 'pulse-dot 2s ease-in-out infinite' : (databaseStatus.connected ? 'pulse-glow-green 2s ease-in-out infinite' : 'pulse-glow-red 2s ease-in-out infinite')
-        }}></div>
-        {databaseStatus.checking ? 'CHECKING...' : (databaseStatus.connected ? 'CONNECTED' : 'DISCONNECTED')}
-    </div>
-</div>
-                    <div style={{ marginBottom: '12px' }}>
-                        <div style={{ color: '#6ee7b7', fontSize: '11px', marginBottom: '4px' }}>ACTIVE SESSION</div>
-                        <div style={{ color: 'white', fontSize: '14px', fontWeight: '600' }}>
-                            {selectedUserSession ? `SESSION ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'}` : 'NONE'}
-                        </div>
-                    </div>
-                    <div>
-                        <div style={{ color: '#6ee7b7', fontSize: '11px', marginBottom: '4px' }}>CURRENT TIME</div>
-                        <div style={{ color: 'white', fontSize: '14px', fontWeight: '600', fontFamily: 'monospace' }}>
-                            {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })} ({Intl.DateTimeFormat().resolvedOptions().timeZone})
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div style={{
-                background: 'rgba(59, 130, 246, 0.1)',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
-                borderRadius: '8px',
-                padding: '20px',
-                marginBottom: '20px'
-            }}>
-                <h3 style={{ color: '#93c5fd', fontSize: '16px', fontWeight: '700', marginBottom: '12px' }}>
-                    CORE FUNCTIONS
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-                    <Tooltip text="Utilize this tool to search up the registration of a vehicle.">
-<button onClick={() => setActiveView('search')} style={{
-    padding: '16px',
-    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(37, 99, 235, 0.15))',
-    border: '2px solid rgba(59, 130, 246, 0.4)',
-                            border: '2px solid rgba(59, 130, 246, 0.4)',
-                            borderRadius: '8px',
-                            color: 'white',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            fontWeight: '600',
-                            textTransform: 'uppercase',
-                            transition: 'all 0.2s',
-                            width: '100%'
-                        }}
-                            onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'scale(1.02)';
-    }}
-    onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'scale(1)';
-    }}
-                        >
-                            Scan Plate
-                        </button>
-                    </Tooltip>
-                    
-                    <Tooltip text="Utilize this tool to search up an individual, including their records and registered vehicles.">
-<button onClick={() => setActiveView('database-search')} style={{
-    padding: '16px',
-    background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.3), rgba(5, 150, 105, 0.15))',
-    border: '2px solid rgba(34, 197, 94, 0.4)',
-                            borderRadius: '8px',
-                            color: 'white',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            fontWeight: '600',
-                            textTransform: 'uppercase',
-                            transition: 'all 0.2s',
-                            width: '100%'
-                        }}
-                            onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'scale(1.02)';
-    }}
-    onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'scale(1)';
-    }}
-                        >
-                            ID Lookup 
-                        </button>
-                    </Tooltip>
-                    
-                    <Tooltip text="Utilize this tool to view active calls within your session. Additionally, if you want to receive notifications when a call comes through enable the setting in settings.">
-<button onClick={() => {
-    setActiveView('calls');
-    setCallButtonFlash(false);
-}} style={{
-    padding: '16px',
-    background: callButtonFlash ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'linear-gradient(135deg, rgba(251, 191, 36, 0.3), rgba(217, 119, 6, 0.15))',
-    border: callButtonFlash ? '2px solid #991b1b' : '2px solid rgba(251, 191, 36, 0.4)',
-                            borderRadius: '8px',
-                            color: 'white',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            fontWeight: '600',
-                            textTransform: 'uppercase',
-                            transition: 'all 0.2s',
-                            animation: callButtonFlash ? 'flash-red 1.5s infinite' : 'none',
-                            boxShadow: callButtonFlash ? '0 4px 12px rgba(239, 68, 68, 0.6)' : 'none',
-                            width: '100%'
-                        }}
-                            onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'scale(1.02)';
-    }}
-    onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'scale(1)';
-    }}
-                        >
-                            {callButtonFlash ? '!! ' : ''}Pending calls
-                        </button>
-                    </Tooltip>
-                </div>
-            </div>
-
-            <div style={{
-    background: 'rgba(59, 130, 246, 0.1)',
-    border: '1px solid rgba(59, 130, 246, 0.3)',
-    borderRadius: '8px',
-    padding: '20px',
-    marginBottom: '20px'
-}}>
-    <h3 style={{ color: '#93c5fd', fontSize: '16px', fontWeight: '700', marginBottom: '12px' }}>
-        SYSTEM UTILITIES
-    </h3>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
-        {/* Settings - Blue */}
-        <Tooltip text="Configure your trooper credentials, Discord token, session alerts, and accessibility options">
-            <button onClick={() => { 
-                setActiveView('settings'); 
-                setSettingsWarningDismissed(false); 
-                setContinueButtonEnabled(false); 
-            }} style={{
-                padding: '16px',
-                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(37, 99, 235, 0.15))',
-                border: '2px solid rgba(59, 130, 246, 0.5)',
-                borderRadius: '8px',
-                color: '#60a5fa',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: '600',
-                textTransform: 'uppercase',
-                transition: 'all 0.2s',
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.2)'
-            }}
-            onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(37, 99, 235, 0.3))';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 20px rgba(59, 130, 246, 0.4)';
-            }}
-            onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(37, 99, 235, 0.15))';
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.2)';
-            }}>
-                <span style={{ fontSize: '16px' }}></span>
-                Configuration
-            </button>
-        </Tooltip>
-        
-        {/* Update Log - Purple */}
-        <Tooltip text="View complete changelog with all new features, bug fixes, and system modifications">
-            <button onClick={() => setShowUpdateLog(true)} style={{
-                padding: '16px',
-                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(124, 58, 237, 0.15))',
-                border: '2px solid rgba(139, 92, 246, 0.5)',
-                borderRadius: '8px',
-                color: '#a78bfa',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: '600',
-                textTransform: 'uppercase',
-                transition: 'all 0.2s',
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                boxShadow: '0 4px 12px rgba(139, 92, 246, 0.2)'
-            }}
-            onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(139, 92, 246, 0.4), rgba(124, 58, 237, 0.3))';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 20px rgba(139, 92, 246, 0.4)';
-            }}
-            onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(124, 58, 237, 0.15))';
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(139, 92, 246, 0.2)';
-            }}>
-                <span style={{ fontSize: '16px' }}></span>
-                Update Log
-            </button>
-        </Tooltip>
-        
-        {/* FAQ - Amber */}
-        <Tooltip text="Get answers to common questions about token setup, searches, and troubleshooting">
-            <button onClick={() => setShowFAQ(true)} style={{
-                padding: '16px',
-                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.15))',
-                border: '2px solid rgba(245, 158, 11, 0.5)',
-                borderRadius: '8px',
-                color: '#fbbf24',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: '600',
-                textTransform: 'uppercase',
-                transition: 'all 0.2s',
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)'
-            }}
-            onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(245, 158, 11, 0.4), rgba(217, 119, 6, 0.3))';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 20px rgba(245, 158, 11, 0.4)';
-            }}
-            onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.15))';
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.2)';
-            }}>
-                <span style={{ fontSize: '16px' }}></span>
-                FAQ
-            </button>
-        </Tooltip>
-        
-        {/* Credits - Emerald */}
-        <Tooltip text="View development team credits and current app version information">
-                       <button onClick={() => {
-                console.log('🎯 [CREDITS] Button clicked');
-                setCreditsKey(prev => prev + 1); // Force new key
-                setShowCredits(false);
-                setTimeout(() => {
-                    console.log('🎯 [CREDITS] Opening modal with key:', creditsKey + 1);
-                    setShowCredits(true);
-                }, 10);
-            }} style={{
-
-                padding: '16px',
-                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.15))',
-                border: '2px solid rgba(16, 185, 129, 0.5)',
-                borderRadius: '8px',
-                color: '#34d399',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: '600',
-                textTransform: 'uppercase',
-                transition: 'all 0.2s',
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)'
-            }}
-            onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(16, 185, 129, 0.4), rgba(5, 150, 105, 0.3))';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 20px rgba(16, 185, 129, 0.4)';
-            }}
-            onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.15))';
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.2)';
-            }}>
-                <span style={{ fontSize: '16px' }}></span>
-                Credits
-            </button>
-        </Tooltip>
-{/* Useful Links - Cyan */}
-<Tooltip text="Quick access to law references, official sites, and helpful resources">
-    <button onClick={() => setShowUsefulLinks(true)} style={{
-        padding: '16px',
-        background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.25), rgba(14, 165, 233, 0.15))',
-        border: '2px solid rgba(6, 182, 212, 0.5)',
-        borderRadius: '8px',
-        color: '#22d3ee',
-        cursor: 'pointer',
-        fontSize: '13px',
-        fontWeight: '600',
-        textTransform: 'uppercase',
-        transition: 'all 0.2s',
-        width: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '8px',
-        boxShadow: '0 4px 12px rgba(6, 182, 212, 0.2)'
-    }}
-    onMouseEnter={(e) => {
-        e.currentTarget.style.background = 'linear-gradient(135deg, rgba(6, 182, 212, 0.4), rgba(14, 165, 233, 0.3))';
-        e.currentTarget.style.transform = 'translateY(-2px)';
-        e.currentTarget.style.boxShadow = '0 6px 20px rgba(6, 182, 212, 0.4)';
-    }}
-    onMouseLeave={(e) => {
-        e.currentTarget.style.background = 'linear-gradient(135deg, rgba(6, 182, 212, 0.25), rgba(14, 165, 233, 0.15))';
-        e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = '0 4px 12px rgba(6, 182, 212, 0.2)';
-    }}>
-        <span style={{ fontSize: '16px' }}></span>
-        Useful Links
-    </button>
-</Tooltip>
-    </div>
-</div>
-
-            {/* SHIFT TIMER */}
-            <div style={{
-                background: 'rgba(16, 185, 129, 0.1)',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                borderRadius: '8px',
-                padding: '20px',
-                marginBottom: '20px'
-            }}>
-                <h3 style={{ color: '#86efac', fontSize: '16px', fontWeight: '700', marginBottom: '12px' }}>
-                    SHIFT MANAGEMENT
-                </h3>
-                {!shiftStartTime ? (
-    <Tooltip text="Shift management is currently disabled">
-        <button 
-            onClick={() => {}}
-            disabled={true}
-            style={{
-                width: '100%',
-                padding: '16px',
-                background: '#6b7280',
-                border: '2px solid #4b5563',
-                borderRadius: '8px',
-                color: '#9ca3af',
-                fontSize: '15px',
-                fontWeight: '700',
-                cursor: 'not-allowed',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                boxShadow: 'none',
-                opacity: 0.6
-            }}
-        >
-            START SHIFT (DISABLED)
-        </button>
-    </Tooltip>
-                ) : !shiftEndTime ? (
-                    <>
-                        <div style={{
-                            background: 'rgba(16, 185, 129, 0.2)',
-                            border: '1px solid rgba(16, 185, 129, 0.4)',
-                            borderRadius: '8px',
-                            padding: '12px',
-                            marginBottom: '12px',
-                            textAlign: 'center'
-                        }}>
-                            <div style={{ color: '#6ee7b7', fontSize: '12px', marginBottom: '4px' }}>
-                                {shiftPaused ? 'Ã¢ÂÂ¸Ã¯Â¸Â PAUSED' : 'Ã¢â€“Â¶Ã¯Â¸Â ON DUTY'}
-                            </div>
-                            <div style={{ color: 'white', fontSize: '20px', fontWeight: '700', fontFamily: 'monospace' }}>
-                                {(() => {
-                                    const now = currentTime;
-                                    const elapsed = shiftPaused 
-                                        ? (pauseStartTime - shiftStartTime) - pausedTime
-                                        : (now - shiftStartTime) - pausedTime;
-                                    const hours = Math.floor(elapsed / 3600000);
-                                    const minutes = Math.floor((elapsed % 3600000) / 60000);
-                                    const seconds = Math.floor((elapsed % 60000) / 1000);
-                                    return `${hours}h ${minutes}m ${seconds}s`;
-                                })()}
-                            </div>
-                            <div style={{ color: '#86efac', fontSize: '11px', marginTop: '4px' }}>
-                                Started: {formatShiftTime(shiftStartTime)}
-                            </div>
-                            {pausedTime > 0 && (
-                                <div style={{ color: '#fbbf24', fontSize: '10px', marginTop: '4px' }}>
-                                    Break time: {Math.floor(pausedTime / 60000)}m
-                                </div>
-                            )}
-                        </div>
-                        
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-                            <Tooltip text={shiftPaused ? "Resume your shift timer" : "Pause shift for break"}>
-                                <button 
-                                    onClick={() => {
-                                        if (shiftPaused) {
-                                            const pauseDuration = new Date() - pauseStartTime;
-                                            setPausedTime(prev => prev + pauseDuration);
-                                            setPauseStartTime(null);
-                                            setShiftPaused(false);
-                                            addLog('Ã¢â€“Â¶Ã¯Â¸Â Shift resumed', 'success');
-                                        } else {
-                                            setPauseStartTime(new Date());
-                                            setShiftPaused(true);
-                                            addLog('Ã¢ÂÂ¸Ã¯Â¸Â Shift paused', 'info');
-                                        }
-                                    }}
-                                    className="btn-ripple"
-                                    style={{
-                                        padding: '12px',
-                                        background: shiftPaused ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
-                                        border: shiftPaused ? '2px solid #047857' : '2px solid #b45309',
-                                        borderRadius: '8px',
-                                        color: 'white',
-                                        fontSize: '13px',
-                                        fontWeight: '700',
-                                        cursor: 'pointer',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.5px',
-                                        width: '100%'
-                                    }}
-                                >
-                                    {shiftPaused ? 'RESUME' : 'PAUSE'}
-                                </button>
-                            </Tooltip>
-                            
-                            <Tooltip text="End your shift and generate report">
-                                <button 
-                                    onClick={() => {
-                                        if (confirm('Are you sure you want to end your shift?')) {
-                                            if (shiftPaused) {
-                                                const pauseDuration = new Date() - pauseStartTime;
-                                                setPausedTime(prev => prev + pauseDuration);
-                                            }
-                                            endShift();
-                                        }
-                                    }}
-                                    className="btn-ripple"
-                                    style={{
-                                        padding: '12px',
-                                        background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                                        border: '2px solid #991b1b',
-                                        borderRadius: '8px',
-                                        color: 'white',
-                                        fontSize: '13px',
-                                        fontWeight: '700',
-                                        cursor: 'pointer',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.5px',
-                                        width: '100%'
-                                    }}
-                                >
-                                    END
-                                </button>
-                            </Tooltip>
-                        </div>
-                    </>
-                ) : (
-                    <Tooltip text="Start a new shift">
-                        <button 
-                            onClick={startShift}
-                            className="btn-ripple"
-                            style={{
-                                width: '100%',
-                                padding: '16px',
-                                background: 'linear-gradient(135deg, #10b981, #059669)',
-                                border: '2px solid #047857',
-                                borderRadius: '8px',
-                                color: 'white',
-                                fontSize: '15px',
-                                fontWeight: '700',
-                                cursor: 'pointer',
-                                textTransform: 'uppercase',
-                                letterSpacing: '1px',
-                                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)'
-                            }}
-                        >
-                            START NEW SHIFT
-                        </button>
-                    </Tooltip>
-                )}
-            </div>
-
-            <Tooltip text="Shut the MDT application down.">
-<button
-                    onClick={() => {
-                        console.log('🚪 [EXIT] Button clicked');
-                        setShowExitConfirm(true);
-                    }}
-style={{
-                        width: '100%',
-                        padding: '14px',
-                        background: 'rgba(239, 68, 68, 0.2)',
-                        border: '1px solid rgba(239, 68, 68, 0.5)',
-                        borderRadius: '8px',
-                        color: '#fca5a5',
+                    <div style={{
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '50%',
+                        background: '#22c55e',
+                        boxShadow: '0 0 10px rgba(34, 197, 94, 0.8)',
+                        animation: 'pulse 2s ease-in-out infinite'
+                    }}></div>
+                    <span style={{
                         fontSize: '14px',
                         fontWeight: '600',
+                        color: '#4ade80',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px'
+                    }}>
+                        ON DUTY
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        {/* Quick Stats Grid */}
+        <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '20px',
+            marginBottom: '32px'
+        }}>
+            {[
+                { icon: '🚨', label: 'Active Warrants', value: activeWarrants?.length || 0, color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', border: 'rgba(239, 68, 68, 0.3)' },
+                { icon: '📋', label: 'Citations Issued', value: citations?.length || 0, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)' },
+                { icon: '🔍', label: 'Database Searches', value: searchHistory?.length || 0, color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)', border: 'rgba(59, 130, 246, 0.3)' },
+                { icon: '📞', label: 'Active Calls', value: calls?.length || 0, color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)', border: 'rgba(139, 92, 246, 0.3)' }
+            ].map((stat, i) => (
+                <div
+                    key={i}
+                    style={{
+                        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.9))',
+                        border: `2px solid ${stat.border}`,
+                        borderRadius: '16px',
+                        padding: '24px',
+                        transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                         cursor: 'pointer',
-                        transition: 'all 0.2s ease',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)'
+                    }}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-4px) scale(1.02)';
+                        e.currentTarget.style.boxShadow = `0 8px 32px ${stat.bg}`;
+                        e.currentTarget.style.borderColor = stat.color;
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                        e.currentTarget.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.2)';
+                        e.currentTarget.style.borderColor = stat.border;
+                    }}
+                >
+                    {/* Background glow */}
+                    <div style={{
+                        position: 'absolute',
+                        top: '-50%',
+                        right: '-30%',
+                        width: '100%',
+                        height: '150%',
+                        background: `radial-gradient(circle, ${stat.bg} 0%, transparent 70%)`,
+                        pointerEvents: 'none'
+                    }}></div>
+
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        position: 'relative',
+                        zIndex: 1
+                    }}>
+                        <div>
+                            <p style={{
+                                fontSize: '13px',
+                                color: '#94a3b8',
+                                margin: 0,
+                                marginBottom: '8px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px',
+                                fontWeight: '600'
+                            }}>
+                                {stat.label}
+                            </p>
+                            <h3 style={{
+                                fontSize: '36px',
+                                fontWeight: '700',
+                                color: stat.color,
+                                margin: 0,
+                                textShadow: `0 2px 8px ${stat.bg}`
+                            }}>
+                                {stat.value}
+                            </h3>
+                        </div>
+                        <div style={{
+                            fontSize: '40px',
+                            opacity: 0.3,
+                            filter: `drop-shadow(0 0 10px ${stat.color})`
+                        }}>
+                            {stat.icon}
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+
+        {/* Quick Actions Grid */}
+        <h2 style={{
+            fontSize: '22px',
+            fontWeight: '700',
+            color: '#f8fafc',
+            margin: '0 0 20px 0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
+        }}>
+            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            Quick Actions
+        </h2>
+
+        <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: '16px',
+            marginBottom: '32px'
+        }}>
+            {[
+                { icon: FileText, label: 'Issue Citation', view: 'citations', color: '#f59e0b' },
+                { icon: Search, label: 'Database Lookup', view: 'lookups', color: '#3b82f6' },
+                { icon: AlertTriangle, label: 'Create Warrant', view: 'warrants', color: '#ef4444' },
+                { icon: Phone, label: 'New Call', view: 'calls', color: '#8b5cf6' },
+                { icon: FileText, label: 'Write Report', view: 'reports', color: '#10b981' },
+                { icon: Settings, label: 'Settings', view: 'settings', color: '#64748b' }
+            ].map((action, i) => (
+                <button
+                    key={i}
+                    onClick={() => setActiveView(action.view)}
+                    style={{
+                        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.9))',
+                        border: '2px solid rgba(59, 130, 246, 0.2)',
+                        borderRadius: '14px',
+                        padding: '20px',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '14px',
+                        textAlign: 'left',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
+                    }}
+                    onMouseEnter={(e) => {
+                        e.target.style.transform = 'translateY(-2px)';
+                        e.target.style.borderColor = action.color;
+                        e.target.style.boxShadow = `0 6px 20px rgba(0, 0, 0, 0.3)`;
+                    }}
+                    onMouseLeave={(e) => {
+                        e.target.style.transform = 'translateY(0)';
+                        e.target.style.borderColor = 'rgba(59, 130, 246, 0.2)';
+                        e.target.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)';
+                    }}
+                >
+                    <div style={{
+                        width: '44px',
+                        height: '44px',
+                        background: `linear-gradient(135deg, ${action.color}20, ${action.color}10)`,
+                        borderRadius: '12px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: '10px'
-                    }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.4)';
-                        e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.7)';
-                        e.currentTarget.style.color = '#fee2e2';
-                        e.currentTarget.style.transform = 'scale(1.02)';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
-                        e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-                        e.currentTarget.style.color = '#fca5a5';
-                        e.currentTarget.style.transform = 'scale(1)';
-                    }}
-
-                >
-                    <XCircle size={20} />
-                    EXIT APPLICATION
+                        border: `1px solid ${action.color}40`,
+                        flexShrink: 0
+                    }}>
+                        <action.icon size={24} color={action.color} />
+                    </div>
+                    <span style={{
+                        fontSize: '15px',
+                        fontWeight: '600',
+                        color: '#f8fafc'
+                    }}>
+                        {action.label}
+                    </span>
                 </button>
+            ))}
+        </div>
 
-            </Tooltip>
+        {/* Recent Activity */}
+        <h2 style={{
+            fontSize: '22px',
+            fontWeight: '700',
+            color: '#f8fafc',
+            margin: '0 0 20px 0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
+        }}>
+            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Recent Activity
+        </h2>
+
+        <div style={{
+            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.9))',
+            border: '2px solid rgba(59, 130, 246, 0.2)',
+            borderRadius: '16px',
+            padding: '24px',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)'
+        }}>
+            {searchHistory && searchHistory.length > 0 ? (
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                }}>
+                    {searchHistory.slice(0, 5).map((search, i) => (
+                        <div
+                            key={i}
+                            style={{
+                                padding: '16px',
+                                background: 'rgba(30, 41, 59, 0.5)',
+                                borderRadius: '10px',
+                                border: '1px solid rgba(59, 130, 246, 0.2)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'rgba(30, 41, 59, 0.8)';
+                                e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.4)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'rgba(30, 41, 59, 0.5)';
+                                e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.2)';
+                            }}
+                        >
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px'
+                            }}>
+                                <Search size={18} color="#60a5fa" />
+                                <span style={{ color: '#f8fafc', fontSize: '14px', fontWeight: '500' }}>
+                                    {search.query || 'Unknown search'}
+                                </span>
+                            </div>
+                            <span style={{ color: '#94a3b8', fontSize: '13px' }}>
+                                {search.timestamp ? new Date(search.timestamp).toLocaleTimeString() : 'Recent'}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div style={{
+                    textAlign: 'center',
+                    padding: '40px',
+                    color: '#64748b'
+                }}>
+                    <Search size={48} style={{ opacity: 0.3, marginBottom: '16px' }} />
+                    <p style={{ margin: 0, fontSize: '15px' }}>No recent activity</p>
+                </div>
+            )}
         </div>
     </div>
 ) : (
@@ -14787,6 +14499,7 @@ onClick={() => {
                             e.target.style.transform = 'scale(1)';
                         }}
                     >
+                    X
                         <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                         </svg>
