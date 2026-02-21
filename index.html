@@ -14716,7 +14716,9 @@ onClick={() => {
         onClick={(e) => {
             if (e.target === e.currentTarget) setShowUsefulLinks(false);
         }}
+        
     >
+    console.log(selectedDepartment)
         <div style={{
             background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95))',
             border: '2px solid rgba(59, 130, 246, 0.3)',
@@ -14847,6 +14849,7 @@ onClick={() => {
                     </span>
                 </div>
             </div>
+            
 
             {/* Links Content with Smooth Transition */}
             <div style={{
