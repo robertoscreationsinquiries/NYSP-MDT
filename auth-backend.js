@@ -35,7 +35,7 @@ const AUTHORIZED_USERS = {
         firstName: "Tim",
         lastName: "Bradford",
         badgeId: "00404",
-        department: "EGPD",
+        department: "NYSP",
         password: "Raf88",  // ← SET A SECURE PASSWORD
         banned: false,
         bannedReason: ""
