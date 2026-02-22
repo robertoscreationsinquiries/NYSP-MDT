@@ -8453,70 +8453,112 @@ return (
 
 {activeView === 'home' ? (
     <div style={{ 
-        maxWidth: '100%',  /* ðŸ”¥ REDUCED from 1400px */
+        maxWidth: '100%',
         margin: '0 auto', 
-        padding: '20px', 
+        padding: '24px', 
         width: '100%',
-        animation: 'fadeIn 0.3s ease-out',
-        boxSizing: 'border-box' /* ðŸ”¥ ADD THIS */
+        animation: 'fadeIn 0.4s ease-out',
+        boxSizing: 'border-box',
+        background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)'
     }}>
         <div className="card" style={{ 
             height: 'calc(100vh - 80px)',
-            overflowY: 'auto'
+            overflowY: 'auto',
+            background: 'transparent',
+            border: 'none',
+            boxShadow: 'none'
         }}>
-            {/* HOME CONTENT */}
+            {/* HEADER */}
             <div style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
-                gap: '20px',
+                gap: '24px',
                 marginBottom: '32px',
-                paddingBottom: '20px',
-                borderBottom: '2px solid rgba(59, 130, 246, 0.3)'
+                paddingBottom: '24px',
+                borderBottom: '2px solid rgba(59, 130, 246, 0.3)',
+                background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.2), rgba(59, 130, 246, 0.1))',
+                padding: '24px',
+                borderRadius: '12px',
+                border: '1px solid rgba(59, 130, 246, 0.2)',
+                boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+                position: 'relative',
+                overflow: 'hidden'
             }}>
+                <div style={{
+                    position: 'absolute',
+                    top: '-50%',
+                    right: '-20%',
+                    width: '60%',
+                    height: '200%',
+                    background: 'radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%)',
+                    animation: 'pulse 4s ease-in-out infinite',
+                    pointerEvents: 'none'
+                }}></div>
+
                 <div style={{
                     width: '80px',
                     height: '80px',
                     background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)',
-                    borderRadius: '12px',
+                    borderRadius: '16px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: '0 8px 24px rgba(59, 130, 246, 0.4)'
+                    boxShadow: '0 8px 32px rgba(59, 130, 246, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+                    position: 'relative',
+                    border: '1px solid rgba(96, 165, 250, 0.3)'
                 }}>
-                    <Shield size={48} style={{ color: 'white' }} />
+                    <Shield size={48} style={{ color: 'white', filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))' }} />
                 </div>
-                <div>
-    <h1 style={{ color: 'white', fontSize: '32px', fontWeight: '700', marginBottom: '4px' }}>
-        TROOPER DASHBOARD - {currentTime.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-    </h1>
-    <p style={{ color: '#60a5fa', fontSize: '14px', marginBottom: '2px' }}>
-        New York State Police - Mobile Data Terminal
-    </p>
-    <p style={{ color: '#3b82f6', fontSize: '11px', fontWeight: '600', letterSpacing: '1px' }}>
-        EST. 2025
-    </p>
-</div>
+                <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
+                    <h1 style={{ 
+                        color: 'white', 
+                        fontSize: '32px', 
+                        fontWeight: '700', 
+                        marginBottom: '6px',
+                        textShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
+                        letterSpacing: '0.5px'
+                    }}>
+                        TROOPER DASHBOARD - {currentTime.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    </h1>
+                    <p style={{ 
+                        color: '#60a5fa', 
+                        fontSize: '14px', 
+                        marginBottom: '4px',
+                        fontWeight: '500'
+                    }}>
+                        New York State Police - Mobile Data Terminal
+                    </p>
+                    <p style={{ 
+                        color: '#3b82f6', 
+                        fontSize: '11px', 
+                        fontWeight: '600', 
+                        letterSpacing: '1px'
+                    }}>
+                        EST. 2025
+                    </p>
+                </div>
             </div>
 
-            {/* TOKEN EXPIRY WARNING */}
+            {/* TOKEN WARNING */}
             {tokenExpiryWarning && (
                 <div style={{
-                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.15))',
-                    border: '2px solid #ef4444',
-                    borderRadius: '8px',
-                    padding: '16px',
-                    marginBottom: '20px',
+                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(220, 38, 38, 0.15))',
+                    border: '2px solid rgba(239, 68, 68, 0.5)',
+                    borderRadius: '12px',
+                    padding: '20px',
+                    marginBottom: '24px',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px',
-                    animation: 'fadeIn 0.3s ease-out'
+                    gap: '16px',
+                    animation: 'fadeIn 0.3s ease-out',
+                    boxShadow: '0 4px 16px rgba(239, 68, 68, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
                 }}>
-                    <span style={{ fontSize: '24px' }}> </span>
+                    <span style={{ fontSize: '28px' }}>⚠️</span>
                     <div style={{ flex: 1 }}>
-                        <div style={{ color: '#fca5a5', fontSize: '14px', fontWeight: '700', marginBottom: '4px' }}>
+                        <div style={{ color: '#fca5a5', fontSize: '14px', fontWeight: '700', marginBottom: '6px', letterSpacing: '0.5px' }}>
                             TOKEN EXPIRY WARNING
                         </div>
-                        <div style={{ color: '#fecaca', fontSize: '12px' }}>
+                        <div style={{ color: '#fecaca', fontSize: '12px', lineHeight: '1.5' }}>
                             Your Discord token may be invalid or expired. Please update it in Settings.
                         </div>
                     </div>
@@ -8528,15 +8570,25 @@ return (
                                 setContinueButtonEnabled(false);
                             }}
                             style={{
-                                padding: '8px 16px',
-                                background: '#ef4444',
+                                padding: '10px 20px',
+                                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
                                 color: 'white',
-                                border: 'none',
-                                borderRadius: '6px',
+                                border: '1px solid rgba(239, 68, 68, 0.5)',
+                                borderRadius: '8px',
                                 fontSize: '12px',
                                 fontWeight: '600',
                                 cursor: 'pointer',
-                                whiteSpace: 'nowrap'
+                                whiteSpace: 'nowrap',
+                                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.target.style.transform = 'translateY(-2px)';
+                                e.target.style.boxShadow = '0 6px 20px rgba(239, 68, 68, 0.6)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.target.style.transform = 'translateY(0)';
+                                e.target.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.4)';
                             }}
                         >
                             UPDATE TOKEN
@@ -8545,437 +8597,434 @@ return (
                 </div>
             )}
 
+            {/* INFO CARDS */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+                {/* Trooper Info */}
                 <div style={{
-                    background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.3), rgba(30, 58, 138, 0.1))',
-                    border: '2px solid rgba(59, 130, 246, 0.4)',
-                    borderRadius: '8px',
-                    padding: '20px'
+                    background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.15), rgba(59, 130, 246, 0.08))',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+                    position: 'relative',
+                    overflow: 'hidden'
                 }}>
-                    <div style={{ color: '#60a5fa', fontSize: '12px', fontWeight: '600', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                    <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: '2px',
+                        background: 'linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.5), transparent)'
+                    }}></div>
+
+                    <div style={{ 
+                        color: '#60a5fa', 
+                        fontSize: '13px', 
+                        fontWeight: '700', 
+                        marginBottom: '20px', 
+                        textTransform: 'uppercase', 
+                        letterSpacing: '1.5px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        <span style={{ 
+                            width: '4px', 
+                            height: '16px', 
+                            background: 'linear-gradient(180deg, #60a5fa, #3b82f6)',
+                            borderRadius: '2px'
+                        }}></span>
                         Trooper Information
                     </div>
-                    <div style={{ marginBottom: '12px' }}>
-                        <div style={{ color: '#93c5fd', fontSize: '11px', marginBottom: '4px' }}>NAME</div>
-                        <div style={{ color: 'white', fontSize: '16px', fontWeight: '700' }}>
-                            {trooperSettings?.FirstName || 'UNKNOWN'} {trooperSettings?.LastName || ''}
+                    <div style={{ display: 'grid', gap: '16px' }}>
+                        <div>
+                            <div style={{ color: '#93c5fd', fontSize: '10px', marginBottom: '6px', letterSpacing: '1px', fontWeight: '600' }}>NAME</div>
+                            <div style={{ color: 'white', fontSize: '16px', fontWeight: '700', textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)' }}>
+                                {trooperSettings?.FirstName || 'UNKNOWN'} {trooperSettings?.LastName || ''}
+                            </div>
                         </div>
-                    </div>
-                    <div style={{ marginBottom: '12px' }}>
-                        <div style={{ color: '#93c5fd', fontSize: '11px', marginBottom: '4px' }}>BADGE ID</div>
-                        <div style={{ color: 'white', fontSize: '16px', fontWeight: '700', fontFamily: 'monospace' }}>
-                            #{trooperSettings?.BadgeID || '00000'}
+                        <div>
+                            <div style={{ color: '#93c5fd', fontSize: '10px', marginBottom: '6px', letterSpacing: '1px', fontWeight: '600' }}>BADGE ID</div>
+                            <div style={{ color: 'white', fontSize: '16px', fontWeight: '700', fontFamily: 'monospace', textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)' }}>
+                                #{trooperSettings?.BadgeID || '00000'}
+                            </div>
                         </div>
-                    </div>
-                    <div style={{ marginBottom: '12px' }}>
-                        <div style={{ color: '#93c5fd', fontSize: '11px', marginBottom: '4px' }}>TROOPER ZONE</div>
-                        <div style={{ color: 'white', fontSize: '16px', fontWeight: '700' }}>
-                            ZONE {trooperSettings?.Zone || 'UNKNOWN'}
+                        <div>
+                            <div style={{ color: '#93c5fd', fontSize: '10px', marginBottom: '6px', letterSpacing: '1px', fontWeight: '600' }}>TROOPER ZONE</div>
+                            <div style={{ color: 'white', fontSize: '16px', fontWeight: '700', textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)' }}>
+                                ZONE {trooperSettings?.Zone || 'UNKNOWN'}
+                            </div>
                         </div>
-                    </div>
-                    <div>
-                        <div style={{ color: '#93c5fd', fontSize: '11px', marginBottom: '4px' }}>USERNAME</div>
-                        <div style={{ color: 'white', fontSize: '14px', fontWeight: '600' }}>
-                            {trooperSettings?.Username || 'UNKNOWN'}
+                        <div>
+                            <div style={{ color: '#93c5fd', fontSize: '10px', marginBottom: '6px', letterSpacing: '1px', fontWeight: '600' }}>USERNAME</div>
+                            <div style={{ color: 'white', fontSize: '14px', fontWeight: '600', textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)' }}>
+                                {trooperSettings?.Username || 'UNKNOWN'}
+                            </div>
                         </div>
                     </div>
                 </div>
 
+                {/* System Status */}
                 <div style={{
-                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.05))',
-                    border: '2px solid rgba(16, 185, 129, 0.4)',
-                    borderRadius: '8px',
-                    padding: '20px'
+                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.08))',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+                    position: 'relative',
+                    overflow: 'hidden'
                 }}>
-                    <div style={{ color: '#86efac', fontSize: '12px', fontWeight: '600', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                    <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: '2px',
+                        background: 'linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.5), transparent)'
+                    }}></div>
+
+                    <div style={{ 
+                        color: '#34d399', 
+                        fontSize: '13px', 
+                        fontWeight: '700', 
+                        marginBottom: '20px', 
+                        textTransform: 'uppercase', 
+                        letterSpacing: '1.5px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        <span style={{ 
+                            width: '4px', 
+                            height: '16px', 
+                            background: 'linear-gradient(180deg, #34d399, #10b981)',
+                            borderRadius: '2px'
+                        }}></span>
                         System Status
                     </div>
-                    <div style={{ marginBottom: '12px' }}>
-                        <div style={{ color: '#6ee7b7', fontSize: '11px', marginBottom: '4px' }}>MDT STATUS</div>
-                        <div style={{ color: 'white', fontSize: '14px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-    <div style={{ 
-        width: '8px', 
-        height: '8px', 
-        borderRadius: '50%', 
-        background: '#10b981', 
-        boxShadow: '0 0 8px #10b981, 0 0 16px rgba(16, 185, 129, 0.5)',
-        animation: 'pulse-dot 2s ease-in-out infinite'
-    }}></div>
-    ONLINE
-</div>
-                    </div>
-                    <div style={{ marginBottom: '12px' }}>
-    <div style={{ color: '#6ee7b7', fontSize: '11px', marginBottom: '4px' }}>DATABASE CONNECTION</div>
-    <div style={{ color: 'white', fontSize: '14px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <div style={{ 
-            width: '8px', 
-            height: '8px', 
-            borderRadius: '50%', 
-            background: databaseStatus.checking ? '#fbbf24' : (databaseStatus.connected ? '#10b981' : '#ef4444'), 
-            boxShadow: databaseStatus.checking ? '0 0 8px #fbbf24' : (databaseStatus.connected ? '0 0 8px #10b981, 0 0 16px rgba(16, 185, 129, 0.5)' : '0 0 8px #ef4444, 0 0 16px rgba(239, 68, 68, 0.5)'),
-            animation: databaseStatus.checking ? 'pulse-dot 2s ease-in-out infinite' : (databaseStatus.connected ? 'pulse-glow-green 2s ease-in-out infinite' : 'pulse-glow-red 2s ease-in-out infinite')
-        }}></div>
-        {databaseStatus.checking ? 'CHECKING...' : (databaseStatus.connected ? 'CONNECTED' : 'DISCONNECTED')}
-    </div>
-</div>
-                    <div style={{ marginBottom: '12px' }}>
-                        <div style={{ color: '#6ee7b7', fontSize: '11px', marginBottom: '4px' }}>ACTIVE SESSION</div>
-                        <div style={{ color: 'white', fontSize: '14px', fontWeight: '600' }}>
-                            {selectedUserSession ? `SESSION ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'}` : 'NONE'}
+                    <div style={{ display: 'grid', gap: '16px' }}>
+                        <div>
+                            <div style={{ color: '#6ee7b7', fontSize: '10px', marginBottom: '6px', letterSpacing: '1px', fontWeight: '600' }}>MDT STATUS</div>
+                            <div style={{ color: 'white', fontSize: '14px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ 
+                                    width: '10px', 
+                                    height: '10px', 
+                                    borderRadius: '50%', 
+                                    background: '#10b981', 
+                                    boxShadow: '0 0 12px #10b981, 0 0 24px rgba(16, 185, 129, 0.5)',
+                                    animation: 'pulse-dot 2s ease-in-out infinite'
+                                }}></div>
+                                ONLINE
+                            </div>
                         </div>
-                    </div>
-                    <div>
-                        <div style={{ color: '#6ee7b7', fontSize: '11px', marginBottom: '4px' }}>CURRENT TIME</div>
-                        <div style={{ color: 'white', fontSize: '14px', fontWeight: '600', fontFamily: 'monospace' }}>
-                            {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })} ({Intl.DateTimeFormat().resolvedOptions().timeZone})
+                        <div>
+                            <div style={{ color: '#6ee7b7', fontSize: '10px', marginBottom: '6px', letterSpacing: '1px', fontWeight: '600' }}>DATABASE CONNECTION</div>
+                            <div style={{ color: 'white', fontSize: '14px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ 
+                                    width: '10px', 
+                                    height: '10px', 
+                                    borderRadius: '50%', 
+                                    background: databaseStatus.checking ? '#fbbf24' : (databaseStatus.connected ? '#10b981' : '#ef4444'), 
+                                    boxShadow: databaseStatus.checking ? '0 0 12px #fbbf24' : (databaseStatus.connected ? '0 0 12px #10b981' : '0 0 12px #ef4444'),
+                                    animation: 'pulse-dot 2s ease-in-out infinite'
+                                }}></div>
+                                {databaseStatus.checking ? 'CHECKING...' : (databaseStatus.connected ? 'CONNECTED' : 'DISCONNECTED')}
+                            </div>
+                        </div>
+                        <div>
+                            <div style={{ color: '#6ee7b7', fontSize: '10px', marginBottom: '6px', letterSpacing: '1px', fontWeight: '600' }}>ACTIVE SESSION</div>
+                            <div style={{ color: 'white', fontSize: '14px', fontWeight: '600' }}>
+                                {selectedUserSession ? `SESSION ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'}` : 'NONE'}
+                            </div>
+                        </div>
+                        <div>
+                            <div style={{ color: '#6ee7b7', fontSize: '10px', marginBottom: '6px', letterSpacing: '1px', fontWeight: '600' }}>CURRENT TIME</div>
+                            <div style={{ color: 'white', fontSize: '14px', fontWeight: '600', fontFamily: 'monospace' }}>
+                                {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })} ({Intl.DateTimeFormat().resolvedOptions().timeZone})
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
+            {/* CORE FUNCTIONS */}
             <div style={{
-                background: 'rgba(59, 130, 246, 0.1)',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
-                borderRadius: '8px',
-                padding: '20px',
-                marginBottom: '20px'
+                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.05))',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(59, 130, 246, 0.25)',
+                borderRadius: '16px',
+                padding: '24px',
+                marginBottom: '20px',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
             }}>
-                <h3 style={{ color: '#93c5fd', fontSize: '16px', fontWeight: '700', marginBottom: '12px' }}>
+                <h3 style={{ 
+                    color: '#93c5fd', 
+                    fontSize: '16px', 
+                    fontWeight: '700', 
+                    marginBottom: '16px',
+                    letterSpacing: '1px',
+                    textTransform: 'uppercase',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px'
+                }}>
+                    <span style={{ 
+                        width: '4px', 
+                        height: '20px', 
+                        background: 'linear-gradient(180deg, #93c5fd, #60a5fa)',
+                        borderRadius: '2px'
+                    }}></span>
                     CORE FUNCTIONS
                 </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
                     <Tooltip text="Utilize this tool to search up the registration of a vehicle.">
-<button onClick={() => setActiveView('search')} style={{
-    padding: '16px',
-    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(37, 99, 235, 0.15))',
-    border: '2px solid rgba(59, 130, 246, 0.4)',
-                            border: '2px solid rgba(59, 130, 246, 0.4)',
-                            borderRadius: '8px',
-                            color: 'white',
+                        <button onClick={() => setActiveView('search')} style={{
+                            padding: '18px',
+                            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(37, 99, 235, 0.15))',
+                            border: '1px solid rgba(59, 130, 246, 0.4)',
+                            borderRadius: '12px',
+                            color: '#93c5fd',
                             cursor: 'pointer',
                             fontSize: '13px',
-                            fontWeight: '600',
+                            fontWeight: '700',
                             textTransform: 'uppercase',
-                            transition: 'all 0.2s',
-                            width: '100%'
+                            letterSpacing: '0.5px',
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            width: '100%',
+                            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)'
                         }}
-                            onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'scale(1.02)';
-    }}
-    onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'scale(1)';
-    }}
-                        >
-                            Scan Plate
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-3px)';
+                            e.currentTarget.style.boxShadow = '0 8px 24px rgba(59, 130, 246, 0.4)';
+                            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(37, 99, 235, 0.3))';
+                            e.currentTarget.style.color = '#ffffff';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.2)';
+                            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(37, 99, 235, 0.15))';
+                            e.currentTarget.style.color = '#93c5fd';
+                        }}>
+                            SCAN PLATE
                         </button>
                     </Tooltip>
                     
                     <Tooltip text="Utilize this tool to search up an individual, including their records and registered vehicles.">
-<button onClick={() => setActiveView('database-search')} style={{
-    padding: '16px',
-    background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.3), rgba(5, 150, 105, 0.15))',
-    border: '2px solid rgba(34, 197, 94, 0.4)',
-                            borderRadius: '8px',
-                            color: 'white',
+                        <button onClick={() => setActiveView('database-search')} style={{
+                            padding: '18px',
+                            background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.25), rgba(5, 150, 105, 0.15))',
+                            border: '1px solid rgba(34, 197, 94, 0.4)',
+                            borderRadius: '12px',
+                            color: '#6ee7b7',
                             cursor: 'pointer',
                             fontSize: '13px',
-                            fontWeight: '600',
+                            fontWeight: '700',
                             textTransform: 'uppercase',
-                            transition: 'all 0.2s',
-                            width: '100%'
+                            letterSpacing: '0.5px',
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            width: '100%',
+                            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)'
                         }}
-                            onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'scale(1.02)';
-    }}
-    onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'scale(1)';
-    }}
-                        >
-                            ID Lookup 
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-3px)';
+                            e.currentTarget.style.boxShadow = '0 8px 24px rgba(34, 197, 94, 0.4)';
+                            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(34, 197, 94, 0.4), rgba(5, 150, 105, 0.3))';
+                            e.currentTarget.style.color = '#ffffff';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.2)';
+                            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(34, 197, 94, 0.25), rgba(5, 150, 105, 0.15))';
+                            e.currentTarget.style.color = '#6ee7b7';
+                        }}>
+                            ID LOOKUP
                         </button>
                     </Tooltip>
                     
-                    <Tooltip text="Utilize this tool to view active calls within your session. Additionally, if you want to receive notifications when a call comes through enable the setting in settings.">
-<button onClick={() => {
-    setActiveView('calls');
-    setCallButtonFlash(false);
-}} style={{
-    padding: '16px',
-    background: callButtonFlash ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'linear-gradient(135deg, rgba(251, 191, 36, 0.3), rgba(217, 119, 6, 0.15))',
-    border: callButtonFlash ? '2px solid #991b1b' : '2px solid rgba(251, 191, 36, 0.4)',
-                            borderRadius: '8px',
-                            color: 'white',
+                    <Tooltip text="Utilize this tool to view active calls within your session.">
+                        <button onClick={() => {
+                            setActiveView('calls');
+                            setCallButtonFlash(false);
+                        }} style={{
+                            padding: '18px',
+                            background: callButtonFlash ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'linear-gradient(135deg, rgba(251, 191, 36, 0.25), rgba(217, 119, 6, 0.15))',
+                            border: callButtonFlash ? '1px solid #991b1b' : '1px solid rgba(251, 191, 36, 0.4)',
+                            borderRadius: '12px',
+                            color: callButtonFlash ? '#ffffff' : '#fcd34d',
                             cursor: 'pointer',
                             fontSize: '13px',
-                            fontWeight: '600',
+                            fontWeight: '700',
                             textTransform: 'uppercase',
-                            transition: 'all 0.2s',
+                            letterSpacing: '0.5px',
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                             animation: callButtonFlash ? 'flash-red 1.5s infinite' : 'none',
-                            boxShadow: callButtonFlash ? '0 4px 12px rgba(239, 68, 68, 0.6)' : 'none',
+                            boxShadow: callButtonFlash ? '0 4px 20px rgba(239, 68, 68, 0.6)' : '0 4px 16px rgba(0, 0, 0, 0.2)',
                             width: '100%'
                         }}
-                            onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'scale(1.02)';
-    }}
-    onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'scale(1)';
-    }}
-                        >
-                            {callButtonFlash ? '!! ' : ''}Pending calls
+                        onMouseEnter={(e) => {
+                            if (!callButtonFlash) {
+                                e.currentTarget.style.transform = 'translateY(-3px)';
+                                e.currentTarget.style.boxShadow = '0 8px 24px rgba(251, 191, 36, 0.4)';
+                                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(251, 191, 36, 0.4), rgba(217, 119, 6, 0.3))';
+                                e.currentTarget.style.color = '#ffffff';
+                            }
+                        }}
+                        onMouseLeave={(e) => {
+                            if (!callButtonFlash) {
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.2)';
+                                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(251, 191, 36, 0.25), rgba(217, 119, 6, 0.15))';
+                                e.currentTarget.style.color = '#fcd34d';
+                            }
+                        }}>
+                            {callButtonFlash ? '!! ' : ''}PENDING CALLS
                         </button>
                     </Tooltip>
                 </div>
             </div>
 
+            {/* SYSTEM UTILITIES */}
             <div style={{
-    background: 'rgba(59, 130, 246, 0.1)',
-    border: '1px solid rgba(59, 130, 246, 0.3)',
-    borderRadius: '8px',
-    padding: '20px',
-    marginBottom: '20px'
-}}>
-    <h3 style={{ color: '#93c5fd', fontSize: '16px', fontWeight: '700', marginBottom: '12px' }}>
-        SYSTEM UTILITIES
-    </h3>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
-        {/* Settings - Blue */}
-        <Tooltip text="Configure your trooper credentials, Discord token, session alerts, and accessibility options">
-            <button onClick={() => { 
-                setActiveView('settings'); 
-                setSettingsWarningDismissed(false); 
-                setContinueButtonEnabled(false); 
-            }} style={{
-                padding: '16px',
-                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(37, 99, 235, 0.15))',
-                border: '2px solid rgba(59, 130, 246, 0.5)',
-                borderRadius: '8px',
-                color: '#60a5fa',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: '600',
-                textTransform: 'uppercase',
-                transition: 'all 0.2s',
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.2)'
-            }}
-            onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(37, 99, 235, 0.3))';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 20px rgba(59, 130, 246, 0.4)';
-            }}
-            onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(37, 99, 235, 0.15))';
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.2)';
+                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.05))',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(59, 130, 246, 0.25)',
+                borderRadius: '16px',
+                padding: '24px',
+                marginBottom: '20px',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
             }}>
-                <span style={{ fontSize: '16px' }}></span>
-                Configuration
-            </button>
-        </Tooltip>
-        
-        {/* Update Log - Purple */}
-        <Tooltip text="View complete changelog with all new features, bug fixes, and system modifications">
-            <button onClick={() => setShowUpdateLog(true)} style={{
-                padding: '16px',
-                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(124, 58, 237, 0.15))',
-                border: '2px solid rgba(139, 92, 246, 0.5)',
-                borderRadius: '8px',
-                color: '#a78bfa',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: '600',
-                textTransform: 'uppercase',
-                transition: 'all 0.2s',
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                boxShadow: '0 4px 12px rgba(139, 92, 246, 0.2)'
-            }}
-            onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(139, 92, 246, 0.4), rgba(124, 58, 237, 0.3))';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 20px rgba(139, 92, 246, 0.4)';
-            }}
-            onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(124, 58, 237, 0.15))';
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(139, 92, 246, 0.2)';
-            }}>
-                <span style={{ fontSize: '16px' }}></span>
-                Update Log
-            </button>
-        </Tooltip>
-        
-        {/* FAQ - Amber */}
-        <Tooltip text="Get answers to common questions about token setup, searches, and troubleshooting">
-            <button onClick={() => setShowFAQ(true)} style={{
-                padding: '16px',
-                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.15))',
-                border: '2px solid rgba(245, 158, 11, 0.5)',
-                borderRadius: '8px',
-                color: '#fbbf24',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: '600',
-                textTransform: 'uppercase',
-                transition: 'all 0.2s',
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)'
-            }}
-            onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(245, 158, 11, 0.4), rgba(217, 119, 6, 0.3))';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 20px rgba(245, 158, 11, 0.4)';
-            }}
-            onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.15))';
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.2)';
-            }}>
-                <span style={{ fontSize: '16px' }}></span>
-                FAQ
-            </button>
-        </Tooltip>
-        
-        {/* Credits - Emerald */}
-        <Tooltip text="View development team credits and current app version information">
-                       <button onClick={() => {
-                console.log('🎯 [CREDITS] Button clicked');
-                setCreditsKey(prev => prev + 1); // Force new key
-                setShowCredits(false);
-                setTimeout(() => {
-                    console.log('🎯 [CREDITS] Opening modal with key:', creditsKey + 1);
-                    setShowCredits(true);
-                }, 10);
-            }} style={{
+                <h3 style={{ 
+                    color: '#93c5fd', 
+                    fontSize: '16px', 
+                    fontWeight: '700', 
+                    marginBottom: '16px',
+                    letterSpacing: '1px',
+                    textTransform: 'uppercase',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px'
+                }}>
+                    <span style={{ 
+                        width: '4px', 
+                        height: '20px', 
+                        background: 'linear-gradient(180deg, #93c5fd, #60a5fa)',
+                        borderRadius: '2px'
+                    }}></span>
+                    SYSTEM UTILITIES
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px' }}>
+                    {[
+                        { emoji: '⚙️', label: 'CONFIGURATION', onClick: () => { setActiveView('settings'); setSettingsWarningDismissed(false); setContinueButtonEnabled(false); }, color: '#60a5fa', tooltip: 'Configure your trooper credentials' },
+                        { emoji: '📋', label: 'UPDATE LOG', onClick: () => setShowUpdateLog(true), color: '#a78bfa', tooltip: 'View changelog' },
+                        { emoji: '❓', label: 'FAQ', onClick: () => setShowFAQ(true), color: '#fbbf24', tooltip: 'Get answers to questions' },
+                        { emoji: '👥', label: 'CREDITS', onClick: () => { setCreditsKey(prev => prev + 1); setShowCredits(false); setTimeout(() => setShowCredits(true), 10); }, color: '#34d399', tooltip: 'View credits' },
+                        { emoji: '🔗', label: 'USEFUL LINKS', onClick: () => setShowUsefulLinks(true), color: '#22d3ee', tooltip: 'Quick access to resources' },
+                        { emoji: '🚪', label: 'EXIT APP', onClick: () => setShowExitConfirm(true), color: '#f87171', tooltip: 'Shut down MDT' }
+                    ].map((btn, i) => (
+                        <Tooltip key={i} text={btn.tooltip}>
+                            <button onClick={btn.onClick} style={{
+                                padding: '16px',
+                                background: `linear-gradient(135deg, ${btn.color}25, ${btn.color}10)`,
+                                border: `1px solid ${btn.color}40`,
+                                borderRadius: '12px',
+                                color: btn.color,
+                                cursor: 'pointer',
+                                fontSize: '13px',
+                                fontWeight: '700',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px',
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                width: '100%',
+                                boxShadow: `0 4px 16px ${btn.color}15`
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-3px)';
+                                e.currentTarget.style.boxShadow = `0 8px 24px ${btn.color}40`;
+                                e.currentTarget.style.background = `linear-gradient(135deg, ${btn.color}40, ${btn.color}25)`;
+                                e.currentTarget.style.color = '#ffffff';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = `0 4px 16px ${btn.color}15`;
+                                e.currentTarget.style.background = `linear-gradient(135deg, ${btn.color}25, ${btn.color}10)`;
+                                e.currentTarget.style.color = btn.color;
+                            }}>
+                                {btn.emoji} {btn.label}
+                            </button>
+                        </Tooltip>
+                    ))}
+                </div>
+            </div>
 
-                padding: '16px',
-                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.15))',
-                border: '2px solid rgba(16, 185, 129, 0.5)',
-                borderRadius: '8px',
-                color: '#34d399',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: '600',
-                textTransform: 'uppercase',
-                transition: 'all 0.2s',
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)'
-            }}
-            onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(16, 185, 129, 0.4), rgba(5, 150, 105, 0.3))';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 20px rgba(16, 185, 129, 0.4)';
-            }}
-            onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.15))';
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.2)';
-            }}>
-                <span style={{ fontSize: '16px' }}></span>
-                Credits
-            </button>
-        </Tooltip>
-{/* Useful Links - Cyan */}
-<Tooltip text="Quick access to law references, official sites, and helpful resources">
-    <button onClick={() => setShowUsefulLinks(true)} style={{
-        padding: '16px',
-        background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.25), rgba(14, 165, 233, 0.15))',
-        border: '2px solid rgba(6, 182, 212, 0.5)',
-        borderRadius: '8px',
-        color: '#22d3ee',
-        cursor: 'pointer',
-        fontSize: '13px',
-        fontWeight: '600',
-        textTransform: 'uppercase',
-        transition: 'all 0.2s',
-        width: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '8px',
-        boxShadow: '0 4px 12px rgba(6, 182, 212, 0.2)'
-    }}
-    onMouseEnter={(e) => {
-        e.currentTarget.style.background = 'linear-gradient(135deg, rgba(6, 182, 212, 0.4), rgba(14, 165, 233, 0.3))';
-        e.currentTarget.style.transform = 'translateY(-2px)';
-        e.currentTarget.style.boxShadow = '0 6px 20px rgba(6, 182, 212, 0.4)';
-    }}
-    onMouseLeave={(e) => {
-        e.currentTarget.style.background = 'linear-gradient(135deg, rgba(6, 182, 212, 0.25), rgba(14, 165, 233, 0.15))';
-        e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = '0 4px 12px rgba(6, 182, 212, 0.2)';
-    }}>
-        <span style={{ fontSize: '16px' }}></span>
-        Useful Links
-    </button>
-</Tooltip>
-    </div>
-</div>
-
-            {/* SHIFT TIMER */}
+            {/* SHIFT MANAGEMENT */}
             <div style={{
-                background: 'rgba(16, 185, 129, 0.1)',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                borderRadius: '8px',
-                padding: '20px',
-                marginBottom: '20px'
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.05))',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(16, 185, 129, 0.25)',
+                borderRadius: '16px',
+                padding: '24px',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
             }}>
-                <h3 style={{ color: '#86efac', fontSize: '16px', fontWeight: '700', marginBottom: '12px' }}>
+                <h3 style={{ 
+                    color: '#6ee7b7', 
+                    fontSize: '16px', 
+                    fontWeight: '700', 
+                    marginBottom: '16px',
+                    letterSpacing: '1px',
+                    textTransform: 'uppercase',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px'
+                }}>
+                    <span style={{ 
+                        width: '4px', 
+                        height: '20px', 
+                        background: 'linear-gradient(180deg, #6ee7b7, #34d399)',
+                        borderRadius: '2px'
+                    }}></span>
                     SHIFT MANAGEMENT
                 </h3>
                 {!shiftStartTime ? (
-    <Tooltip text="Shift management is currently disabled">
-        <button 
-            onClick={() => {}}
-            disabled={true}
-            style={{
-                width: '100%',
-                padding: '16px',
-                background: '#6b7280',
-                border: '2px solid #4b5563',
-                borderRadius: '8px',
-                color: '#9ca3af',
-                fontSize: '15px',
-                fontWeight: '700',
-                cursor: 'not-allowed',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                boxShadow: 'none',
-                opacity: 0.6
-            }}
-        >
-            START SHIFT (DISABLED)
-        </button>
-    </Tooltip>
+                    <Tooltip text="Shift management is currently disabled">
+                        <button 
+                            onClick={() => {}}
+                            disabled={true}
+                            style={{
+                                width: '100%',
+                                padding: '18px',
+                                background: 'linear-gradient(135deg, rgba(107, 114, 128, 0.3), rgba(75, 85, 99, 0.2))',
+                                border: '1px solid rgba(107, 114, 128, 0.4)',
+                                borderRadius: '12px',
+                                color: '#9ca3af',
+                                fontSize: '14px',
+                                fontWeight: '700',
+                                cursor: 'not-allowed',
+                                textTransform: 'uppercase',
+                                letterSpacing: '1px',
+                                opacity: 0.6
+                            }}
+                        >
+                            START SHIFT (DISABLED)
+                        </button>
+                    </Tooltip>
                 ) : !shiftEndTime ? (
                     <>
                         <div style={{
-                            background: 'rgba(16, 185, 129, 0.2)',
+                            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.1))',
                             border: '1px solid rgba(16, 185, 129, 0.4)',
-                            borderRadius: '8px',
-                            padding: '12px',
-                            marginBottom: '12px',
-                            textAlign: 'center'
+                            borderRadius: '12px',
+                            padding: '20px',
+                            marginBottom: '14px',
+                            textAlign: 'center',
+                            boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.05)'
                         }}>
-                            <div style={{ color: '#6ee7b7', fontSize: '12px', marginBottom: '4px' }}>
-                                {shiftPaused ? 'Ã¢ÂÂ¸Ã¯Â¸Â PAUSED' : 'Ã¢â€“Â¶Ã¯Â¸Â ON DUTY'}
+                            <div style={{ color: '#6ee7b7', fontSize: '13px', marginBottom: '8px', fontWeight: '700', letterSpacing: '1px' }}>
+                                {shiftPaused ? '⏸️ PAUSED' : '▶️ ON DUTY'}
                             </div>
-                            <div style={{ color: 'white', fontSize: '20px', fontWeight: '700', fontFamily: 'monospace' }}>
+                            <div style={{ color: 'white', fontSize: '28px', fontWeight: '700', fontFamily: 'monospace', textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)', marginBottom: '8px' }}>
                                 {(() => {
                                     const now = currentTime;
                                     const elapsed = shiftPaused 
@@ -8987,17 +9036,17 @@ return (
                                     return `${hours}h ${minutes}m ${seconds}s`;
                                 })()}
                             </div>
-                            <div style={{ color: '#86efac', fontSize: '11px', marginTop: '4px' }}>
+                            <div style={{ color: '#86efac', fontSize: '11px', marginBottom: '4px' }}>
                                 Started: {formatShiftTime(shiftStartTime)}
                             </div>
                             {pausedTime > 0 && (
-                                <div style={{ color: '#fbbf24', fontSize: '10px', marginTop: '4px' }}>
+                                <div style={{ color: '#fbbf24', fontSize: '10px' }}>
                                     Break time: {Math.floor(pausedTime / 60000)}m
                                 </div>
                             )}
                         </div>
                         
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                             <Tooltip text={shiftPaused ? "Resume your shift timer" : "Pause shift for break"}>
                                 <button 
                                     onClick={() => {
@@ -9006,26 +9055,35 @@ return (
                                             setPausedTime(prev => prev + pauseDuration);
                                             setPauseStartTime(null);
                                             setShiftPaused(false);
-                                            addLog('Ã¢â€“Â¶Ã¯Â¸Â Shift resumed', 'success');
+                                            addLog('▶️ Shift resumed', 'success');
                                         } else {
                                             setPauseStartTime(new Date());
                                             setShiftPaused(true);
-                                            addLog('Ã¢ÂÂ¸Ã¯Â¸Â Shift paused', 'info');
+                                            addLog('⏸️ Shift paused', 'info');
                                         }
                                     }}
-                                    className="btn-ripple"
                                     style={{
-                                        padding: '12px',
+                                        padding: '16px',
                                         background: shiftPaused ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
-                                        border: shiftPaused ? '2px solid #047857' : '2px solid #b45309',
-                                        borderRadius: '8px',
+                                        border: shiftPaused ? '1px solid #047857' : '1px solid #b45309',
+                                        borderRadius: '12px',
                                         color: 'white',
-                                        fontSize: '13px',
+                                        fontSize: '14px',
                                         fontWeight: '700',
                                         cursor: 'pointer',
                                         textTransform: 'uppercase',
                                         letterSpacing: '0.5px',
+                                        boxShadow: shiftPaused ? '0 4px 16px rgba(16, 185, 129, 0.4)' : '0 4px 16px rgba(245, 158, 11, 0.4)',
+                                        transition: 'all 0.3s',
                                         width: '100%'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.target.style.transform = 'translateY(-2px)';
+                                        e.target.style.boxShadow = shiftPaused ? '0 6px 24px rgba(16, 185, 129, 0.6)' : '0 6px 24px rgba(245, 158, 11, 0.6)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.target.style.transform = 'translateY(0)';
+                                        e.target.style.boxShadow = shiftPaused ? '0 4px 16px rgba(16, 185, 129, 0.4)' : '0 4px 16px rgba(245, 158, 11, 0.4)';
                                     }}
                                 >
                                     {shiftPaused ? 'RESUME' : 'PAUSE'}
@@ -9043,22 +9101,31 @@ return (
                                             endShift();
                                         }
                                     }}
-                                    className="btn-ripple"
                                     style={{
-                                        padding: '12px',
+                                        padding: '16px',
                                         background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                                        border: '2px solid #991b1b',
-                                        borderRadius: '8px',
+                                        border: '1px solid #991b1b',
+                                        borderRadius: '12px',
                                         color: 'white',
-                                        fontSize: '13px',
+                                        fontSize: '14px',
                                         fontWeight: '700',
                                         cursor: 'pointer',
                                         textTransform: 'uppercase',
                                         letterSpacing: '0.5px',
+                                        boxShadow: '0 4px 16px rgba(239, 68, 68, 0.4)',
+                                        transition: 'all 0.3s',
                                         width: '100%'
                                     }}
+                                    onMouseEnter={(e) => {
+                                        e.target.style.transform = 'translateY(-2px)';
+                                        e.target.style.boxShadow = '0 6px 24px rgba(239, 68, 68, 0.6)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.target.style.transform = 'translateY(0)';
+                                        e.target.style.boxShadow = '0 4px 16px rgba(239, 68, 68, 0.4)';
+                                    }}
                                 >
-                                    END
+                                    END SHIFT
                                 </button>
                             </Tooltip>
                         </div>
@@ -9067,20 +9134,28 @@ return (
                     <Tooltip text="Start a new shift">
                         <button 
                             onClick={startShift}
-                            className="btn-ripple"
                             style={{
                                 width: '100%',
-                                padding: '16px',
+                                padding: '18px',
                                 background: 'linear-gradient(135deg, #10b981, #059669)',
-                                border: '2px solid #047857',
-                                borderRadius: '8px',
+                                border: '1px solid #047857',
+                                borderRadius: '12px',
                                 color: 'white',
                                 fontSize: '15px',
                                 fontWeight: '700',
                                 cursor: 'pointer',
                                 textTransform: 'uppercase',
                                 letterSpacing: '1px',
-                                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)'
+                                boxShadow: '0 4px 16px rgba(16, 185, 129, 0.4)',
+                                transition: 'all 0.3s'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.target.style.transform = 'translateY(-2px)';
+                                e.target.style.boxShadow = '0 6px 24px rgba(16, 185, 129, 0.6)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.target.style.transform = 'translateY(0)';
+                                e.target.style.boxShadow = '0 4px 16px rgba(16, 185, 129, 0.4)';
                             }}
                         >
                             START NEW SHIFT
@@ -9088,48 +9163,6 @@ return (
                     </Tooltip>
                 )}
             </div>
-
-            <Tooltip text="Shut the MDT application down.">
-<button
-                    onClick={() => {
-                        console.log('🚪 [EXIT] Button clicked');
-                        setShowExitConfirm(true);
-                    }}
-style={{
-                        width: '100%',
-                        padding: '14px',
-                        background: 'rgba(239, 68, 68, 0.2)',
-                        border: '1px solid rgba(239, 68, 68, 0.5)',
-                        borderRadius: '8px',
-                        color: '#fca5a5',
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '10px'
-                    }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.4)';
-                        e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.7)';
-                        e.currentTarget.style.color = '#fee2e2';
-                        e.currentTarget.style.transform = 'scale(1.02)';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
-                        e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-                        e.currentTarget.style.color = '#fca5a5';
-                        e.currentTarget.style.transform = 'scale(1)';
-                    }}
-
-                >
-                    <XCircle size={20} />
-                    EXIT APPLICATION
-                </button>
-
-            </Tooltip>
         </div>
     </div>
 ) : (
@@ -14718,7 +14751,7 @@ onClick={() => {
         }}
         
     >
-    console.log(selectedDepartment)
+    
         <div style={{
             background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95))',
             border: '2px solid rgba(59, 130, 246, 0.3)',
