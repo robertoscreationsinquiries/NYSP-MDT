@@ -9186,6 +9186,405 @@ return (
     animation: 'fadeIn 0.3s ease-out'
 }}>
 
+{activeView === 'search' && (
+    <div style={{ 
+        padding: '24px',
+        maxWidth: '100%',
+        margin: '0 auto',
+        animation: 'fadeIn 0.4s ease-out',
+        background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
+        minHeight: '100vh'
+    }}>
+        <div className="card" style={{ 
+            minHeight: 'calc(100vh - 80px)',
+            background: 'transparent',
+            border: 'none',
+            boxShadow: 'none'
+        }}>
+            {/* HEADER */}
+            <div style={{
+                background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.2), rgba(59, 130, 246, 0.1))',
+                border: '1px solid rgba(59, 130, 246, 0.2)',
+                borderRadius: '12px',
+                padding: '24px',
+                marginBottom: '24px',
+                boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+                position: 'relative',
+                overflow: 'hidden'
+            }}>
+                <div style={{
+                    position: 'absolute',
+                    top: '-50%',
+                    right: '-20%',
+                    width: '60%',
+                    height: '200%',
+                    background: 'radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%)',
+                    animation: 'pulse 4s ease-in-out infinite',
+                    pointerEvents: 'none'
+                }}></div>
+
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '16px',
+                    position: 'relative',
+                    zIndex: 1
+                }}>
+                    <div style={{
+                        width: '48px',
+                        height: '48px',
+                        background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)',
+                        borderRadius: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 6px 20px rgba(59, 130, 246, 0.4)',
+                        border: '1px solid rgba(96, 165, 250, 0.3)'
+                    }}>
+                        <Search size={28} style={{ color: 'white' }} />
+                    </div>
+                    <div>
+                        <h1 style={{
+                            fontSize: '28px',
+                            fontWeight: '700',
+                            color: '#f8fafc',
+                            margin: 0,
+                            marginBottom: '4px',
+                            letterSpacing: '0.5px',
+                            textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'
+                        }}>
+                            LICENSE PLATE LOOKUP
+                        </h1>
+                        <p style={{
+                            fontSize: '13px',
+                            color: '#94a3b8',
+                            margin: 0
+                        }}>
+                            Search vehicle registrations in the state database
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* SEARCH INPUT SECTION */}
+            <div style={{
+                background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.15), rgba(59, 130, 246, 0.08))',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                borderRadius: '16px',
+                padding: '28px',
+                marginBottom: '24px',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+                position: 'relative',
+                overflow: 'hidden'
+            }}>
+                <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: '2px',
+                    background: 'linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.5), transparent)'
+                }}></div>
+
+                <div style={{
+                    display: 'flex',
+                    gap: '12px',
+                    alignItems: 'flex-end'
+                }}>
+                    <div style={{ flex: 1 }}>
+                        <label style={{
+                            display: 'block',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            color: '#93c5fd',
+                            marginBottom: '8px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '1px'
+                        }}>
+                            License Plate Number
+                        </label>
+                        <input
+                            type="text"
+                            value={searchPlate}
+                            onChange={(e) => setSearchPlate(e.target.value.toUpperCase())}
+                            onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                    handlePlateSearch();
+                                }
+                            }}
+                            placeholder="Enter plate number (e.g. ABC1234)"
+                            style={{
+                                width: '100%',
+                                padding: '16px 20px',
+                                fontSize: '16px',
+                                fontWeight: '600',
+                                fontFamily: 'monospace',
+                                letterSpacing: '2px',
+                                background: 'rgba(15, 23, 42, 0.6)',
+                                border: '2px solid rgba(59, 130, 246, 0.3)',
+                                borderRadius: '12px',
+                                color: '#f8fafc',
+                                outline: 'none',
+                                transition: 'all 0.2s',
+                                boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.3)'
+                            }}
+                            onFocus={(e) => {
+                                e.target.style.borderColor = 'rgba(59, 130, 246, 0.6)';
+                                e.target.style.boxShadow = 'inset 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 3px rgba(59, 130, 246, 0.1)';
+                            }}
+                            onBlur={(e) => {
+                                e.target.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+                                e.target.style.boxShadow = 'inset 0 2px 8px rgba(0, 0, 0, 0.3)';
+                            }}
+                        />
+                    </div>
+                    <Tooltip text="Search for vehicle registration">
+                        <button
+                            onClick={handlePlateSearch}
+                            disabled={!searchPlate || isSearching}
+                            style={{
+                                padding: '16px 32px',
+                                background: isSearching 
+                                    ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(37, 99, 235, 0.2))'
+                                    : 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                                border: '1px solid rgba(59, 130, 246, 0.5)',
+                                borderRadius: '12px',
+                                color: 'white',
+                                fontSize: '14px',
+                                fontWeight: '700',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px',
+                                cursor: isSearching || !searchPlate ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.3s',
+                                boxShadow: '0 4px 16px rgba(59, 130, 246, 0.3)',
+                                opacity: !searchPlate || isSearching ? 0.5 : 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}
+                            onMouseEnter={(e) => {
+                                if (!isSearching && searchPlate) {
+                                    e.target.style.transform = 'translateY(-2px)';
+                                    e.target.style.boxShadow = '0 6px 24px rgba(59, 130, 246, 0.5)';
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                e.target.style.transform = 'translateY(0)';
+                                e.target.style.boxShadow = '0 4px 16px rgba(59, 130, 246, 0.3)';
+                            }}
+                        >
+                            {isSearching ? (
+                                <>
+                                    <div style={{
+                                        width: '16px',
+                                        height: '16px',
+                                        border: '2px solid rgba(255, 255, 255, 0.3)',
+                                        borderTopColor: 'white',
+                                        borderRadius: '50%',
+                                        animation: 'spin 0.8s linear infinite'
+                                    }}></div>
+                                    SEARCHING...
+                                </>
+                            ) : (
+                                <>
+                                    <Search size={18} />
+                                    SEARCH
+                                </>
+                            )}
+                        </button>
+                    </Tooltip>
+                </div>
+
+                {/* Quick Format Examples */}
+                <div style={{
+                    marginTop: '16px',
+                    padding: '12px 16px',
+                    background: 'rgba(59, 130, 246, 0.05)',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(59, 130, 246, 0.1)'
+                }}>
+                    <div style={{
+                        fontSize: '11px',
+                        color: '#64748b',
+                        fontWeight: '600',
+                        marginBottom: '6px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px'
+                    }}>
+                        Accepted Formats:
+                    </div>
+                    <div style={{
+                        display: 'flex',
+                        gap: '12px',
+                        flexWrap: 'wrap'
+                    }}>
+                        {['ABC1234', 'ABC 1234', 'ABC-1234', '12 ABC 34'].map((format, i) => (
+                            <span key={i} style={{
+                                fontSize: '12px',
+                                fontFamily: 'monospace',
+                                color: '#60a5fa',
+                                background: 'rgba(59, 130, 246, 0.1)',
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                border: '1px solid rgba(59, 130, 246, 0.2)'
+                            }}>
+                                {format}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* RESULTS SECTION */}
+            {searchResults && (
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.08))',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    borderRadius: '16px',
+                    padding: '28px',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+                }}>
+                    <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: '2px',
+                        background: 'linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.5), transparent)'
+                    }}></div>
+
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '24px'
+                    }}>
+                        <h2 style={{
+                            fontSize: '20px',
+                            fontWeight: '700',
+                            color: '#f8fafc',
+                            margin: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px'
+                        }}>
+                            <span style={{
+                                width: '4px',
+                                height: '24px',
+                                background: 'linear-gradient(180deg, #34d399, #10b981)',
+                                borderRadius: '2px'
+                            }}></span>
+                            REGISTRATION FOUND
+                        </h2>
+                        <span style={{
+                            padding: '6px 14px',
+                            background: 'rgba(16, 185, 129, 0.2)',
+                            border: '1px solid rgba(16, 185, 129, 0.4)',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            color: '#4ade80',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px'
+                        }}>
+                            ACTIVE
+                        </span>
+                    </div>
+
+                    {/* Vehicle Info Grid */}
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, 1fr)',
+                        gap: '20px'
+                    }}>
+                        {[
+                            { label: 'Plate Number', value: searchResults.plate || 'N/A' },
+                            { label: 'Owner Name', value: searchResults.owner || 'N/A' },
+                            { label: 'Vehicle Make', value: searchResults.make || 'N/A' },
+                            { label: 'Vehicle Model', value: searchResults.model || 'N/A' },
+                            { label: 'Vehicle Color', value: searchResults.color || 'N/A' },
+                            { label: 'Registration Status', value: searchResults.status || 'N/A' }
+                        ].map((field, i) => (
+                            <div key={i} style={{
+                                background: 'rgba(15, 23, 42, 0.4)',
+                                border: '1px solid rgba(16, 185, 129, 0.2)',
+                                borderRadius: '12px',
+                                padding: '16px'
+                            }}>
+                                <div style={{
+                                    fontSize: '11px',
+                                    color: '#6ee7b7',
+                                    fontWeight: '600',
+                                    marginBottom: '8px',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '1px'
+                                }}>
+                                    {field.label}
+                                </div>
+                                <div style={{
+                                    fontSize: '16px',
+                                    color: '#f8fafc',
+                                    fontWeight: '700'
+                                }}>
+                                    {field.value}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* NO RESULTS */}
+            {searchResults === null && !isSearching && searchPlate && (
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.08))',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    borderRadius: '16px',
+                    padding: '32px',
+                    textAlign: 'center',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+                    animation: 'fadeIn 0.3s ease-out'
+                }}>
+                    <div style={{
+                        width: '64px',
+                        height: '64px',
+                        background: 'rgba(239, 68, 68, 0.2)',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto 16px',
+                        border: '2px solid rgba(239, 68, 68, 0.3)'
+                    }}>
+                        <AlertTriangle size={32} color="#ef4444" />
+                    </div>
+                    <h3 style={{
+                        fontSize: '20px',
+                        fontWeight: '700',
+                        color: '#fca5a5',
+                        margin: '0 0 8px 0'
+                    }}>
+                        NO REGISTRATION FOUND
+                    </h3>
+                    <p style={{
+                        fontSize: '14px',
+                        color: '#fecaca',
+                        margin: 0
+                    }}>
+                        No vehicle registration matching "{searchPlate}" was found in the database.
+                    </p>
+                </div>
+            )}
+        </div>
+    </div>
+)}
+
 {activeView === 'database-search' && (
     <div className="card" style={{ minHeight: 'calc(100vh - 40px)' }}>
 <div className="page-header" style={{
@@ -10761,404 +11160,7 @@ localStorage.setItem('groqConsoleAPIKey', apiKey);
         )}
     </div>
 )}
-{activeView === 'search' && (
-    <div style={{ 
-        padding: '24px',
-        maxWidth: '100%',
-        margin: '0 auto',
-        animation: 'fadeIn 0.4s ease-out',
-        background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
-        minHeight: '100vh'
-    }}>
-        <div className="card" style={{ 
-            minHeight: 'calc(100vh - 80px)',
-            background: 'transparent',
-            border: 'none',
-            boxShadow: 'none'
-        }}>
-            {/* HEADER */}
-            <div style={{
-                background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.2), rgba(59, 130, 246, 0.1))',
-                border: '1px solid rgba(59, 130, 246, 0.2)',
-                borderRadius: '12px',
-                padding: '24px',
-                marginBottom: '24px',
-                boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
-                position: 'relative',
-                overflow: 'hidden'
-            }}>
-                <div style={{
-                    position: 'absolute',
-                    top: '-50%',
-                    right: '-20%',
-                    width: '60%',
-                    height: '200%',
-                    background: 'radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%)',
-                    animation: 'pulse 4s ease-in-out infinite',
-                    pointerEvents: 'none'
-                }}></div>
 
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '16px',
-                    position: 'relative',
-                    zIndex: 1
-                }}>
-                    <div style={{
-                        width: '48px',
-                        height: '48px',
-                        background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)',
-                        borderRadius: '12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        boxShadow: '0 6px 20px rgba(59, 130, 246, 0.4)',
-                        border: '1px solid rgba(96, 165, 250, 0.3)'
-                    }}>
-                        <Search size={28} style={{ color: 'white' }} />
-                    </div>
-                    <div>
-                        <h1 style={{
-                            fontSize: '28px',
-                            fontWeight: '700',
-                            color: '#f8fafc',
-                            margin: 0,
-                            marginBottom: '4px',
-                            letterSpacing: '0.5px',
-                            textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'
-                        }}>
-                            LICENSE PLATE LOOKUP
-                        </h1>
-                        <p style={{
-                            fontSize: '13px',
-                            color: '#94a3b8',
-                            margin: 0
-                        }}>
-                            Search vehicle registrations in the state database
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            {/* SEARCH INPUT SECTION */}
-            <div style={{
-                background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.15), rgba(59, 130, 246, 0.08))',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
-                borderRadius: '16px',
-                padding: '28px',
-                marginBottom: '24px',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
-                position: 'relative',
-                overflow: 'hidden'
-            }}>
-                <div style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: '2px',
-                    background: 'linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.5), transparent)'
-                }}></div>
-
-                <div style={{
-                    display: 'flex',
-                    gap: '12px',
-                    alignItems: 'flex-end'
-                }}>
-                    <div style={{ flex: 1 }}>
-                        <label style={{
-                            display: 'block',
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            color: '#93c5fd',
-                            marginBottom: '8px',
-                            textTransform: 'uppercase',
-                            letterSpacing: '1px'
-                        }}>
-                            License Plate Number
-                        </label>
-                        <input
-                            type="text"
-                            value={searchPlate}
-                            onChange={(e) => setSearchPlate(e.target.value.toUpperCase())}
-                            onKeyPress={(e) => {
-                                if (e.key === 'Enter') {
-                                    handlePlateSearch();
-                                }
-                            }}
-                            placeholder="Enter plate number (e.g. ABC1234)"
-                            style={{
-                                width: '100%',
-                                padding: '16px 20px',
-                                fontSize: '16px',
-                                fontWeight: '600',
-                                fontFamily: 'monospace',
-                                letterSpacing: '2px',
-                                background: 'rgba(15, 23, 42, 0.6)',
-                                border: '2px solid rgba(59, 130, 246, 0.3)',
-                                borderRadius: '12px',
-                                color: '#f8fafc',
-                                outline: 'none',
-                                transition: 'all 0.2s',
-                                boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.3)'
-                            }}
-                            onFocus={(e) => {
-                                e.target.style.borderColor = 'rgba(59, 130, 246, 0.6)';
-                                e.target.style.boxShadow = 'inset 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 3px rgba(59, 130, 246, 0.1)';
-                            }}
-                            onBlur={(e) => {
-                                e.target.style.borderColor = 'rgba(59, 130, 246, 0.3)';
-                                e.target.style.boxShadow = 'inset 0 2px 8px rgba(0, 0, 0, 0.3)';
-                            }}
-                        />
-                    </div>
-                    <Tooltip text="Search for vehicle registration">
-                        <button
-                            onClick={handlePlateSearch}
-                            disabled={!searchPlate || isSearching}
-                            style={{
-                                padding: '16px 32px',
-                                background: isSearching 
-                                    ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(37, 99, 235, 0.2))'
-                                    : 'linear-gradient(135deg, #3b82f6, #2563eb)',
-                                border: '1px solid rgba(59, 130, 246, 0.5)',
-                                borderRadius: '12px',
-                                color: 'white',
-                                fontSize: '14px',
-                                fontWeight: '700',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.5px',
-                                cursor: isSearching || !searchPlate ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.3s',
-                                boxShadow: '0 4px 16px rgba(59, 130, 246, 0.3)',
-                                opacity: !searchPlate || isSearching ? 0.5 : 1,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
-                            }}
-                            onMouseEnter={(e) => {
-                                if (!isSearching && searchPlate) {
-                                    e.target.style.transform = 'translateY(-2px)';
-                                    e.target.style.boxShadow = '0 6px 24px rgba(59, 130, 246, 0.5)';
-                                }
-                            }}
-                            onMouseLeave={(e) => {
-                                e.target.style.transform = 'translateY(0)';
-                                e.target.style.boxShadow = '0 4px 16px rgba(59, 130, 246, 0.3)';
-                            }}
-                        >
-                            {isSearching ? (
-                                <>
-                                    <div style={{
-                                        width: '16px',
-                                        height: '16px',
-                                        border: '2px solid rgba(255, 255, 255, 0.3)',
-                                        borderTopColor: 'white',
-                                        borderRadius: '50%',
-                                        animation: 'spin 0.8s linear infinite'
-                                    }}></div>
-                                    SEARCHING...
-                                </>
-                            ) : (
-                                <>
-                                    <Search size={18} />
-                                    SEARCH
-                                </>
-                            )}
-                        </button>
-                    </Tooltip>
-                </div>
-
-                {/* Quick Format Examples */}
-                <div style={{
-                    marginTop: '16px',
-                    padding: '12px 16px',
-                    background: 'rgba(59, 130, 246, 0.05)',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(59, 130, 246, 0.1)'
-                }}>
-                    <div style={{
-                        fontSize: '11px',
-                        color: '#64748b',
-                        fontWeight: '600',
-                        marginBottom: '6px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px'
-                    }}>
-                        Accepted Formats:
-                    </div>
-                    <div style={{
-                        display: 'flex',
-                        gap: '12px',
-                        flexWrap: 'wrap'
-                    }}>
-                        {['ABC1234', 'ABC 1234', 'ABC-1234', '12 ABC 34'].map((format, i) => (
-                            <span key={i} style={{
-                                fontSize: '12px',
-                                fontFamily: 'monospace',
-                                color: '#60a5fa',
-                                background: 'rgba(59, 130, 246, 0.1)',
-                                padding: '4px 10px',
-                                borderRadius: '6px',
-                                border: '1px solid rgba(59, 130, 246, 0.2)'
-                            }}>
-                                {format}
-                            </span>
-                        ))}
-                    </div>
-                </div>
-            </div>
-
-            {/* RESULTS SECTION */}
-            {searchResults && (
-                <div style={{
-                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.08))',
-                    backdropFilter: 'blur(10px)',
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                    borderRadius: '16px',
-                    padding: '28px',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
-                    position: 'relative',
-                    overflow: 'hidden',
-                    animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
-                }}>
-                    <div style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: '2px',
-                        background: 'linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.5), transparent)'
-                    }}></div>
-
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        marginBottom: '24px'
-                    }}>
-                        <h2 style={{
-                            fontSize: '20px',
-                            fontWeight: '700',
-                            color: '#f8fafc',
-                            margin: 0,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px'
-                        }}>
-                            <span style={{
-                                width: '4px',
-                                height: '24px',
-                                background: 'linear-gradient(180deg, #34d399, #10b981)',
-                                borderRadius: '2px'
-                            }}></span>
-                            REGISTRATION FOUND
-                        </h2>
-                        <span style={{
-                            padding: '6px 14px',
-                            background: 'rgba(16, 185, 129, 0.2)',
-                            border: '1px solid rgba(16, 185, 129, 0.4)',
-                            borderRadius: '8px',
-                            fontSize: '12px',
-                            fontWeight: '700',
-                            color: '#4ade80',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.5px'
-                        }}>
-                            ACTIVE
-                        </span>
-                    </div>
-
-                    {/* Vehicle Info Grid */}
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(2, 1fr)',
-                        gap: '20px'
-                    }}>
-                        {[
-                            { label: 'Plate Number', value: searchResults.plate || 'N/A' },
-                            { label: 'Owner Name', value: searchResults.owner || 'N/A' },
-                            { label: 'Vehicle Make', value: searchResults.make || 'N/A' },
-                            { label: 'Vehicle Model', value: searchResults.model || 'N/A' },
-                            { label: 'Vehicle Color', value: searchResults.color || 'N/A' },
-                            { label: 'Registration Status', value: searchResults.status || 'N/A' }
-                        ].map((field, i) => (
-                            <div key={i} style={{
-                                background: 'rgba(15, 23, 42, 0.4)',
-                                border: '1px solid rgba(16, 185, 129, 0.2)',
-                                borderRadius: '12px',
-                                padding: '16px'
-                            }}>
-                                <div style={{
-                                    fontSize: '11px',
-                                    color: '#6ee7b7',
-                                    fontWeight: '600',
-                                    marginBottom: '8px',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '1px'
-                                }}>
-                                    {field.label}
-                                </div>
-                                <div style={{
-                                    fontSize: '16px',
-                                    color: '#f8fafc',
-                                    fontWeight: '700'
-                                }}>
-                                    {field.value}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* NO RESULTS */}
-            {searchResults === null && !isSearching && searchPlate && (
-                <div style={{
-                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.08))',
-                    backdropFilter: 'blur(10px)',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                    borderRadius: '16px',
-                    padding: '32px',
-                    textAlign: 'center',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-                    animation: 'fadeIn 0.3s ease-out'
-                }}>
-                    <div style={{
-                        width: '64px',
-                        height: '64px',
-                        background: 'rgba(239, 68, 68, 0.2)',
-                        borderRadius: '50%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        margin: '0 auto 16px',
-                        border: '2px solid rgba(239, 68, 68, 0.3)'
-                    }}>
-                        <AlertTriangle size={32} color="#ef4444" />
-                    </div>
-                    <h3 style={{
-                        fontSize: '20px',
-                        fontWeight: '700',
-                        color: '#fca5a5',
-                        margin: '0 0 8px 0'
-                    }}>
-                        NO REGISTRATION FOUND
-                    </h3>
-                    <p style={{
-                        fontSize: '14px',
-                        color: '#fecaca',
-                        margin: 0
-                    }}>
-                        No vehicle registration matching "{searchPlate}" was found in the database.
-                    </p>
-                </div>
-            )}
-        </div>
-    </div>
-)}
 {activeView === 'calls' && (
     <div className="card" style={{ minHeight: 'calc(100vh - 40px)', maxWidth: '1600px' }}>
 <div className="page-header" style={{
