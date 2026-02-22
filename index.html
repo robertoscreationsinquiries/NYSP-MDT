@@ -9193,7 +9193,8 @@ return (
         margin: '0 auto',
         animation: 'fadeIn 0.4s ease-out',
         background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
-        minHeight: '100vh'
+        minHeight: '100vh',
+        boxSizing: 'border-box'
     }}>
         <div className="card" style={{ 
             minHeight: 'calc(100vh - 80px)',
@@ -9219,7 +9220,6 @@ return (
                     width: '60%',
                     height: '200%',
                     background: 'radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%)',
-                    animation: 'pulse 4s ease-in-out infinite',
                     pointerEvents: 'none'
                 }}></div>
 
@@ -9327,7 +9327,8 @@ return (
                                 color: '#f8fafc',
                                 outline: 'none',
                                 transition: 'all 0.2s',
-                                boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.3)'
+                                boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.3)',
+                                boxSizing: 'border-box'
                             }}
                             onFocus={(e) => {
                                 e.target.style.borderColor = 'rgba(59, 130, 246, 0.6)';
@@ -9339,61 +9340,59 @@ return (
                             }}
                         />
                     </div>
-                    <Tooltip text="Search for vehicle registration">
-                        <button
-                            onClick={handlePlateSearch}
-                            disabled={!searchPlate || isSearching}
-                            style={{
-                                padding: '16px 32px',
-                                background: isSearching 
-                                    ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(37, 99, 235, 0.2))'
-                                    : 'linear-gradient(135deg, #3b82f6, #2563eb)',
-                                border: '1px solid rgba(59, 130, 246, 0.5)',
-                                borderRadius: '12px',
-                                color: 'white',
-                                fontSize: '14px',
-                                fontWeight: '700',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.5px',
-                                cursor: isSearching || !searchPlate ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.3s',
-                                boxShadow: '0 4px 16px rgba(59, 130, 246, 0.3)',
-                                opacity: !searchPlate || isSearching ? 0.5 : 1,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
-                            }}
-                            onMouseEnter={(e) => {
-                                if (!isSearching && searchPlate) {
-                                    e.target.style.transform = 'translateY(-2px)';
-                                    e.target.style.boxShadow = '0 6px 24px rgba(59, 130, 246, 0.5)';
-                                }
-                            }}
-                            onMouseLeave={(e) => {
-                                e.target.style.transform = 'translateY(0)';
-                                e.target.style.boxShadow = '0 4px 16px rgba(59, 130, 246, 0.3)';
-                            }}
-                        >
-                            {isSearching ? (
-                                <>
-                                    <div style={{
-                                        width: '16px',
-                                        height: '16px',
-                                        border: '2px solid rgba(255, 255, 255, 0.3)',
-                                        borderTopColor: 'white',
-                                        borderRadius: '50%',
-                                        animation: 'spin 0.8s linear infinite'
-                                    }}></div>
-                                    SEARCHING...
-                                </>
-                            ) : (
-                                <>
-                                    <Search size={18} />
-                                    SEARCH
-                                </>
-                            )}
-                        </button>
-                    </Tooltip>
+                    <button
+                        onClick={handlePlateSearch}
+                        disabled={!searchPlate || isSearching}
+                        style={{
+                            padding: '16px 32px',
+                            background: isSearching 
+                                ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(37, 99, 235, 0.2))'
+                                : 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                            border: '1px solid rgba(59, 130, 246, 0.5)',
+                            borderRadius: '12px',
+                            color: 'white',
+                            fontSize: '14px',
+                            fontWeight: '700',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                            cursor: isSearching || !searchPlate ? 'not-allowed' : 'pointer',
+                            transition: 'all 0.3s',
+                            boxShadow: '0 4px 16px rgba(59, 130, 246, 0.3)',
+                            opacity: !searchPlate || isSearching ? 0.5 : 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}
+                        onMouseEnter={(e) => {
+                            if (!isSearching && searchPlate) {
+                                e.target.style.transform = 'translateY(-2px)';
+                                e.target.style.boxShadow = '0 6px 24px rgba(59, 130, 246, 0.5)';
+                            }
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.transform = 'translateY(0)';
+                            e.target.style.boxShadow = '0 4px 16px rgba(59, 130, 246, 0.3)';
+                        }}
+                    >
+                        {isSearching ? (
+                            <>
+                                <div style={{
+                                    width: '16px',
+                                    height: '16px',
+                                    border: '2px solid rgba(255, 255, 255, 0.3)',
+                                    borderTopColor: 'white',
+                                    borderRadius: '50%',
+                                    animation: 'spin 0.8s linear infinite'
+                                }}></div>
+                                SEARCHING...
+                            </>
+                        ) : (
+                            <>
+                                <Search size={18} />
+                                SEARCH
+                            </>
+                        )}
+                    </button>
                 </div>
 
                 {/* Quick Format Examples */}
@@ -9446,8 +9445,7 @@ return (
                     padding: '28px',
                     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
                     position: 'relative',
-                    overflow: 'hidden',
-                    animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+                    overflow: 'hidden'
                 }}>
                     <div style={{
                         position: 'absolute',
@@ -9548,8 +9546,7 @@ return (
                     borderRadius: '16px',
                     padding: '32px',
                     textAlign: 'center',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-                    animation: 'fadeIn 0.3s ease-out'
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
                 }}>
                     <div style={{
                         width: '64px',
