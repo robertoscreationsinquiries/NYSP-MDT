@@ -2305,6 +2305,7 @@ React.useEffect(() => {
     if (hasError) {
         return (
             <div className="card">
+                
                 <h2 style={{ color: '#ef4444' }}>Application Error</h2>
                 <p style={{ color: '#fca5a5' }}>{errorMessage}</p>
                 <button onClick={() => window.location.reload()}>
@@ -8468,6 +8469,7 @@ return (
 {activeView === 'home' ? (
     <div style={{ 
         maxWidth: '100%',
+        minHeight: '100vh',
         margin: '0 auto', 
         padding: '24px', 
         width: '100%',
@@ -8480,7 +8482,9 @@ return (
             overflowY: 'auto',
             background: 'transparent',
             border: 'none',
-            boxShadow: 'none'
+            boxShadow: 'none',
+              backdropFilter: 'blur(10px)',
+  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
         }}>
             {/* HEADER */}
             <div style={{ 
@@ -9187,7 +9191,8 @@ return (
 }}>
 
 {activeView === 'search' && (
-    <div className="card" style={{ minHeight: 'calc(100vh - 40px)' }}>
+    <div className="card" style={{ minHeight: 'calc(100vh - 40px)',   backdropFilter: 'blur(10px)',
+  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)', }}>
 <div className="page-header" style={{ padding: '20px 24px', marginBottom: '20px' }}>
     <div className="page-header-content">
         <div className="page-header-icon" style={{ width: '48px', height: '48px' }}>
@@ -9235,12 +9240,15 @@ onClick={() => {
                 <div style={{ 
                     width: '80px', 
                     height: '80px', 
-                    background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                    minHeight: '100vh',
+                    background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
                     borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginBottom: '24px'
+                    marginBottom: '24px',
+                    padding: '24px'
+                    
                 }}>
                     <span style={{ fontSize: '48px' }}>!</span>
                 </div>
@@ -9311,13 +9319,22 @@ onClick={() => {
     }}
         
         placeholder="ARC-044, ARC044, or ARC 044"
+            style={{
+  background: 'rgba(15, 23, 42, 0.6)',
+  border: '2px solid rgba(59, 130, 246, 0.3)',
+  boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.3)',
+    }}
     />
     <p className="input-hint">
         Works with all formats: ARC-044, ARC044, or ARC 044
     </p>
 </div>
 
-<button onClick={lookupUser} disabled={loading || !tokenSaved} className="btn-primary btn-ripple">
+<button onClick={lookupUser} disabled={loading || !tokenSaved} className="btn-primary btn-ripple"  style={{
+    background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+    boxShadow: '0 4px 16px rgba(59, 130, 246, 0.3)',
+  }}>
+
     {loading ? (
         <div>
             <Loader2 size={20} />
@@ -10344,7 +10361,8 @@ VIEW GOVERNMENT RECORDS
 
 
 {activeView === 'database-search' && (
-    <div className="card" style={{ minHeight: 'calc(100vh - 40px)' }}>
+    <div className="card" style={{ minHeight: 'calc(100vh - 40px)',   backdropFilter: 'blur(10px)',
+  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)', }}>
 <div className="page-header" style={{
     boxShadow: headerShadow ? '0 4px 12px rgba(0, 0, 0, 0.5)' : '0 4px 20px rgba(0, 0, 0, 0.3)',
     transition: 'box-shadow 0.3s ease'
@@ -10393,13 +10411,15 @@ onClick={() => {
             }}>
                 <div style={{ 
                     width: '80px', 
-                    height: '80px', 
-                    background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                    height: '80px',
+                    minHeight: '100vh' ,
+                    background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
                     borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginBottom: '24px'
+                    marginBottom: '24px',
+                    padding: '24px',
                 }}>
                     <span style={{ fontSize: '48px' }}>!</span>
                 </div>
@@ -10489,13 +10509,22 @@ onClick={() => {
 
 
     placeholder="Enter Discord User ID..."
+                style={{
+  background: 'rgba(15, 23, 42, 0.6)',
+  border: '2px solid rgba(59, 130, 246, 0.3)',
+  boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.3)',
+    }}
 />
                     <p className="input-hint">
                         Search for all vehicles registered under the citizen (Press Enter to search)
                     </p>
                 </div>
 
-<button onClick={searchByUsername} disabled={loadingSearch} className="btn-primary">
+<button onClick={searchByUsername} disabled={loadingSearch} className="btn-primary"
+style={{
+    background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+    boxShadow: '0 4px 16px rgba(59, 130, 246, 0.3)',
+  }}>
     {loadingSearch ? (
         <><Loader2 size={20} /><span>Searching Citizen...</span></>
     ) : (
@@ -11639,7 +11668,8 @@ File ARREST/SUMMONS REPORT
 )}
 
 {activeView === 'calls' && (
-    <div className="card" style={{ minHeight: 'calc(100vh - 40px)', maxWidth: '1600px' }}>
+    <div className="card" style={{ minHeight: 'calc(100vh - 40px)', maxWidth: '1600px',   backdropFilter: 'blur(10px)',
+  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)', }}>
 <div className="page-header" style={{
     boxShadow: headerShadow ? '0 4px 12px rgba(0, 0, 0, 0.5)' : '0 4px 20px rgba(0, 0, 0, 0.3)',
     transition: 'box-shadow 0.3s ease'
