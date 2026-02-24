@@ -11071,580 +11071,862 @@ File ARREST/SUMMONS REPORT
     </div>
 )}
 {activeView === 'settings' && (
-    <div style={{ 
-        padding: '24px',
-        background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
-        minHeight: '100vh',
-        boxSizing: 'border-box'
-    }}>
-        {/* HEADER */}
-        <div style={{
-            background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.2), rgba(59, 130, 246, 0.1))',
-            border: '1px solid rgba(59, 130, 246, 0.2)',
-            borderRadius: '12px',
-            padding: '24px',
-            marginBottom: '24px',
-            boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
-            position: 'relative',
-            overflow: 'hidden'
-        }}>
-            <div style={{
-                position: 'absolute',
-                top: '-50%',
-                right: '-20%',
-                width: '60%',
-                height: '200%',
-                background: 'radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%)',
-                pointerEvents: 'none'
-            }}></div>
-
-            <div style={{
+    <div className="card">
+        <button 
+            onClick={() => {
+                if (visualEffects) {
+                    setPageTransitioning(true);
+                    setTimeout(() => {
+                        setActiveView('home');
+                        setPageTransitioning(false);
+                    }, 300);
+                } else {
+                    setActiveView('home');
+                }
+            }}
+            style={{
+                padding: '12px 24px',
+                background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)',
+                border: '2px solid #2563eb',
+                borderRadius: '8px',
+                color: 'white',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '600',
+                textTransform: 'uppercase',
+                marginBottom: '24px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '16px',
-                position: 'relative',
-                zIndex: 1
+                gap: '8px',
+                width: 'auto',
+                  backdropFilter: 'blur(10px)',
+  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+            }}
+        >
+            <Shield size={16} />
+            Return to Home
+        </button>
+        
+        {!settingsWarningDismissed ? (
+            <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                minHeight: '400px',
+                padding: '40px',
+                textAlign: 'center'
             }}>
-                <div style={{
-                    width: '48px',
-                    height: '48px',
-                    background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)',
-                    borderRadius: '12px',
+                <div style={{ 
+                    width: '80px', 
+                    height: '80px', 
+                    background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                    borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: '0 6px 20px rgba(59, 130, 246, 0.4)',
-                    border: '1px solid rgba(96, 165, 250, 0.3)'
+                    marginBottom: '24px'
                 }}>
-                    <Settings size={28} style={{ color: 'white' }} />
+                    <span style={{ fontSize: '48px' }}>!</span>
                 </div>
-                <div>
-                    <h1 style={{
-                        fontSize: '28px',
+                
+                <h2 style={{ color: '#fca5a5', fontSize: '32px', fontWeight: 'bold', marginBottom: '16px' }}>
+                    WARNING
+                </h2>
+                
+                <h3 style={{ color: 'white', fontSize: '20px', marginBottom: '24px' }}>
+                    YOU ARE ABOUT TO ENTER SETTINGS
+                </h3>
+                
+                <p style={{ 
+                    color: '#bfdbfe', 
+                    fontSize: '14px', 
+                    lineHeight: '1.8',
+                    maxWidth: '600px',
+                    marginBottom: '32px'
+                }}>
+                    Sensitive information is hidden here which may be vulnerable to hackers if not covered. 
+                    We recommend ensuring you have no video recording or screen sharing active for safety purposes.
+                </p>
+                
+                <button 
+                    onClick={() => {
+                        if (continueButtonEnabled) {
+                            setSettingsWarningDismissed(true);
+                            setHasVisitedSettingsBefore(true);
+                        }
+                    }}
+                    disabled={!continueButtonEnabled}
+                    style={{
+                        padding: '14px 48px',
+                        background: continueButtonEnabled ? '#3b82f6' : '#6b7280',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '16px',
+                        fontWeight: '600',
+                        cursor: continueButtonEnabled ? 'pointer' : 'not-allowed',
+                        transition: 'all 0.3s',
+                        width: 'auto'
+                    }}
+                >
+                    {continueButtonEnabled ? 'CONTINUE' : `CONTINUE (${Math.max(0, 3 - Math.floor((Date.now() - (window.settingsStartTime || Date.now())) / 1000))}s)`}
+                </button>
+            </div>
+        ) : (
+            <div>
+<h2 style={{ color: 'white', fontSize: '28px', marginBottom: '24px' }}>Configuration</h2>
+                
+                {/* AUTHENTICATION GROUP */}
+                <div style={{
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: '2px solid rgba(239, 68, 68, 0.3)',
+                    borderRadius: '12px',
+                    padding: '24px',
+                    marginBottom: '24px'
+                }}>
+                    <h3 style={{ 
+                        color: '#fca5a5', 
+                        fontSize: '18px', 
                         fontWeight: '700',
-                        color: '#f8fafc',
-                        margin: 0,
-                        marginBottom: '4px',
-                        letterSpacing: '0.5px',
-                        textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'
+                        marginBottom: '16px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
                     }}>
-                        CONFIGURATION
-                    </h1>
-                    <p style={{
-                        fontSize: '13px',
-                        color: '#94a3b8',
-                        margin: 0
-                    }}>
-                        System settings and credentials
+                        !! AUTHENTICATION !!
+                    </h3>
+
+                    
+                    <div className="token-box">
+                        <label>Discord Account Token</label>
+                        <input
+                            type="password"
+                            value={discordToken}
+                            onChange={(e) => setDiscordToken(e.target.value)}
+                            placeholder="Enter your Discord token"
+                        />
+                        <button onClick={saveToken} className="btn-warning">
+                            {tokenSaved ? 'Update Token' : 'Save Token'}
+                        </button>
+                        <p style={{ fontSize: '12px', color: '#fef3c7', marginTop: '8px' }}>
+                            To get your token: follow tutorial in the folder.
+                        </p>
+                        <div className="code-box">{tokenInstructions}</div>
+                    </div>
+
+                    {/* Hugging Face API Key */}
+                <div style={{ marginTop: '16px', padding: '16px', background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '8px' }}>
+<label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#e2e8f0' }}>Groq Console API Key</label>
+                    <input
+                        type="password"
+                        value={groqConsoleAPIKey}
+                        onChange={(e) => setGroqConsoleAPIKey(e.target.value)}
+                        placeholder="Enter Hugging Face API Key..."
+                        style={{
+                            width: '100%',
+                            padding: '10px',
+                            background: 'rgba(15, 23, 42, 0.8)',
+                            border: '1px solid rgba(59, 130, 246, 0.3)',
+                            borderRadius: '6px',
+                            color: 'white',
+                            fontSize: '13px',
+                            marginBottom: '8px'
+                        }}
+                    />
+                    <button 
+                        onClick={async () => {
+                            // Validate input
+                            if (!groqConsoleAPIKey || groqConsoleAPIKey.trim() === '') {
+                                alert('❌ ERROR\n\nPlease enter a Hugging Face API key before clicking Update.');
+                                showCustomError('Error', 'Please enter a Hugging Face API key');
+                                return;
+                            }
+                            
+                            const apiKey = groqConsoleAPIKey.trim();
+                            
+                            console.log('🔑 [SETTINGS] Updating Hugging Face API key...');
+                            console.log('📏 [SETTINGS] Key length:', apiKey.length, 'characters');
+                            
+                            // Save to localStorage
+                            try {
+localStorage.setItem('groqConsoleAPIKey', apiKey);
+                                window.GROQ_CONSOLE_API_KEY = apiKey;
+                                console.log('✅ [SETTINGS] Hugging Face API key saved to localStorage');
+                                console.log('✅ [SETTINGS] Key length:', apiKey.length);
+                                console.log('✅ [SETTINGS] API key stored in window.GROQ_CONSOLE_API_KEY');
+                                addLog('✅ Hugging Face API key updated successfully', 'success');
+
+                            } catch (error) {
+                                console.error('❌ [SETTINGS] Failed to save API key:', error);
+                                
+                                // Show ERROR popup
+                                alert(
+                                    '❌ ERROR\n\n' +
+                                    'Failed to save API key!\n\n' +
+                                    `Error: ${error.message}`
+                                );
+                                
+                                showCustomError('Error', 'Failed to save API key: ' + error.message);
+                            }
+                        }}
+
+                        style={{
+                            padding: '10px 16px',
+                            background: 'rgba(59, 130, 246, 0.2)',
+                            border: '1px solid rgba(59, 130, 246, 0.4)',
+                            borderRadius: '6px',
+                            color: '#93c5fd',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            width: '100%',
+                            transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(59, 130, 246, 0.3)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'rgba(59, 130, 246, 0.2)';
+                        }}
+                    >
+                        UPDATE GROQ API KEY
+                    </button>
+                    <p style={{ fontSize: '11px', color: '#64748b', marginTop: '8px' }}>
+                        Instructions on how to install is present in a .txt file.
                     </p>
                 </div>
-            </div>
-        </div>
 
-        {/* TWO COLUMN LAYOUT */}
-        <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '20px',
-            marginBottom: '20px'
-        }}>
-            {/* LEFT COLUMN - Trooper Credentials */}
-            <div style={{
-                background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.15), rgba(59, 130, 246, 0.08))',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
-                borderRadius: '16px',
-                padding: '24px',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
-                position: 'relative',
-                overflow: 'hidden'
-            }}>
-                <div style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: '2px',
-                    background: 'linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.5), transparent)'
-                }}></div>
+                                   <button
+    onClick={handleLogout}
+    style={{
+        padding: '12px 24px',
+        background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+        border: 'none',
+        borderRadius: '8px',
+        color: '#fff',
+        fontSize: '14px',
+        fontWeight: '600',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)'
+    }}
+    onMouseEnter={(e) => {
+        e.target.style.transform = 'translateY(-2px)';
+        e.target.style.boxShadow = '0 4px 16px rgba(239, 68, 68, 0.5)';
+    }}
+    onMouseLeave={(e) => {
+        e.target.style.transform = 'translateY(0)';
+        e.target.style.boxShadow = '0 2px 8px rgba(239, 68, 68, 0.3)';
+    }}
+>
+    <XCircle size={18} />
+    LOGOUT
+</button>
 
-                <h3 style={{
-                    fontSize: '16px',
-                    fontWeight: '700',
-                    color: '#93c5fd',
-                    margin: '0 0 20px 0',
-                    textTransform: 'uppercase',
-                    letterSpacing: '1px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                }}>
-                    <span style={{
-                        width: '4px',
-                        height: '16px',
-                        background: 'linear-gradient(180deg, #93c5fd, #60a5fa)',
-                        borderRadius: '2px'
-                    }}></span>
-                    Trooper Credentials
-                </h3>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div>
-                        <label style={{
-                            display: 'block',
-                            fontSize: '11px',
-                            fontWeight: '600',
-                            color: '#93c5fd',
-                            marginBottom: '6px',
-                            textTransform: 'uppercase',
-                            letterSpacing: '1px'
+                    
+                    {tokenSaved && (
+                        <div style={{
+                            marginTop: '16px',
+                            padding: '12px',
+                            background: 'rgba(251, 191, 36, 0.2)',
+                            border: '1px solid rgba(251, 191, 36, 0.3)',
+                            borderRadius: '8px'
                         }}>
-                            Username
-                        </label>
-                        <input
-                            type="text"
-                            value={trooperSettings?.Username || ''}
-                            readOnly
-                            style={{
-                                width: '100%',
-                                padding: '12px 16px',
-                                background: 'rgba(15, 23, 42, 0.6)',
-                                border: '2px solid rgba(59, 130, 246, 0.3)',
-                                borderRadius: '10px',
-                                color: '#f8fafc',
-                                fontSize: '14px',
-                                boxSizing: 'border-box',
-                                fontWeight: '600',
-                                boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.3)'
-                            }}
-                        />
-                    </div>
-
-                    <div>
-                        <label style={{
-                            display: 'block',
-                            fontSize: '11px',
-                            fontWeight: '600',
-                            color: '#93c5fd',
-                            marginBottom: '6px',
-                            textTransform: 'uppercase',
-                            letterSpacing: '1px'
-                        }}>
-                            Badge ID
-                        </label>
-                        <input
-                            type="text"
-                            value={trooperSettings?.BadgeID || ''}
-                            readOnly
-                            style={{
-                                width: '100%',
-                                padding: '12px 16px',
-                                background: 'rgba(15, 23, 42, 0.6)',
-                                border: '2px solid rgba(59, 130, 246, 0.3)',
-                                borderRadius: '10px',
-                                color: '#f8fafc',
-                                fontSize: '14px',
-                                fontFamily: 'monospace',
-                                boxSizing: 'border-box',
-                                fontWeight: '600',
-                                boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.3)'
-                            }}
-                        />
-                    </div>
-
-                    <div>
-                        <label style={{
-                            display: 'block',
-                            fontSize: '11px',
-                            fontWeight: '600',
-                            color: '#93c5fd',
-                            marginBottom: '6px',
-                            textTransform: 'uppercase',
-                            letterSpacing: '1px'
-                        }}>
-                            Zone
-                        </label>
-                        <input
-                            type="text"
-                            value={trooperSettings?.Zone || ''}
-                            readOnly
-                            style={{
-                                width: '100%',
-                                padding: '12px 16px',
-                                background: 'rgba(15, 23, 42, 0.6)',
-                                border: '2px solid rgba(59, 130, 246, 0.3)',
-                                borderRadius: '10px',
-                                color: '#f8fafc',
-                                fontSize: '14px',
-                                boxSizing: 'border-box',
-                                fontWeight: '600',
-                                boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.3)'
-                            }}
-                        />
-                    </div>
-
-                    <div>
-                        <label style={{
-                            display: 'block',
-                            fontSize: '11px',
-                            fontWeight: '600',
-                            color: '#93c5fd',
-                            marginBottom: '6px',
-                            textTransform: 'uppercase',
-                            letterSpacing: '1px'
-                        }}>
-                            Department
-                        </label>
-                        <input
-                            type="text"
-                            value={trooperSettings?.Department || 'NYSP'}
-                            readOnly
-                            style={{
-                                width: '100%',
-                                padding: '12px 16px',
-                                background: 'rgba(15, 23, 42, 0.6)',
-                                border: '2px solid rgba(59, 130, 246, 0.3)',
-                                borderRadius: '10px',
-                                color: '#f8fafc',
-                                fontSize: '14px',
-                                boxSizing: 'border-box',
-                                fontWeight: '600',
-                                boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.3)'
-                            }}
-                        />
+                            <p style={{ color: '#fde047', fontSize: '12px', fontWeight: '600', marginBottom: '4px' }}>
+                                RATE LIMIT WARNING
+                            </p>
+                            <p style={{ color: '#fef3c7', fontSize: '11px' }}>
+                                Discord limits API requests. If you see 403/429 errors, wait 60 seconds between searches.
+                            </p>
+                        </div>
+                    )}
+                                        <div>
                     </div>
                 </div>
-            </div>
 
-            {/* RIGHT COLUMN - API Configuration */}
-            <div style={{
-                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(124, 58, 237, 0.08))',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(139, 92, 246, 0.3)',
-                borderRadius: '16px',
-                padding: '24px',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
-                position: 'relative',
-                overflow: 'hidden'
-            }}>
+                
+                {/* APPEARANCE GROUP */}
                 <div style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: '2px',
-                    background: 'linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.5), transparent)'
-                }}></div>
-
-                <h3 style={{
-                    fontSize: '16px',
-                    fontWeight: '700',
-                    color: '#c4b5fd',
-                    margin: '0 0 20px 0',
-                    textTransform: 'uppercase',
-                    letterSpacing: '1px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
+                    background: 'rgba(139, 92, 246, 0.1)',
+                    border: '2px solid rgba(139, 92, 246, 0.3)',
+                    borderRadius: '12px',
+                    padding: '24px',
+                    marginBottom: '24px'
                 }}>
-                    <span style={{
-                        width: '4px',
-                        height: '16px',
-                        background: 'linear-gradient(180deg, #c4b5fd, #a78bfa)',
-                        borderRadius: '2px'
-                    }}></span>
-                    AI Configuration
-                </h3>
+                    <h3 style={{ 
+                        color: '#c4b5fd', 
+                        fontSize: '18px', 
+                        fontWeight: '700',
+                        marginBottom: '16px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        APPEARANCE
+                    </h3>
+                    
+                    <div style={{ marginBottom: '16px', padding: '16px', background: 'rgba(139, 92, 246, 0.15)', border: '1px solid rgba(139, 92, 246, 0.3)', borderRadius: '8px' }}>
+                        <label style={{ color: '#c4b5fd', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                            <input 
+                                type="checkbox" 
+                                checked={dyslexiaFont}
+                                onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    setDyslexiaFont(checked);
+                                    if (checked) {
+                                        document.body.classList.add('dyslexia-font');
+                                    } else {
+                                        document.body.classList.remove('dyslexia-font');
+                                    }
+                                    addLog(`âœ… Dyslexia font ${checked ? 'enabled' : 'disabled'}`, 'success');
+                                }}
+                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                            />
+                            Enable Normal Font
+                        </label>
+                        <p style={{ fontSize: '12px', color: '#ddd6fe', marginTop: '8px', marginLeft: '30px' }}>
+                            Enables normal font and gets rid of the MDT-style font.
+                        </p>
+                    </div>
+                    
+                    <div style={{ padding: '16px', background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '8px' }}>
+                        <label style={{ color: '#93c5fd', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                            <input 
+                                type="checkbox" 
+                                checked={visualEffects}
+                                onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    setVisualEffects(checked);
+                                    addLog(`âœ… Visual effects ${checked ? 'enabled' : 'disabled'}`, 'success');
+                                }}
+                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                            />
+                            Enable Visual Feedback Effects
+                        </label>
+                        <p style={{ fontSize: '12px', color: '#bfdbfe', marginTop: '8px', marginLeft: '30px' }}>
+                            Pulse animations, shake effects, and glowing borders.
+                        </p>
+                    </div>
+                                    {/* MINI-MODE CHECKBOX */}
+                    <div style={{ marginTop: '16px', padding: '16px', background: 'rgba(139, 92, 246, 0.15)', border: '1px solid rgba(139, 92, 246, 0.3)', borderRadius: '8px' }}>
+                        <label style={{ color: '#c4b5fd', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                            <input 
+                                type="checkbox" 
+                                id="mini-mode-checkbox"
+                                checked={compactMode}
+                                onChange={(e) => {
+    const checked = e.target.checked;
+    console.log('📱 [MINI-MODE] Toggled:', checked);
+    setCompactMode(checked);
+    
+    if (window.require) {
+        try {
+            const { ipcRenderer } = window.require('electron');
+            ipcRenderer.send('toggle-compact-mode', checked);
+            addLog(`📱 Mini mode ${checked ? 'enabled' : 'disabled'}`, 'success');
+        } catch (err) {
+            console.error('⚠️ [MINI-MODE] Error:', err);
+        }
+    }
+}}
 
-                <div>
-                    <label style={{
-                        display: 'block',
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        color: '#c4b5fd',
-                        marginBottom: '6px',
+                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                            />
+                            Enable Mini Mode (Compact View)
+                        </label>
+                        <p style={{ fontSize: '12px', color: '#ddd6fe', marginTop: '8px', marginLeft: '30px' }}>
+                            Smaller variant of the application with the additions of a sidetab on the left allowing for quick transitions between tabs.
+                        </p>
+                    </div>
+                </div>
+
+                
+                {/* TROOPER INFORMATION GROUP */}
+                <div style={{
+                    background: 'rgba(59, 130, 246, 0.1)',
+                    border: '2px solid rgba(59, 130, 246, 0.3)',
+                    borderRadius: '12px',
+                    padding: '24px',
+                    marginBottom: '24px'
+                }}>
+                    <h3 style={{ 
+                        color: '#93c5fd', 
+                        fontSize: '18px', 
+                        fontWeight: '700',
+                        marginBottom: '16px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        OFFICER INFORMATION
+                    </h3>
+                    
+                    {editableTrooperSettings && (
+                        <div style={{ display: 'grid', gap: '12px' }}>
+                            <div>
+                                <label style={{ color: '#bfdbfe', fontSize: '13px', marginBottom: '4px', display: 'block' }}>Username</label>
+                                <input
+                                    type="text"
+                                    value={editableTrooperSettings.Username || ''}
+                                    onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, Username: e.target.value})}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        background: 'rgba(255, 255, 255, 0.1)',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        borderRadius: '6px',
+                                        color: 'white',
+                                        fontSize: '13px'
+                                    }}
+                                />
+                            </div>
+                            
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                <div>
+                                    <label style={{ color: '#bfdbfe', fontSize: '13px', marginBottom: '4px', display: 'block' }}>First Name</label>
+                                    <input
+                                        type="text"
+                                        value={editableTrooperSettings.FirstName || ''}
+                                        onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, FirstName: e.target.value})}
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            background: 'rgba(255, 255, 255, 0.1)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            borderRadius: '6px',
+                                            color: 'white',
+                                            fontSize: '13px'
+                                        }}
+                                    />
+                                </div>
+                                
+                                <div>
+                                    <label style={{ color: '#bfdbfe', fontSize: '13px', marginBottom: '4px', display: 'block' }}>Last Name</label>
+                                    <input
+                                        type="text"
+                                        value={editableTrooperSettings.LastName || ''}
+                                        onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, LastName: e.target.value})}
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            background: 'rgba(255, 255, 255, 0.1)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            borderRadius: '6px',
+                                            color: 'white',
+                                            fontSize: '13px'
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                <div>
+                                    <label style={{ color: '#bfdbfe', fontSize: '13px', marginBottom: '4px', display: 'block' }}>Badge ID</label>
+                                    <input
+                                        type="text"
+                                        value={editableTrooperSettings.BadgeID || ''}
+                                        onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, BadgeID: e.target.value})}
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            background: 'rgba(255, 255, 255, 0.1)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            borderRadius: '6px',
+                                            color: 'white',
+                                            fontSize: '13px'
+                                        }}
+                                    />
+                                </div>
+                                
+                                <div>
+                                    <label style={{ color: '#bfdbfe', fontSize: '13px', marginBottom: '4px', display: 'block' }}>Zone</label>
+                                    <input
+                                        type="text"
+                                        value={editableTrooperSettings.Zone || ''}
+                                        onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, Zone: e.target.value})}
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            background: 'rgba(255, 255, 255, 0.1)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            borderRadius: '6px',
+                                            color: 'white',
+                                            fontSize: '13px'
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label style={{ color: '#bfdbfe', fontSize: '13px', marginBottom: '4px', display: 'block' }}>Registration Expiry Date (MM/DD/YY)</label>
+                                <input
+                                    type="text"
+                                    value={editableTrooperSettings.expDate || ''}
+                                    onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, expDate: e.target.value})}
+                                    placeholder="03/13/26"
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        background: 'rgba(255, 255, 255, 0.1)',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        borderRadius: '6px',
+                                        color: 'white',
+                                        fontSize: '13px'
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* DEVELOPER TOOLS */}
+                <div style={{
+                    background: 'rgba(234, 179, 8, 0.1)',
+                    border: '2px solid rgba(234, 179, 8, 0.3)',
+                    borderRadius: '12px',
+                    padding: '24px',
+                    marginBottom: '24px'
+                }}>
+                    <h3 style={{ 
+                        color: '#fde047', 
+                        fontSize: '18px', 
+                        fontWeight: '700',
+                        marginBottom: '16px',
                         textTransform: 'uppercase',
                         letterSpacing: '1px'
                     }}>
-                        Groq API Key
-                    </label>
-                    <div style={{
-                        position: 'relative'
-                    }}>
-                        <input
-                            type={showGroqKey ? 'text' : 'password'}
-                            value={groqApiKey || ''}
-                            onChange={(e) => setGroqApiKey(e.target.value)}
-                            placeholder="Enter Groq Console API key..."
+                        🛠️ DEVELOPER TOOLS
+                    </h3>
+                    
+                    <div style={{ marginBottom: '16px', padding: '16px', background: 'rgba(234, 179, 8, 0.15)', border: '1px solid rgba(234, 179, 8, 0.3)', borderRadius: '8px' }}>
+                        <label style={{ color: '#fde047', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                            <input 
+                                type="checkbox" 
+                                checked={showDevConsole}
+                                onChange={(e) => {
+                                    setShowDevConsole(e.target.checked);
+                                    console.log(`📊 [DEV] Console ${e.target.checked ? 'shown' : 'hidden'}`);
+                                    addLog(`📊 Console ${e.target.checked ? 'shown' : 'hidden'}`, 'success');
+                                }}
+                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                            />
+                            Show Built-in Developer Console
+                        </label>
+                        <p style={{ fontSize: '12px', color: '#fef08a', marginTop: '8px', marginLeft: '30px' }}>
+                            Shows real-time logs at the bottom of each page.
+                        </p>
+                    </div>
+                    
+                    <div style={{ padding: '16px', background: 'rgba(234, 179, 8, 0.15)', border: '1px solid rgba(234, 179, 8, 0.3)', borderRadius: '8px' }}>
+                        <button
+                            onClick={() => {
+                                if (window.require) {
+                                    const { ipcRenderer } = window.require('electron');
+                                    ipcRenderer.send('open-dev-tools');
+                                    console.log('🔧 [DEV] Opening DevTools...');
+                                }
+                            }}
                             style={{
                                 width: '100%',
-                                padding: '12px 48px 12px 16px',
-                                background: 'rgba(15, 23, 42, 0.6)',
-                                border: '2px solid rgba(139, 92, 246, 0.3)',
-                                borderRadius: '10px',
-                                color: '#f8fafc',
-                                fontSize: '13px',
-                                fontFamily: 'monospace',
-                                boxSizing: 'border-box',
-                                boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.3)'
-                            }}
-                        />
-                        <button
-                            onClick={() => setShowGroqKey(!showGroqKey)}
-                            style={{
-                                position: 'absolute',
-                                right: '8px',
-                                top: '50%',
-                                transform: 'translateY(-50%)',
-                                background: 'transparent',
-                                border: 'none',
-                                color: '#a78bfa',
+                                padding: '14px',
+                                background: 'rgba(234, 179, 8, 0.2)',
+                                border: '1px solid rgba(234, 179, 8, 0.4)',
+                                borderRadius: '8px',
+                                color: '#fde047',
+                                fontSize: '14px',
+                                fontWeight: '600',
                                 cursor: 'pointer',
-                                padding: '4px 8px',
-                                fontSize: '20px'
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '10px'
                             }}
                         >
-                            {showGroqKey ? '👁️' : '👁️‍🗨️'}
+                            <span>🔧</span>
+                            <span>Open Electron Developer Tools</span>
                         </button>
-                    </div>
-                    <div style={{
-                        marginTop: '8px',
-                        fontSize: '11px',
-                        color: '#94a3b8',
-                        lineHeight: '1.4'
-                    }}>
-                        Required for AI-powered features like report generation
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {/* DISCORD CONFIGURATION - Full Width */}
-        <div style={{
-            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.08))',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
-            borderRadius: '16px',
-            padding: '24px',
-            marginBottom: '20px',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
-            position: 'relative',
-            overflow: 'hidden'
-        }}>
-            <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: '2px',
-                background: 'linear-gradient(90deg, transparent, rgba(245, 158, 11, 0.5), transparent)'
-            }}></div>
-
-            <h3 style={{
-                fontSize: '16px',
-                fontWeight: '700',
-                color: '#fcd34d',
-                margin: '0 0 20px 0',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-            }}>
-                <span style={{
-                    width: '4px',
-                    height: '16px',
-                    background: 'linear-gradient(180deg, #fcd34d, #fbbf24)',
-                    borderRadius: '2px'
-                }}></span>
-                Discord Database Configuration
-            </h3>
-
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr 1fr',
-                gap: '16px'
-            }}>
-                <div>
-                    <label style={{
-                        display: 'block',
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        color: '#fcd34d',
-                        marginBottom: '6px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px'
-                    }}>
-                        Discord Token
-                    </label>
-                    <div style={{ position: 'relative' }}>
-                        <input
-                            type={showDiscordToken ? 'text' : 'password'}
-                            value={discordToken || ''}
-                            onChange={(e) => setDiscordToken(e.target.value)}
-                            placeholder="Discord account token..."
-                            style={{
-                                width: '100%',
-                                padding: '12px 48px 12px 16px',
-                                background: 'rgba(15, 23, 42, 0.6)',
-                                border: '2px solid rgba(245, 158, 11, 0.3)',
-                                borderRadius: '10px',
-                                color: '#f8fafc',
-                                fontSize: '12px',
-                                fontFamily: 'monospace',
-                                boxSizing: 'border-box',
-                                boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.3)'
-                            }}
-                        />
-                        <button
-                            onClick={() => setShowDiscordToken(!showDiscordToken)}
-                            style={{
-                                position: 'absolute',
-                                right: '8px',
-                                top: '50%',
-                                transform: 'translateY(-50%)',
-                                background: 'transparent',
-                                border: 'none',
-                                color: '#fbbf24',
-                                cursor: 'pointer',
-                                padding: '4px 8px',
-                                fontSize: '20px'
-                            }}
-                        >
-                            {showDiscordToken ? '👁️' : '👁️‍🗨️'}
-                        </button>
+                        <p style={{ fontSize: '12px', color: '#fef08a', marginTop: '8px', textAlign: 'center' }}>
+                            Full browser DevTools (Network, Elements, Console, etc.)
+                        </p>
                     </div>
                 </div>
 
-                <div>
-                    <label style={{
-                        display: 'block',
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        color: '#fcd34d',
-                        marginBottom: '6px',
+                
+                {/* DATA SOURCES GROUP */}
+                <div style={{
+                    background: 'rgba(16, 185, 129, 0.1)',
+                    border: '2px solid rgba(16, 185, 129, 0.3)',
+                    borderRadius: '12px',
+                    padding: '24px',
+                    marginBottom: '24px'
+                }}>
+                    <h3 style={{ 
+                        color: '#86efac', 
+                        fontSize: '18px', 
+                        fontWeight: '700',
+                        marginBottom: '16px',
                         textTransform: 'uppercase',
-                        letterSpacing: '1px'
+                        letterSpacing: '1px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
                     }}>
-                        Database Channel ID
+                        DATA SOURCES
+                    </h3>
+                    
+                    {editableTrooperSettings && (
+                        <div style={{ display: 'grid', gap: '12px' }}>
+                            <div>
+                                <label style={{ color: '#d1fae5', fontSize: '13px', marginBottom: '4px', display: 'block' }}>Registration Channel ID</label>
+                                <input
+                                    type="text"
+                                    value={editableTrooperSettings.RegistrationChannelID || ''}
+                                    onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, RegistrationChannelID: e.target.value})}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        background: 'rgba(255, 255, 255, 0.1)',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        borderRadius: '6px',
+                                        color: 'white',
+                                        fontSize: '13px'
+                                    }}
+                                />
+                            </div>
+                            
+                            <div>
+                                <label style={{ color: '#d1fae5', fontSize: '13px', marginBottom: '4px', display: 'block' }}>Database Channel ID</label>
+                                <input
+                                    type="text"
+                                    value={editableTrooperSettings.DatabaseChannelID || ''}
+                                    onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, DatabaseChannelID: e.target.value})}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        background: 'rgba(255, 255, 255, 0.1)',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        borderRadius: '6px',
+                                        color: 'white',
+                                        fontSize: '13px'
+                                    }}
+                                />
+                            </div>
+                            
+                            <div>
+                                <label style={{ color: '#d1fae5', fontSize: '13px', marginBottom: '4px', display: 'block' }}>Guild ID</label>
+                                <input
+                                    type="text"
+                                    value={editableTrooperSettings.GuildID || ''}
+                                    onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, GuildID: e.target.value})}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        background: 'rgba(255, 255, 255, 0.1)',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        borderRadius: '6px',
+                                        color: 'white',
+                                        fontSize: '13px'
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+                
+                {/* AUDIO & ALERTS GROUP */}
+                <div style={{
+                    background: 'rgba(251, 191, 36, 0.1)',
+                    border: '2px solid rgba(251, 191, 36, 0.3)',
+                    borderRadius: '12px',
+                    padding: '24px',
+                    marginBottom: '24px'
+                }}>
+                    <h3 style={{ 
+                        color: '#fde047', 
+                        fontSize: '18px', 
+                        fontWeight: '700',
+                        marginBottom: '16px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        AUDIO & ALERTS
+                    </h3>
+                    
+                    <label style={{ color: '#fef3c7', fontSize: '14px', fontWeight: '500', marginBottom: '12px', display: 'block' }}>
+                        Active Session (Call Alerts)
                     </label>
-                    <input
-                        type="text"
-                        value={databaseChannelID || ''}
-                        onChange={(e) => setDatabaseChannelID(e.target.value)}
-                        placeholder="Channel ID for lookups..."
+                    <select 
+                        value={selectedUserSession}
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            setSelectedUserSession(value);
+                            addLog(`âœ… Active session ${value ? 'set to ' + value : 'cleared'}`, 'success');
+                        }}
                         style={{
                             width: '100%',
-                            padding: '12px 16px',
-                            background: 'rgba(15, 23, 42, 0.6)',
-                            border: '2px solid rgba(245, 158, 11, 0.3)',
-                            borderRadius: '10px',
-                            color: '#f8fafc',
-                            fontSize: '12px',
-                            fontFamily: 'monospace',
-                            boxSizing: 'border-box',
-                            boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.3)'
+                            padding: '12px',
+                            background: 'rgba(255, 255, 255, 0.1)',
+                            border: '1px solid rgba(251, 191, 36, 0.3)',
+                            borderRadius: '8px',
+                            color: 'white',
+                            fontSize: '14px',
+                            cursor: 'pointer'
                         }}
-                    />
+                    >
+                        <option value="" style={{ background: '#1e3a8a', color: 'white' }}>None (No Alerts)</option>
+                        <option value="1011898104670330920" style={{ background: '#1e3a8a', color: 'white' }}>Session 1</option>
+                        <option value="1390212294478397471" style={{ background: '#1e3a8a', color: 'white' }}>Session 2</option>
+                        <option value="1390212341005680650" style={{ background: '#1e3a8a', color: 'white' }}>Session 3</option>
+                    </select>
+                    <p style={{ fontSize: '12px', color: '#fef3c7', marginTop: '8px' }}>
+                        When a new call comes in for this session, you'll hear an alert sound.
+                    </p>
                 </div>
 
-                <div>
-                    <label style={{
-                        display: 'block',
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        color: '#fcd34d',
-                        marginBottom: '6px',
+{/* SOUND SETTINGS GROUP */}
+<div style={{
+    background: 'rgba(139, 92, 246, 0.1)',
+    border: '2px solid rgba(139, 92, 246, 0.3)',
+    borderRadius: '12px',
+    padding: '24px',
+    marginBottom: '24px'
+}}>
+    <h3 style={{ 
+        color: '#c4b5fd', 
+        fontSize: '18px', 
+        fontWeight: '700',
+        marginBottom: '16px',
+        textTransform: 'uppercase',
+        letterSpacing: '1px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px'
+    }}>
+        🔊 SOUND SETTINGS
+    </h3>
+    
+    <div style={{ display: 'grid', gap: '12px' }}>
+        <label style={{ color: '#ddd6fe', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+            <input 
+                type="checkbox" 
+                checked={soundSettings.platePass}
+                onChange={(e) => setSoundSettings({...soundSettings, platePass: e.target.checked})}
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+            />
+            Enable Plate Search Success Sound
+        </label>
+        
+        <label style={{ color: '#ddd6fe', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+            <input 
+                type="checkbox" 
+                checked={soundSettings.plateFail}
+                onChange={(e) => setSoundSettings({...soundSettings, plateFail: e.target.checked})}
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+            />
+            Enable Plate Search Fail Sound
+        </label>
+        
+        <label style={{ color: '#ddd6fe', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+            <input 
+                type="checkbox" 
+                checked={soundSettings.callAlert}
+                onChange={(e) => setSoundSettings({...soundSettings, callAlert: e.target.checked})}
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+            />
+            Enable New Call Alert Sound
+        </label>
+        
+        <label style={{ color: '#ddd6fe', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+            <input 
+                type="checkbox" 
+                checked={soundSettings.warrantAlert}
+                onChange={(e) => setSoundSettings({...soundSettings, warrantAlert: e.target.checked})}
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+            />
+            Enable Warrant Alert Sound
+        </label>
+    </div>
+</div>
+
+                <button
+                    onClick={saveSettingsToFile}
+                    disabled={savingSettings}
+                    style={{
+                        width: '100%',
+                        marginTop: '20px',
+                        padding: '14px',
+                        background: savingSettings ? '#6b7280' : 'linear-gradient(135deg, #10b981, #059669)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '15px',
+                        fontWeight: '700',
+                        cursor: savingSettings ? 'not-allowed' : 'pointer',
                         textTransform: 'uppercase',
                         letterSpacing: '1px'
-                    }}>
-                        Registration Channel ID
-                    </label>
-                    <input
-                        type="text"
-                        value={registrationChannelID || ''}
-                        onChange={(e) => setRegistrationChannelID(e.target.value)}
-                        placeholder="Channel ID for plates..."
-                        style={{
-                            width: '100%',
-                            padding: '12px 16px',
-                            background: 'rgba(15, 23, 42, 0.6)',
-                            border: '2px solid rgba(245, 158, 11, 0.3)',
-                            borderRadius: '10px',
-                            color: '#f8fafc',
-                            fontSize: '12px',
-                            fontFamily: 'monospace',
-                            boxSizing: 'border-box',
-                            boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.3)'
-                        }}
-                    />
-                </div>
+                    }}
+                >
+                    {savingSettings ? 'SAVING SETTINGS...' : 'SAVE SETTINGS TO FILE'}
+                </button>
+                
+                {showDevConsole && consoleLogs.length > 0 && (
+                    <div className="console-box">
+                        <div className="console-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Terminal />
+                                Developer Console
+                            </div>
+                            <button
+                                onClick={() => {
+                                    const logsText = consoleLogs.map(log => `[${log.timestamp}] [${log.type.toUpperCase()}] ${log.message}`).join('\n');
+                                    const blob = new Blob([logsText], { type: 'text/plain' });
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `NYSP_MDT_Logs_${new Date().toISOString().split('T')[0]}_${new Date().toTimeString().split(' ')[0].replace(/:/g, '-')}.txt`;
+                                    a.click();
+                                    URL.revokeObjectURL(url);
+                                    addLog('ðŸ“¥ Console logs exported', 'success');
+                                }}
+                                style={{
+                                    padding: '4px 12px',
+                                    background: '#3b82f6',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    fontSize: '10px',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    textTransform: 'uppercase',
+                                    whiteSpace: 'nowrap'
+                                }}
+                            >
+                                EXPORT
+                            </button>
+                        </div>
+                        {consoleLogs.map((log, i) => (
+                            <div key={i} className={`console-log console-${log.type}`}>
+                                [{log.timestamp}] {log.message}
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
-        </div>
-
-        {/* SAVE BUTTON */}
-        <div style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: '12px'
-        }}>
-            <button
-                onClick={() => setActiveView('home')}
-                style={{
-                    padding: '14px 28px',
-                    background: 'linear-gradient(135deg, rgba(100, 116, 139, 0.3), rgba(71, 85, 105, 0.2))',
-                    border: '1px solid rgba(100, 116, 139, 0.4)',
-                    borderRadius: '12px',
-                    color: '#cbd5e1',
-                    fontSize: '14px',
-                    fontWeight: '700',
-                    textTransform: 'uppercase',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s',
-                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)'
-                }}
-                onMouseEnter={(e) => {
-                    e.target.style.transform = 'translateY(-2px)';
-                    e.target.style.boxShadow = '0 6px 20px rgba(100, 116, 139, 0.4)';
-                }}
-                onMouseLeave={(e) => {
-                    e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.2)';
-                }}
-            >
-                CANCEL
-            </button>
-
-            <button
-                onClick={handleSaveSettings}
-                style={{
-                    padding: '14px 32px',
-                    background: 'linear-gradient(135deg, #10b981, #059669)',
-                    border: '1px solid #047857',
-                    borderRadius: '12px',
-                    color: 'white',
-                    fontSize: '14px',
-                    fontWeight: '700',
-                    textTransform: 'uppercase',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s',
-                    boxShadow: '0 4px 16px rgba(16, 185, 129, 0.4)'
-                }}
-                onMouseEnter={(e) => {
-                    e.target.style.transform = 'translateY(-2px)';
-                    e.target.style.boxShadow = '0 6px 24px rgba(16, 185, 129, 0.6)';
-                }}
-                onMouseLeave={(e) => {
-                    e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = '0 4px 16px rgba(16, 185, 129, 0.4)';
-                }}
-            >
-                💾 SAVE CONFIGURATION
-            </button>
-        </div>
+        )}
     </div>
 )}
-
 {activeView === 'calls' && (
     <div className="card" style={{ minHeight: 'calc(100vh - 40px)', maxWidth: '1600px',   backdropFilter: 'blur(10px)',
   boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)', }}>
