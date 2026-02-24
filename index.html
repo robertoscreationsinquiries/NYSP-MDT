@@ -4307,8 +4307,8 @@ const lookupUser = async () => {
     try {
         setSearchProgress(10);
         addLog('🔍 Searching Discord...', 'info');
-        const guildId = trooperSettings?.GuildID || '888585906020311060';
-        const channelId = trooperSettings?.RegistrationChannelID || '1460842657549914204';
+const guildId = trooperSettings?.GuildID || editableTrooperSettings?.GuildID || '888585906020311060';
+const channelId = trooperSettings?.RegistrationChannelID || editableTrooperSettings?.RegistrationChannelID || '1460842657549914204';
                 console.log('Using channel ID: ', channelId)
                 console.log('Using trooper settings: ', trooperSettings)
         
@@ -4908,8 +4908,8 @@ const actualSearchValue = (typeof overrideValue === 'string' ? overrideValue : n
         addLog(`🔍 Searching for: ${actualSearchValue}`, 'info');
         setSearchProgress(5);
         
-const guildId = trooperSettings?.GuildID || '888585906020311060';
-const channelId = trooperSettings?.RegistrationChannelID || '1436970753151991891';
+const guildId = trooperSettings?.GuildID || editableTrooperSettings?.GuildID || '888585906020311060';
+const channelId = trooperSettings?.RegistrationChannelID || editableTrooperSettings?.RegistrationChannelID || '1460842657549914204';
         console.log('Using channel ID: ', channelId)
         console.log('🆔 [CONFIG] Guild ID:', guildId);
         console.log('📺 [CONFIG] Channel ID:', channelId);
@@ -6313,7 +6313,7 @@ const searchPastRecords = async (userId) => {
         let fetchedUsername = 'Unknown';
         
         try {
-            const guildId = trooperSettings?.GuildID || '888585906020311060';
+const guildId = trooperSettings?.GuildID || editableTrooperSettings?.GuildID || '888585906020311060';
             const userResponse = await fetch(
                 `https://discord.com/api/v9/guilds/${guildId}/members/${cleanUserId}`,
                 { headers: { 'Authorization': discordToken } }
@@ -6580,8 +6580,8 @@ const searchDatabaseHistory = async () => {
     setDatabaseHistory([]);
     
     try {
-const channelId = trooperSettings?.DatabaseChannelID || '1436970942747381804';
-const guildId = trooperSettings?.GuildID || '888585906020311060';
+const guildId = trooperSettings?.GuildID || editableTrooperSettings?.GuildID || '888585906020311060';
+const channelId = trooperSettings?.DatabaseChannelID || editableTrooperSettings?.DatabaseChannelID || '1460842657549914204';
         
         // Use search endpoint instead of regular messages
         const searchUrl = `https://discord.com/api/v9/guilds/${guildId}/messages/search?channel_id=${channelId}&mentions=${databaseSearchId}`;
@@ -6623,8 +6623,8 @@ const checkWarrants = async (discordUserId) => {
     if (!discordUserId || !tokenSaved) return null;
     
     try {
-const channelId = trooperSettings?.DatabaseChannelID || '1436970942747381804';
-const guildId = trooperSettings?.GuildID || '888585906020311060';
+const guildId = trooperSettings?.GuildID || editableTrooperSettings?.GuildID || '888585906020311060';
+const channelId = trooperSettings?.DatabaseChannelID || editableTrooperSettings?.DatabaseChannelID || '1460842657549914204';
         
         addLog('Ã°Å¸â€Â Checking for active warrants...', 'info');
         
