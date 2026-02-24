@@ -2172,7 +2172,7 @@ React.useEffect(() => {
             const trimmedLine = line.trim();
             
            if (trimmedLine.startsWith('GroqConsoleAPIKey=')) {
-                const key = value;
+                const key = trimmedLine.split('=')[1];
                 console.log('═══════════════════════════════════════════════════');
                 console.log('🔍 [SETTINGS] Found GroqConsoleAPIKey in settings file');
                 console.log('📋 [SETTINGS] Raw value:', key.substring(0, 15) + '...');
