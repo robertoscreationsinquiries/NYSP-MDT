@@ -11071,7 +11071,9 @@ File ARREST/SUMMONS REPORT
     </div>
 )}
 {activeView === 'settings' && (
-    <div className="card">
+    <div className="card" style={{ background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,58,138,0.3))', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '16px', padding: '32px' }}>
+        
+        {/* Back Button */}
         <button 
             onClick={() => {
                 if (visualEffects) {
@@ -11087,87 +11089,63 @@ File ARREST/SUMMONS REPORT
             style={{
                 padding: '12px 24px',
                 background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)',
-                border: '2px solid #2563eb',
-                borderRadius: '8px',
+                border: '1px solid rgba(59,130,246,0.4)',
+                borderRadius: '10px',
                 color: 'white',
                 cursor: 'pointer',
                 fontSize: '14px',
                 fontWeight: '600',
                 textTransform: 'uppercase',
-                marginBottom: '24px',
+                letterSpacing: '1px',
+                marginBottom: '28px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
                 width: 'auto',
-                  backdropFilter: 'blur(10px)',
-  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+                boxShadow: '0 4px 16px rgba(59,130,246,0.3)',
+                transition: 'all 0.2s'
             }}
+            onMouseEnter={e => e.currentTarget.style.boxShadow = '0 6px 20px rgba(59,130,246,0.5)'}
+            onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(59,130,246,0.3)'}
         >
             <Shield size={16} />
             Return to Home
         </button>
-        
+
         {!settingsWarningDismissed ? (
-            <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                minHeight: '400px',
-                padding: '40px',
-                textAlign: 'center'
-            }}>
+            /* ── WARNING SCREEN ── */
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px', padding: '40px', textAlign: 'center' }}>
                 <div style={{ 
-                    width: '80px', 
-                    height: '80px', 
+                    width: '90px', height: '90px',
                     background: 'linear-gradient(135deg, #ef4444, #dc2626)',
                     borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: '24px'
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    marginBottom: '28px',
+                    boxShadow: '0 0 40px rgba(239,68,68,0.4)'
                 }}>
-                    <span style={{ fontSize: '48px' }}>!</span>
+                    <span style={{ fontSize: '48px', color: 'white', fontWeight: 'bold' }}>!</span>
                 </div>
-                
-                <h2 style={{ color: '#fca5a5', fontSize: '32px', fontWeight: 'bold', marginBottom: '16px' }}>
-                    WARNING
-                </h2>
-                
-                <h3 style={{ color: 'white', fontSize: '20px', marginBottom: '24px' }}>
-                    YOU ARE ABOUT TO ENTER SETTINGS
-                </h3>
-                
-                <p style={{ 
-                    color: '#bfdbfe', 
-                    fontSize: '14px', 
-                    lineHeight: '1.8',
-                    maxWidth: '600px',
-                    marginBottom: '32px'
-                }}>
+                <h2 style={{ color: '#fca5a5', fontSize: '34px', fontWeight: 'bold', marginBottom: '12px', letterSpacing: '2px' }}>WARNING</h2>
+                <h3 style={{ color: 'white', fontSize: '18px', marginBottom: '20px', opacity: 0.85 }}>YOU ARE ABOUT TO ENTER SETTINGS</h3>
+                <p style={{ color: '#bfdbfe', fontSize: '14px', lineHeight: '1.9', maxWidth: '580px', marginBottom: '36px', opacity: 0.85 }}>
                     Sensitive information is hidden here which may be vulnerable to hackers if not covered. 
                     We recommend ensuring you have no video recording or screen sharing active for safety purposes.
                 </p>
-                
                 <button 
-                    onClick={() => {
-                        if (continueButtonEnabled) {
-                            setSettingsWarningDismissed(true);
-                            setHasVisitedSettingsBefore(true);
-                        }
-                    }}
+                    onClick={() => { if (continueButtonEnabled) { setSettingsWarningDismissed(true); setHasVisitedSettingsBefore(true); } }}
                     disabled={!continueButtonEnabled}
                     style={{
-                        padding: '14px 48px',
-                        background: continueButtonEnabled ? '#3b82f6' : '#6b7280',
+                        padding: '14px 56px',
+                        background: continueButtonEnabled ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#374151',
                         color: 'white',
                         border: 'none',
-                        borderRadius: '8px',
+                        borderRadius: '10px',
                         fontSize: '16px',
-                        fontWeight: '600',
+                        fontWeight: '700',
                         cursor: continueButtonEnabled ? 'pointer' : 'not-allowed',
                         transition: 'all 0.3s',
-                        width: 'auto'
+                        letterSpacing: '1px',
+                        boxShadow: continueButtonEnabled ? '0 4px 16px rgba(59,130,246,0.4)' : 'none'
                     }}
                 >
                     {continueButtonEnabled ? 'CONTINUE' : `CONTINUE (${Math.max(0, 3 - Math.floor((Date.now() - (window.settingsStartTime || Date.now())) / 1000))}s)`}
@@ -11175,39 +11153,19 @@ File ARREST/SUMMONS REPORT
             </div>
         ) : (
             <div>
-<h2 style={{ color: 'white', fontSize: '28px', marginBottom: '24px' }}>Configuration</h2>
-                
-                {/* AUTHENTICATION GROUP */}
-                <div style={{
-                    background: 'rgba(239, 68, 68, 0.1)',
-                    border: '2px solid rgba(239, 68, 68, 0.3)',
-                    borderRadius: '12px',
-                    padding: '24px',
-                    marginBottom: '24px'
-                }}>
-                    <h3 style={{ 
-                        color: '#fca5a5', 
-                        fontSize: '18px', 
-                        fontWeight: '700',
-                        marginBottom: '16px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }}>
-                        !! AUTHENTICATION !!
+                <h2 style={{ color: 'white', fontSize: '26px', fontWeight: '700', marginBottom: '28px', letterSpacing: '1px', borderBottom: '1px solid rgba(59,130,246,0.2)', paddingBottom: '16px' }}>
+                    ⚙️ Configuration
+                </h2>
+
+                {/* ── AUTHENTICATION ── */}
+                <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
+                    <h3 style={{ color: '#fca5a5', fontSize: '16px', fontWeight: '700', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        🔒 AUTHENTICATION
                     </h3>
 
-                    
-                    <div className="token-box">
+                    <div className="token-box" style={{ marginBottom: '16px' }}>
                         <label>Discord Account Token</label>
-                        <input
-                            type="password"
-                            value={discordToken}
-                            onChange={(e) => setDiscordToken(e.target.value)}
-                            placeholder="Enter your Discord token"
-                        />
+                        <input type="password" value={discordToken} onChange={(e) => setDiscordToken(e.target.value)} placeholder="Enter your Discord token" />
                         <button onClick={saveToken} className="btn-warning">
                             {tokenSaved ? 'Update Token' : 'Save Token'}
                         </button>
@@ -11217,676 +11175,226 @@ File ARREST/SUMMONS REPORT
                         <div className="code-box">{tokenInstructions}</div>
                     </div>
 
-                    {/* Hugging Face API Key */}
-                <div style={{ marginTop: '16px', padding: '16px', background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '8px' }}>
-<label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#e2e8f0' }}>Groq Console API Key</label>
-                    <input
-                        type="password"
-                        value={groqConsoleAPIKey}
-                        onChange={(e) => setGroqConsoleAPIKey(e.target.value)}
-                        placeholder="Enter Hugging Face API Key..."
-                        style={{
-                            width: '100%',
-                            padding: '10px',
-                            background: 'rgba(15, 23, 42, 0.8)',
-                            border: '1px solid rgba(59, 130, 246, 0.3)',
-                            borderRadius: '6px',
-                            color: 'white',
-                            fontSize: '13px',
-                            marginBottom: '8px'
-                        }}
-                    />
-                    <button 
-                        onClick={async () => {
-                            // Validate input
-                            if (!groqConsoleAPIKey || groqConsoleAPIKey.trim() === '') {
-                                alert('❌ ERROR\n\nPlease enter a Hugging Face API key before clicking Update.');
-                                showCustomError('Error', 'Please enter a Hugging Face API key');
-                                return;
-                            }
-                            
-                            const apiKey = groqConsoleAPIKey.trim();
-                            
-                            console.log('🔑 [SETTINGS] Updating Hugging Face API key...');
-                            console.log('📏 [SETTINGS] Key length:', apiKey.length, 'characters');
-                            
-                            // Save to localStorage
-                            try {
-localStorage.setItem('groqConsoleAPIKey', apiKey);
-                                window.GROQ_CONSOLE_API_KEY = apiKey;
-                                console.log('✅ [SETTINGS] Hugging Face API key saved to localStorage');
-                                console.log('✅ [SETTINGS] Key length:', apiKey.length);
-                                console.log('✅ [SETTINGS] API key stored in window.GROQ_CONSOLE_API_KEY');
-                                addLog('✅ Hugging Face API key updated successfully', 'success');
-
-                            } catch (error) {
-                                console.error('❌ [SETTINGS] Failed to save API key:', error);
-                                
-                                // Show ERROR popup
-                                alert(
-                                    '❌ ERROR\n\n' +
-                                    'Failed to save API key!\n\n' +
-                                    `Error: ${error.message}`
-                                );
-                                
-                                showCustomError('Error', 'Failed to save API key: ' + error.message);
-                            }
-                        }}
-
-                        style={{
-                            padding: '10px 16px',
-                            background: 'rgba(59, 130, 246, 0.2)',
-                            border: '1px solid rgba(59, 130, 246, 0.4)',
-                            borderRadius: '6px',
-                            color: '#93c5fd',
-                            fontSize: '13px',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            width: '100%',
-                            transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'rgba(59, 130, 246, 0.3)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'rgba(59, 130, 246, 0.2)';
-                        }}
-                    >
-                        UPDATE GROQ API KEY
-                    </button>
-                    <p style={{ fontSize: '11px', color: '#64748b', marginTop: '8px' }}>
-                        Instructions on how to install is present in a .txt file.
-                    </p>
-                </div>
-
-                                   <button
-    onClick={handleLogout}
-    style={{
-        padding: '12px 24px',
-        background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-        border: 'none',
-        borderRadius: '8px',
-        color: '#fff',
-        fontSize: '14px',
-        fontWeight: '600',
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)'
-    }}
-    onMouseEnter={(e) => {
-        e.target.style.transform = 'translateY(-2px)';
-        e.target.style.boxShadow = '0 4px 16px rgba(239, 68, 68, 0.5)';
-    }}
-    onMouseLeave={(e) => {
-        e.target.style.transform = 'translateY(0)';
-        e.target.style.boxShadow = '0 2px 8px rgba(239, 68, 68, 0.3)';
-    }}
->
-    <XCircle size={18} />
-    LOGOUT
-</button>
-
-                    
-                    {tokenSaved && (
-                        <div style={{
-                            marginTop: '16px',
-                            padding: '12px',
-                            background: 'rgba(251, 191, 36, 0.2)',
-                            border: '1px solid rgba(251, 191, 36, 0.3)',
-                            borderRadius: '8px'
-                        }}>
-                            <p style={{ color: '#fde047', fontSize: '12px', fontWeight: '600', marginBottom: '4px' }}>
-                                RATE LIMIT WARNING
-                            </p>
-                            <p style={{ color: '#fef3c7', fontSize: '11px' }}>
-                                Discord limits API requests. If you see 403/429 errors, wait 60 seconds between searches.
-                            </p>
-                        </div>
-                    )}
-                                        <div>
-                    </div>
-                </div>
-
-                
-                {/* APPEARANCE GROUP */}
-                <div style={{
-                    background: 'rgba(139, 92, 246, 0.1)',
-                    border: '2px solid rgba(139, 92, 246, 0.3)',
-                    borderRadius: '12px',
-                    padding: '24px',
-                    marginBottom: '24px'
-                }}>
-                    <h3 style={{ 
-                        color: '#c4b5fd', 
-                        fontSize: '18px', 
-                        fontWeight: '700',
-                        marginBottom: '16px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }}>
-                        APPEARANCE
-                    </h3>
-                    
-                    <div style={{ marginBottom: '16px', padding: '16px', background: 'rgba(139, 92, 246, 0.15)', border: '1px solid rgba(139, 92, 246, 0.3)', borderRadius: '8px' }}>
-                        <label style={{ color: '#c4b5fd', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                            <input 
-                                type="checkbox" 
-                                checked={dyslexiaFont}
-                                onChange={(e) => {
-                                    const checked = e.target.checked;
-                                    setDyslexiaFont(checked);
-                                    if (checked) {
-                                        document.body.classList.add('dyslexia-font');
-                                    } else {
-                                        document.body.classList.remove('dyslexia-font');
-                                    }
-                                    addLog(`âœ… Dyslexia font ${checked ? 'enabled' : 'disabled'}`, 'success');
-                                }}
-                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                            />
-                            Enable Normal Font
-                        </label>
-                        <p style={{ fontSize: '12px', color: '#ddd6fe', marginTop: '8px', marginLeft: '30px' }}>
-                            Enables normal font and gets rid of the MDT-style font.
-                        </p>
-                    </div>
-                    
-                    <div style={{ padding: '16px', background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '8px' }}>
-                        <label style={{ color: '#93c5fd', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                            <input 
-                                type="checkbox" 
-                                checked={visualEffects}
-                                onChange={(e) => {
-                                    const checked = e.target.checked;
-                                    setVisualEffects(checked);
-                                    addLog(`âœ… Visual effects ${checked ? 'enabled' : 'disabled'}`, 'success');
-                                }}
-                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                            />
-                            Enable Visual Feedback Effects
-                        </label>
-                        <p style={{ fontSize: '12px', color: '#bfdbfe', marginTop: '8px', marginLeft: '30px' }}>
-                            Pulse animations, shake effects, and glowing borders.
-                        </p>
-                    </div>
-                                    {/* MINI-MODE CHECKBOX */}
-                    <div style={{ marginTop: '16px', padding: '16px', background: 'rgba(139, 92, 246, 0.15)', border: '1px solid rgba(139, 92, 246, 0.3)', borderRadius: '8px' }}>
-                        <label style={{ color: '#c4b5fd', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                            <input 
-                                type="checkbox" 
-                                id="mini-mode-checkbox"
-                                checked={compactMode}
-                                onChange={(e) => {
-    const checked = e.target.checked;
-    console.log('📱 [MINI-MODE] Toggled:', checked);
-    setCompactMode(checked);
-    
-    if (window.require) {
-        try {
-            const { ipcRenderer } = window.require('electron');
-            ipcRenderer.send('toggle-compact-mode', checked);
-            addLog(`📱 Mini mode ${checked ? 'enabled' : 'disabled'}`, 'success');
-        } catch (err) {
-            console.error('⚠️ [MINI-MODE] Error:', err);
-        }
-    }
-}}
-
-                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                            />
-                            Enable Mini Mode (Compact View)
-                        </label>
-                        <p style={{ fontSize: '12px', color: '#ddd6fe', marginTop: '8px', marginLeft: '30px' }}>
-                            Smaller variant of the application with the additions of a sidetab on the left allowing for quick transitions between tabs.
-                        </p>
-                    </div>
-                </div>
-
-                
-                {/* TROOPER INFORMATION GROUP */}
-                <div style={{
-                    background: 'rgba(59, 130, 246, 0.1)',
-                    border: '2px solid rgba(59, 130, 246, 0.3)',
-                    borderRadius: '12px',
-                    padding: '24px',
-                    marginBottom: '24px'
-                }}>
-                    <h3 style={{ 
-                        color: '#93c5fd', 
-                        fontSize: '18px', 
-                        fontWeight: '700',
-                        marginBottom: '16px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }}>
-                        OFFICER INFORMATION
-                    </h3>
-                    
-                    {editableTrooperSettings && (
-                        <div style={{ display: 'grid', gap: '12px' }}>
-                            <div>
-                                <label style={{ color: '#bfdbfe', fontSize: '13px', marginBottom: '4px', display: 'block' }}>Username</label>
-                                <input
-                                    type="text"
-                                    value={editableTrooperSettings.Username || ''}
-                                    onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, Username: e.target.value})}
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        background: 'rgba(255, 255, 255, 0.1)',
-                                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                                        borderRadius: '6px',
-                                        color: 'white',
-                                        fontSize: '13px'
-                                    }}
-                                />
-                            </div>
-                            
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                <div>
-                                    <label style={{ color: '#bfdbfe', fontSize: '13px', marginBottom: '4px', display: 'block' }}>First Name</label>
-                                    <input
-                                        type="text"
-                                        value={editableTrooperSettings.FirstName || ''}
-                                        onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, FirstName: e.target.value})}
-                                        style={{
-                                            width: '100%',
-                                            padding: '10px',
-                                            background: 'rgba(255, 255, 255, 0.1)',
-                                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                                            borderRadius: '6px',
-                                            color: 'white',
-                                            fontSize: '13px'
-                                        }}
-                                    />
-                                </div>
-                                
-                                <div>
-                                    <label style={{ color: '#bfdbfe', fontSize: '13px', marginBottom: '4px', display: 'block' }}>Last Name</label>
-                                    <input
-                                        type="text"
-                                        value={editableTrooperSettings.LastName || ''}
-                                        onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, LastName: e.target.value})}
-                                        style={{
-                                            width: '100%',
-                                            padding: '10px',
-                                            background: 'rgba(255, 255, 255, 0.1)',
-                                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                                            borderRadius: '6px',
-                                            color: 'white',
-                                            fontSize: '13px'
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                            
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                <div>
-                                    <label style={{ color: '#bfdbfe', fontSize: '13px', marginBottom: '4px', display: 'block' }}>Badge ID</label>
-                                    <input
-                                        type="text"
-                                        value={editableTrooperSettings.BadgeID || ''}
-                                        onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, BadgeID: e.target.value})}
-                                        style={{
-                                            width: '100%',
-                                            padding: '10px',
-                                            background: 'rgba(255, 255, 255, 0.1)',
-                                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                                            borderRadius: '6px',
-                                            color: 'white',
-                                            fontSize: '13px'
-                                        }}
-                                    />
-                                </div>
-                                
-                                <div>
-                                    <label style={{ color: '#bfdbfe', fontSize: '13px', marginBottom: '4px', display: 'block' }}>Zone</label>
-                                    <input
-                                        type="text"
-                                        value={editableTrooperSettings.Zone || ''}
-                                        onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, Zone: e.target.value})}
-                                        style={{
-                                            width: '100%',
-                                            padding: '10px',
-                                            background: 'rgba(255, 255, 255, 0.1)',
-                                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                                            borderRadius: '6px',
-                                            color: 'white',
-                                            fontSize: '13px'
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <label style={{ color: '#bfdbfe', fontSize: '13px', marginBottom: '4px', display: 'block' }}>Registration Expiry Date (MM/DD/YY)</label>
-                                <input
-                                    type="text"
-                                    value={editableTrooperSettings.expDate || ''}
-                                    onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, expDate: e.target.value})}
-                                    placeholder="03/13/26"
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        background: 'rgba(255, 255, 255, 0.1)',
-                                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                                        borderRadius: '6px',
-                                        color: 'white',
-                                        fontSize: '13px'
-                                    }}
-                                />
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* DEVELOPER TOOLS */}
-                <div style={{
-                    background: 'rgba(234, 179, 8, 0.1)',
-                    border: '2px solid rgba(234, 179, 8, 0.3)',
-                    borderRadius: '12px',
-                    padding: '24px',
-                    marginBottom: '24px'
-                }}>
-                    <h3 style={{ 
-                        color: '#fde047', 
-                        fontSize: '18px', 
-                        fontWeight: '700',
-                        marginBottom: '16px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px'
-                    }}>
-                        🛠️ DEVELOPER TOOLS
-                    </h3>
-                    
-                    <div style={{ marginBottom: '16px', padding: '16px', background: 'rgba(234, 179, 8, 0.15)', border: '1px solid rgba(234, 179, 8, 0.3)', borderRadius: '8px' }}>
-                        <label style={{ color: '#fde047', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                            <input 
-                                type="checkbox" 
-                                checked={showDevConsole}
-                                onChange={(e) => {
-                                    setShowDevConsole(e.target.checked);
-                                    console.log(`📊 [DEV] Console ${e.target.checked ? 'shown' : 'hidden'}`);
-                                    addLog(`📊 Console ${e.target.checked ? 'shown' : 'hidden'}`, 'success');
-                                }}
-                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                            />
-                            Show Built-in Developer Console
-                        </label>
-                        <p style={{ fontSize: '12px', color: '#fef08a', marginTop: '8px', marginLeft: '30px' }}>
-                            Shows real-time logs at the bottom of each page.
-                        </p>
-                    </div>
-                    
-                    <div style={{ padding: '16px', background: 'rgba(234, 179, 8, 0.15)', border: '1px solid rgba(234, 179, 8, 0.3)', borderRadius: '8px' }}>
-                        <button
-                            onClick={() => {
-                                if (window.require) {
-                                    const { ipcRenderer } = window.require('electron');
-                                    ipcRenderer.send('open-dev-tools');
-                                    console.log('🔧 [DEV] Opening DevTools...');
+                    {/* Groq API Key */}
+                    <div style={{ marginTop: '16px', padding: '16px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '10px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#e2e8f0', fontSize: '13px' }}>Groq Console API Key</label>
+                        <input
+                            type="password"
+                            value={groqConsoleAPIKey}
+                            onChange={(e) => setGroqConsoleAPIKey(e.target.value)}
+                            placeholder="Enter Groq Console API Key..."
+                            style={{ width: '100%', padding: '10px', background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', color: 'white', fontSize: '13px', marginBottom: '10px', boxSizing: 'border-box' }}
+                        />
+                        <button 
+                            onClick={async () => {
+                                if (!groqConsoleAPIKey || groqConsoleAPIKey.trim() === '') {
+                                    alert('❌ ERROR\n\nPlease enter a Groq API key before clicking Update.');
+                                    showCustomError('Error', 'Please enter a Hugging Face API key');
+                                    return;
+                                }
+                                const apiKey = groqConsoleAPIKey.trim();
+                                try {
+                                    localStorage.setItem('groqConsoleAPIKey', apiKey);
+                                    window.GROQ_CONSOLE_API_KEY = apiKey;
+                                    addLog('✅ Groq API key updated successfully', 'success');
+                                } catch (error) {
+                                    alert('❌ ERROR\n\nFailed to save API key!\n\nError: ' + error.message);
+                                    showCustomError('Error', 'Failed to save API key: ' + error.message);
                                 }
                             }}
-                            style={{
-                                width: '100%',
-                                padding: '14px',
-                                background: 'rgba(234, 179, 8, 0.2)',
-                                border: '1px solid rgba(234, 179, 8, 0.4)',
-                                borderRadius: '8px',
-                                color: '#fde047',
-                                fontSize: '14px',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '10px'
-                            }}
+                            style={{ padding: '10px 16px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'none', borderRadius: '8px', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer', width: '100%', boxShadow: '0 4px 12px rgba(59,130,246,0.3)', transition: 'all 0.2s' }}
+                            onMouseEnter={e => e.currentTarget.style.boxShadow = '0 6px 18px rgba(59,130,246,0.5)'}
+                            onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(59,130,246,0.3)'}
                         >
-                            <span>🔧</span>
-                            <span>Open Electron Developer Tools</span>
+                            UPDATE GROQ API KEY
                         </button>
-                        <p style={{ fontSize: '12px', color: '#fef08a', marginTop: '8px', textAlign: 'center' }}>
-                            Full browser DevTools (Network, Elements, Console, etc.)
-                        </p>
+                        <p style={{ fontSize: '11px', color: '#64748b', marginTop: '8px' }}>Instructions on how to install is present in a .txt file.</p>
+                    </div>
+
+                    {/* Logout */}
+                    <button
+                        onClick={handleLogout}
+                        style={{ marginTop: '16px', padding: '12px 24px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', borderRadius: '10px', color: '#fff', fontSize: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(239,68,68,0.3)', transition: 'all 0.2s' }}
+                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(239,68,68,0.5)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(239,68,68,0.3)'; }}
+                    >
+                        <XCircle size={18} /> LOGOUT
+                    </button>
+
+                    {tokenSaved && (
+                        <div style={{ marginTop: '16px', padding: '14px', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '10px' }}>
+                            <p style={{ color: '#fde047', fontSize: '12px', fontWeight: '700', marginBottom: '4px' }}>⚠ RATE LIMIT WARNING</p>
+                            <p style={{ color: '#fef3c7', fontSize: '11px', margin: 0 }}>Discord limits API requests. If you see 403/429 errors, wait 60 seconds between searches.</p>
+                        </div>
+                    )}
+                </div>
+
+                {/* ── APPEARANCE ── */}
+                <div style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
+                    <h3 style={{ color: '#c4b5fd', fontSize: '16px', fontWeight: '700', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        🎨 APPEARANCE
+                    </h3>
+
+                    <div style={{ marginBottom: '12px', padding: '14px', background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: '10px' }}>
+                        <label style={{ color: '#c4b5fd', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                            <input type="checkbox" checked={dyslexiaFont} onChange={(e) => { const checked = e.target.checked; setDyslexiaFont(checked); checked ? document.body.classList.add('dyslexia-font') : document.body.classList.remove('dyslexia-font'); addLog(`✅ Dyslexia font ${checked ? 'enabled' : 'disabled'}`, 'success'); }} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
+                            Enable Normal Font
+                        </label>
+                        <p style={{ fontSize: '12px', color: '#ddd6fe', marginTop: '8px', marginLeft: '30px', opacity: 0.8 }}>Enables normal font and gets rid of the MDT-style font.</p>
+                    </div>
+
+                    <div style={{ marginBottom: '12px', padding: '14px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '10px' }}>
+                        <label style={{ color: '#93c5fd', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                            <input type="checkbox" checked={visualEffects} onChange={(e) => { const checked = e.target.checked; setVisualEffects(checked); addLog(`✅ Visual effects ${checked ? 'enabled' : 'disabled'}`, 'success'); }} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
+                            Enable Visual Feedback Effects
+                        </label>
+                        <p style={{ fontSize: '12px', color: '#bfdbfe', marginTop: '8px', marginLeft: '30px', opacity: 0.8 }}>Pulse animations, shake effects, and glowing borders.</p>
+                    </div>
+
+                    <div style={{ padding: '14px', background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: '10px' }}>
+                        <label style={{ color: '#c4b5fd', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                            <input type="checkbox" id="mini-mode-checkbox" checked={compactMode} onChange={(e) => { const checked = e.target.checked; setCompactMode(checked); if (window.require) { try { const { ipcRenderer } = window.require('electron'); ipcRenderer.send('toggle-compact-mode', checked); addLog(`📱 Mini mode ${checked ? 'enabled' : 'disabled'}`, 'success'); } catch (err) { console.error('⚠️ [MINI-MODE] Error:', err); } } }} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
+                            Enable Mini Mode (Compact View)
+                        </label>
+                        <p style={{ fontSize: '12px', color: '#ddd6fe', marginTop: '8px', marginLeft: '30px', opacity: 0.8 }}>Smaller variant of the application with a sidetab for quick tab transitions.</p>
                     </div>
                 </div>
 
-                
-                {/* DATA SOURCES GROUP */}
-                <div style={{
-                    background: 'rgba(16, 185, 129, 0.1)',
-                    border: '2px solid rgba(16, 185, 129, 0.3)',
-                    borderRadius: '12px',
-                    padding: '24px',
-                    marginBottom: '24px'
-                }}>
-                    <h3 style={{ 
-                        color: '#86efac', 
-                        fontSize: '18px', 
-                        fontWeight: '700',
-                        marginBottom: '16px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }}>
-                        DATA SOURCES
+                {/* ── OFFICER INFORMATION ── */}
+                <div style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
+                    <h3 style={{ color: '#93c5fd', fontSize: '16px', fontWeight: '700', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '2px' }}>
+                        👮 OFFICER INFORMATION
                     </h3>
-                    
                     {editableTrooperSettings && (
                         <div style={{ display: 'grid', gap: '12px' }}>
-                            <div>
-                                <label style={{ color: '#d1fae5', fontSize: '13px', marginBottom: '4px', display: 'block' }}>Registration Channel ID</label>
-                                <input
-                                    type="text"
-                                    value={editableTrooperSettings.RegistrationChannelID || ''}
-                                    onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, RegistrationChannelID: e.target.value})}
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        background: 'rgba(255, 255, 255, 0.1)',
-                                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                                        borderRadius: '6px',
-                                        color: 'white',
-                                        fontSize: '13px'
-                                    }}
-                                />
+                            {[
+                                { label: 'Username', key: 'Username' },
+                            ].map(({ label, key }) => (
+                                <div key={key}>
+                                    <label style={{ color: '#bfdbfe', fontSize: '13px', marginBottom: '4px', display: 'block' }}>{label}</label>
+                                    <input type="text" value={editableTrooperSettings[key] || ''} onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, [key]: e.target.value})} style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '8px', color: 'white', fontSize: '13px', boxSizing: 'border-box' }} />
+                                </div>
+                            ))}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                {[{ label: 'First Name', key: 'FirstName' }, { label: 'Last Name', key: 'LastName' }].map(({ label, key }) => (
+                                    <div key={key}>
+                                        <label style={{ color: '#bfdbfe', fontSize: '13px', marginBottom: '4px', display: 'block' }}>{label}</label>
+                                        <input type="text" value={editableTrooperSettings[key] || ''} onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, [key]: e.target.value})} style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '8px', color: 'white', fontSize: '13px', boxSizing: 'border-box' }} />
+                                    </div>
+                                ))}
                             </div>
-                            
-                            <div>
-                                <label style={{ color: '#d1fae5', fontSize: '13px', marginBottom: '4px', display: 'block' }}>Database Channel ID</label>
-                                <input
-                                    type="text"
-                                    value={editableTrooperSettings.DatabaseChannelID || ''}
-                                    onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, DatabaseChannelID: e.target.value})}
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        background: 'rgba(255, 255, 255, 0.1)',
-                                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                                        borderRadius: '6px',
-                                        color: 'white',
-                                        fontSize: '13px'
-                                    }}
-                                />
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                {[{ label: 'Badge ID', key: 'BadgeID' }, { label: 'Zone', key: 'Zone' }].map(({ label, key }) => (
+                                    <div key={key}>
+                                        <label style={{ color: '#bfdbfe', fontSize: '13px', marginBottom: '4px', display: 'block' }}>{label}</label>
+                                        <input type="text" value={editableTrooperSettings[key] || ''} onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, [key]: e.target.value})} style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '8px', color: 'white', fontSize: '13px', boxSizing: 'border-box' }} />
+                                    </div>
+                                ))}
                             </div>
-                            
                             <div>
-                                <label style={{ color: '#d1fae5', fontSize: '13px', marginBottom: '4px', display: 'block' }}>Guild ID</label>
-                                <input
-                                    type="text"
-                                    value={editableTrooperSettings.GuildID || ''}
-                                    onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, GuildID: e.target.value})}
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        background: 'rgba(255, 255, 255, 0.1)',
-                                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                                        borderRadius: '6px',
-                                        color: 'white',
-                                        fontSize: '13px'
-                                    }}
-                                />
+                                <label style={{ color: '#bfdbfe', fontSize: '13px', marginBottom: '4px', display: 'block' }}>Registration Expiry Date (MM/DD/YY)</label>
+                                <input type="text" value={editableTrooperSettings.expDate || ''} onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, expDate: e.target.value})} placeholder="03/13/26" style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '8px', color: 'white', fontSize: '13px', boxSizing: 'border-box' }} />
                             </div>
                         </div>
                     )}
                 </div>
-                
-                {/* AUDIO & ALERTS GROUP */}
-                <div style={{
-                    background: 'rgba(251, 191, 36, 0.1)',
-                    border: '2px solid rgba(251, 191, 36, 0.3)',
-                    borderRadius: '12px',
-                    padding: '24px',
-                    marginBottom: '24px'
-                }}>
-                    <h3 style={{ 
-                        color: '#fde047', 
-                        fontSize: '18px', 
-                        fontWeight: '700',
-                        marginBottom: '16px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }}>
-                        AUDIO & ALERTS
+
+                {/* ── DEVELOPER TOOLS ── */}
+                <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
+                    <h3 style={{ color: '#fde047', fontSize: '16px', fontWeight: '700', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '2px' }}>
+                        🛠️ DEVELOPER TOOLS
                     </h3>
-                    
-                    <label style={{ color: '#fef3c7', fontSize: '14px', fontWeight: '500', marginBottom: '12px', display: 'block' }}>
-                        Active Session (Call Alerts)
-                    </label>
-                    <select 
-                        value={selectedUserSession}
-                        onChange={(e) => {
-                            const value = e.target.value;
-                            setSelectedUserSession(value);
-                            addLog(`âœ… Active session ${value ? 'set to ' + value : 'cleared'}`, 'success');
-                        }}
-                        style={{
-                            width: '100%',
-                            padding: '12px',
-                            background: 'rgba(255, 255, 255, 0.1)',
-                            border: '1px solid rgba(251, 191, 36, 0.3)',
-                            borderRadius: '8px',
-                            color: 'white',
-                            fontSize: '14px',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <option value="" style={{ background: '#1e3a8a', color: 'white' }}>None (No Alerts)</option>
-                        <option value="1011898104670330920" style={{ background: '#1e3a8a', color: 'white' }}>Session 1</option>
-                        <option value="1390212294478397471" style={{ background: '#1e3a8a', color: 'white' }}>Session 2</option>
-                        <option value="1390212341005680650" style={{ background: '#1e3a8a', color: 'white' }}>Session 3</option>
-                    </select>
-                    <p style={{ fontSize: '12px', color: '#fef3c7', marginTop: '8px' }}>
-                        When a new call comes in for this session, you'll hear an alert sound.
-                    </p>
+                    <div style={{ marginBottom: '12px', padding: '14px', background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.2)', borderRadius: '10px' }}>
+                        <label style={{ color: '#fde047', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                            <input type="checkbox" checked={showDevConsole} onChange={(e) => { setShowDevConsole(e.target.checked); addLog(`📊 Console ${e.target.checked ? 'shown' : 'hidden'}`, 'success'); }} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
+                            Show Built-in Developer Console
+                        </label>
+                        <p style={{ fontSize: '12px', color: '#fef08a', marginTop: '8px', marginLeft: '30px', opacity: 0.8 }}>Shows real-time logs at the bottom of each page.</p>
+                    </div>
+                    <div style={{ padding: '14px', background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.2)', borderRadius: '10px' }}>
+                        <button
+                            onClick={() => { if (window.require) { const { ipcRenderer } = window.require('electron'); ipcRenderer.send('open-dev-tools'); } }}
+                            style={{ width: '100%', padding: '12px', background: 'rgba(234,179,8,0.15)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: '8px', color: '#fde047', fontSize: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s' }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(234,179,8,0.25)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(234,179,8,0.15)'}
+                        >
+                            🔧 Open Electron Developer Tools
+                        </button>
+                        <p style={{ fontSize: '12px', color: '#fef08a', marginTop: '8px', textAlign: 'center', opacity: 0.8 }}>Full browser DevTools (Network, Elements, Console, etc.)</p>
+                    </div>
                 </div>
 
-{/* SOUND SETTINGS GROUP */}
-<div style={{
-    background: 'rgba(139, 92, 246, 0.1)',
-    border: '2px solid rgba(139, 92, 246, 0.3)',
-    borderRadius: '12px',
-    padding: '24px',
-    marginBottom: '24px'
-}}>
-    <h3 style={{ 
-        color: '#c4b5fd', 
-        fontSize: '18px', 
-        fontWeight: '700',
-        marginBottom: '16px',
-        textTransform: 'uppercase',
-        letterSpacing: '1px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px'
-    }}>
-        🔊 SOUND SETTINGS
-    </h3>
-    
-    <div style={{ display: 'grid', gap: '12px' }}>
-        <label style={{ color: '#ddd6fe', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-            <input 
-                type="checkbox" 
-                checked={soundSettings.platePass}
-                onChange={(e) => setSoundSettings({...soundSettings, platePass: e.target.checked})}
-                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-            />
-            Enable Plate Search Success Sound
-        </label>
-        
-        <label style={{ color: '#ddd6fe', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-            <input 
-                type="checkbox" 
-                checked={soundSettings.plateFail}
-                onChange={(e) => setSoundSettings({...soundSettings, plateFail: e.target.checked})}
-                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-            />
-            Enable Plate Search Fail Sound
-        </label>
-        
-        <label style={{ color: '#ddd6fe', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-            <input 
-                type="checkbox" 
-                checked={soundSettings.callAlert}
-                onChange={(e) => setSoundSettings({...soundSettings, callAlert: e.target.checked})}
-                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-            />
-            Enable New Call Alert Sound
-        </label>
-        
-        <label style={{ color: '#ddd6fe', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-            <input 
-                type="checkbox" 
-                checked={soundSettings.warrantAlert}
-                onChange={(e) => setSoundSettings({...soundSettings, warrantAlert: e.target.checked})}
-                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-            />
-            Enable Warrant Alert Sound
-        </label>
-    </div>
-</div>
+                {/* ── DATA SOURCES ── */}
+                <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
+                    <h3 style={{ color: '#86efac', fontSize: '16px', fontWeight: '700', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '2px' }}>
+                        🗄️ DATA SOURCES
+                    </h3>
+                    {editableTrooperSettings && (
+                        <div style={{ display: 'grid', gap: '12px' }}>
+                            {[{ label: 'Registration Channel ID', key: 'RegistrationChannelID' }, { label: 'Database Channel ID', key: 'DatabaseChannelID' }, { label: 'Guild ID', key: 'GuildID' }].map(({ label, key }) => (
+                                <div key={key}>
+                                    <label style={{ color: '#d1fae5', fontSize: '13px', marginBottom: '4px', display: 'block' }}>{label}</label>
+                                    <input type="text" value={editableTrooperSettings[key] || ''} onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, [key]: e.target.value})} style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '8px', color: 'white', fontSize: '13px', boxSizing: 'border-box' }} />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
 
+                {/* ── AUDIO & ALERTS ── */}
+                <div style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
+                    <h3 style={{ color: '#fde047', fontSize: '16px', fontWeight: '700', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '2px' }}>
+                        🔔 AUDIO & ALERTS
+                    </h3>
+                    <label style={{ color: '#fef3c7', fontSize: '14px', fontWeight: '500', marginBottom: '12px', display: 'block' }}>Active Session (Call Alerts)</label>
+                    <select value={selectedUserSession} onChange={(e) => { const value = e.target.value; setSelectedUserSession(value); addLog(`✅ Active session ${value ? 'set to ' + value : 'cleared'}`, 'success'); }} style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '8px', color: 'white', fontSize: '14px', cursor: 'pointer', marginBottom: '8px' }}>
+                        <option value="" style={{ background: '#1e3a8a' }}>None (No Alerts)</option>
+                        <option value="1011898104670330920" style={{ background: '#1e3a8a' }}>Session 1</option>
+                        <option value="1390212294478397471" style={{ background: '#1e3a8a' }}>Session 2</option>
+                        <option value="1390212341005680650" style={{ background: '#1e3a8a' }}>Session 3</option>
+                    </select>
+                    <p style={{ fontSize: '12px', color: '#fef3c7', opacity: 0.8 }}>When a new call comes in for this session, you'll hear an alert sound.</p>
+                </div>
+
+                {/* ── SOUND SETTINGS ── */}
+                <div style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
+                    <h3 style={{ color: '#c4b5fd', fontSize: '16px', fontWeight: '700', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '2px' }}>
+                        🔊 SOUND SETTINGS
+                    </h3>
+                    <div style={{ display: 'grid', gap: '10px' }}>
+                        {[
+                            { label: 'Enable Plate Search Success Sound', key: 'platePass' },
+                            { label: 'Enable Plate Search Fail Sound', key: 'plateFail' },
+                            { label: 'Enable New Call Alert Sound', key: 'callAlert' },
+                            { label: 'Enable Warrant Alert Sound', key: 'warrantAlert' },
+                        ].map(({ label, key }) => (
+                            <div key={key} style={{ padding: '12px 14px', background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)', borderRadius: '8px' }}>
+                                <label style={{ color: '#ddd6fe', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                                    <input type="checkbox" checked={soundSettings[key]} onChange={(e) => setSoundSettings({...soundSettings, [key]: e.target.checked})} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
+                                    {label}
+                                </label>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* ── SAVE BUTTON ── */}
                 <button
                     onClick={saveSettingsToFile}
                     disabled={savingSettings}
-                    style={{
-                        width: '100%',
-                        marginTop: '20px',
-                        padding: '14px',
-                        background: savingSettings ? '#6b7280' : 'linear-gradient(135deg, #10b981, #059669)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '15px',
-                        fontWeight: '700',
-                        cursor: savingSettings ? 'not-allowed' : 'pointer',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px'
-                    }}
+                    style={{ width: '100%', marginTop: '8px', padding: '16px', background: savingSettings ? '#374151' : 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: '700', cursor: savingSettings ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: '2px', boxShadow: savingSettings ? 'none' : '0 4px 16px rgba(16,185,129,0.3)', transition: 'all 0.2s' }}
+                    onMouseEnter={e => { if (!savingSettings) e.currentTarget.style.boxShadow = '0 6px 24px rgba(16,185,129,0.5)'; }}
+                    onMouseLeave={e => { if (!savingSettings) e.currentTarget.style.boxShadow = '0 4px 16px rgba(16,185,129,0.3)'; }}
                 >
-                    {savingSettings ? 'SAVING SETTINGS...' : 'SAVE SETTINGS TO FILE'}
+                    {savingSettings ? '⏳ SAVING SETTINGS...' : '💾 SAVE SETTINGS TO FILE'}
                 </button>
-                
+
+                {/* ── DEV CONSOLE ── */}
                 {showDevConsole && consoleLogs.length > 0 && (
-                    <div className="console-box">
+                    <div className="console-box" style={{ marginTop: '20px' }}>
                         <div className="console-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Terminal />
-                                Developer Console
+                                <Terminal size={16} /> Developer Console
                             </div>
                             <button
                                 onClick={() => {
@@ -11895,23 +11403,12 @@ localStorage.setItem('groqConsoleAPIKey', apiKey);
                                     const url = URL.createObjectURL(blob);
                                     const a = document.createElement('a');
                                     a.href = url;
-                                    a.download = `NYSP_MDT_Logs_${new Date().toISOString().split('T')[0]}_${new Date().toTimeString().split(' ')[0].replace(/:/g, '-')}.txt`;
+                                    a.download = `NYSP_MDT_Logs_${new Date().toISOString().split('T')[0]}.txt`;
                                     a.click();
                                     URL.revokeObjectURL(url);
-                                    addLog('ðŸ“¥ Console logs exported', 'success');
+                                    addLog('📥 Console logs exported', 'success');
                                 }}
-                                style={{
-                                    padding: '4px 12px',
-                                    background: '#3b82f6',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    fontSize: '10px',
-                                    fontWeight: '600',
-                                    cursor: 'pointer',
-                                    textTransform: 'uppercase',
-                                    whiteSpace: 'nowrap'
-                                }}
+                                style={{ padding: '4px 12px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '10px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px' }}
                             >
                                 EXPORT
                             </button>
