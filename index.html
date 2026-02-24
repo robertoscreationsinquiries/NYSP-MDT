@@ -2731,13 +2731,7 @@ if (settings.DyslexiaFont === 'TRUE') {
     addLog('âœ… Dyslexia font enabled', 'success');
 }
 
-            if (line.startsWith('GroqConsoleAPIKey=')) {
-                const key = line.split('=')[1]?.trim();
-                if (key && key !== '' && key !== 'HIDDEN') {
-                    setGroqConsoleAPIKey(key);
-                    console.log('🔑 [SETTINGS] Hugging Face API key loaded from file');
-                }
-            }
+
 
 if (settings.VisualEffects === 'FALSE') {
     setVisualEffects(false);
@@ -2832,11 +2826,19 @@ useEffect(() => {
                     addLog(`âœ… Active session restored: ${settings.ActiveSession}`, 'success');
                 }
                 
-                if (settings.DiscordAccountToken) {
-                    setDiscordToken(settings.DiscordAccountToken);
-                    setTokenSaved(true);
-                    addLog('âœ… Discord token loaded from settings', 'success');
-                }
+if (settings.DiscordAccountToken) {
+    setDiscordToken(settings.DiscordAccountToken);
+    setTokenSaved(true);
+    addLog('✅ Discord token loaded from settings', 'success');
+}
+
+// ADD THIS:
+if (settings.GroqConsoleAPIKey && settings.GroqConsoleAPIKey.startsWith('gsk_')) {
+    setGroqConsoleAPIKey(settings.GroqConsoleAPIKey);
+    window.GROQ_CONSOLE_API_KEY = settings.GroqConsoleAPIKey;
+    localStorage.setItem('groqConsoleAPIKey', settings.GroqConsoleAPIKey);
+    addLog('✅ Groq API key loaded from settings', 'success');
+}
             } else {
                 addLog('âš ï¸ Settings file not found, using defaults', 'info');
                 const defaultSettings = {
@@ -8463,718 +8465,269 @@ return (
 {activeView === 'home' ? (
     <div style={{ 
         maxWidth: '100%',
-        minHeight: '100vh',
         margin: '0 auto', 
-        padding: '24px', 
+        padding: '20px', 
         width: '100%',
         animation: 'fadeIn 0.4s ease-out',
         boxSizing: 'border-box',
-        background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)'
+        background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
+        minHeight: '100vh'
     }}>
         <div className="card" style={{ 
-            height: 'calc(100vh - 80px)',
+            height: 'calc(100vh - 60px)',
             overflowY: 'auto',
             background: 'transparent',
             border: 'none',
-            boxShadow: 'none',
-              backdropFilter: 'blur(10px)',
-  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+            boxShadow: 'none'
         }}>
-            {/* HEADER */}
+
+            {/* ── HEADER BAR ── */}
             <div style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
-                gap: '24px',
-                marginBottom: '32px',
-                paddingBottom: '24px',
-                borderBottom: '2px solid rgba(59, 130, 246, 0.3)',
-                background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.2), rgba(59, 130, 246, 0.1))',
-                padding: '24px',
-                borderRadius: '12px',
-                border: '1px solid rgba(59, 130, 246, 0.2)',
-                boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+                gap: '20px',
+                marginBottom: '20px',
+                padding: '20px 24px',
+                borderRadius: '14px',
+                background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,58,138,0.4))',
+                border: '1px solid rgba(59,130,246,0.25)',
+                boxShadow: '0 4px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)',
                 position: 'relative',
                 overflow: 'hidden'
             }}>
-                <div style={{
-                    position: 'absolute',
-                    top: '-50%',
-                    right: '-20%',
-                    width: '60%',
-                    height: '200%',
-                    background: 'radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%)',
-                    animation: 'pulse 4s ease-in-out infinite',
-                    pointerEvents: 'none'
-                }}></div>
-
-                <div style={{
-                    width: '80px',
-                    height: '80px',
-                    background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)',
-                    borderRadius: '16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: '0 8px 32px rgba(59, 130, 246, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-                    position: 'relative',
-                    border: '1px solid rgba(96, 165, 250, 0.3)'
-                }}>
-                    <Shield size={48} style={{ color: 'white', filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))' }} />
+                {/* Ambient glow */}
+                <div style={{ position: 'absolute', top: '-60%', right: '-10%', width: '50%', height: '220%', background: 'radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%)', pointerEvents: 'none' }}></div>
+                
+                <div style={{ width: '64px', height: '64px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(59,130,246,0.5)', border: '1px solid rgba(96,165,250,0.3)', flexShrink: 0 }}>
+                    <Shield size={36} style={{ color: 'white' }} />
                 </div>
+                
                 <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
-                    <h1 style={{ 
-                        color: 'white', 
-                        fontSize: '32px', 
-                        fontWeight: '700', 
-                        marginBottom: '6px',
-                        textShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
-                        letterSpacing: '0.5px'
-                    }}>
-                        TROOPER DASHBOARD - {currentTime.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                    </h1>
-                    <p style={{ 
-                        color: '#60a5fa', 
-                        fontSize: '14px', 
-                        marginBottom: '4px',
-                        fontWeight: '500'
-                    }}>
-                        New York State Police - Mobile Data Terminal
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', flexWrap: 'wrap' }}>
+                        <h1 style={{ color: 'white', fontSize: '22px', fontWeight: '800', margin: 0, letterSpacing: '1px', textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
+                            NYSP MOBILE DATA TERMINAL
+                        </h1>
+                        <span style={{ color: '#3b82f6', fontSize: '11px', fontWeight: '700', letterSpacing: '2px', background: 'rgba(59,130,246,0.15)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(59,130,246,0.3)' }}>
+                            EST. 2025
+                        </span>
+                    </div>
+                    <p style={{ color: '#60a5fa', fontSize: '13px', margin: '4px 0 0', fontWeight: '500' }}>
+                        {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} — {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
                     </p>
-                    <p style={{ 
-                        color: '#3b82f6', 
-                        fontSize: '11px', 
-                        fontWeight: '600', 
-                        letterSpacing: '1px'
-                    }}>
-                        EST. 2025
-                    </p>
+                </div>
+
+                {/* Live status pill */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '20px', padding: '8px 14px', flexShrink: 0 }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981', animation: 'pulse-dot 2s ease-in-out infinite' }}></div>
+                    <span style={{ color: '#34d399', fontSize: '12px', fontWeight: '700', letterSpacing: '1px' }}>ONLINE</span>
                 </div>
             </div>
 
             {/* TOKEN WARNING */}
             {tokenExpiryWarning && (
-                <div style={{
-                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(220, 38, 38, 0.15))',
-                    border: '2px solid rgba(239, 68, 68, 0.5)',
-                    borderRadius: '12px',
-                    padding: '20px',
-                    marginBottom: '24px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '16px',
-                    animation: 'fadeIn 0.3s ease-out',
-                    boxShadow: '0 4px 16px rgba(239, 68, 68, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
-                }}>
-                    <span style={{ fontSize: '28px' }}>⚠️</span>
+                <div style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.2), rgba(220,38,38,0.1))', border: '1px solid rgba(239,68,68,0.4)', borderRadius: '12px', padding: '16px 20px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 4px 16px rgba(239,68,68,0.2)' }}>
+                    <span style={{ fontSize: '24px' }}>⚠️</span>
                     <div style={{ flex: 1 }}>
-                        <div style={{ color: '#fca5a5', fontSize: '14px', fontWeight: '700', marginBottom: '6px', letterSpacing: '0.5px' }}>
-                            TOKEN EXPIRY WARNING
-                        </div>
-                        <div style={{ color: '#fecaca', fontSize: '12px', lineHeight: '1.5' }}>
-                            Your Discord token may be invalid or expired. Please update it in Settings.
-                        </div>
+                        <div style={{ color: '#fca5a5', fontSize: '13px', fontWeight: '700', marginBottom: '2px', letterSpacing: '0.5px' }}>TOKEN EXPIRY WARNING</div>
+                        <div style={{ color: '#fecaca', fontSize: '12px' }}>Your Discord token may be invalid. Please update it in Settings.</div>
                     </div>
                     <Tooltip text="Go to settings to update your token">
-                        <button
-                            onClick={() => {
-                                setActiveView('settings');
-                                setSettingsWarningDismissed(false);
-                                setContinueButtonEnabled(false);
-                            }}
-                            style={{
-                                padding: '10px 20px',
-                                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                                color: 'white',
-                                border: '1px solid rgba(239, 68, 68, 0.5)',
-                                borderRadius: '8px',
-                                fontSize: '12px',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                whiteSpace: 'nowrap',
-                                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)',
-                                transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.target.style.transform = 'translateY(-2px)';
-                                e.target.style.boxShadow = '0 6px 20px rgba(239, 68, 68, 0.6)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.target.style.transform = 'translateY(0)';
-                                e.target.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.4)';
-                            }}
-                        >
-                            UPDATE TOKEN
-                        </button>
+                        <button onClick={() => { setActiveView('settings'); setSettingsWarningDismissed(false); setContinueButtonEnabled(false); }} style={{ padding: '8px 18px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(239,68,68,0.4)', transition: 'all 0.2s', whiteSpace: 'nowrap' }}
+                            onMouseEnter={e => { e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 6px 18px rgba(239,68,68,0.6)'; }}
+                            onMouseLeave={e => { e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = '0 4px 12px rgba(239,68,68,0.4)'; }}
+                        >UPDATE TOKEN</button>
                     </Tooltip>
                 </div>
             )}
 
-            {/* INFO CARDS */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
-                {/* Trooper Info */}
-                <div style={{
-                    background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.15), rgba(59, 130, 246, 0.08))',
-                    backdropFilter: 'blur(10px)',
-                    border: '1px solid rgba(59, 130, 246, 0.3)',
-                    borderRadius: '16px',
-                    padding: '24px',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
-                    position: 'relative',
-                    overflow: 'hidden'
-                }}>
-                    <div style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: '2px',
-                        background: 'linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.5), transparent)'
-                    }}></div>
+            {/* ── MAIN GRID: LEFT COLUMN + RIGHT COLUMN ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
 
-                    <div style={{ 
-                        color: '#60a5fa', 
-                        fontSize: '13px', 
-                        fontWeight: '700', 
-                        marginBottom: '20px', 
-                        textTransform: 'uppercase', 
-                        letterSpacing: '1.5px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }}>
-                        <span style={{ 
-                            width: '4px', 
-                            height: '16px', 
-                            background: 'linear-gradient(180deg, #60a5fa, #3b82f6)',
-                            borderRadius: '2px'
-                        }}></span>
-                        Trooper Information
+                {/* ── LEFT: OFFICER CARD ── */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(30,58,138,0.2), rgba(59,130,246,0.08))', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px', padding: '20px', position: 'relative', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(59,130,246,0.6), transparent)' }}></div>
+                    
+                    <div style={{ color: '#60a5fa', fontSize: '11px', fontWeight: '700', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ width: '3px', height: '14px', background: 'linear-gradient(180deg, #60a5fa, #3b82f6)', borderRadius: '2px' }}></span>
+                        Officer Information
                     </div>
-                    <div style={{ display: 'grid', gap: '16px' }}>
-                        <div>
-                            <div style={{ color: '#93c5fd', fontSize: '10px', marginBottom: '6px', letterSpacing: '1px', fontWeight: '600' }}>NAME</div>
-                            <div style={{ color: 'white', fontSize: '16px', fontWeight: '700', textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)' }}>
-                                {trooperSettings?.FirstName || 'UNKNOWN'} {trooperSettings?.LastName || ''}
-                            </div>
+
+                    {/* Big name display */}
+                    <div style={{ marginBottom: '16px', padding: '14px', background: 'rgba(59,130,246,0.08)', borderRadius: '10px', border: '1px solid rgba(59,130,246,0.15)' }}>
+                        <div style={{ color: '#93c5fd', fontSize: '10px', letterSpacing: '1.5px', fontWeight: '600', marginBottom: '4px' }}>OFFICER NAME</div>
+                        <div style={{ color: 'white', fontSize: '20px', fontWeight: '800', letterSpacing: '0.5px' }}>
+                            {trooperSettings?.FirstName || 'UNKNOWN'} {trooperSettings?.LastName || ''}
                         </div>
-                        <div>
-                            <div style={{ color: '#93c5fd', fontSize: '10px', marginBottom: '6px', letterSpacing: '1px', fontWeight: '600' }}>BADGE ID</div>
-                            <div style={{ color: 'white', fontSize: '16px', fontWeight: '700', fontFamily: 'monospace', textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)' }}>
-                                #{trooperSettings?.BadgeID || '00000'}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                        {[
+                            { label: 'BADGE ID', value: `#${trooperSettings?.BadgeID || '00000'}`, mono: true },
+                            { label: 'ZONE', value: `ZONE ${trooperSettings?.Zone || '—'}` },
+                            { label: 'USERNAME', value: trooperSettings?.Username || 'UNKNOWN' },
+                            { label: 'REG. EXPIRY', value: trooperSettings?.expDate || '—' },
+                        ].map(({ label, value, mono }) => (
+                            <div key={label} style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)' }}>
+                                <div style={{ color: '#93c5fd', fontSize: '9px', letterSpacing: '1.5px', fontWeight: '700', marginBottom: '4px' }}>{label}</div>
+                                <div style={{ color: 'white', fontSize: '13px', fontWeight: '700', fontFamily: mono ? 'monospace' : 'inherit' }}>{value}</div>
                             </div>
-                        </div>
-                        <div>
-                            <div style={{ color: '#93c5fd', fontSize: '10px', marginBottom: '6px', letterSpacing: '1px', fontWeight: '600' }}>TROOPER ZONE</div>
-                            <div style={{ color: 'white', fontSize: '16px', fontWeight: '700', textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)' }}>
-                                ZONE {trooperSettings?.Zone || 'UNKNOWN'}
-                            </div>
-                        </div>
-                        <div>
-                            <div style={{ color: '#93c5fd', fontSize: '10px', marginBottom: '6px', letterSpacing: '1px', fontWeight: '600' }}>USERNAME</div>
-                            <div style={{ color: 'white', fontSize: '14px', fontWeight: '600', textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)' }}>
-                                {trooperSettings?.Username || 'UNKNOWN'}
-                            </div>
-                        </div>
+                        ))}
                     </div>
                 </div>
 
-                {/* System Status */}
-                <div style={{
-                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.08))',
-                    backdropFilter: 'blur(10px)',
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                    borderRadius: '16px',
-                    padding: '24px',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
-                    position: 'relative',
-                    overflow: 'hidden'
-                }}>
-                    <div style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: '2px',
-                        background: 'linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.5), transparent)'
-                    }}></div>
-
-                    <div style={{ 
-                        color: '#34d399', 
-                        fontSize: '13px', 
-                        fontWeight: '700', 
-                        marginBottom: '20px', 
-                        textTransform: 'uppercase', 
-                        letterSpacing: '1.5px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }}>
-                        <span style={{ 
-                            width: '4px', 
-                            height: '16px', 
-                            background: 'linear-gradient(180deg, #34d399, #10b981)',
-                            borderRadius: '2px'
-                        }}></span>
+                {/* ── RIGHT: SYSTEM STATUS ── */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.08))', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '14px', padding: '20px', position: 'relative', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(16,185,129,0.6), transparent)' }}></div>
+                    
+                    <div style={{ color: '#34d399', fontSize: '11px', fontWeight: '700', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ width: '3px', height: '14px', background: 'linear-gradient(180deg, #34d399, #10b981)', borderRadius: '2px' }}></span>
                         System Status
                     </div>
-                    <div style={{ display: 'grid', gap: '16px' }}>
-                        <div>
-                            <div style={{ color: '#6ee7b7', fontSize: '10px', marginBottom: '6px', letterSpacing: '1px', fontWeight: '600' }}>MDT STATUS</div>
-                            <div style={{ color: 'white', fontSize: '14px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <div style={{ 
-                                    width: '10px', 
-                                    height: '10px', 
-                                    borderRadius: '50%', 
-                                    background: '#10b981', 
-                                    boxShadow: '0 0 12px #10b981, 0 0 24px rgba(16, 185, 129, 0.5)',
-                                    animation: 'pulse-dot 2s ease-in-out infinite'
-                                }}></div>
-                                ONLINE
+
+                    <div style={{ display: 'grid', gap: '10px' }}>
+                        {[
+                            { label: 'MDT STATUS', value: 'ONLINE', dot: '#10b981' },
+                            { label: 'DATABASE', value: databaseStatus.checking ? 'CHECKING...' : (databaseStatus.connected ? 'CONNECTED' : 'DISCONNECTED'), dot: databaseStatus.checking ? '#fbbf24' : (databaseStatus.connected ? '#10b981' : '#ef4444') },
+                            { label: 'ACTIVE SESSION', value: selectedUserSession ? `SESSION ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'}` : 'NONE', dot: selectedUserSession ? '#60a5fa' : '#6b7280' },
+                            { label: 'LOCAL TIME', value: currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }), mono: true, dot: null },
+                        ].map(({ label, value, dot, mono }) => (
+                            <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                <span style={{ color: '#6ee7b7', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>{label}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    {dot && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dot, boxShadow: `0 0 8px ${dot}`, animation: 'pulse-dot 2s ease-in-out infinite' }}></div>}
+                                    <span style={{ color: 'white', fontSize: '13px', fontWeight: '700', fontFamily: mono ? 'monospace' : 'inherit' }}>{value}</span>
+                                </div>
                             </div>
-                        </div>
-                        <div>
-                            <div style={{ color: '#6ee7b7', fontSize: '10px', marginBottom: '6px', letterSpacing: '1px', fontWeight: '600' }}>DATABASE CONNECTION</div>
-                            <div style={{ color: 'white', fontSize: '14px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <div style={{ 
-                                    width: '10px', 
-                                    height: '10px', 
-                                    borderRadius: '50%', 
-                                    background: databaseStatus.checking ? '#fbbf24' : (databaseStatus.connected ? '#10b981' : '#ef4444'), 
-                                    boxShadow: databaseStatus.checking ? '0 0 12px #fbbf24' : (databaseStatus.connected ? '0 0 12px #10b981' : '0 0 12px #ef4444'),
-                                    animation: 'pulse-dot 2s ease-in-out infinite'
-                                }}></div>
-                                {databaseStatus.checking ? 'CHECKING...' : (databaseStatus.connected ? 'CONNECTED' : 'DISCONNECTED')}
-                            </div>
-                        </div>
-                        <div>
-                            <div style={{ color: '#6ee7b7', fontSize: '10px', marginBottom: '6px', letterSpacing: '1px', fontWeight: '600' }}>ACTIVE SESSION</div>
-                            <div style={{ color: 'white', fontSize: '14px', fontWeight: '600' }}>
-                                {selectedUserSession ? `SESSION ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'}` : 'NONE'}
-                            </div>
-                        </div>
-                        <div>
-                            <div style={{ color: '#6ee7b7', fontSize: '10px', marginBottom: '6px', letterSpacing: '1px', fontWeight: '600' }}>CURRENT TIME</div>
-                            <div style={{ color: 'white', fontSize: '14px', fontWeight: '600', fontFamily: 'monospace' }}>
-                                {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })} ({Intl.DateTimeFormat().resolvedOptions().timeZone})
-                            </div>
-                        </div>
+                        ))}
                     </div>
                 </div>
             </div>
 
-            {/* CORE FUNCTIONS */}
-            <div style={{
-                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.05))',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(59, 130, 246, 0.25)',
-                borderRadius: '16px',
-                padding: '24px',
-                marginBottom: '20px',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
-            }}>
-                <h3 style={{ 
-                    color: '#93c5fd', 
-                    fontSize: '16px', 
-                    fontWeight: '700', 
-                    marginBottom: '16px',
-                    letterSpacing: '1px',
-                    textTransform: 'uppercase',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px'
-                }}>
-                    <span style={{ 
-                        width: '4px', 
-                        height: '20px', 
-                        background: 'linear-gradient(180deg, #93c5fd, #60a5fa)',
-                        borderRadius: '2px'
-                    }}></span>
+            {/* ── CORE FUNCTIONS ── */}
+            <div style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.08), rgba(37,99,235,0.04))', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '14px', padding: '20px', marginBottom: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.2)' }}>
+                <div style={{ color: '#93c5fd', fontSize: '11px', fontWeight: '700', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '3px', height: '14px', background: 'linear-gradient(180deg, #93c5fd, #60a5fa)', borderRadius: '2px' }}></span>
                     CORE FUNCTIONS
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
-                    <Tooltip text="Utilize this tool to search up the registration of a vehicle.">
-                        <button onClick={() => setActiveView('search')} style={{
-                            padding: '18px',
-                            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(37, 99, 235, 0.15))',
-                            border: '1px solid rgba(59, 130, 246, 0.4)',
-                            borderRadius: '12px',
-                            color: '#93c5fd',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            fontWeight: '700',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.5px',
-                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                            width: '100%',
-                            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = 'translateY(-3px)';
-                            e.currentTarget.style.boxShadow = '0 8px 24px rgba(59, 130, 246, 0.4)';
-                            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(37, 99, 235, 0.3))';
-                            e.currentTarget.style.color = '#ffffff';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.2)';
-                            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(37, 99, 235, 0.15))';
-                            e.currentTarget.style.color = '#93c5fd';
-                        }}>
-                            SCAN PLATE
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                    <Tooltip text="Search vehicle registration by license plate">
+                        <button onClick={() => setActiveView('search')} style={{ padding: '20px 12px', background: 'linear-gradient(135deg, rgba(59,130,246,0.2), rgba(37,99,235,0.1))', border: '1px solid rgba(59,130,246,0.35)', borderRadius: '12px', color: '#93c5fd', cursor: 'pointer', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', transition: 'all 0.25s', width: '100%', boxShadow: '0 4px 16px rgba(59,130,246,0.1)' }}
+                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(59,130,246,0.4)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.4), rgba(37,99,235,0.3))'; e.currentTarget.style.color = '#fff'; }}
+                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(59,130,246,0.1)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.2), rgba(37,99,235,0.1))'; e.currentTarget.style.color = '#93c5fd'; }}>
+                            🔍 SCAN PLATE
                         </button>
                     </Tooltip>
-                    
-                    <Tooltip text="Utilize this tool to search up an individual, including their records and registered vehicles.">
-                        <button onClick={() => setActiveView('database-search')} style={{
-                            padding: '18px',
-                            background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.25), rgba(5, 150, 105, 0.15))',
-                            border: '1px solid rgba(34, 197, 94, 0.4)',
-                            borderRadius: '12px',
-                            color: '#6ee7b7',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            fontWeight: '700',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.5px',
-                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                            width: '100%',
-                            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = 'translateY(-3px)';
-                            e.currentTarget.style.boxShadow = '0 8px 24px rgba(34, 197, 94, 0.4)';
-                            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(34, 197, 94, 0.4), rgba(5, 150, 105, 0.3))';
-                            e.currentTarget.style.color = '#ffffff';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.2)';
-                            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(34, 197, 94, 0.25), rgba(5, 150, 105, 0.15))';
-                            e.currentTarget.style.color = '#6ee7b7';
-                        }}>
-                            ID LOOKUP
+                    <Tooltip text="Look up an individual's records and registered vehicles">
+                        <button onClick={() => setActiveView('database-search')} style={{ padding: '20px 12px', background: 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(5,150,105,0.1))', border: '1px solid rgba(34,197,94,0.35)', borderRadius: '12px', color: '#6ee7b7', cursor: 'pointer', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', transition: 'all 0.25s', width: '100%', boxShadow: '0 4px 16px rgba(34,197,94,0.1)' }}
+                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(34,197,94,0.4)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.4), rgba(5,150,105,0.3))'; e.currentTarget.style.color = '#fff'; }}
+                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(34,197,94,0.1)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(5,150,105,0.1))'; e.currentTarget.style.color = '#6ee7b7'; }}>
+                            👤 ID LOOKUP
                         </button>
                     </Tooltip>
-                    
-                    <Tooltip text="Utilize this tool to view active calls within your session.">
-                        <button onClick={() => {
-                            setActiveView('calls');
-                            setCallButtonFlash(false);
-                        }} style={{
-                            padding: '18px',
-                            background: callButtonFlash ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'linear-gradient(135deg, rgba(251, 191, 36, 0.25), rgba(217, 119, 6, 0.15))',
-                            border: callButtonFlash ? '1px solid #991b1b' : '1px solid rgba(251, 191, 36, 0.4)',
-                            borderRadius: '12px',
-                            color: callButtonFlash ? '#ffffff' : '#fcd34d',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            fontWeight: '700',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.5px',
-                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                            animation: callButtonFlash ? 'flash-red 1.5s infinite' : 'none',
-                            boxShadow: callButtonFlash ? '0 4px 20px rgba(239, 68, 68, 0.6)' : '0 4px 16px rgba(0, 0, 0, 0.2)',
-                            width: '100%'
-                        }}
-                        onMouseEnter={(e) => {
-                            if (!callButtonFlash) {
-                                e.currentTarget.style.transform = 'translateY(-3px)';
-                                e.currentTarget.style.boxShadow = '0 8px 24px rgba(251, 191, 36, 0.4)';
-                                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(251, 191, 36, 0.4), rgba(217, 119, 6, 0.3))';
-                                e.currentTarget.style.color = '#ffffff';
-                            }
-                        }}
-                        onMouseLeave={(e) => {
-                            if (!callButtonFlash) {
-                                e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.2)';
-                                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(251, 191, 36, 0.25), rgba(217, 119, 6, 0.15))';
-                                e.currentTarget.style.color = '#fcd34d';
-                            }
-                        }}>
-                            {callButtonFlash ? '!! ' : ''}PENDING CALLS
+                    <Tooltip text="View active calls in your session">
+                        <button onClick={() => { setActiveView('calls'); setCallButtonFlash(false); }} style={{ padding: '20px 12px', background: callButtonFlash ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'linear-gradient(135deg, rgba(251,191,36,0.2), rgba(217,119,6,0.1))', border: callButtonFlash ? '1px solid #991b1b' : '1px solid rgba(251,191,36,0.35)', borderRadius: '12px', color: callButtonFlash ? '#fff' : '#fcd34d', cursor: 'pointer', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', transition: 'all 0.25s', animation: callButtonFlash ? 'flash-red 1.5s infinite' : 'none', boxShadow: callButtonFlash ? '0 4px 20px rgba(239,68,68,0.6)' : '0 4px 16px rgba(251,191,36,0.1)', width: '100%' }}
+                            onMouseEnter={e => { if (!callButtonFlash) { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(251,191,36,0.4)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(251,191,36,0.4), rgba(217,119,6,0.3))'; e.currentTarget.style.color = '#fff'; } }}
+                            onMouseLeave={e => { if (!callButtonFlash) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(251,191,36,0.1)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(251,191,36,0.2), rgba(217,119,6,0.1))'; e.currentTarget.style.color = '#fcd34d'; } }}>
+                            {callButtonFlash ? '🚨 ' : '📡 '}PENDING CALLS
                         </button>
                     </Tooltip>
                 </div>
             </div>
 
-            {/* SYSTEM UTILITIES */}
-            <div style={{
-                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.05))',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(59, 130, 246, 0.25)',
-                borderRadius: '16px',
-                padding: '24px',
-                marginBottom: '20px',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
-            }}>
-                <h3 style={{ 
-                    color: '#93c5fd', 
-                    fontSize: '16px', 
-                    fontWeight: '700', 
-                    marginBottom: '16px',
-                    letterSpacing: '1px',
-                    textTransform: 'uppercase',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px'
-                }}>
-                    <span style={{ 
-                        width: '4px', 
-                        height: '20px', 
-                        background: 'linear-gradient(180deg, #93c5fd, #60a5fa)',
-                        borderRadius: '2px'
-                    }}></span>
-                    SYSTEM UTILITIES
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px' }}>
-                    {[
-                        { emoji: '⚙️', label: 'CONFIGURATION', onClick: () => { setActiveView('settings'); setSettingsWarningDismissed(false); setContinueButtonEnabled(false); }, color: '#60a5fa', tooltip: 'Configure your trooper credentials' },
-                        { emoji: '📋', label: 'UPDATE LOG', onClick: () => setShowUpdateLog(true), color: '#a78bfa', tooltip: 'View changelog' },
-                        { emoji: '❓', label: 'FAQ', onClick: () => setShowFAQ(true), color: '#fbbf24', tooltip: 'Get answers to questions' },
-                        { emoji: '👥', label: 'CREDITS', onClick: () => { setCreditsKey(prev => prev + 1); setShowCredits(false); setTimeout(() => setShowCredits(true), 10); }, color: '#34d399', tooltip: 'View credits' },
-                        { emoji: '🔗', label: 'USEFUL LINKS', onClick: () => setShowUsefulLinks(true), color: '#22d3ee', tooltip: 'Quick access to resources' },
-                        { emoji: '🚪', label: 'EXIT APP', onClick: () => setShowExitConfirm(true), color: '#f87171', tooltip: 'Shut down MDT' }
-                    ].map((btn, i) => (
-                        <Tooltip key={i} text={btn.tooltip}>
-                            <button onClick={btn.onClick} style={{
-                                padding: '16px',
-                                background: `linear-gradient(135deg, ${btn.color}25, ${btn.color}10)`,
-                                border: `1px solid ${btn.color}40`,
-                                borderRadius: '12px',
-                                color: btn.color,
-                                cursor: 'pointer',
-                                fontSize: '13px',
-                                fontWeight: '700',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.5px',
-                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                width: '100%',
-                                boxShadow: `0 4px 16px ${btn.color}15`
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.transform = 'translateY(-3px)';
-                                e.currentTarget.style.boxShadow = `0 8px 24px ${btn.color}40`;
-                                e.currentTarget.style.background = `linear-gradient(135deg, ${btn.color}40, ${btn.color}25)`;
-                                e.currentTarget.style.color = '#ffffff';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.boxShadow = `0 4px 16px ${btn.color}15`;
-                                e.currentTarget.style.background = `linear-gradient(135deg, ${btn.color}25, ${btn.color}10)`;
-                                e.currentTarget.style.color = btn.color;
-                            }}>
-                                {btn.emoji} {btn.label}
+            {/* ── BOTTOM ROW: SYSTEM UTILITIES + SHIFT MANAGEMENT ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+
+                {/* SYSTEM UTILITIES */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.08), rgba(37,99,235,0.04))', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '14px', padding: '20px', boxShadow: '0 4px 24px rgba(0,0,0,0.2)' }}>
+                    <div style={{ color: '#93c5fd', fontSize: '11px', fontWeight: '700', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ width: '3px', height: '14px', background: 'linear-gradient(180deg, #93c5fd, #60a5fa)', borderRadius: '2px' }}></span>
+                        SYSTEM UTILITIES
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        {[
+                            { emoji: '⚙️', label: 'SETTINGS', onClick: () => { setActiveView('settings'); setSettingsWarningDismissed(false); setContinueButtonEnabled(false); }, color: '#60a5fa', tooltip: 'Configure trooper credentials' },
+                            { emoji: '📋', label: 'UPDATE LOG', onClick: () => setShowUpdateLog(true), color: '#a78bfa', tooltip: 'View changelog' },
+                            { emoji: '❓', label: 'FAQ', onClick: () => setShowFAQ(true), color: '#fbbf24', tooltip: 'Get answers to questions' },
+                            { emoji: '👥', label: 'CREDITS', onClick: () => { setCreditsKey(prev => prev + 1); setShowCredits(false); setTimeout(() => setShowCredits(true), 10); }, color: '#34d399', tooltip: 'View credits' },
+                            { emoji: '🔗', label: 'LINKS', onClick: () => setShowUsefulLinks(true), color: '#22d3ee', tooltip: 'Quick access to resources' },
+                            { emoji: '🚪', label: 'EXIT', onClick: () => setShowExitConfirm(true), color: '#f87171', tooltip: 'Shut down MDT' }
+                        ].map((btn, i) => (
+                            <Tooltip key={i} text={btn.tooltip}>
+                                <button onClick={btn.onClick} style={{ padding: '12px 8px', background: `linear-gradient(135deg, ${btn.color}20, ${btn.color}0d)`, border: `1px solid ${btn.color}35`, borderRadius: '10px', color: btn.color, cursor: 'pointer', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', transition: 'all 0.25s', width: '100%', boxShadow: `0 2px 8px ${btn.color}10` }}
+                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 6px 18px ${btn.color}35`; e.currentTarget.style.background = `linear-gradient(135deg, ${btn.color}35, ${btn.color}20)`; e.currentTarget.style.color = '#fff'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 2px 8px ${btn.color}10`; e.currentTarget.style.background = `linear-gradient(135deg, ${btn.color}20, ${btn.color}0d)`; e.currentTarget.style.color = btn.color; }}>
+                                    {btn.emoji} {btn.label}
+                                </button>
+                            </Tooltip>
+                        ))}
+                    </div>
+                </div>
+
+                {/* SHIFT MANAGEMENT */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.04))', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '14px', padding: '20px', boxShadow: '0 4px 24px rgba(0,0,0,0.2)' }}>
+                    <div style={{ color: '#6ee7b7', fontSize: '11px', fontWeight: '700', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ width: '3px', height: '14px', background: 'linear-gradient(180deg, #6ee7b7, #34d399)', borderRadius: '2px' }}></span>
+                        SHIFT MANAGEMENT
+                    </div>
+
+                    {!shiftStartTime ? (
+                        <Tooltip text="Shift management is currently disabled">
+                            <button disabled style={{ width: '100%', padding: '16px', background: 'rgba(75,85,99,0.2)', border: '1px solid rgba(107,114,128,0.3)', borderRadius: '12px', color: '#6b7280', fontSize: '13px', fontWeight: '700', cursor: 'not-allowed', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.6 }}>
+                                START SHIFT (DISABLED)
                             </button>
                         </Tooltip>
-                    ))}
+                    ) : !shiftEndTime ? (
+                        <>
+                            <div style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '12px', padding: '16px', marginBottom: '12px', textAlign: 'center' }}>
+                                <div style={{ color: '#6ee7b7', fontSize: '11px', fontWeight: '700', letterSpacing: '1px', marginBottom: '6px' }}>
+                                    {shiftPaused ? '⏸️ PAUSED' : '▶️ ON DUTY'}
+                                </div>
+                                <div style={{ color: 'white', fontSize: '26px', fontWeight: '800', fontFamily: 'monospace', textShadow: '0 2px 4px rgba(0,0,0,0.3)', marginBottom: '6px' }}>
+                                    {(() => {
+                                        const now = currentTime;
+                                        const elapsed = shiftPaused 
+                                            ? (pauseStartTime - shiftStartTime) - pausedTime
+                                            : (now - shiftStartTime) - pausedTime;
+                                        const hours = Math.floor(elapsed / 3600000);
+                                        const minutes = Math.floor((elapsed % 3600000) / 60000);
+                                        const seconds = Math.floor((elapsed % 60000) / 1000);
+                                        return `${hours}h ${minutes}m ${seconds}s`;
+                                    })()}
+                                </div>
+                                <div style={{ color: '#86efac', fontSize: '11px' }}>Started: {formatShiftTime(shiftStartTime)}</div>
+                                {pausedTime > 0 && <div style={{ color: '#fbbf24', fontSize: '10px', marginTop: '2px' }}>Break: {Math.floor(pausedTime / 60000)}m</div>}
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                <Tooltip text={shiftPaused ? "Resume your shift" : "Pause shift for break"}>
+                                    <button onClick={() => { if (shiftPaused) { const pauseDuration = new Date() - pauseStartTime; setPausedTime(prev => prev + pauseDuration); setPauseStartTime(null); setShiftPaused(false); addLog('▶️ Shift resumed', 'success'); } else { setPauseStartTime(new Date()); setShiftPaused(true); addLog('⏸️ Shift paused', 'info'); } }}
+                                        style={{ padding: '14px', background: shiftPaused ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #f59e0b, #d97706)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', boxShadow: shiftPaused ? '0 4px 14px rgba(16,185,129,0.4)' : '0 4px 14px rgba(245,158,11,0.4)', transition: 'all 0.25s', width: '100%' }}
+                                        onMouseEnter={e => { e.target.style.transform = 'translateY(-2px)'; }}
+                                        onMouseLeave={e => { e.target.style.transform = 'translateY(0)'; }}>
+                                        {shiftPaused ? 'RESUME' : 'PAUSE'}
+                                    </button>
+                                </Tooltip>
+                                <Tooltip text="End your shift">
+                                    <button onClick={() => { if (confirm('Are you sure you want to end your shift?')) { if (shiftPaused) { const pauseDuration = new Date() - pauseStartTime; setPausedTime(prev => prev + pauseDuration); } endShift(); } }}
+                                        style={{ padding: '14px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', boxShadow: '0 4px 14px rgba(239,68,68,0.4)', transition: 'all 0.25s', width: '100%' }}
+                                        onMouseEnter={e => { e.target.style.transform = 'translateY(-2px)'; }}
+                                        onMouseLeave={e => { e.target.style.transform = 'translateY(0)'; }}>
+                                        END SHIFT
+                                    </button>
+                                </Tooltip>
+                            </div>
+                        </>
+                    ) : (
+                        <Tooltip text="Start a new shift">
+                            <button onClick={startShift} style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '12px', color: 'white', fontSize: '14px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 4px 16px rgba(16,185,129,0.4)', transition: 'all 0.25s' }}
+                                onMouseEnter={e => { e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 6px 22px rgba(16,185,129,0.6)'; }}
+                                onMouseLeave={e => { e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = '0 4px 16px rgba(16,185,129,0.4)'; }}>
+                                START NEW SHIFT
+                            </button>
+                        </Tooltip>
+                    )}
                 </div>
             </div>
 
-            {/* SHIFT MANAGEMENT */}
-            <div style={{
-                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.05))',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(16, 185, 129, 0.25)',
-                borderRadius: '16px',
-                padding: '24px',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
-            }}>
-                <h3 style={{ 
-                    color: '#6ee7b7', 
-                    fontSize: '16px', 
-                    fontWeight: '700', 
-                    marginBottom: '16px',
-                    letterSpacing: '1px',
-                    textTransform: 'uppercase',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px'
-                }}>
-                    <span style={{ 
-                        width: '4px', 
-                        height: '20px', 
-                        background: 'linear-gradient(180deg, #6ee7b7, #34d399)',
-                        borderRadius: '2px'
-                    }}></span>
-                    SHIFT MANAGEMENT
-                </h3>
-                {!shiftStartTime ? (
-                    <Tooltip text="Shift management is currently disabled">
-                        <button 
-                            onClick={() => {}}
-                            disabled={true}
-                            style={{
-                                width: '100%',
-                                padding: '18px',
-                                background: 'linear-gradient(135deg, rgba(107, 114, 128, 0.3), rgba(75, 85, 99, 0.2))',
-                                border: '1px solid rgba(107, 114, 128, 0.4)',
-                                borderRadius: '12px',
-                                color: '#9ca3af',
-                                fontSize: '14px',
-                                fontWeight: '700',
-                                cursor: 'not-allowed',
-                                textTransform: 'uppercase',
-                                letterSpacing: '1px',
-                                opacity: 0.6
-                            }}
-                        >
-                            START SHIFT (DISABLED)
-                        </button>
-                    </Tooltip>
-                ) : !shiftEndTime ? (
-                    <>
-                        <div style={{
-                            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.1))',
-                            border: '1px solid rgba(16, 185, 129, 0.4)',
-                            borderRadius: '12px',
-                            padding: '20px',
-                            marginBottom: '14px',
-                            textAlign: 'center',
-                            boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.05)'
-                        }}>
-                            <div style={{ color: '#6ee7b7', fontSize: '13px', marginBottom: '8px', fontWeight: '700', letterSpacing: '1px' }}>
-                                {shiftPaused ? '⏸️ PAUSED' : '▶️ ON DUTY'}
-                            </div>
-                            <div style={{ color: 'white', fontSize: '28px', fontWeight: '700', fontFamily: 'monospace', textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)', marginBottom: '8px' }}>
-                                {(() => {
-                                    const now = currentTime;
-                                    const elapsed = shiftPaused 
-                                        ? (pauseStartTime - shiftStartTime) - pausedTime
-                                        : (now - shiftStartTime) - pausedTime;
-                                    const hours = Math.floor(elapsed / 3600000);
-                                    const minutes = Math.floor((elapsed % 3600000) / 60000);
-                                    const seconds = Math.floor((elapsed % 60000) / 1000);
-                                    return `${hours}h ${minutes}m ${seconds}s`;
-                                })()}
-                            </div>
-                            <div style={{ color: '#86efac', fontSize: '11px', marginBottom: '4px' }}>
-                                Started: {formatShiftTime(shiftStartTime)}
-                            </div>
-                            {pausedTime > 0 && (
-                                <div style={{ color: '#fbbf24', fontSize: '10px' }}>
-                                    Break time: {Math.floor(pausedTime / 60000)}m
-                                </div>
-                            )}
-                        </div>
-                        
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                            <Tooltip text={shiftPaused ? "Resume your shift timer" : "Pause shift for break"}>
-                                <button 
-                                    onClick={() => {
-                                        if (shiftPaused) {
-                                            const pauseDuration = new Date() - pauseStartTime;
-                                            setPausedTime(prev => prev + pauseDuration);
-                                            setPauseStartTime(null);
-                                            setShiftPaused(false);
-                                            addLog('▶️ Shift resumed', 'success');
-                                        } else {
-                                            setPauseStartTime(new Date());
-                                            setShiftPaused(true);
-                                            addLog('⏸️ Shift paused', 'info');
-                                        }
-                                    }}
-                                    style={{
-                                        padding: '16px',
-                                        background: shiftPaused ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
-                                        border: shiftPaused ? '1px solid #047857' : '1px solid #b45309',
-                                        borderRadius: '12px',
-                                        color: 'white',
-                                        fontSize: '14px',
-                                        fontWeight: '700',
-                                        cursor: 'pointer',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.5px',
-                                        boxShadow: shiftPaused ? '0 4px 16px rgba(16, 185, 129, 0.4)' : '0 4px 16px rgba(245, 158, 11, 0.4)',
-                                        transition: 'all 0.3s',
-                                        width: '100%'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.target.style.transform = 'translateY(-2px)';
-                                        e.target.style.boxShadow = shiftPaused ? '0 6px 24px rgba(16, 185, 129, 0.6)' : '0 6px 24px rgba(245, 158, 11, 0.6)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.target.style.transform = 'translateY(0)';
-                                        e.target.style.boxShadow = shiftPaused ? '0 4px 16px rgba(16, 185, 129, 0.4)' : '0 4px 16px rgba(245, 158, 11, 0.4)';
-                                    }}
-                                >
-                                    {shiftPaused ? 'RESUME' : 'PAUSE'}
-                                </button>
-                            </Tooltip>
-                            
-                            <Tooltip text="End your shift and generate report">
-                                <button 
-                                    onClick={() => {
-                                        if (confirm('Are you sure you want to end your shift?')) {
-                                            if (shiftPaused) {
-                                                const pauseDuration = new Date() - pauseStartTime;
-                                                setPausedTime(prev => prev + pauseDuration);
-                                            }
-                                            endShift();
-                                        }
-                                    }}
-                                    style={{
-                                        padding: '16px',
-                                        background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                                        border: '1px solid #991b1b',
-                                        borderRadius: '12px',
-                                        color: 'white',
-                                        fontSize: '14px',
-                                        fontWeight: '700',
-                                        cursor: 'pointer',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.5px',
-                                        boxShadow: '0 4px 16px rgba(239, 68, 68, 0.4)',
-                                        transition: 'all 0.3s',
-                                        width: '100%'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.target.style.transform = 'translateY(-2px)';
-                                        e.target.style.boxShadow = '0 6px 24px rgba(239, 68, 68, 0.6)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.target.style.transform = 'translateY(0)';
-                                        e.target.style.boxShadow = '0 4px 16px rgba(239, 68, 68, 0.4)';
-                                    }}
-                                >
-                                    END SHIFT
-                                </button>
-                            </Tooltip>
-                        </div>
-                    </>
-                ) : (
-                    <Tooltip text="Start a new shift">
-                        <button 
-                            onClick={startShift}
-                            style={{
-                                width: '100%',
-                                padding: '18px',
-                                background: 'linear-gradient(135deg, #10b981, #059669)',
-                                border: '1px solid #047857',
-                                borderRadius: '12px',
-                                color: 'white',
-                                fontSize: '15px',
-                                fontWeight: '700',
-                                cursor: 'pointer',
-                                textTransform: 'uppercase',
-                                letterSpacing: '1px',
-                                boxShadow: '0 4px 16px rgba(16, 185, 129, 0.4)',
-                                transition: 'all 0.3s'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.target.style.transform = 'translateY(-2px)';
-                                e.target.style.boxShadow = '0 6px 24px rgba(16, 185, 129, 0.6)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.target.style.transform = 'translateY(0)';
-                                e.target.style.boxShadow = '0 4px 16px rgba(16, 185, 129, 0.4)';
-                            }}
-                        >
-                            START NEW SHIFT
-                        </button>
-                    </Tooltip>
-                )}
-            </div>
         </div>
     </div>
 ) : (
