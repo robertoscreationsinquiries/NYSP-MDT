@@ -1555,6 +1555,73 @@ const [trooperData, setTrooperData] = useState(null);
 
 const [databaseStatus, setDatabaseStatus] = useState({ connected: false, checking: true });
 
+React.useEffect(() => {
+    console.log('🔑 [SETTINGS] ═══════════════════════════════════');
+    console.log('🔑 [SETTINGS] Checking for Hugging Face API key...');
+    console.log('🔑 [SETTINGS] ═══════════════════════════════════');
+    
+    if (window.SETTINGS_FILE_CONTENT) {
+        const lines = window.SETTINGS_FILE_CONTENT.split('\n');
+        
+        lines.forEach(line => {
+            const trimmedLine = line.trim();
+            
+           if (trimmedLine.startsWith('GroqConsoleAPIKey=')) {
+                const key = trimmedLine.split('=')[1];
+                console.log('═══════════════════════════════════════════════════');
+                console.log('🔍 [SETTINGS] Found GroqConsoleAPIKey in settings file');
+                console.log('📋 [SETTINGS] Raw value:', key.substring(0, 15) + '...');
+                console.log('📏 [SETTINGS] Key length:', key.length);
+                console.log('🔑 [SETTINGS] Starts with gsk_:', key.startsWith('gsk_'));
+                console.log('═══════════════════════════════════════════════════');
+                
+                if (key && key.trim() !== '' && !key.includes('[') && !key.includes('PLACEHOLDER')) {
+                    const trimmedKey = key.trim();
+                    
+                    // Set ALL storage locations
+                    console.log('💾 [SETTINGS] Setting Groq API key in ALL locations...');
+                    
+                    setGroqConsoleAPIKey(trimmedKey);
+                    window.GROQ_CONSOLE_API_KEY = trimmedKey;
+                    
+                    try {
+                        localStorage.setItem('groqConsoleAPIKey', trimmedKey);
+                        console.log('✅ [SETTINGS] Groq Console API key loaded SUCCESSFULLY');
+                        console.log('✅ [SETTINGS] Key length:', trimmedKey.length);
+                        console.log('✅ [SETTINGS] First 10 chars:', trimmedKey.substring(0, 10) + '...');
+                        console.log('✅ [SETTINGS] Last 10 chars:', '...' + trimmedKey.substring(trimmedKey.length - 10));
+                        console.log('✅ [SETTINGS] Stored in:');
+                        console.log('   ✓ React state: groqConsoleAPIKey');
+                        console.log('   ✓ window.GROQ_CONSOLE_API_KEY');
+                        console.log('   ✓ localStorage.groqConsoleAPIKey');
+                        console.log('═══════════════════════════════════════════════════');
+                        
+                        // VERIFY storage
+                        setTimeout(() => {
+                            console.log('🔍 [VERIFY] Checking if API key persisted...');
+                            console.log('   React state:', groqConsoleAPIKey ? 'YES (' + groqConsoleAPIKey.length + ' chars)' : 'NO');
+                            console.log('   window.GROQ_CONSOLE_API_KEY:', window.GROQ_CONSOLE_API_KEY ? 'YES (' + window.GROQ_CONSOLE_API_KEY.length + ' chars)' : 'NO');
+                            console.log('   localStorage:', localStorage.getItem('groqConsoleAPIKey') ? 'YES' : 'NO');
+                        }, 500);
+                        
+                    } catch (e) {
+                        console.error('❌ [SETTINGS] localStorage save failed:', e);
+                    }
+                } else {
+                    console.warn('═══════════════════════════════════════════════════');
+                    console.warn('⚠️ [SETTINGS] Groq Console API key is INVALID');
+                    console.warn('⚠️ [SETTINGS] Reason: Empty, contains brackets, or is placeholder');
+                    console.warn('═══════════════════════════════════════════════════');
+                }
+            }
+        });
+    } else {
+        console.warn('⚠️ [SETTINGS] No settings file content available');
+        console.warn('⚠️ [SETTINGS] Make sure NYSP_settingstool.txt exists');
+    }
+}, []);
+
+
 useEffect(() => {
     const storedUser = localStorage.getItem('nysp_authenticated_user');
     if (storedUser) {
@@ -1593,6 +1660,12 @@ useEffect(() => {
         }
     }
 }, []);
+
+useEffect(() => {
+    if (trooperSettings.Department) {
+        setSelectedDepartment(trooperSettings?.Department);
+    }
+}, [trooperSettings]);
 
 useEffect(() => {
     const handleKeyDown = (e) => {
@@ -2111,71 +2184,6 @@ React.useEffect(() => {
     }
 }, [visualEffects]);
 
-React.useEffect(() => {
-    console.log('🔑 [SETTINGS] ═══════════════════════════════════');
-    console.log('🔑 [SETTINGS] Checking for Hugging Face API key...');
-    console.log('🔑 [SETTINGS] ═══════════════════════════════════');
-    
-    if (window.SETTINGS_FILE_CONTENT) {
-        const lines = window.SETTINGS_FILE_CONTENT.split('\n');
-        
-        lines.forEach(line => {
-            const trimmedLine = line.trim();
-            
-           if (trimmedLine.startsWith('GroqConsoleAPIKey=')) {
-                const key = trimmedLine.split('=')[1];
-                console.log('═══════════════════════════════════════════════════');
-                console.log('🔍 [SETTINGS] Found GroqConsoleAPIKey in settings file');
-                console.log('📋 [SETTINGS] Raw value:', key.substring(0, 15) + '...');
-                console.log('📏 [SETTINGS] Key length:', key.length);
-                console.log('🔑 [SETTINGS] Starts with gsk_:', key.startsWith('gsk_'));
-                console.log('═══════════════════════════════════════════════════');
-                
-                if (key && key.trim() !== '' && !key.includes('[') && !key.includes('PLACEHOLDER')) {
-                    const trimmedKey = key.trim();
-                    
-                    // Set ALL storage locations
-                    console.log('💾 [SETTINGS] Setting Groq API key in ALL locations...');
-                    
-                    setGroqConsoleAPIKey(trimmedKey);
-                    window.GROQ_CONSOLE_API_KEY = trimmedKey;
-                    
-                    try {
-                        localStorage.setItem('groqConsoleAPIKey', trimmedKey);
-                        console.log('✅ [SETTINGS] Groq Console API key loaded SUCCESSFULLY');
-                        console.log('✅ [SETTINGS] Key length:', trimmedKey.length);
-                        console.log('✅ [SETTINGS] First 10 chars:', trimmedKey.substring(0, 10) + '...');
-                        console.log('✅ [SETTINGS] Last 10 chars:', '...' + trimmedKey.substring(trimmedKey.length - 10));
-                        console.log('✅ [SETTINGS] Stored in:');
-                        console.log('   ✓ React state: groqConsoleAPIKey');
-                        console.log('   ✓ window.GROQ_CONSOLE_API_KEY');
-                        console.log('   ✓ localStorage.groqConsoleAPIKey');
-                        console.log('═══════════════════════════════════════════════════');
-                        
-                        // VERIFY storage
-                        setTimeout(() => {
-                            console.log('🔍 [VERIFY] Checking if API key persisted...');
-                            console.log('   React state:', groqConsoleAPIKey ? 'YES (' + groqConsoleAPIKey.length + ' chars)' : 'NO');
-                            console.log('   window.GROQ_CONSOLE_API_KEY:', window.GROQ_CONSOLE_API_KEY ? 'YES (' + window.GROQ_CONSOLE_API_KEY.length + ' chars)' : 'NO');
-                            console.log('   localStorage:', localStorage.getItem('groqConsoleAPIKey') ? 'YES' : 'NO');
-                        }, 500);
-                        
-                    } catch (e) {
-                        console.error('❌ [SETTINGS] localStorage save failed:', e);
-                    }
-                } else {
-                    console.warn('═══════════════════════════════════════════════════');
-                    console.warn('⚠️ [SETTINGS] Groq Console API key is INVALID');
-                    console.warn('⚠️ [SETTINGS] Reason: Empty, contains brackets, or is placeholder');
-                    console.warn('═══════════════════════════════════════════════════');
-                }
-            }
-        });
-    } else {
-        console.warn('⚠️ [SETTINGS] No settings file content available');
-        console.warn('⚠️ [SETTINGS] Make sure NYSP_settingstool.txt exists');
-    }
-}, []);
 
 React.useEffect(() => {
     console.log('🔄 [SETTINGS] Syncing API key from localStorage to UI...');
@@ -7552,11 +7560,7 @@ useEffect(() => {
 
 
 // Auto-set department based on trooper settings
-useEffect(() => {
-    if (trooperSettings.Department) {
-        setSelectedDepartment(trooperSettings?.Department);
-    }
-}, [trooperSettings]);
+
 return (
     <React.Fragment>
         
