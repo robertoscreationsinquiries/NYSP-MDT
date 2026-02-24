@@ -4307,10 +4307,10 @@ const lookupUser = async () => {
     try {
         setSearchProgress(10);
         addLog('🔍 Searching Discord...', 'info');
-const guildId = trooperSettings?.GuildID || editableTrooperSettings?.GuildID || '888585906020311060';
-const channelId = trooperSettings?.RegistrationChannelID || editableTrooperSettings?.RegistrationChannelID || '1460842657549914204';
-                console.log('Using channel ID: ', channelId)
-                console.log('Using trooper settings: ', trooperSettings)
+const guildId = editableTrooperSettings?.GuildID || '888585906020311060';
+const channelId = editableTrooperSettings?.RegistrationChannelID || '1460842657549914204';
+                console.log('Using channel ID: ', editableTrooperSettings?.RegistrationChannelID)
+                console.log('Using trooper settings: ', editableTrooperSettings)
         
         setSearchProgress(30);
         const searchedPlate = licensePlate.trim().toUpperCase();
