@@ -1809,59 +1809,6 @@ useEffect(() => {
     }
 }, [tokenSaved, discordToken, trooperSettings, selectedUserSession]);
 
-// Load trooper settings IMMEDIATELY on mount - MUST BE FIRST
-    React.useEffect(() => {
-        console.log('⚙️ [SETTINGS] ═══════════════════════════════════════');
-console.log('⚙️ [SETTINGS] Loading settings from file...');
-console.log('⚙️ [SETTINGS] Checking window.SETTINGS_FILE_CONTENT...');
-console.log('⚙️ [SETTINGS] Type:', typeof window.SETTINGS_FILE_CONTENT);
-console.log('⚙️ [SETTINGS] Value:', window.SETTINGS_FILE_CONTENT ? 'EXISTS' : 'NULL/UNDEFINED');
-
-if (window.SETTINGS_FILE_CONTENT) {
-    console.log('✅ [SETTINGS] Content length:', window.SETTINGS_FILE_CONTENT.length);
-    console.log('✅ [SETTINGS] First 100 chars:', window.SETTINGS_FILE_CONTENT.substring(0, 100));
-    
-    // Parse settings
-    const lines = window.SETTINGS_FILE_CONTENT.split('\n');
-    console.log('✅ [SETTINGS] Total lines:', lines.length);
-    
-    const settings = {};
-    lines.forEach((line, index) => {
-        const eq = line.indexOf('=');
-        if (eq > 0) {
-            const key = line.substring(0, eq).trim();
-            const value = line.substring(eq + 1).trim();
-            settings[key] = value;
-            console.log(`✅ [SETTINGS] Line ${index}: ${key} = ${value.substring(0, 20)}...`);
-        }
-    });
-
-    if (settings.DiscordToken && settings.DiscordToken.trim() !== '' && !settings.DiscordToken.includes('[')) {
-    const token = settings.DiscordToken.trim();
-    setDiscordToken(token);
-    window.DISCORD_TOKEN = token;
-    try {
-        localStorage.setItem('discordToken', token);
-        console.log('✅ [SETTINGS] Discord token loaded from file successfully');
-    } catch (e) {
-        console.error('❌ [SETTINGS] Failed to store Discord token:', e);
-    }
-}
-
-if (settings.RegistrationChannelID) setEditableTrooperSettings(prev => ({...prev, RegistrationChannelID: settings.RegistrationChannelID}));
-if (settings.DatabaseChannelID) setEditableTrooperSettings(prev => ({...prev, DatabaseChannelID: settings.DatabaseChannelID}));
-if (settings.GuildID) setEditableTrooperSettings(prev => ({...prev, GuildID: settings.GuildID}));
-    
-    console.log('✅ [SETTINGS] Parsed settings object:', settings);
-    console.log('✅ [SETTINGS] RegistrationChannelID from file:', settings.RegistrationChannelID);
-    console.log('✅ [SETTINGS] DatabaseChannelID from file:', settings.DatabaseChannelID);
-    
-
-}
-
-console.log('⚙️ [SETTINGS] ═══════════════════════════════════════');
-
-    }, []);
 
 
 useEffect(() => {
@@ -4342,8 +4289,8 @@ const lookupUser = async () => {
     try {
         setSearchProgress(10);
         addLog('🔍 Searching Discord...', 'info');
-        const guildId = trooperSettings?.GuildID || '888585906020311060';
-        const channelId = trooperSettings?.RegistrationChannelID || '1436970753151991891';
+        const guildId = trooperSettings.GuildID || '888585906020311060';
+        const channelId = trooperSettings.RegistrationChannelID || '1436970753151991891';
         
         setSearchProgress(30);
         const searchedPlate = licensePlate.trim().toUpperCase();
@@ -4941,8 +4888,8 @@ const actualSearchValue = (typeof overrideValue === 'string' ? overrideValue : n
         addLog(`🔍 Searching for: ${actualSearchValue}`, 'info');
         setSearchProgress(5);
         
-        const guildId = trooperSettings?.GuildID || '888585906020311060';
-        const channelId = trooperSettings?.RegistrationChannelID || '1436970753151991891';
+        const guildId = trooperSettings.GuildID || '888585906020311060';
+        const channelId = trooperSettings.RegistrationChannelID || '1436970753151991891';
         
         console.log('🆔 [CONFIG] Guild ID:', guildId);
         console.log('📺 [CONFIG] Channel ID:', channelId);
@@ -6346,7 +6293,7 @@ const searchPastRecords = async (userId) => {
         let fetchedUsername = 'Unknown';
         
         try {
-            const guildId = trooperSettings?.GuildID || '888585906020311060';
+            const guildId = trooperSettings.GuildID || '888585906020311060';
             const userResponse = await fetch(
                 `https://discord.com/api/v9/guilds/${guildId}/members/${cleanUserId}`,
                 { headers: { 'Authorization': discordToken } }
@@ -6367,7 +6314,7 @@ const searchPastRecords = async (userId) => {
         }
         
         // STEP 2: Get Database Channel ID
-        const databaseChannelId = trooperSettings?.DatabaseChannelID;
+        const databaseChannelId = trooperSettings.DatabaseChannelID;
         
         if (!databaseChannelId || databaseChannelId === 'N/A' || databaseChannelId.trim() === '') {
             console.error('❌ [RECORDS] Database Channel ID not configured');
@@ -6613,8 +6560,8 @@ const searchDatabaseHistory = async () => {
     setDatabaseHistory([]);
     
     try {
-const channelId = trooperSettings?.DatabaseChannelID || '1436970942747381804';
-const guildId = trooperSettings?.GuildID || '888585906020311060';
+const channelId = trooperSettings.DatabaseChannelID || '1436970942747381804';
+const guildId = trooperSettings.GuildID || '888585906020311060';
         
         // Use search endpoint instead of regular messages
         const searchUrl = `https://discord.com/api/v9/guilds/${guildId}/messages/search?channel_id=${channelId}&mentions=${databaseSearchId}`;
@@ -6656,8 +6603,8 @@ const checkWarrants = async (discordUserId) => {
     if (!discordUserId || !tokenSaved) return null;
     
     try {
-const channelId = trooperSettings?.DatabaseChannelID || '1436970942747381804';
-const guildId = trooperSettings?.GuildID || '888585906020311060';
+const channelId = trooperSettings.DatabaseChannelID || '1436970942747381804';
+const guildId = trooperSettings.GuildID || '888585906020311060';
         
         addLog('Ã°Å¸â€Â Checking for active warrants...', 'info');
         
@@ -7027,7 +6974,7 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
 
         // Registration Expiration Date - from settings (only if vehicle registration exists)
         if (finalVehicle.plate && finalVehicle.plate.trim() !== '' && finalVehicle.plate !== 'Unknown') {
-            const expDate = trooperSettings?.expDate || '';
+            const expDate = trooperSettings.expDate || '';
             if (expDate && expDate.trim() !== '') {
                 addLog(`Setting RegExp_af_date to: ${expDate}`, 'info');
                 const expDateSet = setField('RegExp_af_date', expDate);
@@ -7060,32 +7007,32 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
         ], '[ROADNAME/INTERSECTION] [SB/NB/WB/EB] // [OTHER DETAILS; "@ JUNKYARD" OR "BY JUNKYARD"]');
         
         // Officer Badge/Shield - from settings or default
-        const badgeId = trooperSettings?.BadgeID || 'N/A';
+        const badgeId = trooperSettings.BadgeID || 'N/A';
         addLog(`Using BadgeID from settings: ${badgeId}`, 'info');
         addLog(`Setting OShield to: ${badgeId}`, 'info');
         setField('OShield', badgeId);
         
         // Officer First Name - from settings or default
-        const firstName = trooperSettings?.FirstName || 'N/A';
+        const firstName = trooperSettings.FirstName || 'N/A';
         addLog(`Using FirstName from settings: ${firstName}`, 'info');
         addLog(`Setting OFirst to: ${firstName}`, 'info');
         setField('OFirst', firstName);
         
         // Officer Last Name - from settings or default
-        const lastName = trooperSettings?.LastName || 'N/A';
+        const lastName = trooperSettings.LastName || 'N/A';
         addLog(`Using LastName from settings: ${lastName}`, 'info');
         addLog(`Setting OLast to: ${lastName}`, 'info');
         setField('OLast', lastName);
         
         // Officer Username - from settings or default (UPPERCASE)
-        const username = (trooperSettings?.Username || 'N/A').toUpperCase();
+        const username = (trooperSettings.Username || 'N/A').toUpperCase();
         addLog(`Using Username from settings: ${username}`, 'info');
         addLog(`Setting OUsername to: ${username}`, 'info');
         setField('OUsername', username);
         
         // Generate Ticket ID: (currentyear)(trooperzone)(last3digitsofbadge)
         const currentYear = new Date().getFullYear();
-        const trooperZone = trooperSettings?.Zone || 'N/A';
+        const trooperZone = trooperSettings.Zone || 'N/A';
         const last3Digits = badgeId.slice(-3);
         const ticketId = `${currentYear}${trooperZone}${last3Digits}`;
         addLog(`Trooper settings: Year=${currentYear}, Zone=${trooperZone}, Badge=${badgeId}`, 'info');
@@ -7290,10 +7237,10 @@ const generateArrestReport = async (ownerData = null) => {
         };
         
         // Get trooper settings
-        const badgeId = trooperSettings?.BadgeID || '00706';
-        const firstName = trooperSettings?.FirstName || 'ROBERT';
-        const lastName = trooperSettings?.LastName || 'MENDOZA';
-        const trooperZone = trooperSettings?.Zone || 'G';
+        const badgeId = trooperSettings.BadgeID || '00706';
+        const firstName = trooperSettings.FirstName || 'ROBERT';
+        const lastName = trooperSettings.LastName || 'MENDOZA';
+        const trooperZone = trooperSettings.Zone || 'G';
         
         // Generate Reference Number: [CURRENTYEAR][TROOPERZONE][LAST 3 DIGITS OF BADGE]
         const currentYear = new Date().getFullYear();
@@ -7596,7 +7543,7 @@ useEffect(() => {
 
 // Auto-set department based on trooper settings
 useEffect(() => {
-    if (trooperSettings?.Department) {
+    if (trooperSettings.Department) {
         setSelectedDepartment(trooperSettings.Department);
     }
 }, [trooperSettings]);
@@ -8468,16 +8415,16 @@ return (
                     <div style={{ marginBottom: '16px', padding: '14px', background: 'rgba(59,130,246,0.08)', borderRadius: '10px', border: '1px solid rgba(59,130,246,0.15)' }}>
                         <div style={{ color: '#93c5fd', fontSize: '10px', letterSpacing: '1.5px', fontWeight: '600', marginBottom: '4px' }}>OFFICER NAME</div>
                         <div style={{ color: 'white', fontSize: '20px', fontWeight: '800', letterSpacing: '0.5px' }}>
-                            {trooperSettings?.FirstName || 'UNKNOWN'} {trooperSettings?.LastName || ''}
+                            {trooperSettings.FirstName || 'UNKNOWN'} {trooperSettings.LastName || ''}
                         </div>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                         {[
-                            { label: 'BADGE ID', value: `#${trooperSettings?.BadgeID || '00000'}`, mono: true },
-                            { label: 'ZONE', value: `ZONE ${trooperSettings?.Zone || '—'}` },
-                            { label: 'USERNAME', value: trooperSettings?.Username || 'UNKNOWN' },
-                            { label: 'REG. EXPIRY', value: trooperSettings?.expDate || '—' },
+                            { label: 'BADGE ID', value: `#${trooperSettings.BadgeID || '00000'}`, mono: true },
+                            { label: 'ZONE', value: `ZONE ${trooperSettings.Zone || '—'}` },
+                            { label: 'USERNAME', value: trooperSettings.Username || 'UNKNOWN' },
+                            { label: 'REG. EXPIRY', value: trooperSettings.expDate || '—' },
                         ].map(({ label, value, mono }) => (
                             <div key={label} style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)' }}>
                                 <div style={{ color: '#93c5fd', fontSize: '9px', letterSpacing: '1.5px', fontWeight: '700', marginBottom: '4px' }}>{label}</div>
@@ -8637,20 +8584,20 @@ return (
                         </Tooltip>
                     )}
                 </div>
+
+
+                {/* ── EXIT APP ── */}
+                <button
+                    onClick={() => setShowExitConfirm(true)}
+                    style={{ width: '100%', marginTop: '16px', padding: '14px', background: 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.08))', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '14px', color: '#f87171', cursor: 'pointer', fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', transition: 'all 0.25s', boxShadow: '0 2px 8px rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(239,68,68,0.3), rgba(220,38,38,0.2))'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(239,68,68,0.3)'; e.currentTarget.style.color = '#fff'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.08))'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(239,68,68,0.1)'; e.currentTarget.style.color = '#f87171'; }}
+                >
+                    🚪 EXIT APPLICATION
+                </button>
+
             </div>
-
-</div>
-
-        {/* ── EXIT APP ── */}
-        <button
-            onClick={() => setShowExitConfirm(true)}
-            style={{ width: '100%', marginTop: '16px', padding: '14px', background: 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.08))', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '14px', color: '#f87171', cursor: 'pointer', fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', transition: 'all 0.25s', boxShadow: '0 2px 8px rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(239,68,68,0.3), rgba(220,38,38,0.2))'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(239,68,68,0.3)'; e.currentTarget.style.color = '#fff'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.08))'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(239,68,68,0.1)'; e.currentTarget.style.color = '#f87171'; }}
-        >
-            🚪 EXIT APPLICATION
-        </button>
-
+        </div>
     </div>
 ) : (
 <>
@@ -8662,23 +8609,34 @@ return (
 {activeView === 'search' && (
     <div style={{ minHeight: 'calc(100vh - 40px)', background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)', padding: '20px', boxSizing: 'border-box' }}>
 
-        {/* ── HEADER ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px', padding: '18px 24px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,58,138,0.4))', border: '1px solid rgba(59,130,246,0.25)', boxShadow: '0 4px 24px rgba(0,0,0,0.4)', position: 'relative', overflow: 'hidden' }}>
-            <div style={{ position: 'absolute', top: '-60%', right: '-10%', width: '40%', height: '220%', background: 'radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 70%)', pointerEvents: 'none' }}></div>
-            <div style={{ width: '52px', height: '52px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(59,130,246,0.5)', flexShrink: 0 }}>
-                <Car size={28} style={{ color: 'white' }} />
+{/* ── HEADER ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', padding: '20px 28px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,58,138,0.35))', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 4px 32px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: '-40%', right: '-5%', width: '35%', height: '200%', background: 'radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)', pointerEvents: 'none' }}></div>
+
+            {/* Left: icon + title stack */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '18px', position: 'relative', zIndex: 1 }}>
+                <div style={{ width: '48px', height: '48px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(59,130,246,0.5)', flexShrink: 0 }}>
+                    <Car size={26} style={{ color: 'white' }} />
+                </div>
+                <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                        <h1 style={{ color: 'white', fontSize: '18px', fontWeight: '800', margin: 0, letterSpacing: '2px', textTransform: 'uppercase' }}>License Plate Search</h1>
+                        <span style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '4px', padding: '2px 8px', color: '#60a5fa', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px' }}>VEHICLE REGISTRY</span>
+                    </div>
+                    <p style={{ color: '#475569', fontSize: '12px', margin: 0, fontWeight: '500', letterSpacing: '0.5px' }}>
+                        Query active vehicle registrations · New York State Police MDT
+                    </p>
+                </div>
             </div>
-            <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
-                <h1 style={{ color: 'white', fontSize: '20px', fontWeight: '800', margin: 0, letterSpacing: '1px' }}>SEARCH LICENSE PLATE</h1>
-                <p style={{ color: '#60a5fa', fontSize: '12px', margin: '3px 0 0', fontWeight: '500' }}>Search vehicle registration by plate number</p>
-            </div>
+
+            {/* Right: back button */}
             <button
                 onClick={() => { if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); } else { setActiveView('home'); } }}
-                style={{ padding: '10px 20px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', border: '1px solid rgba(59,130,246,0.4)', borderRadius: '10px', color: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: '700', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 14px rgba(59,130,246,0.3)', transition: 'all 0.2s', flexShrink: 0 }}
-                onMouseEnter={e => e.currentTarget.style.boxShadow = '0 6px 20px rgba(59,130,246,0.5)'}
-                onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 14px rgba(59,130,246,0.3)'}
+                style={{ padding: '9px 18px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '8px', color: '#93c5fd', cursor: 'pointer', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '7px', transition: 'all 0.2s', flexShrink: 0, position: 'relative', zIndex: 1 }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.2)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)'; e.currentTarget.style.color = '#fff'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; e.currentTarget.style.color = '#93c5fd'; }}
             >
-                <span style={{ fontSize: '16px' }}>←</span> Back to Dashboard
+                ← DASHBOARD
             </button>
         </div>
 
@@ -13534,9 +13492,9 @@ const courierBold = await pdfDoc.embedFont(PDFLib.StandardFonts.CourierBold);
             drawText('TROOPER INFORMATION', 50, yPosition - 20, 14, helveticaBold, PDFLib.rgb(0.23, 0.51, 0.96));
             drawLine(50, yPosition - 25, width - 50, yPosition - 25, 1, PDFLib.rgb(0.23, 0.51, 0.96));
             
-            drawText(`Name: ${trooperSettings?.FirstName || 'UNKNOWN'} ${trooperSettings?.LastName || ''}`, 50, yPosition - 45, 11, helvetica);
-            drawText(`Badge: ${trooperSettings?.BadgeID || '00000'}`, 50, yPosition - 62, 11, helvetica);
-            drawText(`Zone: ${trooperSettings?.Zone || 'UNKNOWN'}`, 300, yPosition - 62, 11, helvetica);
+            drawText(`Name: ${trooperSettings.FirstName || 'UNKNOWN'} ${trooperSettings.LastName || ''}`, 50, yPosition - 45, 11, helvetica);
+            drawText(`Badge: ${trooperSettings.BadgeID || '00000'}`, 50, yPosition - 62, 11, helvetica);
+            drawText(`Zone: ${trooperSettings.Zone || 'UNKNOWN'}`, 300, yPosition - 62, 11, helvetica);
             
             yPosition -= 110;
             
@@ -13574,9 +13532,9 @@ page.drawRectangle({
 drawText('TROOPER INFORMATION', 50, yPosition - 20, 14, helveticaBold, PDFLib.rgb(0.23, 0.51, 0.96));
 drawLine(50, yPosition - 25, width - 50, yPosition - 25, 1, PDFLib.rgb(0.23, 0.51, 0.96));
 
-drawText(`Name: ${trooperSettings?.FirstName || 'UNKNOWN'} ${trooperSettings?.LastName || ''}`, 50, yPosition - 45, 11, helvetica);
-drawText(`Badge: ${trooperSettings?.BadgeID || '00000'}`, 50, yPosition - 62, 11, helvetica);
-drawText(`Zone: ${trooperSettings?.Zone || 'UNKNOWN'}`, 300, yPosition - 62, 11, helvetica);
+drawText(`Name: ${trooperSettings.FirstName || 'UNKNOWN'} ${trooperSettings.LastName || ''}`, 50, yPosition - 45, 11, helvetica);
+drawText(`Badge: ${trooperSettings.BadgeID || '00000'}`, 50, yPosition - 62, 11, helvetica);
+drawText(`Zone: ${trooperSettings.Zone || 'UNKNOWN'}`, 300, yPosition - 62, 11, helvetica);
 
 // Active Session
 if (selectedUserSession) {
@@ -13754,7 +13712,7 @@ if (shiftPlateSearches.length > 0 && yPosition > 150) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `NYSP_Shift_Report_${new Date().toISOString().split('T')[0]}_${trooperSettings?.BadgeID || '00000'}.pdf`;
+            a.download = `NYSP_Shift_Report_${new Date().toISOString().split('T')[0]}_${trooperSettings.BadgeID || '00000'}.pdf`;
             a.click();
             URL.revokeObjectURL(url);
             
