@@ -4299,8 +4299,8 @@ const lookupUser = async () => {
     try {
         setSearchProgress(10);
         addLog('🔍 Searching Discord...', 'info');
-        const guildId = troopersettings?.GuildID || '888585906020311060';
-        const channelId = troopersettings?.RegistrationChannelID || '1436970753151991891';
+        const guildId = trooperSettings?.GuildID || '888585906020311060';
+        const channelId = trooperSettings?.RegistrationChannelID || '1436970753151991891';
         
         setSearchProgress(30);
         const searchedPlate = licensePlate.trim().toUpperCase();
