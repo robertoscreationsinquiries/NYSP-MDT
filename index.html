@@ -1809,65 +1809,7 @@ useEffect(() => {
     }
 }, [tokenSaved, discordToken, trooperSettings, selectedUserSession]);
 
-// Load trooper settings IMMEDIATELY on mount - MUST BE FIRST
-    React.useEffect(() => {
-        console.log('⚙️ [SETTINGS] ═══════════════════════════════════════');
-console.log('⚙️ [SETTINGS] Loading settings from file...');
-console.log('⚙️ [SETTINGS] Checking window.SETTINGS_FILE_CONTENT...');
-console.log('⚙️ [SETTINGS] Type:', typeof window.SETTINGS_FILE_CONTENT);
-console.log('⚙️ [SETTINGS] Value:', window.SETTINGS_FILE_CONTENT ? 'EXISTS' : 'NULL/UNDEFINED');
 
-if (window.SETTINGS_FILE_CONTENT) {
-    console.log('✅ [SETTINGS] Content length:', window.SETTINGS_FILE_CONTENT.length);
-    console.log('✅ [SETTINGS] First 100 chars:', window.SETTINGS_FILE_CONTENT.substring(0, 100));
-    
-    // Parse settings
-    const lines = window.SETTINGS_FILE_CONTENT.split('\n');
-    console.log('✅ [SETTINGS] Total lines:', lines.length);
-    
-    const settings = {};
-    lines.forEach((line, index) => {
-        const eq = line.indexOf('=');
-        if (eq > 0) {
-            const key = line.substring(0, eq).trim();
-            const value = line.substring(eq + 1).trim();
-            settings[key] = value;
-            console.log(`✅ [SETTINGS] Line ${index}: ${key} = ${value.substring(0, 20)}...`);
-        }
-    });
-    
-    console.log('✅ [SETTINGS] Parsed settings object:', settings);
-    console.log('✅ [SETTINGS] RegistrationChannelID from file:', settings.RegistrationChannelID);
-    console.log('✅ [SETTINGS] DatabaseChannelID from file:', settings.DatabaseChannelID);
-    
-    // Now check localStorage
-    console.log('📦 [SETTINGS] Checking localStorage...');
-    console.log('📦 [SETTINGS] registrationChannelID:', localStorage.getItem('registrationChannelID'));
-    console.log('📦 [SETTINGS] databaseChannelID:', localStorage.getItem('databaseChannelID'));
-    console.log('📦 [SETTINGS] discordToken:', localStorage.getItem('discordToken') ? 'EXISTS (len: ' + localStorage.getItem('discordToken').length + ')' : 'MISSING');
-    console.log('📦 [SETTINGS] guildID:', localStorage.getItem('guildID'));
-    
-} else {
-    console.error('⚠️ [SETTINGS] window.SETTINGS_FILE_CONTENT is NULL or UNDEFINED!');
-    console.error('⚠️ [SETTINGS] This means main.js did not inject the settings');
-    console.error('⚠️ [SETTINGS] Checking if settings are in localStorage anyway...');
-    
-    console.log('📦 [SETTINGS] registrationChannelID from localStorage:', localStorage.getItem('registrationChannelID'));
-    console.log('📦 [SETTINGS] databaseChannelID from localStorage:', localStorage.getItem('databaseChannelID'));
-    console.log('📦 [SETTINGS] discordToken from localStorage:', localStorage.getItem('discordToken') ? 'EXISTS' : 'MISSING');
-    
-    if (localStorage.getItem('registrationChannelID')) {
-        console.log('✅ [SETTINGS] Good news! Settings ARE in localStorage (probably from main.js)');
-        console.log('✅ [SETTINGS] The app should work even without window.SETTINGS_FILE_CONTENT');
-    } else {
-        console.error('❌ [SETTINGS] Settings NOT in localStorage either!');
-        console.error('❌ [SETTINGS] Make sure NYSP_settingstool.txt exists');
-    }
-}
-
-console.log('⚙️ [SETTINGS] ═══════════════════════════════════════');
-
-    }, []);
 
 
 useEffect(() => {
