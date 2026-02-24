@@ -1809,7 +1809,43 @@ useEffect(() => {
     }
 }, [tokenSaved, discordToken, trooperSettings, selectedUserSession]);
 
+// Load trooper settings IMMEDIATELY on mount - MUST BE FIRST
+    React.useEffect(() => {
+        console.log('⚙️ [SETTINGS] ═══════════════════════════════════════');
+console.log('⚙️ [SETTINGS] Loading settings from file...');
+console.log('⚙️ [SETTINGS] Checking window.SETTINGS_FILE_CONTENT...');
+console.log('⚙️ [SETTINGS] Type:', typeof window.SETTINGS_FILE_CONTENT);
+console.log('⚙️ [SETTINGS] Value:', window.SETTINGS_FILE_CONTENT ? 'EXISTS' : 'NULL/UNDEFINED');
 
+if (window.SETTINGS_FILE_CONTENT) {
+    console.log('✅ [SETTINGS] Content length:', window.SETTINGS_FILE_CONTENT.length);
+    console.log('✅ [SETTINGS] First 100 chars:', window.SETTINGS_FILE_CONTENT.substring(0, 100));
+    
+    // Parse settings
+    const lines = window.SETTINGS_FILE_CONTENT.split('\n');
+    console.log('✅ [SETTINGS] Total lines:', lines.length);
+    
+    const settings = {};
+    lines.forEach((line, index) => {
+        const eq = line.indexOf('=');
+        if (eq > 0) {
+            const key = line.substring(0, eq).trim();
+            const value = line.substring(eq + 1).trim();
+            settings[key] = value;
+            console.log(`✅ [SETTINGS] Line ${index}: ${key} = ${value.substring(0, 20)}...`);
+        }
+    });
+    
+    console.log('✅ [SETTINGS] Parsed settings object:', settings);
+    console.log('✅ [SETTINGS] RegistrationChannelID from file:', settings.RegistrationChannelID);
+    console.log('✅ [SETTINGS] DatabaseChannelID from file:', settings.DatabaseChannelID);
+    
+
+}
+
+console.log('⚙️ [SETTINGS] ═══════════════════════════════════════');
+
+    }, []);
 
 
 useEffect(() => {
