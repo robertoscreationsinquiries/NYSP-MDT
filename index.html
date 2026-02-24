@@ -1835,6 +1835,22 @@ if (window.SETTINGS_FILE_CONTENT) {
             console.log(`✅ [SETTINGS] Line ${index}: ${key} = ${value.substring(0, 20)}...`);
         }
     });
+
+    if (settings.DiscordToken && settings.DiscordToken.trim() !== '' && !settings.DiscordToken.includes('[')) {
+    const token = settings.DiscordToken.trim();
+    setDiscordToken(token);
+    window.DISCORD_TOKEN = token;
+    try {
+        localStorage.setItem('discordToken', token);
+        console.log('✅ [SETTINGS] Discord token loaded from file successfully');
+    } catch (e) {
+        console.error('❌ [SETTINGS] Failed to store Discord token:', e);
+    }
+}
+
+if (settings.RegistrationChannelID) setEditableTrooperSettings(prev => ({...prev, RegistrationChannelID: settings.RegistrationChannelID}));
+if (settings.DatabaseChannelID) setEditableTrooperSettings(prev => ({...prev, DatabaseChannelID: settings.DatabaseChannelID}));
+if (settings.GuildID) setEditableTrooperSettings(prev => ({...prev, GuildID: settings.GuildID}));
     
     console.log('✅ [SETTINGS] Parsed settings object:', settings);
     console.log('✅ [SETTINGS] RegistrationChannelID from file:', settings.RegistrationChannelID);
@@ -11129,7 +11145,7 @@ File ARREST/SUMMONS REPORT
                 <h3 style={{ color: 'white', fontSize: '18px', marginBottom: '20px', opacity: 0.85 }}>YOU ARE ABOUT TO ENTER SETTINGS</h3>
                 <p style={{ color: '#bfdbfe', fontSize: '14px', lineHeight: '1.9', maxWidth: '580px', marginBottom: '36px', opacity: 0.85 }}>
                     Sensitive information is hidden here which may be vulnerable to hackers if not covered. 
-                    We recommend ensuring you have no video recording or screen sharing active for safety purposes.(TEST)
+                    We recommend ensuring you have no video recording or screen sharing active for safety purposes.
                 </p>
                 <button 
                     onClick={() => { if (continueButtonEnabled) { setSettingsWarningDismissed(true); setHasVisitedSettingsBefore(true); } }}
