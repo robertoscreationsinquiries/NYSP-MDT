@@ -1621,6 +1621,62 @@ React.useEffect(() => {
     }
 }, []);
 
+React.useEffect(() => {
+    console.log('🔑 [SETTINGS] ═══════════════════════════════════');
+    console.log('🔑 [SETTINGS] DISCORD TOKEN ID...');
+    console.log('🔑 [SETTINGS] ═══════════════════════════════════');
+    
+    if (window.SETTINGS_FILE_CONTENT) {
+        const lines = window.SETTINGS_FILE_CONTENT.split('\n');
+        
+        lines.forEach(line => {
+            const trimmedLine = line.trim();
+            
+           if (trimmedLine.startsWith('DiscordAccountToken')) {
+                const key = trimmedLine.split('=')[1];
+                console.log('═══════════════════════════════════════════════════');
+                console.log('🔍 [SETTINGS] Found Discord Account Token in settings file');
+                console.log('📋 [SETTINGS] Raw value:', key.substring(0, 15) + '...');
+                console.log('📏 [SETTINGS] Key length:', key.length);
+                console.log('═══════════════════════════════════════════════════');
+                
+                if (key && key.trim() !== '' && !key.includes('[') && !key.includes('PLACEHOLDER')) {
+                    const trimmedKey = key.trim();
+                    
+                    // Set ALL storage locations
+                    console.log('💾 [SETTINGS] Setting DISCORD ACCOUNT TOKEN key in ALL locations...');
+                    
+                    setDiscordToken(trimmedKey);
+                    window.DISCORD_ACCOUNT_TOKEN = trimmedKey;
+                    
+                    try {
+                        localStorage.setItem('discordToken', trimmedKey);
+                        console.log('✅ [SETTINGS] DISCORD TOKEN SUCCESSFULLY');
+                        console.log('✅ [SETTINGS] Key length:', trimmedKey.length);
+                        console.log('✅ [SETTINGS] First 10 chars:', trimmedKey.substring(0, 10) + '...');
+                        console.log('✅ [SETTINGS] Last 10 chars:', '...' + trimmedKey.substring(trimmedKey.length - 10));
+                        console.log('✅ [SETTINGS] Stored in:');
+                        console.log('   ✓ window.DISCORD_ACCOUNT_TOKEN');
+                        console.log('═══════════════════════════════════════════════════');
+                        
+                        
+                    } catch (e) {
+                        console.error('❌ [SETTINGS] localStorage save failed:', e);
+                    }
+                } else {
+                    console.warn('═══════════════════════════════════════════════════');
+                    console.warn('⚠️ [SETTINGS] DISCORD TOKEN key is INVALID');
+                    console.warn('⚠️ [SETTINGS] Reason: Empty, contains brackets, or is placeholder');
+                    console.warn('═══════════════════════════════════════════════════');
+                }
+            }
+        });
+    } else {
+        console.warn('⚠️ [SETTINGS] No settings file content available');
+        console.warn('⚠️ [SETTINGS] Make sure NYSP_settingstool.txt exists');
+    }
+}, []);
+
 
 useEffect(() => {
     const storedUser = localStorage.getItem('nysp_authenticated_user');
