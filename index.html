@@ -1698,9 +1698,9 @@ const checkDatabaseConnection = async () => {
     }
     
     try {
-        const channelsToCheck = [
-            troopersettings?.RegistrationChannelID,
-            troopersettings?.DatabaseChannelID,
+const channelsToCheck = [
+    trooperSettings?.RegistrationChannelID,
+    trooperSettings?.DatabaseChannelID,
             selectedUserSession
         ].filter(Boolean);
         
@@ -4898,8 +4898,8 @@ const actualSearchValue = (typeof overrideValue === 'string' ? overrideValue : n
         addLog(`🔍 Searching for: ${actualSearchValue}`, 'info');
         setSearchProgress(5);
         
-        const guildId = troopersettings?.GuildID || '888585906020311060';
-        const channelId = troopersettings?.RegistrationChannelID || '1436970753151991891';
+const guildId = trooperSettings?.GuildID || '888585906020311060';
+const channelId = trooperSettings?.RegistrationChannelID || '1436970753151991891';
         
         console.log('🆔 [CONFIG] Guild ID:', guildId);
         console.log('📺 [CONFIG] Channel ID:', channelId);
@@ -6303,7 +6303,7 @@ const searchPastRecords = async (userId) => {
         let fetchedUsername = 'Unknown';
         
         try {
-            const guildId = troopersettings?.GuildID || '888585906020311060';
+            const guildId = trooperSettings?.GuildID || '888585906020311060';
             const userResponse = await fetch(
                 `https://discord.com/api/v9/guilds/${guildId}/members/${cleanUserId}`,
                 { headers: { 'Authorization': discordToken } }
@@ -6324,7 +6324,7 @@ const searchPastRecords = async (userId) => {
         }
         
         // STEP 2: Get Database Channel ID
-        const databaseChannelId = troopersettings?.DatabaseChannelID;
+        const databaseChannelId = trooperSettings?.DatabaseChannelID;
         
         if (!databaseChannelId || databaseChannelId === 'N/A' || databaseChannelId.trim() === '') {
             console.error('❌ [RECORDS] Database Channel ID not configured');
@@ -6570,8 +6570,8 @@ const searchDatabaseHistory = async () => {
     setDatabaseHistory([]);
     
     try {
-const channelId = troopersettings?.DatabaseChannelID || '1436970942747381804';
-const guildId = troopersettings?.GuildID || '888585906020311060';
+const channelId = trooperSettings?.DatabaseChannelID || '1436970942747381804';
+const guildId = trooperSettings?.GuildID || '888585906020311060';
         
         // Use search endpoint instead of regular messages
         const searchUrl = `https://discord.com/api/v9/guilds/${guildId}/messages/search?channel_id=${channelId}&mentions=${databaseSearchId}`;
@@ -6613,8 +6613,8 @@ const checkWarrants = async (discordUserId) => {
     if (!discordUserId || !tokenSaved) return null;
     
     try {
-const channelId = troopersettings?.DatabaseChannelID || '1436970942747381804';
-const guildId = troopersettings?.GuildID || '888585906020311060';
+const channelId = trooperSettings?.DatabaseChannelID || '1436970942747381804';
+const guildId = trooperSettings?.GuildID || '888585906020311060';
         
         addLog('Ã°Å¸â€Â Checking for active warrants...', 'info');
         
@@ -7017,32 +7017,32 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
         ], '[ROADNAME/INTERSECTION] [SB/NB/WB/EB] // [OTHER DETAILS; "@ JUNKYARD" OR "BY JUNKYARD"]');
         
         // Officer Badge/Shield - from settings or default
-        const badgeId = troopersettings?.BadgeID || 'N/A';
+        const badgeId = trooperSettings?.BadgeID || 'N/A';
         addLog(`Using BadgeID from settings: ${badgeId}`, 'info');
         addLog(`Setting OShield to: ${badgeId}`, 'info');
         setField('OShield', badgeId);
         
         // Officer First Name - from settings or default
-        const firstName = troopersettings?.FirstName || 'N/A';
+        const firstName = trooperSettings?.FirstName || 'N/A';
         addLog(`Using FirstName from settings: ${firstName}`, 'info');
         addLog(`Setting OFirst to: ${firstName}`, 'info');
         setField('OFirst', firstName);
         
         // Officer Last Name - from settings or default
-        const lastName = troopersettings?.LastName || 'N/A';
+        const lastName = trooperSettings?.LastName || 'N/A';
         addLog(`Using LastName from settings: ${lastName}`, 'info');
         addLog(`Setting OLast to: ${lastName}`, 'info');
         setField('OLast', lastName);
         
         // Officer Username - from settings or default (UPPERCASE)
-        const username = (troopersettings?.Username || 'N/A').toUpperCase();
+        const username = (trooperSettings?.Username || 'N/A').toUpperCase();
         addLog(`Using Username from settings: ${username}`, 'info');
         addLog(`Setting OUsername to: ${username}`, 'info');
         setField('OUsername', username);
         
         // Generate Ticket ID: (currentyear)(trooperzone)(last3digitsofbadge)
         const currentYear = new Date().getFullYear();
-        const trooperZone = troopersettings?.Zone || 'N/A';
+        const trooperZone = trooperSettings?.Zone || 'N/A';
         const last3Digits = badgeId.slice(-3);
         const ticketId = `${currentYear}${trooperZone}${last3Digits}`;
         addLog(`Trooper settings: Year=${currentYear}, Zone=${trooperZone}, Badge=${badgeId}`, 'info');
@@ -7247,10 +7247,10 @@ const generateArrestReport = async (ownerData = null) => {
         };
         
         // Get trooper settings
-        const badgeId = troopersettings?.BadgeID || '00706';
-        const firstName = troopersettings?.FirstName || 'ROBERT';
-        const lastName = troopersettings?.LastName || 'MENDOZA';
-        const trooperZone = troopersettings?.Zone || 'G';
+        const badgeId = trooperSettings?.BadgeID || '00706';
+        const firstName = trooperSettings?.FirstName || 'ROBERT';
+        const lastName = trooperSettings?.LastName || 'MENDOZA';
+        const trooperZone = trooperSettings?.Zone || 'G';
         
         // Generate Reference Number: [CURRENTYEAR][TROOPERZONE][LAST 3 DIGITS OF BADGE]
         const currentYear = new Date().getFullYear();
@@ -7554,7 +7554,7 @@ useEffect(() => {
 // Auto-set department based on trooper settings
 useEffect(() => {
     if (trooperSettings.Department) {
-        setSelectedDepartment(troopersettings?.Department);
+        setSelectedDepartment(trooperSettings?.Department);
     }
 }, [trooperSettings]);
 return (
@@ -8425,16 +8425,16 @@ return (
                     <div style={{ marginBottom: '16px', padding: '14px', background: 'rgba(59,130,246,0.08)', borderRadius: '10px', border: '1px solid rgba(59,130,246,0.15)' }}>
                         <div style={{ color: '#93c5fd', fontSize: '10px', letterSpacing: '1.5px', fontWeight: '600', marginBottom: '4px' }}>OFFICER NAME</div>
                         <div style={{ color: 'white', fontSize: '20px', fontWeight: '800', letterSpacing: '0.5px' }}>
-                            {troopersettings?.FirstName || 'UNKNOWN'} {troopersettings?.LastName || ''}
+                            {trooperSettings?.FirstName || 'UNKNOWN'} {trooperSettings?.LastName || ''}
                         </div>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                         {[
-                            { label: 'BADGE ID', value: `#${troopersettings?.BadgeID || '00000'}`, mono: true },
-                            { label: 'ZONE', value: `ZONE ${troopersettings?.Zone || '—'}` },
-                            { label: 'USERNAME', value: troopersettings?.Username || 'UNKNOWN' },
-                            { label: 'REG. EXPIRY', value: troopersettings?.expDate || '—' },
+                            { label: 'BADGE ID', value: `#${trooperSettings?.BadgeID || '00000'}`, mono: true },
+                            { label: 'ZONE', value: `ZONE ${trooperSettings?.Zone || '—'}` },
+                            { label: 'USERNAME', value: trooperSettings?.Username || 'UNKNOWN' },
+                            { label: 'REG. EXPIRY', value: trooperSettings?.expDate || '—' },
                         ].map(({ label, value, mono }) => (
                             <div key={label} style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)' }}>
                                 <div style={{ color: '#93c5fd', fontSize: '9px', letterSpacing: '1.5px', fontWeight: '700', marginBottom: '4px' }}>{label}</div>
@@ -13502,9 +13502,9 @@ const courierBold = await pdfDoc.embedFont(PDFLib.StandardFonts.CourierBold);
             drawText('TROOPER INFORMATION', 50, yPosition - 20, 14, helveticaBold, PDFLib.rgb(0.23, 0.51, 0.96));
             drawLine(50, yPosition - 25, width - 50, yPosition - 25, 1, PDFLib.rgb(0.23, 0.51, 0.96));
             
-            drawText(`Name: ${troopersettings?.FirstName || 'UNKNOWN'} ${troopersettings?.LastName || ''}`, 50, yPosition - 45, 11, helvetica);
-            drawText(`Badge: ${troopersettings?.BadgeID || '00000'}`, 50, yPosition - 62, 11, helvetica);
-            drawText(`Zone: ${troopersettings?.Zone || 'UNKNOWN'}`, 300, yPosition - 62, 11, helvetica);
+            drawText(`Name: ${trooperSettings?.FirstName || 'UNKNOWN'} ${trooperSettings?.LastName || ''}`, 50, yPosition - 45, 11, helvetica);
+            drawText(`Badge: ${trooperSettings?.BadgeID || '00000'}`, 50, yPosition - 62, 11, helvetica);
+            drawText(`Zone: ${trooperSettings?.Zone || 'UNKNOWN'}`, 300, yPosition - 62, 11, helvetica);
             
             yPosition -= 110;
             
@@ -13542,9 +13542,9 @@ page.drawRectangle({
 drawText('TROOPER INFORMATION', 50, yPosition - 20, 14, helveticaBold, PDFLib.rgb(0.23, 0.51, 0.96));
 drawLine(50, yPosition - 25, width - 50, yPosition - 25, 1, PDFLib.rgb(0.23, 0.51, 0.96));
 
-drawText(`Name: ${troopersettings?.FirstName || 'UNKNOWN'} ${troopersettings?.LastName || ''}`, 50, yPosition - 45, 11, helvetica);
-drawText(`Badge: ${troopersettings?.BadgeID || '00000'}`, 50, yPosition - 62, 11, helvetica);
-drawText(`Zone: ${troopersettings?.Zone || 'UNKNOWN'}`, 300, yPosition - 62, 11, helvetica);
+drawText(`Name: ${trooperSettings?.FirstName || 'UNKNOWN'} ${trooperSettings?.LastName || ''}`, 50, yPosition - 45, 11, helvetica);
+drawText(`Badge: ${trooperSettings?.BadgeID || '00000'}`, 50, yPosition - 62, 11, helvetica);
+drawText(`Zone: ${trooperSettings?.Zone || 'UNKNOWN'}`, 300, yPosition - 62, 11, helvetica);
 
 // Active Session
 if (selectedUserSession) {
@@ -13722,7 +13722,7 @@ if (shiftPlateSearches.length > 0 && yPosition > 150) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `NYSP_Shift_Report_${new Date().toISOString().split('T')[0]}_${troopersettings?.BadgeID || '00000'}.pdf`;
+            a.download = `NYSP_Shift_Report_${new Date().toISOString().split('T')[0]}_${trooperSettings?.BadgeID || '00000'}.pdf`;
             a.click();
             URL.revokeObjectURL(url);
             
