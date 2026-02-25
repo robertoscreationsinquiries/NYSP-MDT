@@ -8513,7 +8513,7 @@ return (
     <div style={{ position: 'absolute', top: '-40%', right: '-5%', width: '35%', height: '200%', background: 'radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)', pointerEvents: 'none' }}></div>
 
     {/* Left: icon + text */}
-    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: 0, position: 'relative', zIndex: 1 }}>
+<div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: 0, position: 'relative', zIndex: 1, flexWrap: 'wrap' }}>
         <div style={{ width: '52px', height: '52px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(59,130,246,0.5)', flexShrink: 0 }}>
             <Car size={28} style={{ color: 'white' }} />
         </div>
@@ -8524,9 +8524,7 @@ return (
             </div>
             <p style={{ color: '#475569', fontSize: '13px', margin: '4px 0 0', whiteSpace: 'nowrap' }}>Query active vehicle registrations · New York State Police MDT</p>
         </div>
-    </div>
-
-    {/* Right: back button */}
+            {/* Right: back button */}
     <button
         onClick={() => { if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); } else { setActiveView('home'); } }}
         style={{ padding: '9px 18px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '8px', color: '#93c5fd', cursor: 'pointer', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '7px', transition: 'all 0.2s', flexShrink: 0, position: 'relative', zIndex: 1, whiteSpace: 'nowrap' }}
@@ -8535,6 +8533,8 @@ return (
     >
         ← DASHBOARD
     </button>
+    </div>
+
 
 </div>
 
