@@ -1280,7 +1280,7 @@ html, body {
 }
 
 body::before {
-    content: 'BETATEST';
+    content: 'BETA';
     position: fixed;
     bottom: 20px;
     left: 20px;
@@ -1295,8 +1295,23 @@ body::before {
     border: 1px solid rgba(251, 191, 36, 0.3);
     border-radius: 4px;
     background: rgba(0, 0, 0, 0.3);
+        content: '';
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image: 
+        linear-gradient(rgba(59, 130, 246, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59, 130, 246, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
 }
 
+body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(59,130,246,0.08) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+}
 
 ::-webkit-scrollbar {
     width: 12px;
