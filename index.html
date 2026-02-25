@@ -8517,24 +8517,22 @@ return (
         <div style={{ width: '52px', height: '52px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(59,130,246,0.5)', flexShrink: 0 }}>
             <Car size={28} style={{ color: 'white' }} />
         </div>
-        <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ color: 'white', fontSize: '22px', fontWeight: '800', letterSpacing: '2px', whiteSpace: 'nowrap', fontFamily: "'Courier New', monospace", lineHeight: '1' }}>LICENSE PLATE SEARCH</span>
-                <span style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '4px', padding: '2px 8px', color: '#60a5fa', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px', whiteSpace: 'nowrap' }}>VEHICLE REGISTRY</span>
-            </div>
-            <p style={{ color: '#475569', fontSize: '13px', margin: '4px 0 0', whiteSpace: 'nowrap' }}>Query active vehicle registrations · New York State Police MDT</p>
+ <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+            <span style={{ color: 'white', fontSize: '22px', fontWeight: '800', letterSpacing: '2px', whiteSpace: 'nowrap' }}>LICENSE PLATE SEARCH</span>
+            <span style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '4px', padding: '2px 8px', color: '#60a5fa', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px', whiteSpace: 'nowrap' }}>VEHICLE REGISTRY</span>
         </div>
-            {/* Right: back button */}
-    <button
-        onClick={() => { if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); } else { setActiveView('home'); } }}
-        style={{ padding: '9px 18px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '8px', color: '#93c5fd', cursor: 'pointer', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '7px', transition: 'all 0.2s', flexShrink: 0, position: 'relative', zIndex: 1, whiteSpace: 'nowrap' }}
-        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.2)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)'; e.currentTarget.style.color = '#fff'; }}
-        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; e.currentTarget.style.color = '#93c5fd'; }}
-    >
-        ← DASHBOARD
-    </button>
+        <p style={{ color: '#475569', fontSize: '13px', margin: '0 0 10px', whiteSpace: 'nowrap' }}>Query active vehicle registrations · New York State Police MDT</p>
+        <button
+            onClick={() => { if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); } else { setActiveView('home'); } }}
+            style={{ width: 'auto', padding: '7px 16px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '8px', color: '#93c5fd', cursor: 'pointer', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', display: 'inline-flex', alignItems: 'center', gap: '7px', transition: 'all 0.2s', whiteSpace: 'nowrap' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.2)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)'; e.currentTarget.style.color = '#fff'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; e.currentTarget.style.color = '#93c5fd'; }}
+        >
+            ← DASHBOARD
+        </button>
     </div>
-
+</div>
 
 </div>
 
