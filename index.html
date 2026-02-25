@@ -2352,7 +2352,7 @@ React.useEffect(() => {
 const FAQ_DATA = [
     {
         question: "How do I issue a citation?",
-        answer: "Navigate to Citations, fill in plate, violation code, and fine. Click 'Issue Citation' to save.",
+        answer: "There are multiple ways to issue a citation. You can either search up a vehicle's licenseplate and cite the registered owner a citation or; you can use the ID Lookup function to search for a user (via userID or username) and issue a citation. Same logic applies for arrest/summons reports.",
         category: "Citations"
     },
     {
@@ -2366,28 +2366,13 @@ const FAQ_DATA = [
         category: "Lookups"
     },
     {
-        question: "How do I create a warrant?",
-        answer: "Go to Warrants, fill in subject info, type, charges, bond amount, then click 'Create Warrant'.",
-        category: "Warrants"
-    },
-    {
-        question: "Can I edit citations after issuing?",
-        answer: "No, citations can't be edited once issued. Void it and create a new one.",
-        category: "Citations"
-    },
-    {
-        question: "How do I end my shift?",
-        answer: "Click 'End Shift' in Settings. You'll see a shift summary of your activity.",
-        category: "General"
-    },
-    {
         question: "What is AI Parser?",
         answer: "AI Parser extracts vehicle info from text/images using Groq AI. Configure API key in Settings.",
         category: "AI Features"
     },
     {
         question: "Why 403 error when searching?",
-        answer: "Discord token is expired/invalid. Get new token from Discord and update NYSP_settingstool.txt",
+        answer: "Discord token is expired/invalid. Get new token from Discord and update NYSP_settingstool.txt. This CAN also be if management resets the points cycle, you are required to re-enter the registration and gov-database channelID.",
         category: "Troubleshooting"
     }
 ];
@@ -2409,12 +2394,16 @@ const updateLogsData = [
         ],
         modifications: [
             'CHANGE - Less files are now required to be installed.',
-            'CHANGE - Loading screen has now been overhauled again.',
             'CHANGE - Removed the "Wait X seconds to continue" feature on the configuration page after tester feedback. Warning page popup still appears.',
             'CHANGE - Added new "useful links" due to the new warrant-request system.',
-            'CHANGE - The Useful Links tab has been overhauled.',
             'CHANGE - The Frequently Asked Questions tab has been overhauled.',
-            'CHANGE - Changed "Trooper" textlabels to "LEO". This will be adjusted in the future.'
+            'CHANGE - The app now aims to become more personalized to the user; depending on what department you are in, it will either say "NYSP" or "EGPD" across the application.',
+            'CHANGE - Useful links tab has received visual upgrades along with new a new feature: now show links depending on what department the logged in user is registered as',
+            'CHANGE - New home dashboard layout & visual style',
+            'CHANGE - New License plate search tab has received visual upgrades.',
+            'CHANGE - Loading screen has been overhauled including loading backend data.',
+            'CHANGE - New FAQ layout & visual style.',
+
         ],
         removed: [],
         planned: [
@@ -8459,7 +8448,8 @@ return (
                 </div>
 
 
-{/* ── EXIT APP ── */}
+            </div>
+            {/* ── EXIT APP ── */}
 <button
     onClick={() => setShowExitConfirm(true)}
     style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(220,38,38,0.06))', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '14px', color: '#f87171', cursor: 'pointer', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', transition: 'all 0.25s', boxShadow: '0 2px 8px rgba(239,68,68,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
@@ -8468,8 +8458,6 @@ return (
 >
     🚪 EXIT APPLICATION
 </button>
-
-            </div>
         </div>
     </div>
 ) : (
@@ -9005,7 +8993,7 @@ onClick={() => {
     }}
 />
                     <p className="input-hint">
-                        Search for all vehicles registered under the citizen (Press Enter to search)
+                        Extract important details such as registered vehicles, and look for any potential warrants or such. This also gives you the ability to issue government records.
                     </p>
                 </div>
 
@@ -9015,9 +9003,9 @@ style={{
     boxShadow: '0 4px 16px rgba(59, 130, 246, 0.3)',
   }}>
     {loadingSearch ? (
-        <><Loader2 size={20} /><span>Searching Citizen...</span></>
+        <><Loader2 size={20} /><span>SEARCHING...</span></>
     ) : (
-        <><Search size={20} /><span>Search Database</span></>
+        <><Search size={20} /><span>SEARCH DATABASE</span></>
     )}
 </button>
 
@@ -9722,6 +9710,13 @@ File ARREST/SUMMONS REPORT
                         <p style={{ fontSize: '11px', color: '#64748b', marginTop: '8px' }}>Instructions on how to install is present in a .txt file.</p>
                     </div>
 
+
+                    {tokenSaved && (
+                        <div style={{ marginTop: '16px', padding: '14px', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '10px' }}>
+                            <p style={{ color: '#fde047', fontSize: '12px', fontWeight: '700', marginBottom: '4px' }}>⚠ RATE LIMIT WARNING</p>
+                            <p style={{ color: '#fef3c7', fontSize: '11px', margin: 0 }}>Discord limits API requests. If you see 403/429 errors, wait 60 seconds between searches.</p>
+                        </div>
+                    )}
                     {/* Logout */}
                     <button
                         onClick={handleLogout}
@@ -9731,13 +9726,6 @@ File ARREST/SUMMONS REPORT
                     >
                         <XCircle size={18} /> LOGOUT
                     </button>
-
-                    {tokenSaved && (
-                        <div style={{ marginTop: '16px', padding: '14px', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '10px' }}>
-                            <p style={{ color: '#fde047', fontSize: '12px', fontWeight: '700', marginBottom: '4px' }}>⚠ RATE LIMIT WARNING</p>
-                            <p style={{ color: '#fef3c7', fontSize: '11px', margin: 0 }}>Discord limits API requests. If you see 403/429 errors, wait 60 seconds between searches.</p>
-                        </div>
-                    )}
                 </div>
 
                 {/* ── APPEARANCE ── */}
@@ -11473,6 +11461,7 @@ if (window.electronAPI?.quit) {
                             e.target.style.background = 'rgba(239, 68, 68, 0.1)';
                             e.target.style.transform = 'scale(1)';
                         }}
+                        
                     >
                         <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
