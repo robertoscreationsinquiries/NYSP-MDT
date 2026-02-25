@@ -8507,33 +8507,33 @@ return (
 {activeView === 'search' && (
 <div style={{ minHeight: 'calc(100vh - 40px)', background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)', padding: '20px', boxSizing: 'border-box' }}>
 {/* ── HEADER ── */}
-        <div style={{ marginBottom: '20px', padding: '20px 28px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,58,138,0.35))', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 4px 32px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px' }}>
-            <div style={{ position: 'absolute', top: '-40%', right: '-5%', width: '35%', height: '200%', background: 'radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)', pointerEvents: 'none' }}></div>
+<div style={{ marginBottom: '20px', padding: '20px 28px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,58,138,0.35))', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 4px 32px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px' }}>
+    <div style={{ position: 'absolute', top: '-40%', right: '-5%', width: '35%', height: '200%', background: 'radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)', pointerEvents: 'none' }}></div>
 
-            {/* Left: icon + title */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative', zIndex: 1 }}>
-                <div style={{ width: '48px', height: '48px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(59,130,246,0.5)', flexShrink: 0 }}>
-                    <Car size={26} style={{ color: 'white' }} />
-                </div>
-                <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                        <h1 style={{ color: 'white', fontSize: '18px', fontWeight: '800', margin: 0, letterSpacing: '2px' }}>LICENSE PLATE SEARCH</h1>
-                        <span style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '4px', padding: '2px 8px', color: '#60a5fa', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px', whiteSpace: 'nowrap' }}>VEHICLE REGISTRY</span>
-                    </div>
-                    <p style={{ color: '#475569', fontSize: '12px', margin: 0, letterSpacing: '0.5px' }}>Query active vehicle registrations · New York State Police MDT</p>
-                </div>
-            </div>
-
-            {/* Right: back button */}
-            <button
-                onClick={() => { if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); } else { setActiveView('home'); } }}
-                style={{ padding: '9px 18px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '8px', color: '#93c5fd', cursor: 'pointer', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '7px', transition: 'all 0.2s', flexShrink: 0, position: 'relative', zIndex: 1, whiteSpace: 'nowrap' }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.2)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)'; e.currentTarget.style.color = '#fff'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; e.currentTarget.style.color = '#93c5fd'; }}
-            >
-                ← DASHBOARD
-            </button>
+    {/* Left: icon + title */}
+    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative', zIndex: 1 }}>
+        <div style={{ width: '48px', height: '48px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(59,130,246,0.5)', flexShrink: 0 }}>
+            <Car size={26} style={{ color: 'white' }} />
         </div>
+        <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                <h1 style={{ color: 'white', fontSize: '18px', fontWeight: '800', margin: 0, letterSpacing: '2px' }}>LICENSE PLATE SEARCH</h1>
+                <span style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '4px', padding: '2px 8px', color: '#60a5fa', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px', whiteSpace: 'nowrap' }}>VEHICLE REGISTRY</span>
+            </div>
+            <p style={{ color: '#475569', fontSize: '12px', margin: 0, letterSpacing: '0.5px' }}>Query active vehicle registrations · New York State Police MDT</p>
+        </div>
+    </div>
+
+    {/* Right: back button */}
+    <button
+        onClick={() => { if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); } else { setActiveView('home'); } }}
+        style={{ padding: '9px 18px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '8px', color: '#93c5fd', cursor: 'pointer', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '7px', transition: 'all 0.2s', flexShrink: 0, position: 'relative', zIndex: 1, whiteSpace: 'nowrap' }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.2)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)'; e.currentTarget.style.color = '#fff'; }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; e.currentTarget.style.color = '#93c5fd'; }}
+    >
+        ← DASHBOARD
+    </button>
+</div>
 
         {!tokenSaved ? (
             /* ── NO TOKEN WARNING ── */
