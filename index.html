@@ -5000,44 +5000,11 @@ discordUserId = inputUserId;
             addLog('Step 1: Verifying user exists in server...', 'info');
             setSearchProgress(20);
             
-            const memberUrl = `https://discord.com/api/v9/guilds/${guildId}/members/${inputUserId}`;
-            console.log('🌐 [API] Member endpoint:', memberUrl);
-            
-            const memberResp = await fetch(memberUrl, {
-                headers: { 'Authorization': discordToken }
-            });
-            
-            console.log('📡 [RESPONSE] Status:', memberResp.status);
-            
-            if (!memberResp.ok) {
-                console.error('❌ [ERROR] Member not found in server');
-                playSound('fail');
-                
-                if (memberResp.status === 404) {
-                    addLog(`❌ User ID ${inputUserId} not found in server`, 'error');
-                    showCustomError(
-                        'User Not Found',
-                        `Discord ID ${inputUserId} is not a member of this server.\n\nPlease verify the ID is correct.`
-                    );
-                } else if (memberResp.status === 403) {
-                    addLog('❌ Permission denied - check Discord token', 'error');
-                    showCustomError(
-                        'Permission Denied',
-                        'Your Discord token does not have permission to access server members.\n\nVerify your token in Settings.'
-                    );
-                } else {
-                    addLog(`❌ Member lookup failed: ${memberResp.status}`, 'error');
-                    showCustomError(
-                        'Lookup Failed',
-                        `Failed to verify member (Error ${memberResp.status})\n\nPlease try again.`
-                    );
-                }
-                
-                setLoadingSearch(false);
-                setSearchProgress(0);
-                return;  // STOP EXECUTION
-            }
-            
+// Skip member verification - user tokens cannot call Guild Members API (always 403)
+// Go straight to message search using the Discord ID
+addLog('Step 1: Discord ID confirmed, searching registration database...', 'info');
+setSearchProgress(20);
+console.log('📡 [SKIP] Member verification skipped - proceeding to message search');
             // Member exists! Extract server name
             const memberData = await memberResp.json();
             serverName = memberData.nick || memberData.user.global_name || memberData.user.username;
