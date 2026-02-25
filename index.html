@@ -381,13 +381,7 @@ body {
     border-bottom: 1px solid #3a3a3a;
     margin-bottom: 0;
 }
-.info-label {
-    color: #d1fae5 !important;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-}
+        .info-label { font-size: 13px; opacity: 0.9; }
         .owner-box .info-label { color: #bfdbfe; }
         .vehicle-box .info-label { color: #d1fae5; }
         .info-value { color: white; font-weight: 600; font-size: 13px; text-align: right; }
@@ -2759,93 +2753,64 @@ DiscordAccountToken=${discordToken || ''}`;
 
 
 const showCustomError = (title, message) => {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
-        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.75);
-        backdrop-filter: blur(6px);
-        display: flex; align-items: center; justify-content: center;
-        z-index: 99999; padding: 20px;
-        animation: fadeIn 0.15s ease-out;
+    const errorOverlay = document.createElement('div');
+    errorOverlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
     `;
-
-    // Detect type from title for color theming
-    const isWarning = title.toLowerCase().includes('warn') || title.toLowerCase().includes('cooldown') || title.toLowerCase().includes('expir');
-    const isSuccess = title.toLowerCase().includes('saved') || title.toLowerCase().includes('success') || title.toLowerCase().includes('connected');
-    const accentColor = isSuccess ? '#10b981' : isWarning ? '#f59e0b' : '#ef4444';
-    const accentDim = isSuccess ? 'rgba(16,185,129,0.15)' : isWarning ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)';
-    const accentBorder = isSuccess ? 'rgba(16,185,129,0.3)' : isWarning ? 'rgba(245,158,11,0.3)' : 'rgba(239,68,68,0.3)';
-    const icon = isSuccess ? '✓' : isWarning ? '!' : '✕';
-
-    overlay.innerHTML = `
+    
+    const errorBox = document.createElement('div');
+    errorBox.className = visualEffects ? 'shake-animation' : '';
+    errorBox.style.cssText = `
+        background: linear-gradient(135deg, #1e3a8a, #334155);
+        border-radius: 16px;
+        padding: 40px;
+        max-width: 500px;
+        text-align: center;
+        border: 2px solid #ef4444;
+    `;
+    
+    errorBox.innerHTML = `
         <div style="
-            max-width: 460px; width: 100%;
-            background: linear-gradient(135deg, rgba(10,15,30,0.98), rgba(15,23,42,0.98));
-            border: 1px solid ${accentBorder};
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 24px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
-            animation: fadeIn 0.2s ease-out;
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justifyContent: center;
+            margin: 0 auto 24px;
         ">
-            <!-- Top accent bar -->
-            <div style="height: 3px; background: linear-gradient(90deg, transparent, ${accentColor}, transparent);"></div>
-
-            <!-- Header -->
-            <div style="
-                display: flex; align-items: center; gap: 14px;
-                padding: 20px 24px 16px;
-                border-bottom: 1px solid rgba(255,255,255,0.06);
-            ">
-                <div style="
-                    width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
-                    background: ${accentDim};
-                    border: 1px solid ${accentBorder};
-                    display: flex; align-items: center; justify-content: center;
-                    font-size: 18px; font-weight: 800; color: ${accentColor};
-                ">${icon}</div>
-                <div>
-                    <div style="color: white; font-size: 15px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">${title}</div>
-                    <div style="color: #475569; font-size: 10px; font-weight: 600; letter-spacing: 2px; margin-top: 2px;">NYSP MDT SYSTEM</div>
-                </div>
-            </div>
-
-            <!-- Message -->
-            <div style="padding: 20px 24px;">
-                <p style="
-                    color: #94a3b8; font-size: 13px; line-height: 1.8;
-                    margin: 0; white-space: pre-wrap;
-                ">${message.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
-            </div>
-
-            <!-- Footer -->
-            <div style="
-                padding: 0 24px 20px;
-                display: flex; justify-content: flex-end;
-            ">
-                <button id="mdt-error-close" style="
-                    padding: 10px 28px;
-                    background: ${accentDim};
-                    border: 1px solid ${accentBorder};
-                    border-radius: 8px;
-                    color: ${accentColor};
-                    font-size: 12px; font-weight: 700;
-                    cursor: pointer; letter-spacing: 1.5px;
-                    text-transform: uppercase;
-                    transition: all 0.2s;
-                ">CONFIRM</button>
-            </div>
+            <span style="font-size: 48px;"> </span>
         </div>
+        <h2 style="color: white; font-size: 24px; margin-bottom: 16px;">${title}</h2>
+        <p style="color: #bfdbfe; font-size: 14px; margin-bottom: 32px; line-height: 1.6;">${message}</p>
+        <button id="closeError" style="
+            padding: 14px 32px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        ">OK</button>
     `;
-
-    document.body.appendChild(overlay);
-
-    const btn = document.getElementById('mdt-error-close');
-    btn.onmouseenter = () => { btn.style.background = accentColor; btn.style.color = '#fff'; };
-    btn.onmouseleave = () => { btn.style.background = accentDim; btn.style.color = accentColor; };
-    btn.onclick = () => { overlay.style.opacity = '0'; overlay.style.transition = 'opacity 0.15s'; setTimeout(() => document.body.removeChild(overlay), 150); };
-
-    // Click outside to close
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) btn.onclick(); });
+    
+    errorOverlay.appendChild(errorBox);
+    document.body.appendChild(errorOverlay);
+    
+    document.getElementById('closeError').onclick = () => {
+        document.body.removeChild(errorOverlay);
+    };
 };
 
 
@@ -5044,9 +5009,34 @@ discordUserId = inputUserId;
             
             console.log('📡 [RESPONSE] Status:', memberResp.status);
             
-            addLog('Step 1: Discord ID confirmed, searching registration database...', 'info');
-setSearchProgress(20);
-console.log('📡 [SKIP] Member verification skipped - proceeding to message search');
+            if (!memberResp.ok) {
+                console.error('❌ [ERROR] Member not found in server');
+                playSound('fail');
+                
+                if (memberResp.status === 404) {
+                    addLog(`❌ User ID ${inputUserId} not found in server`, 'error');
+                    showCustomError(
+                        'User Not Found',
+                        `Discord ID ${inputUserId} is not a member of this server.\n\nPlease verify the ID is correct.`
+                    );
+                } else if (memberResp.status === 403) {
+                    addLog('❌ Permission denied - check Discord token', 'error');
+                    showCustomError(
+                        'Permission Denied',
+                        'Your Discord token does not have permission to access server members.\n\nVerify your token in Settings.'
+                    );
+                } else {
+                    addLog(`❌ Member lookup failed: ${memberResp.status}`, 'error');
+                    showCustomError(
+                        'Lookup Failed',
+                        `Failed to verify member (Error ${memberResp.status})\n\nPlease try again.`
+                    );
+                }
+                
+                setLoadingSearch(false);
+                setSearchProgress(0);
+                return;  // STOP EXECUTION
+            }
             
             // Member exists! Extract server name
             const memberData = await memberResp.json();
@@ -8478,36 +8468,39 @@ return (
 }}>
 
 {activeView === 'search' && (
-<div style={{ minHeight: 'calc(100vh - 40px)', background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)', padding: '20px', boxSizing: 'border-box', overflowY: 'auto', maxHeight: '100vh' }}>
+    <div style={{ minHeight: 'calc(100vh - 40px)', background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)', padding: '20px', boxSizing: 'border-box' }}>
 
-        {/* ── HEADER ── */}
-        <div style={{ marginBottom: '20px', padding: '20px 28px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,58,138,0.35))', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 4px 32px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden' }}>
+{/* ── HEADER ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', padding: '20px 28px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,58,138,0.35))', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 4px 32px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: '-40%', right: '-5%', width: '35%', height: '200%', background: 'radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)', pointerEvents: 'none' }}></div>
 
-            {/* Title row */}
-            <div style={{ textAlign: 'center', marginBottom: '14px', position: 'relative', zIndex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '6px' }}>
-                    <div style={{ width: '40px', height: '40px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(59,130,246,0.4)' }}>
-                        <Car size={22} style={{ color: 'white' }} />
-                    </div>
-                    <h1 style={{ color: 'white', fontSize: '20px', fontWeight: '800', margin: 0, letterSpacing: '2px' }}>LICENSE PLATE SEARCH</h1>
-                    <span style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '4px', padding: '2px 8px', color: '#60a5fa', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px' }}>VEHICLE REGISTRY</span>
+            {/* Left: icon + title stack */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '18px', position: 'relative', zIndex: 1 }}>
+                <div style={{ width: '48px', height: '48px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(59,130,246,0.5)', flexShrink: 0 }}>
+                    <Car size={26} style={{ color: 'white' }} />
                 </div>
-                <p style={{ color: '#475569', fontSize: '12px', margin: 0, letterSpacing: '0.5px' }}>Query active vehicle registrations · New York State Police MDT</p>
+                <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                        <h1 style={{ color: 'white', fontSize: '18px', fontWeight: '800', margin: 0, letterSpacing: '2px', textTransform: 'uppercase' }}>License Plate Search</h1>
+                        <span style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '4px', padding: '2px 8px', color: '#60a5fa', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px' }}>VEHICLE REGISTRY</span>
+                    </div>
+                    <p style={{ color: '#475569', fontSize: '12px', margin: 0, fontWeight: '500', letterSpacing: '0.5px' }}>
+                        Query active vehicle registrations · New York State Police MDT
+                    </p>
+                </div>
             </div>
 
-            {/* Back button row */}
-            <div style={{ display: 'flex', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
-                <button
-                    onClick={() => { if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); } else { setActiveView('home'); } }}
-                    style={{ padding: '8px 20px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '8px', color: '#93c5fd', cursor: 'pointer', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '7px', transition: 'all 0.2s' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.2)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; e.currentTarget.style.color = '#93c5fd'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; }}
-                >
-                    ← BACK TO DASHBOARD
-                </button>
-            </div>
+            {/* Right: back button */}
+            <button
+                onClick={() => { if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); } else { setActiveView('home'); } }}
+                style={{ padding: '9px 18px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '8px', color: '#93c5fd', cursor: 'pointer', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '7px', transition: 'all 0.2s', flexShrink: 0, position: 'relative', zIndex: 1 }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.2)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)'; e.currentTarget.style.color = '#fff'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; e.currentTarget.style.color = '#93c5fd'; }}
+            >
+                ← DASHBOARD
+            </button>
         </div>
+
         {!tokenSaved ? (
             /* ── NO TOKEN WARNING ── */
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px', padding: '40px', textAlign: 'center' }}>
