@@ -5757,6 +5757,23 @@ console.log('🔍 [DEBUG] Setting search results:', {
             vehicleCount: allVehicles.length,
             hasWarrants: !!warrants
         }]);
+
+        checkWarrants(discordUserId).then(warrants => {
+    if (warrants) {
+        setSearchResults(prev => ({
+            ...prev,
+            warrants: warrants
+        }));
+        
+        // Play warrant alert sound and flash
+        setTimeout(() => {
+            setWarrantInfo(warrants);
+            setWarrantFlash(true);
+            playWarrantAlert();
+            setTimeout(() => setWarrantFlash(false), 3000);
+        }, 500);
+    }
+});
         
         if (warrants) {
             console.log('⚠️ [WARRANTS] Bench:', warrants.bench, 'Arrest:', warrants.arrest);
