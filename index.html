@@ -16,16 +16,32 @@ html {
     scrollbar-gutter: stable;
 }
 body {
-    font-family: 'Courier New', 'Consolas', monospace;
-    height: 100vh;
-    overflow: hidden;
-    padding: 20px;
-        background: #060912;
-    background-image: 
-        radial-gradient(ellipse at 20% 20%, rgba(30, 58, 138, 0.4) 0%, transparent 50%),
-        radial-gradient(ellipse at 80% 80%, rgba(5, 46, 22, 0.3) 0%, transparent 50%),
-        radial-gradient(ellipse at 50% 50%, rgba(15, 23, 42, 0.8) 0%, transparent 100%);
+    background: #07090f;
+    background-image:
+        radial-gradient(ellipse at 15% 15%, rgba(30, 58, 138, 0.25) 0%, transparent 45%),
+        radial-gradient(ellipse at 85% 85%, rgba(5, 46, 22, 0.2) 0%, transparent 45%);
     background-attachment: fixed;
+    margin: 0;
+    padding: 0;
+}
+
+/* BETA watermark */
+body::before {
+    content: 'BETA';
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    color: rgba(251, 191, 36, 0.4);
+    letter-spacing: 2px;
+    z-index: 9998;
+    pointer-events: none;
+    font-family: 'Courier New', monospace;
+    padding: 4px 8px;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.3);
 }
 .app-container { 
     max-width: 1200px; 
@@ -357,6 +373,9 @@ body {
     flex-direction: column;
     height: fit-content;
 }
+* {
+    outline: none;
+}
 .box-header {
     font-size: 16px; 
     font-weight: 700; 
@@ -386,10 +405,10 @@ body {
     border-bottom: 1px solid #3a3a3a;
     margin-bottom: 0;
 }
-        .info-label { font-size: 13px; opacity: 0.9; }
-        .owner-box .info-label { color: #bfdbfe; }
-        .vehicle-box .info-label { color: #d1fae5; }
-        .info-value { color: white; font-weight: 600; font-size: 13px; text-align: right; }
+.info-label { font-size: 13px; opacity: 0.9; color: #bfdbfe; }
+.owner-box .info-label { color: #bfdbfe; }
+.vehicle-box .info-label { color: #d1fae5; }
+.info-value { color: #ffffff !important; font-weight: 600; font-size: 13px; text-align: right; }
         .plate-display {
             background: rgba(59, 130, 246, 0.3); border: 3px solid rgba(59, 130, 246, 0.6);
             border-radius: 10px; padding: 16px; text-align: center; margin-bottom: 16px;
