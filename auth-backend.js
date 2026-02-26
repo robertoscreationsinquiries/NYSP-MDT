@@ -29,6 +29,18 @@ const AUTHORIZED_USERS = {
         bannedReason: "Sharing access to unauthorized users."
     },
 
+    "vectra_rb": {
+        robloxUsername: "VECTRA_RB",
+        patrolZone: "0G",
+        firstName: "Victor",
+        lastName: "Mendoza",
+        badgeId: "00201",
+        department: "NYSP",
+        password: "Bajojajo575",
+        banned: false,
+        bannedReason: ""
+    },
+
     "Pigscheme12345": {
         robloxUsername: "PIGSCHEME12345",
         patrolZone: "0G",
