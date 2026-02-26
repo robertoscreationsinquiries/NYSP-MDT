@@ -2934,45 +2934,73 @@ const playSound = (type) => {
     }
 };
 const playAlertSound = () => {
-    if (!soundSettings.callAlert) return;
+    console.log('[SOUND] ═══════════════════════════════════');
+    console.log('[SOUND] playAlertSound() called');
+    console.log('[SOUND] soundSettings.callAlert:', soundSettings.callAlert);
+    console.log('[SOUND] activeAlertAudio exists:', !!activeAlertAudio);
+    console.log('[SOUND] activeAlertAudio paused:', activeAlertAudio ? activeAlertAudio.paused : 'N/A');
+    
+    if (!soundSettings.callAlert) {
+        console.log('[SOUND] ⚠️ Sound disabled in settings, skipping');
+        return;
+    }
     
     // ✅ FIX: Don't play if already playing
     if (activeAlertAudio && !activeAlertAudio.paused) {
-        console.log('[SOUND] Alert already playing, skipping...');
+        console.log('[SOUND] ✅ Alert already playing, SKIPPING to prevent spam');
+        console.log('[SOUND] Current time:', activeAlertAudio.currentTime);
+        console.log('[SOUND] Duration:', activeAlertAudio.duration);
+        console.log('[SOUND] ═══════════════════════════════════');
         return;
     }
     
     try {
+        console.log('[SOUND] 🔄 Stopping any existing alert...');
         // Stop any existing alert
         if (activeAlertAudio) {
             activeAlertAudio.pause();
             activeAlertAudio.currentTime = 0;
+            console.log('[SOUND] ✅ Previous alert stopped');
         }
         
         if (SOUNDS.callAlert) {
+            console.log('[SOUND] 🎵 Creating new audio instance');
             const audio = new Audio(SOUNDS.callAlert);
             audio.volume = 0.6;
-            audio.loop = true; // Loop until acknowledged
+            audio.loop = true;
+            console.log('[SOUND] ▶️ Starting playback (LOOP mode)');
             audio.play().catch(e => {
-                console.error('Audio playback failed:', e);
+                console.error('[SOUND] ❌ Playback failed:', e);
                 addLog(`🔇 Alert sound blocked by browser`, 'error');
             });
             setActiveAlertAudio(audio);
             addLog('🚨 NEW CALL ALERT - PLAYING ON LOOP', 'info');
+            console.log('[SOUND] ✅ Alert sound started successfully');
+        } else {
+            console.log('[SOUND] ⚠️ SOUNDS.callAlert not available');
         }
     } catch (e) {
-        console.error('Alert sound error:', e);
+        console.error('[SOUND] ❌ Error:', e);
     }
+    console.log('[SOUND] ═══════════════════════════════════');
 };
 
 const stopAlertSound = () => {
+    console.log('[SOUND] ═══════════════════════════════════');
+    console.log('[SOUND] stopAlertSound() called');
     if (activeAlertAudio) {
+        console.log('[SOUND] ⏹️ Stopping alert...');
         activeAlertAudio.pause();
         activeAlertAudio.currentTime = 0;
         setActiveAlertAudio(null);
         addLog('🔇 Alert sound stopped', 'info');
+        console.log('[SOUND] ✅ Alert stopped and cleared');
+    } else {
+        console.log('[SOUND] ⚠️ No active alert to stop');
     }
+    console.log('[SOUND] ═══════════════════════════════════');
 };
+
 
 
 const playWarrantAlert = () => {
@@ -10006,111 +10034,138 @@ File ARREST/SUMMONS REPORT
         minHeight: '100vh',
         boxSizing: 'border-box'
     }}>
-        {/* HEADER */}
-        <div style={{
-            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.1))',
-            border: '1px solid rgba(239, 68, 68, 0.2)',
-            borderRadius: '12px',
-            padding: '24px',
-            marginBottom: '24px',
-            boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
-            position: 'relative',
-            overflow: 'hidden'
+        {/* ── HEADER ── */}
+        <div style={{ 
+            marginBottom: '20px', 
+            padding: '20px 28px', 
+            borderRadius: '14px', 
+            background: 'linear-gradient(135deg, rgba(25,15,15,0.98), rgba(138,30,30,0.35))', 
+            border: '1px solid rgba(239,68,68,0.2)', 
+            boxShadow: '0 4px 32px rgba(0,0,0,0.5)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between', 
+            gap: '16px', 
+            position: 'relative', 
+            overflow: 'hidden' 
         }}>
-            <div style={{
-                position: 'absolute',
-                top: '-50%',
-                right: '-20%',
-                width: '60%',
-                height: '200%',
-                background: 'radial-gradient(circle, rgba(239, 68, 68, 0.15) 0%, transparent 70%)',
-                animation: 'pulse 4s ease-in-out infinite',
-                pointerEvents: 'none'
+            {/* Glow */}
+            <div style={{ 
+                position: 'absolute', 
+                top: '-40%', 
+                right: '-5%', 
+                width: '35%', 
+                height: '200%', 
+                background: 'radial-gradient(circle, rgba(239,68,68,0.08) 0%, transparent 70%)', 
+                pointerEvents: 'none' 
             }}></div>
 
-            <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                position: 'relative',
-                zIndex: 1
+            {/* Left: icon + text */}
+            <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '14px', 
+                flex: 1, 
+                minWidth: 0, 
+                position: 'relative', 
+                zIndex: 1, 
+                flexWrap: 'wrap' 
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div style={{
-                        width: '48px',
-                        height: '48px',
-                        background: 'linear-gradient(135deg, #dc2626, #991b1b)',
-                        borderRadius: '12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        boxShadow: '0 6px 20px rgba(239, 68, 68, 0.4)',
-                        border: '1px solid rgba(239, 68, 68, 0.3)'
+                <div style={{ 
+                    width: '52px', 
+                    height: '52px', 
+                    background: 'linear-gradient(135deg, #8a1e1e, #ef4444)', 
+                    borderRadius: '12px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    boxShadow: '0 4px 14px rgba(239,68,68,0.5)', 
+                    flexShrink: 0 
+                }}>
+                    <Terminal size={28} style={{ color: 'white' }} />
+                </div>
+                <div>
+                    <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '10px', 
+                        marginBottom: '4px' 
                     }}>
-                        <Terminal size={28} style={{ color: 'white' }} />
-                    </div>
-                    <div>
-                        <h1 style={{
-                            fontSize: '28px',
-                            fontWeight: '700',
-                            color: '#f8fafc',
-                            margin: 0,
-                            marginBottom: '4px',
-                            letterSpacing: '0.5px',
-                            textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'
+                        <span style={{ 
+                            color: 'white', 
+                            fontSize: '22px', 
+                            fontWeight: '800', 
+                            letterSpacing: '2px', 
+                            whiteSpace: 'nowrap' 
                         }}>
                             EMERGENCY CALLS
-                        </h1>
-                        <p style={{
-                            fontSize: '13px',
-                            color: '#fca5a5',
-                            margin: 0
+                        </span>
+                        <span style={{ 
+                            background: 'rgba(239,68,68,0.15)', 
+                            border: '1px solid rgba(239,68,68,0.3)', 
+                            borderRadius: '4px', 
+                            padding: '2px 8px', 
+                            color: '#fca5a5', 
+                            fontSize: '10px', 
+                            fontWeight: '700', 
+                            letterSpacing: '1.5px', 
+                            whiteSpace: 'nowrap' 
                         }}>
-                            Session {selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'} - Live 911 dispatch monitoring
-                        </p>
+                            911 DISPATCH
+                        </span>
                     </div>
+                    <p style={{ 
+                        color: '#475569', 
+                        fontSize: '13px', 
+                        margin: '0 0 10px', 
+                        whiteSpace: 'nowrap' 
+                    }}>
+                        Session {selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'} · Live emergency dispatch monitoring
+                    </p>
+                    <button
+                        onClick={() => { 
+                            stopAlertSound();
+                            if (visualEffects) { 
+                                setPageTransitioning(true); 
+                                setTimeout(() => { 
+                                    setActiveView('home'); 
+                                    setPageTransitioning(false); 
+                                }, 300); 
+                            } else { 
+                                setActiveView('home'); 
+                            } 
+                        }}
+                        style={{ 
+                            width: 'auto', 
+                            padding: '7px 16px', 
+                            background: 'rgba(239,68,68,0.1)', 
+                            border: '1px solid rgba(239,68,68,0.25)', 
+                            borderRadius: '8px', 
+                            color: '#fca5a5', 
+                            cursor: 'pointer', 
+                            fontSize: '12px', 
+                            fontWeight: '600', 
+                            letterSpacing: '1px', 
+                            display: 'inline-flex', 
+                            alignItems: 'center', 
+                            gap: '7px', 
+                            transition: 'all 0.2s', 
+                            whiteSpace: 'nowrap' 
+                        }}
+                        onMouseEnter={e => { 
+                            e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; 
+                            e.currentTarget.style.borderColor = 'rgba(239,68,68,0.5)'; 
+                            e.currentTarget.style.color = '#fff'; 
+                        }}
+                        onMouseLeave={e => { 
+                            e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; 
+                            e.currentTarget.style.borderColor = 'rgba(239,68,68,0.25)'; 
+                            e.currentTarget.style.color = '#fca5a5'; 
+                        }}
+                    >
+                        ← DASHBOARD
+                    </button>
                 </div>
-                
-                {/* BACK BUTTON */}
-                <button 
-                    onClick={() => {
-                        stopAlertSound();
-                        if (visualEffects) {
-                            setPageTransitioning(true);
-                            setTimeout(() => {
-                                setActiveView('home');
-                                setPageTransitioning(false);
-                            }, 300);
-                        } else {
-                            setActiveView('home');
-                        }
-                    }}
-                    style={{
-                        padding: '12px 24px',
-                        background: 'linear-gradient(135deg, rgba(100, 116, 139, 0.3), rgba(71, 85, 105, 0.2))',
-                        border: '1px solid rgba(100, 116, 139, 0.4)',
-                        borderRadius: '10px',
-                        color: '#cbd5e1',
-                        fontSize: '14px',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }}
-                    onMouseEnter={(e) => {
-                        e.target.style.transform = 'translateY(-2px)';
-                        e.target.style.boxShadow = '0 6px 20px rgba(100, 116, 139, 0.4)';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.target.style.transform = 'translateY(0)';
-                        e.target.style.boxShadow = 'none';
-                    }}
-                >
-                    <span style={{ fontSize: '18px' }}>←</span>
-                    BACK TO DASHBOARD
-                </button>
             </div>
         </div>
 
@@ -10351,7 +10406,7 @@ File ARREST/SUMMONS REPORT
                                         <div style={{
                                             position: 'absolute',
                                             top: '10px',
-                                            right: '10px',
+                                            left: '10px',
                                             padding: '6px 12px',
                                             background: 'rgba(16, 185, 129, 0.9)',
                                             color: 'white',
@@ -10360,7 +10415,7 @@ File ARREST/SUMMONS REPORT
                                             borderRadius: '6px',
                                             zIndex: 2
                                         }}>
-                                            ACKNOWLEDGED
+                                            ✓ ACKNOWLEDGED
                                         </div>
                                     )}
 
