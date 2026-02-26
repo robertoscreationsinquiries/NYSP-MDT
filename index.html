@@ -1488,7 +1488,7 @@ const [settingsVisitedOnce, setSettingsVisitedOnce] = useState(false); // NEW - 
             const [calls, setCalls] = useState([]);
             const [dismissedCalls, setDismissedCalls] = useState([]);
             const [acknowledgedCalls, setAcknowledgedCalls] = useState([]);
-const [activeAlertAudio, setActiveAlertAudio] = useState(null);
+const activeAlertAudioRef = React.useRef(null);
             const [showDevConsole, setShowDevConsole] = useState(true);
 const [settingsWarningDismissed, setSettingsWarningDismissed] = useState(false);
 const [continueButtonEnabled, setContinueButtonEnabled] = useState(false);
@@ -2937,19 +2937,20 @@ const playAlertSound = () => {
     console.log('[SOUND] ═══════════════════════════════════');
     console.log('[SOUND] playAlertSound() called');
     console.log('[SOUND] soundSettings.callAlert:', soundSettings.callAlert);
-    console.log('[SOUND] activeAlertAudio exists:', !!activeAlertAudio);
-    console.log('[SOUND] activeAlertAudio paused:', activeAlertAudio ? activeAlertAudio.paused : 'N/A');
+    console.log('[SOUND] activeAlertAudioRef.current exists:', !!activeAlertAudioRef.current);
+    console.log('[SOUND] activeAlertAudioRef.current paused:', activeAlertAudioRef.current ? activeAlertAudioRef.current.paused : 'N/A');
     
     if (!soundSettings.callAlert) {
         console.log('[SOUND] ⚠️ Sound disabled in settings, skipping');
         return;
     }
     
-    // ✅ FIX: Don't play if already playing
-    if (activeAlertAudio && !activeAlertAudio.paused) {
+    // ✅ FIX: Check ref instead of state (synchronous, immediate)
+    if (activeAlertAudioRef.current && !activeAlertAudioRef.current.paused) {
         console.log('[SOUND] ✅ Alert already playing, SKIPPING to prevent spam');
-        console.log('[SOUND] Current time:', activeAlertAudio.currentTime);
-        console.log('[SOUND] Duration:', activeAlertAudio.duration);
+        console.log('[SOUND] Current time:', activeAlertAudioRef.current.currentTime);
+        console.log('[SOUND] Duration:', activeAlertAudioRef.current.duration);
+        console.log('[SOUND] Loop enabled:', activeAlertAudioRef.current.loop);
         console.log('[SOUND] ═══════════════════════════════════');
         return;
     }
@@ -2957,9 +2958,9 @@ const playAlertSound = () => {
     try {
         console.log('[SOUND] 🔄 Stopping any existing alert...');
         // Stop any existing alert
-        if (activeAlertAudio) {
-            activeAlertAudio.pause();
-            activeAlertAudio.currentTime = 0;
+        if (activeAlertAudioRef.current) {
+            activeAlertAudioRef.current.pause();
+            activeAlertAudioRef.current.currentTime = 0;
             console.log('[SOUND] ✅ Previous alert stopped');
         }
         
@@ -2968,12 +2969,18 @@ const playAlertSound = () => {
             const audio = new Audio(SOUNDS.callAlert);
             audio.volume = 0.6;
             audio.loop = true;
+            
+            // Store in ref IMMEDIATELY (synchronous)
+            activeAlertAudioRef.current = audio;
+            console.log('[SOUND] ✅ Audio stored in ref (synchronous)');
+            
             console.log('[SOUND] ▶️ Starting playback (LOOP mode)');
             audio.play().catch(e => {
                 console.error('[SOUND] ❌ Playback failed:', e);
                 addLog(`🔇 Alert sound blocked by browser`, 'error');
+                activeAlertAudioRef.current = null; // Clear on failure
             });
-            setActiveAlertAudio(audio);
+            
             addLog('🚨 NEW CALL ALERT - PLAYING ON LOOP', 'info');
             console.log('[SOUND] ✅ Alert sound started successfully');
         } else {
@@ -2981,6 +2988,7 @@ const playAlertSound = () => {
         }
     } catch (e) {
         console.error('[SOUND] ❌ Error:', e);
+        activeAlertAudioRef.current = null;
     }
     console.log('[SOUND] ═══════════════════════════════════');
 };
@@ -2988,18 +2996,19 @@ const playAlertSound = () => {
 const stopAlertSound = () => {
     console.log('[SOUND] ═══════════════════════════════════');
     console.log('[SOUND] stopAlertSound() called');
-    if (activeAlertAudio) {
+    if (activeAlertAudioRef.current) {
         console.log('[SOUND] ⏹️ Stopping alert...');
-        activeAlertAudio.pause();
-        activeAlertAudio.currentTime = 0;
-        setActiveAlertAudio(null);
+        activeAlertAudioRef.current.pause();
+        activeAlertAudioRef.current.currentTime = 0;
+        activeAlertAudioRef.current = null;
         addLog('🔇 Alert sound stopped', 'info');
-        console.log('[SOUND] ✅ Alert stopped and cleared');
+        console.log('[SOUND] ✅ Alert stopped and cleared from ref');
     } else {
         console.log('[SOUND] ⚠️ No active alert to stop');
     }
     console.log('[SOUND] ═══════════════════════════════════');
 };
+
 
 
 
@@ -3103,6 +3112,17 @@ React.useEffect(() => {
     const interval = setInterval(checkForNewCalls, 7000);
     return () => clearInterval(interval);
 }, [selectedUserSession, tokenSaved, discordToken, dismissedCalls, acknowledgedCalls]);
+
+// Cleanup alert sound when leaving calls view
+React.useEffect(() => {
+    return () => {
+        console.log('[SOUND] 🧹 Cleanup: Stopping alert on unmount');
+        if (activeAlertAudioRef.current) {
+            activeAlertAudioRef.current.pause();
+            activeAlertAudioRef.current = null;
+        }
+    };
+}, [activeView]);
 
 const normalizePlate = (plate) => plate.replace(/[\-\s]/g, '').toUpperCase();
 
