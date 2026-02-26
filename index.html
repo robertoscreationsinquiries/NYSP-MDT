@@ -1487,6 +1487,8 @@ const [settingsVisitedOnce, setSettingsVisitedOnce] = useState(false); // NEW - 
             const [selectedSession, setSelectedSession] = useState(null);
             const [calls, setCalls] = useState([]);
             const [dismissedCalls, setDismissedCalls] = useState([]);
+            const [acknowledgedCalls, setAcknowledgedCalls] = useState([]);
+const [activeAlertAudio, setActiveAlertAudio] = useState(null);
             const [showDevConsole, setShowDevConsole] = useState(true);
 const [settingsWarningDismissed, setSettingsWarningDismissed] = useState(false);
 const [continueButtonEnabled, setContinueButtonEnabled] = useState(false);
@@ -2208,13 +2210,6 @@ useEffect(() => {
         if (el) el.classList.add('fade-out');
         setLoaderProgress(100);
         setLoaderStatus('System ready');
-        if (soundSettings.StartupSFX && SOUNDS.StartupSFX) {
-            try {
-                const audio = new Audio(SOUNDS.StartupSFX);
-                audio.volume = 0.5;
-                audio.play().catch(e => {});
-            } catch (e) {}
-        }
         
         // Auto-close after brief delay (500ms)
         await new Promise(r => setTimeout(r, 500));
@@ -2889,7 +2884,8 @@ React.useEffect(() => {
                             location: lines[3] || 'Unknown',
                             timestamp: new Date(msg.timestamp).toLocaleString(),
                             timestampRaw: new Date(msg.timestamp),
-                            author: msg.author?.username || 'Unknown User'
+                            author: msg.author?.username || 'Unknown User',
+                            acknowledged: acknowledgedCalls.includes(msg.id)
                         };
                     });
                     
@@ -2901,9 +2897,9 @@ React.useEffect(() => {
             }
         };
         
-        loadCalls(); // Auto-refresh when viewing calls tab
+        loadCalls();
     }
-}, [activeView, selectedUserSession, tokenSaved, discordToken, dismissedCalls]);
+}, [activeView, selectedUserSession, tokenSaved, discordToken, dismissedCalls, acknowledgedCalls]);
 
 // Live clock updater
 useEffect(() => {
@@ -2940,21 +2936,38 @@ const playSound = (type) => {
 const playAlertSound = () => {
     if (!soundSettings.callAlert) return;
     
-try {
+    try {
+        // Stop any existing alert
+        if (activeAlertAudio) {
+            activeAlertAudio.pause();
+            activeAlertAudio.currentTime = 0;
+        }
+        
         if (SOUNDS.callAlert) {
             const audio = new Audio(SOUNDS.callAlert);
             audio.volume = 0.6;
-            audio.loop = false; // ✅ Prevent looping
+            audio.loop = true; // ✅ LOOP until acknowledged
             audio.play().catch(e => {
                 console.error('Audio playback failed:', e);
                 addLog(`🔇 Alert sound blocked by browser`, 'error');
             });
-            addLog('🚨 NEW CALL ALERT', 'info');
+            setActiveAlertAudio(audio);
+            addLog('🚨 NEW CALL ALERT - PLAYING ON LOOP', 'info');
         }
     } catch (e) {
         console.error('Alert sound error:', e);
     }
 };
+
+const stopAlertSound = () => {
+    if (activeAlertAudio) {
+        activeAlertAudio.pause();
+        activeAlertAudio.currentTime = 0;
+        setActiveAlertAudio(null);
+        addLog('🔇 Alert sound stopped', 'info');
+    }
+};
+
 
 const playWarrantAlert = () => {
     if (!soundSettings.warrantAlert) return;
@@ -3034,7 +3047,11 @@ React.useEffect(() => {
                 if (currentCallIds !== previousCallIds && validCalls.length > 0) {
                     const newCallIds = validCalls.filter(c => !previousCallIds.includes(c.id));
                     if (newCallIds.length > 0) {
-                        playAlertSound(); // Only plays ONCE per new call
+                        // Check if any unacknowledged calls exist
+                        const hasUnacknowledged = validCalls.some(c => !acknowledgedCalls.includes(c.id));
+                        if (hasUnacknowledged) {
+                            playAlertSound(); // Start looping sound
+                        }
                         setCallButtonFlash(true);
                         setTimeout(() => setCallButtonFlash(false), 10000);
                         addLog(`🚨 ${newCallIds.length} new call(s) detected`, 'info');
@@ -3049,9 +3066,10 @@ React.useEffect(() => {
     };
     
     checkForNewCalls();
-    const interval = setInterval(checkForNewCalls, 7000); // Changed to 7 seconds
+    const interval = setInterval(checkForNewCalls, 7000);
     return () => clearInterval(interval);
-}, [selectedUserSession, tokenSaved, discordToken, dismissedCalls]);
+}, [selectedUserSession, tokenSaved, discordToken, dismissedCalls, acknowledgedCalls]);
+
 const normalizePlate = (plate) => plate.replace(/[\-\s]/g, '').toUpperCase();
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -9976,48 +9994,118 @@ File ARREST/SUMMONS REPORT
     </div>
 )}
 {activeView === 'calls' && (
-    <div className="card" style={{ minHeight: 'calc(100vh - 40px)', maxWidth: '1600px',   backdropFilter: 'blur(10px)',
-  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)', }}>
-<div className="page-header" style={{
-    boxShadow: headerShadow ? '0 4px 12px rgba(0, 0, 0, 0.5)' : '0 4px 20px rgba(0, 0, 0, 0.3)',
-    transition: 'box-shadow 0.3s ease'
-}}>
-            <div className="page-header-content">
-                <div className="page-header-icon">
-                    <Terminal size={36} style={{ color: 'white' }} />
-                </div>
-                <div className="page-header-text">
-                    <h1 className="page-header-title">
-                        EMERGENCY CALLS
-                    </h1>
-                    <div className="page-header-subtitle">
-                        Session {selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'} - Live Emergency Dispatch
+    <div style={{
+        padding: '24px',
+        background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
+        minHeight: '100vh',
+        boxSizing: 'border-box'
+    }}>
+        {/* HEADER */}
+        <div style={{
+            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.1))',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: '12px',
+            padding: '24px',
+            marginBottom: '24px',
+            boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+            position: 'relative',
+            overflow: 'hidden'
+        }}>
+            <div style={{
+                position: 'absolute',
+                top: '-50%',
+                right: '-20%',
+                width: '60%',
+                height: '200%',
+                background: 'radial-gradient(circle, rgba(239, 68, 68, 0.15) 0%, transparent 70%)',
+                pointerEvents: 'none'
+            }}></div>
+
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                position: 'relative',
+                zIndex: 1
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{
+                        width: '48px',
+                        height: '48px',
+                        background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                        borderRadius: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 6px 20px rgba(239, 68, 68, 0.4)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)'
+                    }}>
+                        <Terminal size={28} style={{ color: 'white' }} />
+                    </div>
+                    <div>
+                        <h1 style={{
+                            fontSize: '28px',
+                            fontWeight: '700',
+                            color: '#f8fafc',
+                            margin: 0,
+                            marginBottom: '4px',
+                            letterSpacing: '0.5px',
+                            textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'
+                        }}>
+                            🚨 EMERGENCY CALLS
+                        </h1>
+                        <p style={{
+                            fontSize: '13px',
+                            color: '#fca5a5',
+                            margin: 0
+                        }}>
+                            Session {selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'} - Live 911 Dispatch Monitor
+                        </p>
                     </div>
                 </div>
                 <button 
-onClick={() => {
-    if (visualEffects) {
-        setPageTransitioning(true);
-        setTimeout(() => {
-            setActiveView('home');
-            setPageTransitioning(false);
-        }, 300);
-    } else {
-        setActiveView('home');
-    }
-}}
-                    className="return-home-btn"
+                    onClick={() => {
+                        stopAlertSound();
+                        if (visualEffects) {
+                            setPageTransitioning(true);
+                            setTimeout(() => {
+                                setActiveView('home');
+                                setPageTransitioning(false);
+                            }, 300);
+                        } else {
+                            setActiveView('home');
+                        }
+                    }}
+                    style={{
+                        padding: '12px 24px',
+                        background: 'linear-gradient(135deg, rgba(100, 116, 139, 0.3), rgba(71, 85, 105, 0.2))',
+                        border: '1px solid rgba(100, 116, 139, 0.4)',
+                        borderRadius: '10px',
+                        color: '#cbd5e1',
+                        fontSize: '14px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}
+                    onMouseEnter={(e) => {
+                        e.target.style.transform = 'translateY(-2px)';
+                        e.target.style.boxShadow = '0 6px 20px rgba(100, 116, 139, 0.4)';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.target.style.transform = 'translateY(0)';
+                        e.target.style.boxShadow = 'none';
+                    }}
                 >
-    <span style={{ fontSize: '18px' }}>←</span>
-    Back to Dashboard
+                    <span style={{ fontSize: '18px' }}>←</span>
+                    BACK TO DASHBOARD
                 </button>
             </div>
-
-
-            
-
         </div>
 
+        {/* NO TOKEN STATE */}
         {!tokenSaved ? (
             <div style={{ 
                 display: 'flex', 
@@ -10026,7 +10114,10 @@ onClick={() => {
                 justifyContent: 'center', 
                 minHeight: '400px',
                 padding: '40px',
-                textAlign: 'center'
+                textAlign: 'center',
+                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.08))',
+                borderRadius: '16px',
+                border: '1px solid rgba(239, 68, 68, 0.3)'
             }}>
                 <div style={{ 
                     width: '80px', 
@@ -10036,9 +10127,10 @@ onClick={() => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginBottom: '24px'
+                    marginBottom: '24px',
+                    boxShadow: '0 8px 24px rgba(239, 68, 68, 0.4)'
                 }}>
-                    <span style={{ fontSize: '48px' }}>!</span>
+                    <span style={{ fontSize: '48px', color: 'white' }}>⚠️</span>
                 </div>
                 
                 <h2 style={{ color: '#fca5a5', fontSize: '28px', fontWeight: 'bold', marginBottom: '16px' }}>
@@ -10046,15 +10138,13 @@ onClick={() => {
                 </h2>
                 
                 <p style={{ 
-                    color: '#bfdbfe', 
+                    color: '#fecaca', 
                     fontSize: '14px', 
                     lineHeight: '1.8',
                     maxWidth: '600px',
                     marginBottom: '32px'
                 }}>
-                    An account token hasn't been entered yet, and we are therefore unable to retrieve necessary data, 
-                    making this feature inaccessible and unusable. We recommend checking the settings to add the 
-                    necessary details to proceed.
+                    An account token hasn't been entered yet. Please add your Discord token in Settings to access emergency calls.
                 </p>
                 
                 <button 
@@ -10065,18 +10155,18 @@ onClick={() => {
                     }}
                     style={{
                         padding: '14px 48px',
-                        background: '#3b82f6',
+                        background: 'linear-gradient(135deg, #ef4444, #dc2626)',
                         color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
+                        border: '1px solid #991b1b',
+                        borderRadius: '10px',
                         fontSize: '16px',
                         fontWeight: '600',
                         cursor: 'pointer',
                         transition: 'all 0.3s',
-                        width: 'auto'
+                        boxShadow: '0 4px 16px rgba(239, 68, 68, 0.3)'
                     }}
                 >
-                    REDIRECT TO SETTINGS
+                    GO TO SETTINGS
                 </button>
             </div>
         ) : !selectedUserSession ? (
@@ -10087,7 +10177,10 @@ onClick={() => {
                 justifyContent: 'center', 
                 minHeight: '400px',
                 padding: '40px',
-                textAlign: 'center'
+                textAlign: 'center',
+                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.08))',
+                borderRadius: '16px',
+                border: '1px solid rgba(245, 158, 11, 0.3)'
             }}>
                 <div style={{ 
                     width: '80px', 
@@ -10097,24 +10190,24 @@ onClick={() => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginBottom: '24px'
+                    marginBottom: '24px',
+                    boxShadow: '0 8px 24px rgba(245, 158, 11, 0.4)'
                 }}>
                     <Terminal size={48} style={{ color: 'white' }} />
                 </div>
                 
-                <h2 style={{ color: '#fde047', fontSize: '28px', fontWeight: 'bold', marginBottom: '16px' }}>
+                <h2 style={{ color: '#fcd34d', fontSize: '28px', fontWeight: 'bold', marginBottom: '16px' }}>
                     No Active Session Selected
                 </h2>
                 
                 <p style={{ 
-                    color: '#bfdbfe', 
+                    color: '#fef3c7', 
                     fontSize: '14px', 
                     lineHeight: '1.8',
                     maxWidth: '600px',
                     marginBottom: '32px'
                 }}>
-                    You must select an active session in Settings before viewing emergency calls. 
-                    This allows the system to monitor the correct 911 channel for new alerts.
+                    You must select an active session in Settings before viewing emergency calls.
                 </p>
                 
                 <button 
@@ -10124,15 +10217,15 @@ onClick={() => {
                     }}
                     style={{
                         padding: '14px 48px',
-                        background: '#eab308',
+                        background: 'linear-gradient(135deg, #eab308, #ca8a04)',
                         color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
+                        border: '1px solid #a16207',
+                        borderRadius: '10px',
                         fontSize: '16px',
                         fontWeight: '600',
                         cursor: 'pointer',
                         transition: 'all 0.3s',
-                        width: 'auto'
+                        boxShadow: '0 4px 16px rgba(245, 158, 11, 0.3)'
                     }}
                 >
                     GO TO SETTINGS
@@ -10140,188 +10233,345 @@ onClick={() => {
             </div>
         ) : (
             <div>
-                <h2 style={{ color: 'white', fontSize: '24px', marginBottom: '20px' }}>
-                    Emergency Calls - Session {selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'}
-                </h2>
-
-                <p style={{ fontSize: '12px', color: '#fde047', marginBottom: '16px', fontStyle: 'italic' }}>
-                      System automatically checks for new calls every 10 seconds
-                </p>
+                {/* INFO BAR */}
+                <div style={{
+                    background: 'rgba(59, 130, 246, 0.1)',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    borderRadius: '10px',
+                    padding: '16px 20px',
+                    marginBottom: '20px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                }}>
+                    <div>
+                        <div style={{ color: '#60a5fa', fontSize: '12px', fontWeight: '600', marginBottom: '4px' }}>
+                            ACTIVE CALLS IN SESSION {selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'}
+                        </div>
+                        <div style={{ color: '#93c5fd', fontSize: '11px' }}>
+                            🔄 Auto-refresh every 7 seconds
+                        </div>
+                    </div>
+                    <div style={{
+                        padding: '8px 16px',
+                        background: calls.length > 0 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+                        border: `1px solid ${calls.length > 0 ? 'rgba(239, 68, 68, 0.4)' : 'rgba(16, 185, 129, 0.4)'}`,
+                        borderRadius: '8px',
+                        color: calls.length > 0 ? '#fca5a5' : '#6ee7b7',
+                        fontSize: '18px',
+                        fontWeight: '700',
+                        fontFamily: 'monospace'
+                    }}>
+                        {calls.length} CALL{calls.length !== 1 ? 'S' : ''}
+                    </div>
+                </div>
                 
-<div style={{ 
-    maxHeight: 'calc(100vh - 300px)', 
-    overflowY: 'auto',
-    display: 'grid',
-    gridTemplateColumns: calls.length > 1 ? 'repeat(auto-fit, minmax(500px, 1fr))' : '1fr',
-    gap: '16px',
-    padding: '8px'
-}}>
-    {calls.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#60a5fa' }}>
-            No active calls. Click "Reload Calls" to fetch latest.
-        </div>
-    ) : (
-        calls.map(call => (
-                            <div key={call.id} style={{
-    background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.4), rgba(30, 58, 138, 0.2))',
-    border: '2px solid rgba(59, 130, 246, 0.5)',
-    borderRadius: '8px',
-    padding: '20px',
-    marginBottom: '16px',
-    position: 'relative',
-    overflow: 'hidden'
-}}>
-    {/* Header Bar */}
-    <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '16px',
-        paddingBottom: '12px',
-        borderBottom: '2px solid rgba(59, 130, 246, 0.3)'
-    }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-                width: '40px',
-                height: '40px',
-                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '20px'
-            }}>
-                !
-            </div>
-            <div>
-                <div style={{ color: 'white', fontSize: '16px', fontWeight: '700' }}>
-                    CALLER: {call.author}
-                </div>
-                <div style={{ color: '#93c5fd', fontSize: '11px' }}>
-                    {call.timestamp}
-                </div>
-            </div>
-        </div>
-        <div className="call-timer" style={{
-            fontSize: '16px',
-            padding: '6px 12px'
-        }}>
-            {callTimers[call.id] || '0:00'}
-        </div>
-    </div>
+                {/* CALLS GRID */}
+                {calls.length === 0 ? (
+                    <div style={{
+                        textAlign: 'center',
+                        padding: '60px 40px',
+                        background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.05))',
+                        borderRadius: '16px',
+                        border: '1px solid rgba(16, 185, 129, 0.2)'
+                    }}>
+                        <div style={{
+                            fontSize: '64px',
+                            marginBottom: '16px'
+                        }}>
+                            ✅
+                        </div>
+                        <div style={{ color: '#6ee7b7', fontSize: '20px', fontWeight: '700', marginBottom: '8px' }}>
+                            ALL CLEAR
+                        </div>
+                        <div style={{ color: '#86efac', fontSize: '14px' }}>
+                            No active emergency calls at this time
+                        </div>
+                    </div>
+                ) : (
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(500px, 1fr))',
+                        gap: '20px'
+                    }}>
+                        {calls.map(call => {
+                            const callAge = Math.floor((new Date() - call.timestampRaw) / 1000);
+                            const isOldCall = callAge > 480; // 8 minutes = 480 seconds
+                            const isAcknowledged = acknowledgedCalls.includes(call.id);
+                            
+                            return (
+                                <div 
+                                    key={call.id} 
+                                    style={{
+                                        background: isOldCall && !isAcknowledged 
+                                            ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.3), rgba(220, 38, 38, 0.2))' 
+                                            : 'linear-gradient(135deg, rgba(30, 58, 138, 0.2), rgba(59, 130, 246, 0.1))',
+                                        border: `2px solid ${isOldCall && !isAcknowledged ? '#ef4444' : 'rgba(59, 130, 246, 0.4)'}`,
+                                        borderRadius: '12px',
+                                        padding: '20px',
+                                        position: 'relative',
+                                        overflow: 'hidden',
+                                        animation: isOldCall && !isAcknowledged ? 'flash-red 1.5s infinite' : 'none',
+                                        boxShadow: isOldCall && !isAcknowledged 
+                                            ? '0 8px 32px rgba(239, 68, 68, 0.5)' 
+                                            : '0 4px 16px rgba(0, 0, 0, 0.3)'
+                                    }}
+                                >
+                                    {/* URGENT OVERLAY */}
+                                    {isOldCall && !isAcknowledged && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: '10px',
+                                            right: '10px',
+                                            padding: '6px 12px',
+                                            background: 'rgba(239, 68, 68, 0.9)',
+                                            color: 'white',
+                                            fontSize: '11px',
+                                            fontWeight: '700',
+                                            borderRadius: '6px',
+                                            zIndex: 2,
+                                            animation: 'pulse 2s infinite'
+                                        }}>
+                                            ⚠️ URGENT: 8+ MIN
+                                        </div>
+                                    )}
 
-    {/* Call Details Grid */}
-    <div style={{ display: 'grid', gap: '12px' }}>
-        <div>
-            <div style={{ 
-                color: '#60a5fa', 
-                fontSize: '11px', 
-                fontWeight: '600',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                marginBottom: '4px'
-            }}>
-                SERVICES NEEDED
-            </div>
-            <div style={{ 
-                color: 'white', 
-                fontSize: '14px', 
-                fontWeight: '600',
-                background: 'rgba(59, 130, 246, 0.2)',
-                padding: '8px 12px',
-                borderRadius: '4px',
-                border: '1px solid rgba(59, 130, 246, 0.3)'
-            }}>
-                {call.services}
-            </div>
-        </div>
+                                    {/* ACKNOWLEDGED BADGE */}
+                                    {isAcknowledged && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: '10px',
+                                            right: '10px',
+                                            padding: '6px 12px',
+                                            background: 'rgba(16, 185, 129, 0.9)',
+                                            color: 'white',
+                                            fontSize: '11px',
+                                            fontWeight: '700',
+                                            borderRadius: '6px',
+                                            zIndex: 2
+                                        }}>
+                                            ✓ ACKNOWLEDGED
+                                        </div>
+                                    )}
 
-        <div>
-            <div style={{ 
-                color: '#60a5fa', 
-                fontSize: '11px', 
-                fontWeight: '600',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                marginBottom: '4px'
-            }}>
-                DESCRIPTION
-            </div>
-            <div style={{ 
-                color: '#bfdbfe', 
-                fontSize: '13px',
-                lineHeight: '1.5'
-            }}>
-                {call.description}
-            </div>
-        </div>
+                                    {/* CALL HEADER */}
+                                    <div style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'flex-start',
+                                        marginBottom: '16px',
+                                        paddingBottom: '12px',
+                                        borderBottom: '2px solid rgba(59, 130, 246, 0.3)'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{
+                                                width: '48px',
+                                                height: '48px',
+                                                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                                                borderRadius: '10px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontSize: '24px',
+                                                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)'
+                                            }}>
+                                                🚨
+                                            </div>
+                                            <div>
+                                                <div style={{ color: 'white', fontSize: '17px', fontWeight: '700', marginBottom: '2px' }}>
+                                                    CALLER: {call.author}
+                                                </div>
+                                                <div style={{ color: '#93c5fd', fontSize: '11px' }}>
+                                                    {call.timestamp}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div style={{
+                                            fontSize: '18px',
+                                            fontWeight: '700',
+                                            fontFamily: 'monospace',
+                                            color: isOldCall ? '#fca5a5' : '#6ee7b7',
+                                            padding: '8px 16px',
+                                            background: isOldCall ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+                                            borderRadius: '8px',
+                                            border: `1px solid ${isOldCall ? 'rgba(239, 68, 68, 0.4)' : 'rgba(16, 185, 129, 0.4)'}`,
+                                            minWidth: '80px',
+                                            textAlign: 'center'
+                                        }}>
+                                            {callTimers[call.id] || '0:00'}
+                                        </div>
+                                    </div>
 
-        <div>
-            <div style={{ 
-                color: '#60a5fa', 
-                fontSize: '11px', 
-                fontWeight: '600',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                marginBottom: '4px'
-            }}>
-                LOCATION
-            </div>
-            <div style={{ 
-                color: 'white', 
-                fontSize: '14px',
-                fontWeight: '600',
-                background: 'rgba(239, 68, 68, 0.2)',
-                padding: '8px 12px',
-                borderRadius: '4px',
-                border: '1px solid rgba(239, 68, 68, 0.3)'
-            }}>
-                {call.location}
-            </div>
-        </div>
-    </div>
+                                    {/* CALL DETAILS */}
+                                    <div style={{ display: 'grid', gap: '14px', marginBottom: '16px' }}>
+                                        <div>
+                                            <div style={{ 
+                                                color: '#60a5fa', 
+                                                fontSize: '10px', 
+                                                fontWeight: '700',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '1.2px',
+                                                marginBottom: '6px'
+                                            }}>
+                                                💼 SERVICES REQUESTED
+                                            </div>
+                                            <div style={{ 
+                                                color: 'white', 
+                                                fontSize: '14px', 
+                                                fontWeight: '600',
+                                                background: 'rgba(59, 130, 246, 0.2)',
+                                                padding: '10px 14px',
+                                                borderRadius: '6px',
+                                                border: '1px solid rgba(59, 130, 246, 0.3)'
+                                            }}>
+                                                {call.services}
+                                            </div>
+                                        </div>
 
-    {/* Dismiss Button */}
-    <button 
-        onClick={() => {
-            setDismissedCalls([...dismissedCalls, call.id]);
-            setCalls(calls.filter(c => c.id !== call.id));
-        }}
-        style={{
-            marginTop: '16px',
-            width: '100%',
-            padding: '10px 16px',
-            background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-            color: 'white',
-            border: '2px solid #991b1b',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '13px',
-            fontWeight: '700',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-            transition: 'all 0.2s'
-        }}
-        onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'linear-gradient(135deg, #dc2626, #991b1b)';
-            e.currentTarget.style.transform = 'translateY(-2px)';
-        }}
-        onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
-            e.currentTarget.style.transform = 'translateY(0)';
-        }}
-    >
-        (X) DISMISS CALL
-    </button>
-</div>
-                        ))
-                    )}
-                </div>
+                                        <div>
+                                            <div style={{ 
+                                                color: '#60a5fa', 
+                                                fontSize: '10px', 
+                                                fontWeight: '700',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '1.2px',
+                                                marginBottom: '6px'
+                                            }}>
+                                                📋 INCIDENT DESCRIPTION
+                                            </div>
+                                            <div style={{ 
+                                                color: '#cbd5e1', 
+                                                fontSize: '13px',
+                                                lineHeight: '1.6',
+                                                background: 'rgba(15, 23, 42, 0.4)',
+                                                padding: '10px 14px',
+                                                borderRadius: '6px'
+                                            }}>
+                                                {call.description}
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <div style={{ 
+                                                color: '#60a5fa', 
+                                                fontSize: '10px', 
+                                                fontWeight: '700',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '1.2px',
+                                                marginBottom: '6px'
+                                            }}>
+                                                📍 LOCATION
+                                            </div>
+                                            <div style={{ 
+                                                color: 'white', 
+                                                fontSize: '15px',
+                                                fontWeight: '700',
+                                                background: 'rgba(239, 68, 68, 0.2)',
+                                                padding: '10px 14px',
+                                                borderRadius: '6px',
+                                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                fontFamily: 'monospace'
+                                            }}>
+                                                {call.location}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* ACTION BUTTONS */}
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: '1fr 1fr',
+                                        gap: '12px'
+                                    }}>
+                                        {/* ACKNOWLEDGE BUTTON */}
+                                        <button 
+                                            onClick={() => {
+                                                if (!isAcknowledged) {
+                                                    setAcknowledgedCalls([...acknowledgedCalls, call.id]);
+                                                    stopAlertSound();
+                                                    addLog(`✅ Call from ${call.author} acknowledged`, 'success');
+                                                }
+                                            }}
+                                            disabled={isAcknowledged}
+                                            style={{
+                                                padding: '14px 20px',
+                                                background: isAcknowledged 
+                                                    ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.1))'
+                                                    : 'linear-gradient(135deg, #10b981, #059669)',
+                                                color: 'white',
+                                                border: `2px solid ${isAcknowledged ? 'rgba(16, 185, 129, 0.3)' : '#047857'}`,
+                                                borderRadius: '10px',
+                                                cursor: isAcknowledged ? 'not-allowed' : 'pointer',
+                                                fontSize: '13px',
+                                                fontWeight: '700',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '0.5px',
+                                                transition: 'all 0.2s',
+                                                opacity: isAcknowledged ? 0.6 : 1,
+                                                boxShadow: isAcknowledged ? 'none' : '0 4px 16px rgba(16, 185, 129, 0.4)'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (!isAcknowledged) {
+                                                    e.target.style.transform = 'translateY(-2px)';
+                                                    e.target.style.boxShadow = '0 6px 24px rgba(16, 185, 129, 0.6)';
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (!isAcknowledged) {
+                                                    e.target.style.transform = 'translateY(0)';
+                                                    e.target.style.boxShadow = '0 4px 16px rgba(16, 185, 129, 0.4)';
+                                                }
+                                            }}
+                                        >
+                                            {isAcknowledged ? '✓ ACKNOWLEDGED' : '👍 ACKNOWLEDGE'}
+                                        </button>
+
+                                        {/* DISMISS BUTTON */}
+                                        <button 
+                                            onClick={() => {
+                                                setDismissedCalls([...dismissedCalls, call.id]);
+                                                setCalls(calls.filter(c => c.id !== call.id));
+                                                if (calls.length === 1) {
+                                                    stopAlertSound();
+                                                }
+                                                addLog(`🗑️ Call from ${call.author} dismissed`, 'info');
+                                            }}
+                                            style={{
+                                                padding: '14px 20px',
+                                                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                                                color: 'white',
+                                                border: '2px solid #991b1b',
+                                                borderRadius: '10px',
+                                                cursor: 'pointer',
+                                                fontSize: '13px',
+                                                fontWeight: '700',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '0.5px',
+                                                transition: 'all 0.2s',
+                                                boxShadow: '0 4px 16px rgba(239, 68, 68, 0.4)'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.target.style.transform = 'translateY(-2px)';
+                                                e.target.style.boxShadow = '0 6px 24px rgba(239, 68, 68, 0.6)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.target.style.transform = 'translateY(0)';
+                                                e.target.style.boxShadow = '0 4px 16px rgba(239, 68, 68, 0.4)';
+                                            }}
+                                        >
+                                            ❌ DISMISS
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
         )}
     </div>
 )}
-    
+
                 {/* USEFUL LINKS MODAL */}
 
 
