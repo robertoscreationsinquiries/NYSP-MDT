@@ -1486,6 +1486,8 @@ const [settingsVisitedOnce, setSettingsVisitedOnce] = useState(false); // NEW - 
             const [plateSuggestions, setPlateSuggestions] = useState([]);
             const [selectedSession, setSelectedSession] = useState(null);
             const [calls, setCalls] = useState([]);
+            const [liveAnnouncements, setLiveAnnouncements] = useState({});
+const [lastAnnouncementCheck, setLastAnnouncementCheck] = useState(Date.now());
             const [dismissedCalls, setDismissedCalls] = useState([]);
             const [acknowledgedCalls, setAcknowledgedCalls] = useState([]);
 const activeAlertAudioRef = React.useRef(null);
@@ -1677,6 +1679,58 @@ React.useEffect(() => {
         console.warn('⚠️ [SETTINGS] Make sure NYSP_settingstool.txt exists');
     }
 }, []);
+
+React.useEffect(() => {
+    const checkAnnouncements = async () => {
+        try {
+            console.log('[ANNOUNCEMENTS] 🔄 Checking for updates...');
+            
+            // Fetch from GitHub
+            const response = await fetch(
+                'https://raw.githubusercontent.com/robertoscreationsinquiries/NYSP-MDT/main/live-announcements.js',
+                { cache: 'no-store' }
+            );
+            
+            if (response.ok) {
+                const content = await response.text();
+                
+                // Execute the script to populate window.LIVEANNOUNCEMENTS
+                eval(content);
+                
+                if (window.LIVEANNOUNCEMENTS) {
+                    const announcements = window.LIVEANNOUNCEMENTS;
+                    const count = Object.keys(announcements).length;
+                    
+                    console.log('[ANNOUNCEMENTS] ✅ Found', count, 'announcement(s)');
+                    
+                    // Update state
+                    setLiveAnnouncements(announcements);
+                    setLastAnnouncementCheck(Date.now());
+                    
+                    if (count > 0) {
+                        addLog(`📢 ${count} live announcement(s) received`, 'info');
+                    }
+                } else {
+                    console.log('[ANNOUNCEMENTS] ⚠️ No announcements object found');
+                    setLiveAnnouncements({});
+                }
+            } else {
+                console.error('[ANNOUNCEMENTS] ❌ Fetch failed:', response.status);
+            }
+        } catch (error) {
+            console.error('[ANNOUNCEMENTS] ❌ Error:', error);
+        }
+    };
+    
+    // Check immediately on mount
+    checkAnnouncements();
+    
+    // Check every 15 seconds
+    const interval = setInterval(checkAnnouncements, 15000);
+    
+    return () => clearInterval(interval);
+}, []);
+
 
 React.useEffect(() => {
     console.log('🔑 [SETTINGS] ═══════════════════════════════════');
@@ -14014,6 +14068,93 @@ if (shiftPlateSearches.length > 0 && yPosition > 150) {
                 </button>
             </div>
         </div>
+    </div>
+)}
+
+{/* LIVE ANNOUNCEMENTS - Bottom Right */}
+{Object.keys(liveAnnouncements).length > 0 && (
+    <div style={{
+        position: 'fixed',
+        bottom: '20px',
+        right: '20px',
+        zIndex: 9999,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        maxWidth: '400px',
+        pointerEvents: 'none'
+    }}>
+        {Object.entries(liveAnnouncements).map(([id, message]) => (
+            <div 
+                key={id}
+                style={{
+                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(220, 38, 38, 0.9))',
+                    border: '2px solid rgba(239, 68, 68, 0.8)',
+                    borderRadius: '12px',
+                    padding: '16px 20px',
+                    boxShadow: '0 8px 32px rgba(239, 68, 68, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+                    animation: 'slideInRight 0.4s ease-out, pulse 2s infinite',
+                    pointerEvents: 'auto',
+                    backdropFilter: 'blur(10px)',
+                    position: 'relative',
+                    overflow: 'hidden'
+                }}
+            >
+                {/* Animated border glow */}
+                <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: '-100%',
+                    width: '100%',
+                    height: '2px',
+                    background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent)',
+                    animation: 'shimmer 2s infinite'
+                }}></div>
+                
+                {/* Icon */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '12px'
+                }}>
+                    <div style={{
+                        width: '32px',
+                        height: '32px',
+                        background: 'rgba(255, 255, 255, 0.2)',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        fontSize: '18px',
+                        animation: 'pulse 2s infinite'
+                    }}>
+                        📢
+                    </div>
+                    
+                    <div style={{ flex: 1 }}>
+                        <div style={{
+                            color: 'white',
+                            fontSize: '13px',
+                            fontWeight: '700',
+                            marginBottom: '4px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '1px'
+                        }}>
+                            LIVE ANNOUNCEMENT
+                        </div>
+                        <div style={{
+                            color: '#fecaca',
+                            fontSize: '14px',
+                            lineHeight: '1.5',
+                            fontWeight: '500'
+                        }}>
+                            {message}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        ))}
     </div>
 )}
 
