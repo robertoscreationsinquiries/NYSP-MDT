@@ -2936,6 +2936,12 @@ const playSound = (type) => {
 const playAlertSound = () => {
     if (!soundSettings.callAlert) return;
     
+    // ✅ FIX: Don't play if already playing
+    if (activeAlertAudio && !activeAlertAudio.paused) {
+        console.log('[SOUND] Alert already playing, skipping...');
+        return;
+    }
+    
     try {
         // Stop any existing alert
         if (activeAlertAudio) {
@@ -2946,7 +2952,7 @@ const playAlertSound = () => {
         if (SOUNDS.callAlert) {
             const audio = new Audio(SOUNDS.callAlert);
             audio.volume = 0.6;
-            audio.loop = true; // ✅ LOOP until acknowledged
+            audio.loop = true; // Loop until acknowledged
             audio.play().catch(e => {
                 console.error('Audio playback failed:', e);
                 addLog(`🔇 Alert sound blocked by browser`, 'error');
@@ -10003,7 +10009,7 @@ File ARREST/SUMMONS REPORT
         {/* HEADER */}
         <div style={{
             background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.1))',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
+            border: '1px solid rgba(239, 68, 68, 0.2)',
             borderRadius: '12px',
             padding: '24px',
             marginBottom: '24px',
@@ -10018,6 +10024,7 @@ File ARREST/SUMMONS REPORT
                 width: '60%',
                 height: '200%',
                 background: 'radial-gradient(circle, rgba(239, 68, 68, 0.15) 0%, transparent 70%)',
+                animation: 'pulse 4s ease-in-out infinite',
                 pointerEvents: 'none'
             }}></div>
 
@@ -10032,7 +10039,7 @@ File ARREST/SUMMONS REPORT
                     <div style={{
                         width: '48px',
                         height: '48px',
-                        background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                        background: 'linear-gradient(135deg, #dc2626, #991b1b)',
                         borderRadius: '12px',
                         display: 'flex',
                         alignItems: 'center',
@@ -10052,17 +10059,19 @@ File ARREST/SUMMONS REPORT
                             letterSpacing: '0.5px',
                             textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'
                         }}>
-                            🚨 EMERGENCY CALLS
+                            EMERGENCY CALLS
                         </h1>
                         <p style={{
                             fontSize: '13px',
                             color: '#fca5a5',
                             margin: 0
                         }}>
-                            Session {selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'} - Live 911 Dispatch Monitor
+                            Session {selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'} - Live 911 dispatch monitoring
                         </p>
                     </div>
                 </div>
+                
+                {/* BACK BUTTON */}
                 <button 
                     onClick={() => {
                         stopAlertSound();
@@ -10104,6 +10113,7 @@ File ARREST/SUMMONS REPORT
                 </button>
             </div>
         </div>
+
 
         {/* NO TOKEN STATE */}
         {!tokenSaved ? (
@@ -10249,7 +10259,7 @@ File ARREST/SUMMONS REPORT
                             ACTIVE CALLS IN SESSION {selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'}
                         </div>
                         <div style={{ color: '#93c5fd', fontSize: '11px' }}>
-                            🔄 Auto-refresh every 7 seconds
+                            Auto-refresh every 7 seconds
                         </div>
                     </div>
                     <div style={{
@@ -10350,7 +10360,7 @@ File ARREST/SUMMONS REPORT
                                             borderRadius: '6px',
                                             zIndex: 2
                                         }}>
-                                            ✓ ACKNOWLEDGED
+                                            ACKNOWLEDGED
                                         </div>
                                     )}
 
