@@ -5366,8 +5366,8 @@ discordUserId = inputUserId;
                 
                 if (membersResp.status === 403) {
                     showCustomError(
-                        'Permission Denied',
-                        'Discord token does not have permission to search server members.\n\nPlease verify your Discord token in Settings and ensure it has proper permissions.'
+                        'Member not found',
+                        'Citizen ID given does not exist upon extensive research. This can also be an issue on Discords backend..'
                     );
                 } else {
                     showCustomError(
@@ -14114,7 +14114,7 @@ if (shiftPlateSearches.length > 0 && yPosition > 150) {
                     width: '100%',
                     height: '2px',
                     background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent)',
-                    animation: 'shimmer 2s infinite'
+                    //animation: 'shimmer 2s infinite'
                 }}></div>
                 
                 {/* Icon */}
