@@ -53,6 +53,30 @@ const AUTHORIZED_USERS = {
         bannedReason: ""
     },
 
+    "KilonovaMT": {
+        robloxUsername: "KilonovaMT",
+        patrolZone: "0G",
+        firstName: "Lawerence",
+        lastName: "DeWolf",
+        badgeId: "00611",
+        department: "NYSP",
+        password: "GoORCRNYSP",
+        banned: false,
+        bannedReason: ""
+    },
+
+    "d_vrango": {
+        robloxUsername: "d_vrango",
+        patrolZone: "00",
+        firstName: "Jake",
+        lastName: "Lawrence",
+        badgeId: "00703",
+        department: "EGPD",
+        password: "orcrcad2025",
+        banned: false,
+        bannedReason: ""
+    },
+
     "ProBBLOKA": {
         robloxUsername: "ProBBLOKA",
         patrolZone: "0S",
