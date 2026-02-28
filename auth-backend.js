@@ -41,6 +41,30 @@ const AUTHORIZED_USERS = {
         bannedReason: ""
     },
 
+    "JellyBirds80": {
+        robloxUsername: "JellyBirds80",
+        patrolZone: "00",
+        firstName: "Jackson",
+        lastName: "West",
+        badgeId: "00101",
+        department: "EGPD",
+        password: "JBORCR",
+        banned: false,
+        bannedReason: ""
+    },
+
+    "ProBBLOKA": {
+        robloxUsername: "ProBBLOKA",
+        patrolZone: "0S",
+        firstName: "Oscar",
+        lastName: "Bateson",
+        badgeId: "00506",
+        department: "NYSP",
+        password: "00506",
+        banned: false,
+        bannedReason: ""
+    },
+
     "Pigscheme12345": {
         robloxUsername: "PIGSCHEME12345",
         patrolZone: "0G",
