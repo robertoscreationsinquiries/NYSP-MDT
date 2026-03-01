@@ -2471,7 +2471,7 @@ const updateLogsData = [
         description: "Thank you to all testers for reporting all the bugs to me. This hotfix should cover all the bugs reported so far. In addition to this new update, we have new testers to minimize the bugs in this app.",
         new: [
             'NEW - Added a Login screen upon launch.',
-            'NEW - Added a backend that handles all officer-related data.',
+            'NEW - Added a backend that handles all officer-related data. In addition to this, all data is now encrypted meaning no one will be able to access your personal data as it is connected to a private cloudflare workplace.',
             'NEW - The main file that makes the app function now automatically updates upon launch (if update is available). (NOTE: If there are any changes to other files, manual download will be required.)'
         ],
         bugs: [
@@ -2655,7 +2655,8 @@ const updateLogsData = [
 const creditsData = {
     developers: [
         { name: 'DaRealRobz', reason: 'Lead Developer & Project Director' },
-        { name: 'Claude AI', reason: 'AI Development Assistant' }
+        { name: 'Claude AI', reason: 'AI Development Assistant' },
+        { name: 'Alp_hah AI', reason: 'Behind The Scene help' },
     ],
     testers: [
             { name: 'Theaviator_44789', reason: 'Beta Testing & Quality- and Feature validation' },    
@@ -11745,7 +11746,7 @@ if (window.electronAPI?.quit) {
                                 letterSpacing: '2px',
                                 textShadow: '0 0 20px rgba(147, 197, 253, 0.5)'
                             }}>
-                                DEVELOPERS
+                                DEVELOPERS / CONTRIBUTORS
                             </h2>
                             <p style={{ 
                                 color: '#bfdbfe', 
