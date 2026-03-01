@@ -9022,737 +9022,331 @@ return (
     </div>
 )}
 {activeView === 'database-search' && (
-    <div className="card" style={{ minHeight: 'calc(100vh - 40px)',   backdropFilter: 'blur(10px)',
-  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)', }}>
-<div className="page-header" style={{
-    boxShadow: headerShadow ? '0 4px 12px rgba(0, 0, 0, 0.5)' : '0 4px 20px rgba(0, 0, 0, 0.3)',
-    transition: 'box-shadow 0.3s ease'
-}}>
-            <div className="page-header-content">
-                <div className="page-header-icon">
-                    <User size={36} style={{ color: 'white' }} />
+    <div style={{ minHeight: 'calc(100vh - 40px)', background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)', padding: '20px', boxSizing: 'border-box' }}>
+
+        {/* ── HEADER ── */}
+        <div style={{ marginBottom: '20px', padding: '20px 28px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,58,138,0.35))', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 4px 32px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', position: 'relative', overflow: 'hidden' }}>
+
+            {/* Glow */}
+            <div style={{ position: 'absolute', top: '-40%', right: '-5%', width: '35%', height: '200%', background: 'radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)', pointerEvents: 'none' }}></div>
+
+            {/* Left: icon + text */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: 0, position: 'relative', zIndex: 1, flexWrap: 'wrap' }}>
+                <div style={{ width: '52px', height: '52px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(59,130,246,0.5)', flexShrink: 0 }}>
+                    <User size={28} style={{ color: 'white' }} />
                 </div>
-                <div className="page-header-text">
-                    <h1 className="page-header-title">
-                        SEARCH IN DATABASE
-                    </h1>
-                    <div className="page-header-subtitle">
-                        Search by Citizen ID
+                <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                        <span style={{ color: 'white', fontSize: '22px', fontWeight: '800', letterSpacing: '2px', whiteSpace: 'nowrap' }}>CITIZEN DATABASE SEARCH</span>
+                        <span style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '4px', padding: '2px 8px', color: '#60a5fa', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px', whiteSpace: 'nowrap' }}>CITIZEN REGISTRY</span>
                     </div>
+                    <p style={{ color: '#475569', fontSize: '13px', margin: '0 0 10px', whiteSpace: 'nowrap' }}>Query citizen records by ID · New York State Police MDT</p>
+                    <button
+                        onClick={() => { if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); } else { setActiveView('home'); } }}
+                        style={{ width: 'auto', padding: '7px 16px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '8px', color: '#93c5fd', cursor: 'pointer', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', display: 'inline-flex', alignItems: 'center', gap: '7px', transition: 'all 0.2s', whiteSpace: 'nowrap' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.2)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)'; e.currentTarget.style.color = '#fff'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; e.currentTarget.style.color = '#93c5fd'; }}
+                    >
+                        ← DASHBOARD
+                    </button>
                 </div>
-                <button 
-onClick={() => {
-    if (visualEffects) {
-        setPageTransitioning(true);
-        setTimeout(() => {
-            setActiveView('home');
-            setPageTransitioning(false);
-        }, 300);
-    } else {
-        setActiveView('home');
-    }
-}}
-                    className="return-home-btn"
-                >
-    <span style={{ fontSize: '18px' }}>←</span>
-    Back to Dashboard
-                </button>
             </div>
         </div>
 
         {!tokenSaved ? (
-            <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                minHeight: '400px',
-                padding: '40px',
-                textAlign: 'center'
-            }}>
-                <div style={{ 
-                    width: '80px', 
-                    height: '80px',
-                    minHeight: '100vh' ,
-                    background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: '24px',
-                    padding: '24px',
-                }}>
-                    <span style={{ fontSize: '48px' }}>!</span>
+            /* ── NO TOKEN WARNING ── */
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px', padding: '40px', textAlign: 'center' }}>
+                <div style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', boxShadow: '0 0 40px rgba(239,68,68,0.4)' }}>
+                    <span style={{ fontSize: '40px', color: 'white', fontWeight: 'bold' }}>!</span>
                 </div>
-                
-                <h2 style={{ color: '#fca5a5', fontSize: '28px', fontWeight: 'bold', marginBottom: '16px' }}>
-                    Account Token Required
-                </h2>
-                
-                <p style={{ 
-                    color: '#bfdbfe', 
-                    fontSize: '14px', 
-                    lineHeight: '1.8',
-                    maxWidth: '600px',
-                    marginBottom: '32px'
-                }}>
-                    An account token hasn't been entered yet, and we are therefore unable to retrieve necessary data, 
-                    making this feature inaccessible and unusable. We recommend checking the settings to add the 
-                    necessary details to proceed.
+                <h2 style={{ color: '#fca5a5', fontSize: '26px', fontWeight: '800', marginBottom: '14px', letterSpacing: '1px' }}>ACCOUNT TOKEN REQUIRED</h2>
+                <p style={{ color: '#bfdbfe', fontSize: '14px', lineHeight: '1.9', maxWidth: '560px', marginBottom: '32px', opacity: 0.85 }}>
+                    An account token hasn't been entered yet. This feature is inaccessible without it. Go to settings to add the necessary details to proceed.
                 </p>
-                
-                <button 
-                    onClick={() => {
-                        setActiveView('settings');
-                        setSettingsWarningDismissed(false);
-                        setContinueButtonEnabled(false);
-                    }}
-                    style={{
-                        padding: '14px 48px',
-                        background: '#3b82f6',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '16px',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        transition: 'all 0.3s',
-                        width: 'auto'
-                    }}
+                <button
+                    onClick={() => { setActiveView('settings'); setSettingsWarningDismissed(false); setContinueButtonEnabled(false); }}
+                    style={{ padding: '14px 48px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 16px rgba(59,130,246,0.4)', transition: 'all 0.2s', letterSpacing: '1px' }}
+                    onMouseEnter={e => e.currentTarget.style.boxShadow = '0 6px 24px rgba(59,130,246,0.6)'}
+                    onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(59,130,246,0.4)'}
                 >
                     REDIRECT TO SETTINGS
                 </button>
             </div>
         ) : (
             <div>
-                <div className="input-group">
-                    <label className="input-label">
-                        <User size={16} />
-                        Citizen ID
-                    </label>
-<input
-    type="text"
-    value={searchCitizenId}
-    onChange={(e) => setSearchCitizenId(e.target.value)}
-                       onKeyDown={(e) => {
+                {/* ── SEARCH BOX ── */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(30,58,138,0.15), rgba(59,130,246,0.08))', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}>
+                    <div style={{ color: '#60a5fa', fontSize: '11px', fontWeight: '700', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ width: '3px', height: '14px', background: 'linear-gradient(180deg, #60a5fa, #3b82f6)', borderRadius: '2px' }}></span>
+                        CITIZEN LOOKUP
+                    </div>
+
+                    <div style={{ marginBottom: '14px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#93c5fd', fontSize: '12px', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                            <User size={14} /> Citizen ID
+                        </label>
+                        <input
+                            type="text"
+                            value={searchCitizenId}
+                            onChange={(e) => setSearchCitizenId(e.target.value)}
+                            onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                     e.preventDefault();
-                                    console.log('═══════════════════════════════════════════════════');
-                                    console.log('⌨️ [ENTER] Citizen ID search triggered');
-                                    console.log('📋 [INPUT] Value:', searchCitizenId);
-                                    console.log('🔄 [STATE] Cooldown active:', searchCooldown);
-                                    console.log('🔄 [STATE] Loading:', loadingSearch);
-                                    console.log('═══════════════════════════════════════════════════');
-                                    
-                                    if (searchCooldown) {
-                                        console.warn('⚠️ [BLOCKED] Search on cooldown');
-                                        return;
-                                    }
-                                    
-                                    if (loadingSearch) {
-                                        console.warn('⚠️ [BLOCKED] Search already in progress');
-                                        return;
-                                    }
-                                    
-                                    if (!searchCitizenId || searchCitizenId.trim() === '') {
-                                        console.warn('⚠️ [BLOCKED] Empty search input');
-                                        return;
-                                    }
-                                    
-                                    console.log('✅ [EXECUTE] Calling searchByUsername()');
+                                    if (searchCooldown || loadingSearch || !searchCitizenId || searchCitizenId.trim() === '') return;
                                     setSearchUsername(searchCitizenId);
-                                    setTimeout(() => {
-                                        searchByUsername();
-                                    }, 50);
+                                    setTimeout(() => { searchByUsername(); }, 50);
                                 }
                             }}
-     
+                            placeholder="Enter Discord User ID..."
+                            style={{ width: '100%', padding: '14px 16px', background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '10px', color: 'white', fontSize: '15px', fontFamily: 'monospace', letterSpacing: '2px', boxSizing: 'border-box', outline: 'none', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.3)', transition: 'border-color 0.2s' }}
+                            onFocus={e => e.target.style.borderColor = 'rgba(59,130,246,0.6)'}
+                            onBlur={e => e.target.style.borderColor = 'rgba(59,130,246,0.3)'}
+                        />
+                        <p style={{ color: '#4b5563', fontSize: '11px', marginTop: '6px', fontStyle: 'italic' }}>Extract registered vehicles, warrants, and government records.</p>
+                    </div>
 
+                    <button
+                        onClick={searchByUsername}
+                        disabled={loadingSearch || !tokenSaved}
+                        style={{ width: '100%', padding: '14px', background: loadingSearch ? 'rgba(59,130,246,0.3)' : 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '14px', fontWeight: '700', cursor: loadingSearch ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', boxShadow: loadingSearch ? 'none' : '0 4px 16px rgba(59,130,246,0.4)', transition: 'all 0.2s', letterSpacing: '1px', textTransform: 'uppercase' }}
+                        onMouseEnter={e => { if (!loadingSearch) e.currentTarget.style.boxShadow = '0 6px 24px rgba(59,130,246,0.6)'; }}
+                        onMouseLeave={e => { if (!loadingSearch) e.currentTarget.style.boxShadow = '0 4px 16px rgba(59,130,246,0.4)'; }}
+                    >
+                        {loadingSearch ? <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> SEARCHING...</> : <><Search size={18} /> SEARCH DATABASE</>}
+                    </button>
 
-    placeholder="Enter Discord User ID..."
-                style={{
-  background: 'rgba(15, 23, 42, 0.6)',
-  border: '2px solid rgba(59, 130, 246, 0.3)',
-  boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.3)',
-    }}
-/>
-                    <p className="input-hint">
-                        Extract important details such as registered vehicles, and look for any potential warrants or such. This also gives you the ability to issue government records.
-                    </p>
+                    {loadingSearch && searchProgress > 0 && (
+                        <div style={{ marginTop: '12px' }}>
+                            <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '6px', overflow: 'hidden', height: '4px' }}>
+                                <div style={{ height: '100%', width: `${searchProgress}%`, background: 'linear-gradient(90deg, #3b82f6, #60a5fa)', transition: 'width 0.3s ease', borderRadius: '6px' }}></div>
+                            </div>
+                            <div style={{ textAlign: 'center', color: '#93c5fd', fontSize: '12px', marginTop: '8px', fontWeight: '600' }}>
+                                {searchProgress}% — {
+                                    searchProgress < 15 ? 'Initializing search...' :
+                                    searchProgress < 35 ? 'Fetching Discord member info...' :
+                                    searchProgress < 55 ? 'Looking up Roblox profile...' :
+                                    searchProgress < 75 ? 'Fetching avatar and details...' :
+                                    searchProgress < 90 ? 'Searching registered vehicles...' :
+                                    searchProgress < 100 ? 'Checking for warrants...' : 'Complete!'
+                                }
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-<button onClick={searchByUsername} disabled={loadingSearch} className="btn-primary"
-style={{
-    background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-    boxShadow: '0 4px 16px rgba(59, 130, 246, 0.3)',
-  }}>
-    {loadingSearch ? (
-        <><Loader2 size={20} /><span>SEARCHING...</span></>
-    ) : (
-        <><Search size={20} /><span>SEARCH DATABASE</span></>
-    )}
-</button>
+                {/* ── RESULTS ── */}
+                {searchResults && (
+                    <div className={`results-grid ${visualEffects ? 'pulse-animation' : ''}`}>
 
-{loadingSearch && searchProgress > 0 && (
-    <div style={{ marginTop: '16px' }}>
-        <div className="progress-bar-container">
-            <div className="progress-bar-fill" style={{ width: `${searchProgress}%` }}></div>
-        </div>
-        <div style={{ 
-            textAlign: 'center', 
-            color: '#93c5fd', 
-            fontSize: '12px', 
-            marginTop: '8px',
-            fontWeight: '600'
-        }}>
-            {searchProgress}% - {
-                searchProgress < 15 ? 'Initializing search...' :
-                searchProgress < 35 ? 'Fetching Discord member info...' :
-                searchProgress < 55 ? 'Looking up Roblox profile...' :
-                searchProgress < 75 ? 'Fetching avatar and details...' :
-                searchProgress < 90 ? 'Searching registered vehicles...' :
-                searchProgress < 100 ? 'Checking for warrants...' :
-                'Complete!'
-            }
-        </div>
-    </div>
-)}
+                        {/* ── OWNER BOX ── */}
+                        <div style={{ padding: '20px', background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(5,150,105,0.06))', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '14px', boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}>
+                            <div style={{ color: '#34d399', fontSize: '11px', fontWeight: '700', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <User size={14} />
+                                <span style={{ width: '3px', height: '12px', background: 'linear-gradient(180deg, #34d399, #10b981)', borderRadius: '2px' }}></span>
+                                Registered Owner
+                            </div>
 
-{searchResults && (
-    <div style={{ marginTop: '24px' }} className={visualEffects ? 'pulse-animation' : ''}>
-        <div className="owner-box" style={{ marginBottom: '20px' }}>
-                            <div className="box-header"><User size={16} />Registered Owner</div>
-                            
                             {searchResults.robloxUser ? (
                                 <>
                                     {searchResults.robloxUser.avatarUrl && (
                                         <div className="avatar-container">
-<img
-        src={searchResults.robloxUser.avatarUrl}
-        alt="Avatar"
-        className="avatar-img"
-        onError={(e) => {
-            const src = e.currentTarget.src;
-            if (!src.includes('corsproxy.io')) {
-                // First failure: re-route the raw CDN URL through corsproxy
-                e.currentTarget.src = `https://corsproxy.io/?${encodeURIComponent(src)}`;
-            } else {
-                // Second failure: show a clean placeholder instead of broken icon
-                e.currentTarget.onerror = null; // prevent infinite loop
-                e.currentTarget.style.display = 'none';
-                const placeholder = document.createElement('div');
-                placeholder.style.cssText = 'width:120px;height:120px;border-radius:16px;background:linear-gradient(135deg,#1e3a5f,#2d6a9f);display:flex;align-items:center;justify-content:center;border:3px solid rgba(59,130,246,0.5);font-size:48px;margin:0 auto;';
-                placeholder.textContent = '👤';
-                e.currentTarget.parentNode.appendChild(placeholder);
-            }
-        }}
-    />
-
+                                            <img
+                                                src={searchResults.robloxUser.avatarUrl}
+                                                alt="Avatar"
+                                                className="avatar-img"
+                                                onError={(e) => {
+                                                    const src = e.currentTarget.src;
+                                                    if (!src.includes('corsproxy.io')) {
+                                                        e.currentTarget.src = `https://corsproxy.io/?${encodeURIComponent(src)}`;
+                                                    } else {
+                                                        e.currentTarget.onerror = null;
+                                                        e.currentTarget.style.display = 'none';
+                                                    }
+                                                }}
+                                            />
                                         </div>
                                     )}
-{searchResults.robloxUser?.username && (
-    <div className="info-item">
-        <span className="info-label">Roblox Username:</span>
-        <span className="info-value">{searchResults.robloxUser.username}</span>
-    </div>
-)}
-
-{searchResults.robloxUser?.userId && (
-    <div className="info-item">
-        <span className="info-label">User ID:</span>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-            <span className="info-value">{searchResults.robloxUser.userId}</span>
-            <button 
-                className="copy-btn btn-ripple"
-                onClick={() => copyToClipboard(searchResults.robloxUser.userId, 'roblox')}
-            >
-                {copiedField === 'roblox' ? 'Copied!' : 'Copy'}
-            </button>
-        </div>
-    </div>
-)}
-{searchResults.robloxUser?.displayName && (
-    <div className="info-item">
-        <span className="info-label">Display Name:</span>
-        <span className="info-value">{searchResults.robloxUser.displayName}</span>
-    </div>
-)}
-
-{searchResults.robloxUser?.joinDate && (
-    <div className="info-item">
-        <span className="info-label">Join Date:</span>
-        <span className="info-value">{searchResults.robloxUser.joinDate}</span>
-    </div>
-)}
-<div className="info-item">
-    <span className="info-label">Discord ID:</span>
-    <div style={{ display: 'flex', alignItems: 'center' }}>
-        <span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span>
-        <button 
-            className="copy-btn btn-ripple"
-            onClick={(e) => {
-                e.stopPropagation();
-                copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord');
-            }}
-        >
-            {copiedField === 'discord' ? 'Copied!' : 'Copy'}
-        </button>
-    </div>
-</div>
+                                    {searchResults.robloxUser?.username && (<div className="info-item"><span className="info-label">Roblox Username:</span><span className="info-value">{searchResults.robloxUser.username}</span></div>)}
+                                    {searchResults.robloxUser?.userId && (<div className="info-item"><span className="info-label">User ID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults.robloxUser.userId}</span><button className="copy-btn btn-ripple" onClick={() => copyToClipboard(searchResults.robloxUser.userId, 'roblox')}>{copiedField === 'roblox' ? 'Copied!' : 'Copy'}</button></div></div>)}
+                                    {searchResults.robloxUser?.displayName && (<div className="info-item"><span className="info-label">Display Name:</span><span className="info-value">{searchResults.robloxUser.displayName}</span></div>)}
+                                    {searchResults.robloxUser?.joinDate && (<div className="info-item"><span className="info-label">Join Date:</span><span className="info-value">{searchResults.robloxUser.joinDate}</span></div>)}
+                                    <div className="info-item"><span className="info-label">Discord ID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }}>{copiedField === 'discord' ? 'Copied!' : 'Copy'}</button></div></div>
                                 </>
                             ) : (
                                 <>
-                                    <div style={{ 
-                                        padding: '20px', 
-                                        textAlign: 'center',
-                                        background: 'rgba(251, 191, 36, 0.2)',
-                                        border: '1px solid rgba(251, 191, 36, 0.3)',
-                                        borderRadius: '8px',
-                                        marginBottom: '16px'
-                                    }}>
-                                        <p style={{ color: '#fde047', fontSize: '14px', marginBottom: '8px' }}>
-                                            Roblox User Not Found
-                                        </p>
-                                        <p style={{ color: '#bfdbfe', fontSize: '12px' }}>
-                                            Could not find Roblox profile. Citation can still be exported with Discord ID.
-                                        </p>
+                                    <div style={{ padding: '16px', textAlign: 'center', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '10px', marginBottom: '14px' }}>
+                                        <p style={{ color: '#fde047', fontSize: '14px', marginBottom: '6px', fontWeight: '600' }}>Roblox User Not Found</p>
+                                        <p style={{ color: '#bfdbfe', fontSize: '12px', opacity: 0.8 }}>Citation can still be exported.</p>
                                     </div>
-<div className="info-item">
-    <span className="info-label">Discord ID:</span>
-    <div style={{ display: 'flex', alignItems: 'center' }}>
-        <span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span>
-        <button 
-            className="copy-btn btn-ripple"
-            onClick={(e) => {
-                e.stopPropagation();
-                copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord');
-            }}
-        >
-            {copiedField === 'discord' ? 'Copied!' : 'Copy'}
-        </button>
-    </div>
-</div>
+                                    <div className="info-item"><span className="info-label">Discord ID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }}>{copiedField === 'discord' ? 'Copied!' : 'Copy'}</button></div></div>
                                 </>
                             )}
-                            
-<div style={{ 
-    marginTop: '16px', 
-    padding: '12px', 
-    background: warrantFlash ? '#dc2626' : (searchResults.warrants ? '#ef4444' : '#3a3a3a'), 
-    border: `2px solid ${searchResults.warrants ? '#991b1b' : '#4a4a4a'}`, 
-    borderRadius: '4px', 
-    transition: 'all 0.3s', 
-    animation: searchResults.warrants ? 'pulse-border-warrant 2s infinite' : 'none',
-    boxShadow: searchResults.warrants ? '0 0 20px rgba(239, 68, 68, 0.6)' : 'none'
-}}>
-    <div style={{ color: searchResults.warrants ? '#fff' : '#86efac', fontSize: '14px', fontWeight: '700' }}>
-        {searchResults.warrants ? (
-            <> WARRANT: ACTIVE {searchResults.warrants.bench > 0 && `BENCH WARRANT${searchResults.warrants.bench > 1 ? ` (${searchResults.warrants.bench})` : ''}`}{searchResults.warrants.bench > 0 && searchResults.warrants.arrest > 0 && ', '}{searchResults.warrants.arrest > 0 && `ARREST WARRANT${searchResults.warrants.arrest > 1 ? ` (${searchResults.warrants.arrest})` : ''}`}</>
-        ) : 'WARRANT: NO ACTIVE WARRANTS'}
-    </div>
-</div>
-                            
-                            <button onClick={() => {
-    console.log('═══════════════════════════════════════════════════');
-    console.log('👆 [BUTTON] View Past Records clicked');
-    console.log('🆔 [DATA] Discord User ID:', searchResults.discordUserId);
-    console.log('═══════════════════════════════════════════════════');
-    
-    setShowDatabaseHistory(true);
-    const userId = searchResults?.discordUserId || '';
-    
-    if (userId && userId.trim() !== '') {
-        console.log('✅ [AUTO-SEARCH] User ID found, setting up auto-search');
-        console.log('🆔 [AUTO-SEARCH] User ID:', userId);
-        
-        setDatabaseSearchId(userId);
-        
-        // Auto-search after a short delay to let modal render
-        setTimeout(() => {
-            console.log('🔍 [AUTO-SEARCH] Executing searchPastRecords...');
-            searchPastRecords(userId);
-        }, 100);
-    } else {
-        console.log('⚠️ [AUTO-SEARCH] No User ID available, manual search required');
-        setDatabaseSearchId('');
-    }
-}} style={{ width: '100%', marginTop: '12px', padding: '12px', background: '#3a3a3a', border: '2px solid #4a4a4a', borderRadius: '4px', color: '#cccccc', fontSize: '13px', fontWeight: '600', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px' }}
-    onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'scale(1.02)';
-    }}
-    onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'scale(1)';
-    }}
->
 
+                            {/* Warrant Status */}
+                            <div style={{ marginTop: '14px', padding: '12px 16px', background: warrantFlash ? '#dc2626' : (searchResults.warrants ? '#ef4444' : 'rgba(255,255,255,0.05)'), border: `1px solid ${searchResults.warrants ? '#991b1b' : 'rgba(255,255,255,0.1)'}`, borderRadius: '10px', transition: 'all 0.3s', animation: searchResults.warrants ? 'pulse-border-warrant 2s infinite' : 'none', boxShadow: searchResults.warrants ? '0 0 20px rgba(239,68,68,0.5)' : 'none' }}>
+                                <div style={{ color: searchResults.warrants ? '#fff' : '#86efac', fontSize: '13px', fontWeight: '700' }}>
+                                    {searchResults.warrants ? (
+                                        <>WARRANT: ACTIVE {searchResults.warrants.bench > 0 && `BENCH WARRANT${searchResults.warrants.bench > 1 ? ` (${searchResults.warrants.bench})` : ''}`}{searchResults.warrants.bench > 0 && searchResults.warrants.arrest > 0 && ', '}{searchResults.warrants.arrest > 0 && `ARREST WARRANT${searchResults.warrants.arrest > 1 ? ` (${searchResults.warrants.arrest})` : ''}`}</>
+                                    ) : ('WARRANT: NO ACTIVE WARRANTS')}
+                                </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <button onClick={() => {
+                                setShowDatabaseHistory(true);
+                                const userId = searchResults?.discordUserId || '';
+                                if (userId && userId.trim() !== '') {
+                                    setDatabaseSearchId(userId);
+                                    setTimeout(() => { searchPastRecords(userId); }, 100);
+                                } else {
+                                    setDatabaseSearchId('');
+                                }
+                            }}
+                                style={{ width: '100%', marginTop: '12px', padding: '12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', color: '#cbd5e1', fontSize: '13px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', transition: 'all 0.2s' }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
                                 VIEW GOVERNMENT RECORDS
                             </button>
-                        </div>
-                        
-<button onClick={async () => {
-    if (!searchResults) {
-        showCustomError('Error', 'No search results available.');
-        return;
-    }
-    
-    // Ã¢Å“â€¦ FIX: Properly access the Roblox user data
-    const robloxData = searchResults.robloxUser || {};
-    
-    const tempResult = {
-        username: robloxData.username || 'UNKNOWN',
-        userId: robloxData.userId || 'UNKNOWN',
-        displayName: robloxData.displayName || 'UNKNOWN',
-        joinDate: robloxData.joinDate || 'UNKNOWN',
-        avatarUrl: robloxData.avatarUrl || null
-    };
-    
-    // Empty vehicle registration (NO timestamp to prevent registry date from being filled)
-    const tempRegistration = { 
-        discordUserId: searchResults.discordUserId || 'UNKNOWN',
-        year: '', 
-        make: '', 
-        model: '', 
-        plate: '', 
-        state: '', 
-        color: '', 
-        vehicleType: '',
-        timestamp: '', // Ã¢Å“â€¦ Keep empty so RegDate_af_date won't be filled
-        phoneticPlate: '', 
-        hasHandicapPermit: false,
-        isEdited: false
-    };
-    
-    addLog('Exporting citation WITHOUT vehicle registration', 'info');
-    addLog(`Using Roblox data: ${tempResult.username} (${tempResult.userId})`, 'info');
-    addLog(`Discord ID: ${tempRegistration.discordUserId}`, 'info');
-    
-    // Ã¢Å“â€¦ Add debug logging to verify data
-    console.log('Full searchResults:', searchResults);
-    console.log('Roblox data being passed:', tempResult);
-    
-    await generateCitation(tempResult, tempRegistration);
-}} style={{ width: '100%', marginTop: '20px', padding: '16px', background: 'linear-gradient(135deg, #eab308, #ca8a04)', border: '2px solid #a16207', borderRadius: '8px', color: 'white', fontSize: '15px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 4px 12px rgba(234, 179, 8, 0.4)' }}
-    onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'scale(1.02)';
-    }}
-    onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'scale(1)';
-    }}
->
-    Generate Ticket (WITHOUT REGISTRATION)
-</button>
-<button onClick={async () => {
-const robloxData = searchResults.robloxUser || {};
-    
-    const temp_RblxData = robloxData.username || null;
 
-    console.log('Username detected: ', temp_RblxData);
-    console.log('Temporary Data: ', robloxData);
-    
-    // CORRECTED LOGIC: If NO username, show error
-    if (!temp_RblxData || temp_RblxData === 'UNKNOWN') {
-        showCustomError('Error', 'No search results available. Please search for a user first.');
-        return;
-    }
-    
-    // ✅ FIX: Create complete owner data object
-    const completeOwnerData = {
-        username: robloxData.username || 'UNKNOWN',
-        userId: robloxData.userId || 'UNKNOWN',
-        displayName: robloxData.displayName || 'UNKNOWN',
-        joinDate: robloxData.joinDate || 'UNKNOWN',
-        avatarUrl: robloxData.avatarUrl || null,
-        discordUserId: searchResults.discordUserId || 'UNKNOWN'
-    };
-    
-    console.log('✅ [ARREST] Complete owner data being sent:', completeOwnerData);
-    
-    addLog('Exporting Arrest/Summons Report', 'info');
-    await generateArrestReport(completeOwnerData);
+                            <button onClick={async () => {
+                                if (!searchResults) { showCustomError('Error', 'No search results available.'); return; }
+                                const robloxData = searchResults.robloxUser || {};
+                                const tempResult = { username: robloxData.username || 'UNKNOWN', userId: robloxData.userId || 'UNKNOWN', displayName: robloxData.displayName || 'UNKNOWN', joinDate: robloxData.joinDate || 'UNKNOWN', avatarUrl: robloxData.avatarUrl || null };
+                                const tempRegistration = { discordUserId: searchResults.discordUserId || 'UNKNOWN', year: '', make: '', model: '', plate: '', state: '', color: '', vehicleType: '', timestamp: '', phoneticPlate: '', hasHandicapPermit: false, isEdited: false };
+                                addLog('Exporting citation WITHOUT vehicle registration', 'info');
+                                await generateCitation(tempResult, tempRegistration);
+                            }}
+                                style={{ width: '100%', marginTop: '10px', padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', boxShadow: '0 4px 12px rgba(16,185,129,0.3)', transition: 'all 0.2s' }}
+                                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(16,185,129,0.5)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(16,185,129,0.3)'; }}>
+                                EXPORT CITATION (NO REGISTRATION)
+                            </button>
 
-}} style={{ width: '100%', marginTop: '12px', padding: '16px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: '2px solid #991b1b', borderRadius: '8px', color: 'white', fontSize: '15px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)' }}
-    onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'scale(1.02)';
-    }}
-    onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'scale(1)';
-    }}
->
-File ARREST/SUMMONS REPORT
-</button>
+                            <button onClick={async () => {
+                                const robloxData = searchResults.robloxUser || {};
+                                const temp_RblxData = robloxData.username || null;
+                                if (!temp_RblxData || temp_RblxData === 'UNKNOWN') { showCustomError('Error', 'No search results available. Please search for a user first.'); return; }
+                                const completeOwnerData = { username: robloxData.username || 'UNKNOWN', userId: robloxData.userId || 'UNKNOWN', displayName: robloxData.displayName || 'UNKNOWN', joinDate: robloxData.joinDate || 'UNKNOWN', avatarUrl: robloxData.avatarUrl || null, discordUserId: searchResults.discordUserId || 'UNKNOWN' };
+                                addLog('Exporting Arrest/Summons Report', 'info');
+                                await generateArrestReport(completeOwnerData);
+                            }}
+                                style={{ width: '100%', marginTop: '10px', padding: '12px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', boxShadow: '0 4px 12px rgba(239,68,68,0.3)', transition: 'all 0.2s' }}
+                                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(239,68,68,0.5)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(239,68,68,0.3)'; }}>
+                                FILE ARREST/SUMMONS REPORT
+                            </button>
+                        </div>
 
-{/* VEHICLE PARSE FAILURE WARNING - COMPACT DESIGN */}
-{searchResults && searchResults.vehicleErrorMessage && (
-    <div 
-        style={{
-            marginTop: '16px',
-            marginBottom: '16px',
-            padding: '14px 18px',
-            background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
-            border: '2px solid #ef4444',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '14px',
-            boxShadow: '0 0 20px rgba(239, 68, 68, 0.4)',
-            animation: visualEffects ? 'pulse-glow-red-subtle 2s infinite' : 'none',
-            position: 'relative',
-            zIndex: 100,
-            maxWidth: '100%',
-            overflow: 'hidden'
-        }}
-    >
-        <div style={{ 
-            fontSize: '28px',
-            flexShrink: 0,
-            animation: visualEffects ? 'pulse-opacity 2s infinite' : 'none',
-            filter: 'drop-shadow(0 0 8px rgba(255, 255, 255, 0.6))',
-            lineHeight: 1
-        }}>
-            {searchResults.noRegistrationFound ? '📭' : '⚠️'}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-                color: '#ffffff',
-                fontSize: '11px',
-                fontWeight: '700',
-                letterSpacing: '0.8px',
-                textShadow: '0 2px 6px rgba(0, 0, 0, 0.5)',
-                marginBottom: '4px'
-            }}>
-                VEHICLE REGISTRATION WARNING
-            </div>
-            <div style={{
-                color: '#ffffff',
-                fontSize: '13px',
-                fontWeight: '600',
-                letterSpacing: '0.5px',
-                textShadow: '0 2px 6px rgba(0, 0, 0, 0.4)',
-                lineHeight: '1.5'
-            }}>
-                {searchResults.vehicleErrorMessage}
-            </div>
-        </div>
-    </div>
-)}
-
-
-
-
-                        
-{searchResults.vehicles && searchResults.vehicles.length > 0 && (
-
-    <>
-        <h3 style={{ color: 'white', fontSize: '20px', marginTop: '32px', marginBottom: '16px' }}>
-            Registered Vehicles ({searchResults.vehicles.length})
-        </h3>
-        
-        <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))',
-            gap: '16px',
-            maxHeight: '600px',
-            overflowY: 'auto',
-            padding: '8px'
-        }}>
-            {searchResults.vehicles.map((vehicle, index) => (
-                <div key={index} onClick={() => { setSelectedVehicleForCitation(vehicle); }} style={{ 
-                    padding: '20px',
-                    background: selectedVehicleForCitation === vehicle 
-                        ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(16, 185, 129, 0.15))' 
-                        : 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05))',
-                    border: selectedVehicleForCitation === vehicle 
-                        ? '2px solid rgba(16, 185, 129, 0.6)' 
-                        : '2px solid rgba(16, 185, 129, 0.3)',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    position: 'relative'
-                }} 
-                onMouseEnter={(e) => { 
-                    if (selectedVehicleForCitation !== vehicle) { 
-                        e.currentTarget.style.background = 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1))'; 
-                        e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.5)';
-                        e.currentTarget.style.transform = 'translateX(4px)';
-                    }
-                }} 
-                onMouseLeave={(e) => { 
-                    if (selectedVehicleForCitation !== vehicle) { 
-                        e.currentTarget.style.background = 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05))'; 
-                        e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.3)';
-                        e.currentTarget.style.transform = 'translateX(0)';
-                    }
-                }}>
-                    {selectedVehicleForCitation === vehicle && (
-                        <div style={{
-                            position: 'absolute',
-                            top: '12px',
-                            right: '12px',
-                            width: '28px',
-                            height: '28px',
-                            background: 'linear-gradient(135deg, #10b981, #059669)',
-                            borderRadius: '50%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: 'white',
-                            fontSize: '14px',
-                            fontWeight: 'bold'
-                        }}>
-                          ✅
-                        </div>
-                    )}
-                    
-                    <div style={{
-                        background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1))',
-                        border: '2px solid rgba(16, 185, 129, 0.4)',
-                        borderRadius: '6px',
-                        padding: '12px',
-                        marginBottom: '12px',
-                        textAlign: 'center'
-                    }}>
-                        <div style={{ color: '#6ee7b7', fontSize: '10px', fontWeight: '600', marginBottom: '4px' }}>
-                            LICENSE PLATE
-                        </div>
-                        <div style={{ 
-                            color: 'white', 
-                            fontSize: '20px', 
-                            fontWeight: '700',
-                            fontFamily: 'monospace',
-                            letterSpacing: '3px'
-                        }}>
-                            {vehicle.plate}
-                        </div>
-                        <div style={{ color: '#86efac', fontSize: '11px', marginTop: '2px' }}>
-                            {vehicle.state}
-                        </div>
-                    </div>
-                    
-                    <div style={{
-                        background: 'rgba(16, 185, 129, 0.1)',
-                        border: '1px solid rgba(16, 185, 129, 0.2)',
-                        borderRadius: '6px',
-                        padding: '10px 12px',
-                        marginBottom: '8px'
-                    }}>
-                        <div style={{ color: '#6ee7b7', fontSize: '10px', fontWeight: '600', marginBottom: '4px', textTransform: 'uppercase' }}>
-                            VEHICLE
-                        </div>
-                        <div style={{ color: 'white', fontSize: '14px', fontWeight: '700' }}>
-                            {vehicle.year} {vehicle.make}
-                        </div>
-                        <div style={{ color: '#d1fae5', fontSize: '12px', marginTop: '2px' }}>
-                            {vehicle.model}
-                        </div>
-                    </div>
-                    
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-                        <div style={{
-                            background: 'rgba(16, 185, 129, 0.1)',
-                            border: '1px solid rgba(16, 185, 129, 0.2)',
-                            borderRadius: '6px',
-                            padding: '8px 10px'
-                        }}>
-                            <div style={{ color: '#6ee7b7', fontSize: '9px', fontWeight: '600', marginBottom: '3px' }}>
-                                TYPE
+                        {/* ── VEHICLE REGISTRATION WARNING ── */}
+                        {searchResults.vehicleErrorMessage && (
+                            <div style={{ padding: '20px 24px', background: 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.1))', border: '1px solid rgba(239,68,68,0.35)', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '16px', boxShadow: '0 4px 16px rgba(239,68,68,0.15)', animation: visualEffects ? 'pulse-glow-red-subtle 2s infinite' : 'none' }}>
+                                <div style={{ width: '48px', height: '48px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(239,68,68,0.4)', fontSize: '22px' }}>
+                                    {searchResults.noRegistrationFound ? '📭' : '⚠️'}
+                                </div>
+                                <div>
+                                    <div style={{ color: '#fca5a5', fontSize: '13px', fontWeight: '800', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>VEHICLE REGISTRATION WARNING</div>
+                                    <div style={{ color: '#fecaca', fontSize: '13px', lineHeight: '1.6', opacity: 0.85 }}>{searchResults.vehicleErrorMessage}</div>
+                                </div>
                             </div>
-                            <div style={{ color: 'white', fontSize: '12px', fontWeight: '600' }}>
-                                {vehicle.vehicleType}
+                        )}
+
+                        {/* ── REGISTERED VEHICLES ── */}
+                        {searchResults.vehicles && searchResults.vehicles.length > 0 && (
+                            <div>
+                                <div style={{ color: '#60a5fa', fontSize: '11px', fontWeight: '700', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ width: '3px', height: '14px', background: 'linear-gradient(180deg, #60a5fa, #3b82f6)', borderRadius: '2px' }}></span>
+                                    REGISTERED VEHICLES ({searchResults.vehicles.length})
+                                    <span style={{ color: '#4b5563', fontSize: '10px', fontWeight: '500', letterSpacing: '0.5px' }}>— Click a vehicle to select for citation</span>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '12px', maxHeight: '600px', overflowY: 'auto' }}>
+                                    {searchResults.vehicles.map((vehicle, index) => (
+                                        <div
+                                            key={index}
+                                            onClick={() => setSelectedVehicleForCitation(vehicle)}
+                                            style={{ padding: '0', background: selectedVehicleForCitation === vehicle ? 'linear-gradient(135deg, rgba(16,185,129,0.18), rgba(5,150,105,0.1))' : 'linear-gradient(135deg, rgba(15,23,42,0.8), rgba(30,58,138,0.1))', border: selectedVehicleForCitation === vehicle ? '1px solid rgba(16,185,129,0.5)' : '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', cursor: 'pointer', transition: 'all 0.2s', position: 'relative', overflow: 'hidden' }}
+                                            onMouseEnter={e => { if (selectedVehicleForCitation !== vehicle) { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.1), rgba(37,99,235,0.06))'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.35)'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+                                            onMouseLeave={e => { if (selectedVehicleForCitation !== vehicle) { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(15,23,42,0.8), rgba(30,58,138,0.1))'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.transform = 'translateY(0)'; } }}
+                                        >
+                                            {selectedVehicleForCitation === vehicle && (
+                                                <div style={{ position: 'absolute', top: '12px', right: '12px', width: '24px', height: '24px', background: 'linear-gradient(135deg, #10b981, #059669)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '12px', fontWeight: 'bold', zIndex: 2 }}>✓</div>
+                                            )}
+
+                                            {/* Plate Display */}
+                                            <div style={{ background: 'linear-gradient(135deg, #064e3b, #065f46)', border: 'none', borderBottom: '1px solid rgba(16,185,129,0.2)', borderRadius: '13px 13px 0 0', padding: '16px', textAlign: 'center' }}>
+                                                <div style={{ fontSize: '11px', color: '#6ee7b7', fontWeight: '700', marginBottom: '4px', letterSpacing: '3px' }}>LICENSE PLATE</div>
+                                                <div style={{ fontSize: '26px', fontWeight: '900', color: 'white', letterSpacing: '5px', fontFamily: 'monospace', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>{vehicle.plate}</div>
+                                                <div style={{ fontSize: '12px', color: '#a7f3d0', fontWeight: '600', marginTop: '4px' }}>{vehicle.state}</div>
+                                            </div>
+
+                                            {/* Vehicle Info Grid */}
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '12px' }}>
+                                                {[
+                                                    { label: 'VEHICLE', value: `${vehicle.year} ${vehicle.make}`, sub: vehicle.model },
+                                                    { label: 'TYPE', value: vehicle.vehicleType },
+                                                    { label: 'COLOR', value: vehicle.color },
+                                                ].map(({ label, value, sub }) => (
+                                                    <div key={label} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px' }}>
+                                                        <div style={{ fontSize: '9px', color: '#6ee7b7', fontWeight: '700', marginBottom: '4px', letterSpacing: '1px' }}>{label}</div>
+                                                        <div style={{ fontSize: '13px', color: 'white', fontWeight: '700' }}>{value}</div>
+                                                        {sub && <div style={{ fontSize: '11px', color: '#d1fae5', marginTop: '2px', opacity: 0.8 }}>{sub}</div>}
+                                                    </div>
+                                                ))}
+                                                <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px' }}>
+                                                    <div style={{ fontSize: '9px', color: '#6ee7b7', fontWeight: '700', marginBottom: '4px', letterSpacing: '1px' }}>PHONETIC</div>
+                                                    <div style={{ fontSize: '11px', color: 'white', fontWeight: '700', fontFamily: 'monospace' }}>{vehicle.phoneticPlate || '—'}</div>
+                                                </div>
+                                            </div>
+
+                                            <div style={{ margin: '0 12px 12px', background: 'rgba(16,185,129,0.06)', borderRadius: '8px', padding: '8px 12px' }}>
+                                                <div style={{ fontSize: '11px', color: '#6ee7b7', fontWeight: '600' }}>
+                                                    {vehicle.isEdited ? 'Last Edited: ' : 'Registered: '}
+                                                    <span style={{ color: 'white', fontWeight: '700' }}>{vehicle.timestamp}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Citation with selected vehicle */}
+                                {selectedVehicleForCitation && (
+                                    <button onClick={async () => {
+                                        if (!searchResults || !selectedVehicleForCitation) { showCustomError('Error', 'Please select a vehicle first.'); return; }
+                                        const tempResult = searchResults.robloxUser || { username: 'UNKNOWN', userId: 'UNKNOWN', displayName: 'UNKNOWN', joinDate: 'UNKNOWN' };
+                                        const tempRegistration = { discordUserId: searchResults?.discordUserId || 'UNKNOWN', year: selectedVehicleForCitation.year || '', make: selectedVehicleForCitation.make || '', model: selectedVehicleForCitation.model || '', plate: selectedVehicleForCitation.plate || '', state: selectedVehicleForCitation.state || '', color: selectedVehicleForCitation.color || '', vehicleType: selectedVehicleForCitation.vehicleType || '', timestamp: selectedVehicleForCitation.timestamp || new Date().toLocaleString(), phoneticPlate: selectedVehicleForCitation.phoneticPlate || '', hasHandicapPermit: selectedVehicleForCitation.hasHandicapPermit || false, isEdited: selectedVehicleForCitation.isEdited || false };
+                                        addLog('Exporting citation WITH vehicle registration', 'info');
+                                        await generateCitation(tempResult, tempRegistration);
+                                    }}
+                                        style={{ width: '100%', marginTop: '12px', padding: '14px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '14px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 4px 16px rgba(16,185,129,0.4)', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+                                        onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 6px 24px rgba(16,185,129,0.6)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(16,185,129,0.4)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
+                                        EXPORT PRE-FILLED CITATION (WITH REGISTRATION)
+                                    </button>
+                                )}
                             </div>
-                        </div>
-                        
-                        <div style={{
-                            background: 'rgba(16, 185, 129, 0.1)',
-                            border: '1px solid rgba(16, 185, 129, 0.2)',
-                            borderRadius: '6px',
-                            padding: '8px 10px'
-                        }}>
-                            <div style={{ color: '#6ee7b7', fontSize: '9px', fontWeight: '600', marginBottom: '3px' }}>
-                                COLOR
-                            </div>
-                            <div style={{ color: 'white', fontSize: '12px', fontWeight: '600' }}>
-                                {vehicle.color}
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div style={{ 
-                        fontSize: '10px', 
-                        color: '#86efac',
-                        paddingTop: '8px',
-                        borderTop: '1px solid rgba(16, 185, 129, 0.2)',
-                        textAlign: 'center'
-                    }}>
-                        {vehicle.timestamp}
-                    </div>
-                </div>
-            ))}
-        </div>
-                                
-{selectedVehicleForCitation && (
-<button onClick={async () => {
-    if (!searchResults) {
-        showCustomError('Error', 'No search results available.');
-        return;
-    }
-    
-    if (!selectedVehicleForCitation) {
-        showCustomError('Error', 'Please select a vehicle first.');
-        return;
-    }
-    
-    const tempResult = searchResults.robloxUser || { 
-        username: 'UNKNOWN', 
-        userId: 'UNKNOWN', 
-        displayName: 'UNKNOWN', 
-        joinDate: 'UNKNOWN' 
-    };
-    
-    // Use selected vehicle data with proper defaults
-    const tempRegistration = { 
-        discordUserId: searchResults?.discordUserId || 'UNKNOWN',
-        year: selectedVehicleForCitation.year || '',
-        make: selectedVehicleForCitation.make || '',
-        model: selectedVehicleForCitation.model || '',
-        plate: selectedVehicleForCitation.plate || '',
-        state: selectedVehicleForCitation.state || '',
-        color: selectedVehicleForCitation.color || '',
-        vehicleType: selectedVehicleForCitation.vehicleType || '',
-        timestamp: selectedVehicleForCitation.timestamp || new Date().toLocaleString(),
-        phoneticPlate: selectedVehicleForCitation.phoneticPlate || '',
-        hasHandicapPermit: selectedVehicleForCitation.hasHandicapPermit || false,
-        isEdited: selectedVehicleForCitation.isEdited || false
-    };
-    
-    addLog('Exporting citation WITH vehicle registration', 'info');
-    addLog(`Vehicle: ${tempRegistration.year} ${tempRegistration.make} ${tempRegistration.model} - ${tempRegistration.plate}`, 'info');
-    await generateCitation(tempResult, tempRegistration);
-}} style={{ width: '100%', marginTop: '20px', padding: '16px', background: 'linear-gradient(135deg, #10b981, #059669)', border: '2px solid #047857', borderRadius: '8px', color: 'white', fontSize: '15px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)' }}>
-        Generate Ticket (WITH REGISTRATION)
-    </button>
-)}
-                            </>
                         )}
                     </div>
                 )}
-                
+
+                {/* DEV CONSOLE */}
                 {showDevConsole && consoleLogs.length > 0 && (
-                    <div className="console-box">
-                        <div className="console-header">
-                            <Terminal />
-                            Developer Console
+                    <div className="console-box" style={{ marginTop: '16px' }}>
+                        <div className="console-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Terminal size={14} /> Developer Console</div>
+                            <button onClick={() => { const logsText = consoleLogs.map(log => `[${log.timestamp}] [${log.type.toUpperCase()}] ${log.message}`).join('\n'); const blob = new Blob([logsText], { type: 'text/plain' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `NYSP_MDT_Logs_${new Date().toISOString().split('T')[0]}.txt`; a.click(); URL.revokeObjectURL(url); addLog('📥 Console logs exported', 'success'); }}
+                                style={{ padding: '4px 12px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '10px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                EXPORT
+                            </button>
                         </div>
-                        {consoleLogs.map((log, i) => (
-                            <div key={i} className={`console-log console-${log.type}`}>
-                                [{log.timestamp}] {log.message}
-                            </div>
-                        ))}
+                        {consoleLogs.map((log, i) => (<div key={i} className={`console-log console-${log.type}`}>[{log.timestamp}] {log.message}</div>))}
                     </div>
                 )}
             </div>
         )}
     </div>
 )}
+
+
 {activeView === 'settings' && (
     <div className="card" style={{ background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,58,138,0.3))', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '16px', padding: '32px' }}>
         
