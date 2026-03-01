@@ -7676,81 +7676,61 @@ const generateArrestReport = async (ownerData = null) => {
 };
 const tokenInstructions = `(webpackChunkdiscord_app.push([[''],{},e=>{m=[];for(let c in e.c)m.push(e.c[c])}]),m).find(m=>m?.exports?.default?.getToken!==void 0).exports.default.getToken()`;
 
-const handleLogin = () => {
+const handleLogin = async () => {
     setLoginError('');
     setIsLoggingIn(true);
 
-    setTimeout(() => {
-        if (!window.AUTHORIZED_USERS) {
-            setLoginError('Authentication system not loaded. Please restart the application.');
-            setIsLoggingIn(false);
-            return;
-        }
+    try {
+        const response = await fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                username: loginUsername.trim(), 
+                password: loginPassword 
+            })
+        });
 
-        const normalizedUsername = loginUsername.trim();
-        const user = window.AUTHORIZED_USERS[normalizedUsername];
+        const result = await response.json();
 
-        if (!user) {
-            // Play incorrect login sound
-            if (soundSettings?.LoginIncorrect && SOUNDS.LoginIncorrect) {
-                try {
-                    const audio = new Audio(SOUNDS.LoginIncorrect);
-                    audio.volume = 0.5;
-                    audio.play().catch(e => console.log('Sound play failed:', e));
-                } catch (e) {}
+        if (!result.success) {
+            if (result.reason === 'banned') {
+                if (soundSettings?.LoginAccessDenied && SOUNDS.LoginAccessDenied) {
+                    try {
+                        const audio = new Audio(SOUNDS.LoginAccessDenied);
+                        audio.volume = 0.5;
+                        audio.play().catch(e => console.log('Sound play failed:', e));
+                    } catch (e) {}
+                }
+                setBanReason(result.bannedReason || 'No reason provided.');
+                setShowBanScreen(true);
+                setShowLoginScreen(false);
+            } else {
+                if (soundSettings?.LoginIncorrect && SOUNDS.LoginIncorrect) {
+                    try {
+                        const audio = new Audio(SOUNDS.LoginIncorrect);
+                        audio.volume = 0.5;
+                        audio.play().catch(e => console.log('Sound play failed:', e));
+                    } catch (e) {}
+                }
+                setLoginError('Login details were not correct. Make sure you have put the correct details including your username and the password provided.');
             }
-            
-            setLoginError('Login details were not correct. Make sure you have put the correct details including your username and the password provided.');
             setIsLoggingIn(false);
             return;
         }
 
-        // Check if banned
-        if (user.banned === true) {
-            // Play access denied sound
-            if (soundSettings.LoginAccessDenied && SOUNDS.LoginAccessDenied) {
-                try {
-                    const audio = new Audio(SOUNDS.LoginAccessDenied);
-                    audio.volume = 0.5;
-                    audio.play().catch(e => console.log('Sound play failed:', e));
-                } catch (e) {}
-            }
-            
-            setBanReason(user.bannedReason || 'No reason provided.');
-            setShowBanScreen(true);
-            setShowLoginScreen(false);
-            setIsLoggingIn(false);
-            return;
-        }
+        // ✅ Login successful
+        const user = result.user;
 
-        // Check password
-        if (user.password !== loginPassword) {
-            // Play incorrect login sound
-            if (soundSettings?.LoginIncorrect && SOUNDS.LoginIncorrect) {
-                try {
-                    const audio = new Audio(SOUNDS.LoginIncorrect);
-                    audio.volume = 0.5;
-                    audio.play().catch(e => console.log('Sound play failed:', e));
-                } catch (e) {}
-            }
-            
-            setLoginError('Login details were not correct. Make sure you have put the correct details including your username and the password provided.');
-            setIsLoggingIn(false);
-            return;
-        }
-
-        // ✅ Login successful - Play success sound
-        if (soundSettings.LoginPageCorrect && SOUNDS.LoginPageCorrect) {
+        if (soundSettings?.LoginPageCorrect && SOUNDS.LoginPageCorrect) {
             try {
                 const audio = new Audio(SOUNDS.LoginPageCorrect);
                 audio.volume = 0.5;
                 audio.play().catch(e => console.log('Sound play failed:', e));
             } catch (e) {}
         }
-        
-        console.log('[AUTH] ✅ Login successful for:', normalizedUsername);
-        
-        // Store authenticated user and trooper data
+
+        console.log('[AUTH] ✅ Login successful for:', user.robloxUsername);
+
         setAuthenticatedUser(user);
         setTrooperData({
             robloxUsername: user.robloxUsername,
@@ -7759,8 +7739,7 @@ const handleLogin = () => {
             lastName: user.lastName,
             badgeId: user.badgeId
         });
-        
-        // Store in localStorage
+
         localStorage.setItem('nysp_authenticated_user', JSON.stringify(user));
         localStorage.setItem('nysp_username', user.robloxUsername);
         localStorage.setItem('nysp_zone', user.patrolZone);
@@ -7768,7 +7747,7 @@ const handleLogin = () => {
         localStorage.setItem('nysp_lastname', user.lastName);
         localStorage.setItem('nysp_badgeid', user.badgeId);
         localStorage.setItem('nysp_department', user.department || 'NYSP');
-        
+
         console.log('[AUTH] Trooper data stored:', {
             username: user.robloxUsername,
             zone: user.patrolZone,
@@ -7776,7 +7755,6 @@ const handleLogin = () => {
             badge: user.badgeId
         });
 
-                // Update trooperSettings with login data
         setTrooperSettings({
             Username: user.robloxUsername,
             Zone: user.patrolZone,
@@ -7786,16 +7764,16 @@ const handleLogin = () => {
             Department: user.department || 'NYSP'
         });
 
-        
-        // Hide login, show loader
         setShowLoginScreen(false);
-        setShowLoader(true); // Show loader after login
+        setShowLoader(true);
         setIsLoggingIn(false);
-        
-    }, 800);
+
+    } catch (error) {
+        console.error('[AUTH] Login error:', error);
+        setLoginError('Connection error. Please check your internet connection and try again.');
+        setIsLoggingIn(false);
+    }
 };
-
-
 const handleLogout = () => {
     console.log('[AUTH] Logging out');
     localStorage.removeItem('nysp_authenticated_user');
