@@ -1791,41 +1791,45 @@ React.useEffect(() => {
 
 useEffect(() => {
     const storedUser = localStorage.getItem('nysp_authenticated_user');
-    if (storedUser) {
+    if (!storedUser) return;
+    
+    // Wait for auth system to load
+    const tryRestore = () => {
+        if (!window.AUTHORIZED_USERS) {
+            setTimeout(tryRestore, 200);  // retry every 200ms
+            return;
+        }
+        
         try {
             const user = JSON.parse(storedUser);
-            console.log('[AUTH] Found existing session for:', user.robloxUsername);
+            const currentUser = window.AUTHORIZED_USERS[user.robloxUsername];
             
-            // Verify user still exists in AUTHORIZED_USERS and not banned
-            if (window.AUTHORIZED_USERS && window.AUTHORIZED_USERS[user.robloxUsername]) {
-                const currentUser = window.AUTHORIZED_USERS[user.robloxUsername];
-                
-                // Check if user is now banned
-                if (currentUser.banned === true) {
-                    console.warn('[AUTH] User is now banned, clearing session');
-                    localStorage.removeItem('nysp_authenticated_user');
-                    setShowLoginScreen(true);
-                    return;
-                }
-                
-                // Restore session
-                setAuthenticatedUser(user);
-                setTrooperName(user.robloxUsername);
-                setTrooperBadge(user.badgeId);
-                setShowLoginScreen(false);
-                console.log('[AUTH] ✅ Session restored');
-            } else {
-                // User no longer exists, clear session
-                console.warn('[AUTH] User no longer in database, clearing session');
+            if (!currentUser) {
                 localStorage.removeItem('nysp_authenticated_user');
                 setShowLoginScreen(true);
+                return;
             }
+            
+            if (currentUser.banned === true) {
+                localStorage.removeItem('nysp_authenticated_user');
+                setShowLoginScreen(true);
+                return;
+            }
+            
+            setAuthenticatedUser(user);
+            setTrooperName(user.robloxUsername);
+            setTrooperBadge(user.badgeId);
+            setShowLoginScreen(false);
+            console.log('[AUTH] ✅ Session restored');
+            
         } catch (e) {
             console.error('[AUTH] Failed to restore session:', e);
             localStorage.removeItem('nysp_authenticated_user');
             setShowLoginScreen(true);
         }
-    }
+    };
+    
+    tryRestore();
 }, []);
 
 useEffect(() => {
