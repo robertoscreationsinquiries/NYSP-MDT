@@ -1681,14 +1681,15 @@ React.useEffect(() => {
 }, []);
 
 React.useEffect(() => {
-const checkAnnouncements = async () => {
+    const checkAnnouncements = async () => {
         try {
             console.log('[ANNOUNCEMENTS] 🔄 Checking for updates...');
             
-            const response = await fetch(
-                'https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/',
-                { cache: 'no-store' }
-            );
+            // Fetch from GitHub
+const response = await fetch(
+    'https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/',
+    { cache: 'no-store' }
+);
             
             if (response.ok) {
                 const content = await response.text();
@@ -1702,6 +1703,7 @@ const checkAnnouncements = async () => {
                     
                     console.log('[ANNOUNCEMENTS] ✅ Found', count, 'announcement(s)');
                     
+                    // Update state
                     setLiveAnnouncements(announcements);
                     setLastAnnouncementCheck(Date.now());
                     
