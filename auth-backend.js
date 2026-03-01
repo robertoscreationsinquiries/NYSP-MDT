@@ -29,6 +29,54 @@ const AUTHORIZED_USERS = {
         bannedReason: "Sharing access to unauthorized users."
     },
 
+    "Alp_hah": {
+        robloxUsername: "ProBBLOKA",
+        patrolZone: "00",
+        firstName: "Travis",
+        lastName: "Norman",
+        badgeId: "00601",
+        department: "NYSP",
+        password: "F::|hA26Jt/6",
+        banned: false,
+        bannedReason: ""
+    },
+
+    "ransomperspective": {
+        robloxUsername: "ransomperspective",
+        patrolZone: "00",
+        firstName: "Kenny",
+        lastName: "Thompson",
+        badgeId: "00503",
+        department: "EGPD",
+        password: "ayy5fords",
+        banned: false,
+        bannedReason: ""
+    },
+
+    "Leonardothey": {
+        robloxUsername: "Leonardothey",
+        patrolZone: "00",
+        firstName: "Mark",
+        lastName: "Daniel",
+        badgeId: "00604",
+        department: "EGPD",
+        password: "142919",
+        banned: false,
+        bannedReason: ""
+    },
+
+    "Plsqeoi": {
+        robloxUsername: "Plsqeoi",
+        patrolZone: "00",
+        firstName: "Elijah",
+        lastName: "Russo",
+        badgeId: "00705",
+        department: "EGPD",
+        password: "ORCRCAD07005EGPD",
+        banned: false,
+        bannedReason: ""
+    },
+    
     "vectra_rb": {
         robloxUsername: "VECTRA_RB",
         patrolZone: "0G",
