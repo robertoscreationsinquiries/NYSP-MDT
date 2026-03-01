@@ -2802,6 +2802,54 @@ if (settings.DiscordAccountToken) {
     loadSettingsSync();
 }, []);
 
+// ══════════════════════════════════════════════════════════════════════════
+// SESSION RESTORATION
+// ══════════════════════════════════════════════════════════════════════════
+useEffect(() => {
+    const storedUser = localStorage.getItem('nysp_authenticated_user');
+    if (storedUser && window.AUTHORIZED_USERS) {
+        try {
+            const user = JSON.parse(storedUser);
+            const currentUser = window.AUTHORIZED_USERS[user.robloxUsername];
+            
+            if (currentUser && currentUser.banned === true) {
+                localStorage.removeItem('nysp_authenticated_user');
+                setBanReason(currentUser.bannedReason || 'No reason provided.');
+                setShowBanScreen(true);
+                setShowLoginScreen(false);
+                return;
+            }
+            
+            if (currentUser) {
+                setAuthenticatedUser(user);
+                setShowLoginScreen(false);
+                console.log('[AUTH] Session restored');
+                setTrooperData({
+                    robloxUsername: user.robloxUsername,
+                    patrolZone: user.patrolZone,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    badgeId: user.badgeId
+                });
+                
+                setTrooperSettings({
+                    Username: user.robloxUsername,
+                    Zone: user.patrolZone,
+                    BadgeID: user.badgeId,
+                    FirstName: user.firstName,
+                    LastName: user.lastName,
+                    Department: user.department || 'NYSP'
+                });
+
+            } else {
+                localStorage.removeItem('nysp_authenticated_user');
+            }
+        } catch (e) {
+            localStorage.removeItem('nysp_authenticated_user');
+        }
+    }
+}, []);
+
 const saveSettingsToFile = async () => {
     setSavingSettings(true);
     addLog('Saving settings to file...', 'info');
@@ -3181,7 +3229,7 @@ React.useEffect(() => {
             activeAlertAudioRef.current = null;
         }
     };
-}, [activeView]);
+}, []);
 
 const normalizePlate = (plate) => plate.replace(/[\-\s]/g, '').toUpperCase();
 
@@ -7760,53 +7808,6 @@ const handleLogout = () => {
     setShowLoader(true);
 };
 
-// ══════════════════════════════════════════════════════════════════════════
-// SESSION RESTORATION
-// ══════════════════════════════════════════════════════════════════════════
-useEffect(() => {
-    const storedUser = localStorage.getItem('nysp_authenticated_user');
-    if (storedUser && window.AUTHORIZED_USERS) {
-        try {
-            const user = JSON.parse(storedUser);
-            const currentUser = window.AUTHORIZED_USERS[user.robloxUsername];
-            
-            if (currentUser && currentUser.banned === true) {
-                localStorage.removeItem('nysp_authenticated_user');
-                setBanReason(currentUser.bannedReason || 'No reason provided.');
-                setShowBanScreen(true);
-                setShowLoginScreen(false);
-                return;
-            }
-            
-            if (currentUser) {
-                setAuthenticatedUser(user);
-                setShowLoginScreen(false);
-                console.log('[AUTH] Session restored');
-                setTrooperData({
-                    robloxUsername: user.robloxUsername,
-                    patrolZone: user.patrolZone,
-                    firstName: user.firstName,
-                    lastName: user.lastName,
-                    badgeId: user.badgeId
-                });
-                
-                setTrooperSettings({
-                    Username: user.robloxUsername,
-                    Zone: user.patrolZone,
-                    BadgeID: user.badgeId,
-                    FirstName: user.firstName,
-                    LastName: user.lastName,
-                    Department: user.department || 'NYSP'
-                });
-
-            } else {
-                localStorage.removeItem('nysp_authenticated_user');
-            }
-        } catch (e) {
-            localStorage.removeItem('nysp_authenticated_user');
-        }
-    }
-}, []);
 
 
 // Auto-set department based on trooper settings
