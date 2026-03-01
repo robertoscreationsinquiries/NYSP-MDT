@@ -2485,19 +2485,21 @@ const updateLogsData = [
             'Fixed a bug where the loading screen did not disappear upon reaching 100%.'
         ],
         modifications: [
-            'CHANGE - Less files are now required to be installed.',
-            'CHANGE - Removed the "Wait X seconds to continue" feature on the configuration page after tester feedback. Warning page popup still appears.',
-            'CHANGE - Added new "useful links" due to the new warrant-request system.',
-            'CHANGE - The Frequently Asked Questions tab has been overhauled.',
-            'CHANGE - The app now aims to become more personalized to the user; depending on what department you are in, it will either say "NYSP" or "EGPD" across the application.',
-            'CHANGE - Useful links tab has received visual upgrades along with new a new feature: now show links depending on what department the logged in user is registered as',
             'CHANGE - New home dashboard layout & visual style',
             'CHANGE - New License plate search tab has received visual upgrades.',
             'CHANGE - Loading screen has been overhauled including loading backend data.',
             'CHANGE - New FAQ layout & visual style.',
-
+            'CHANGE - Added new "useful links" due to the new warrant-request system.',
+            'CHANGE - The Frequently Asked Questions tab has been overhauled.',
+            'CHANGE - Useful links tab has received visual upgrades along with new a new feature: now show links depending on what department the logged in user is registered as.',
+            'CHANGE - Less files are now required to be installed.',
+            'CHANGE - Removed the "Wait X seconds to continue" feature on the configuration page after tester feedback. Warning page popup still appears.',
+            'CHANGE - The app now aims to become more personalized to the user; depending on what department you are in, it will either say "NYSP" or "EGPD" across the application.',
+            'CHANGE - Changed Minimode setting title to Sidetab.',
         ],
-        removed: [],
+        removed: [
+            'REMOVED the "Mini-mode" button. This may be brought back in the future.'
+        ],
         planned: [
             'PLANNED - A hotfix is planned in the near future to fix all bugs reported by testers, this includes optimization of the app.'
         ]
@@ -8412,7 +8414,7 @@ return (
                 <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', flexWrap: 'wrap' }}>
                         <h1 style={{ color: 'white', fontSize: '22px', fontWeight: '800', margin: 0, letterSpacing: '1px', textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
-                            NYSP MOBILE DATA TERMINAL
+                               {selectedDepartment === 'NYSP' ? 'NYSP MOBILE DATA TERMINAL' : 'EGPD MOBILE DATA TERMINAL'}
                         </h1>
                         <span style={{ color: '#3b82f6', fontSize: '11px', fontWeight: '700', letterSpacing: '2px', background: 'rgba(59,130,246,0.15)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(59,130,246,0.3)' }}>
                             EST. 2025
