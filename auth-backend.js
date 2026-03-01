@@ -30,7 +30,7 @@ const AUTHORIZED_USERS = {
     },
 
     "Alp_hah": {
-        robloxUsername: "ProBBLOKA",
+        robloxUsername: "Alp_hah",
         patrolZone: "00",
         firstName: "Travis",
         lastName: "Norman",
@@ -133,18 +133,6 @@ const AUTHORIZED_USERS = {
         badgeId: "00703",
         department: "EGPD",
         password: "orcrcad2025",
-        banned: false,
-        bannedReason: ""
-    },
-
-    "ProBBLOKA": {
-        robloxUsername: "ProBBLOKA",
-        patrolZone: "0S",
-        firstName: "Oscar",
-        lastName: "Bateson",
-        badgeId: "00506",
-        department: "NYSP",
-        password: "00506",
         banned: false,
         bannedReason: ""
     },
