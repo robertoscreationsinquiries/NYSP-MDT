@@ -40,6 +40,18 @@ const AUTHORIZED_USERS = {
         banned: false,
         bannedReason: ""
     },
+    
+    "kingitegg": {
+        robloxUsername: "kingitegg",
+        patrolZone: "0S",
+        firstName: "Hayden",
+        lastName: "Chen",
+        badgeId: "00302",
+        department: "NYSP",
+        password: "gumball,
+        banned: false,
+        bannedReason: ""
+    },
 
     "ransomperspective": {
         robloxUsername: "ransomperspective",
