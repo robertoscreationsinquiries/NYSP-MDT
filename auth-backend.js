@@ -48,7 +48,7 @@ const AUTHORIZED_USERS = {
         lastName: "Chen",
         badgeId: "00302",
         department: "NYSP",
-        password: "gumball,
+        password: "gumball",
         banned: false,
         bannedReason: ""
     },
