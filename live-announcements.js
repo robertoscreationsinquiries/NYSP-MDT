@@ -8,7 +8,7 @@ const LIVEANNOUNCEMENTS = {
     // "announcement_id": "Your message here"
     
     // ACTIVE ANNOUNCEMENTS:
-    "maint_2025_02_26": "System maintenance scheduled at around 11PM GMT+1 time. Expect 15 minutes of downtime to migrate all data."
+    //"maint_2025_02_26": "System maintenance scheduled at around 11PM GMT+1 time. Expect 15 minutes of downtime to migrate all data."
 };
 
 // Export for use in the application
