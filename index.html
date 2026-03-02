@@ -1582,7 +1582,9 @@ const [headerShadow, setHeaderShadow] = useState(false);
 const [nightMode, setNightMode] = useState(false);
 const [showUsefulLinks, setShowUsefulLinks] = useState(false);
 const [selectedDepartment, setSelectedDepartment] = useState(null);
-
+const [maintenanceActive, setMaintenanceActive] = React.useState(false);
+const [maintenanceJustEnded, setMaintenanceJustEnded] = React.useState(false);
+const [lastMaintenanceCheck, setLastMaintenanceCheck] = React.useState(Date.now());
 const [soundSettings, setSoundSettings] = useState({
     platePass: true,
     plateFail: true,
@@ -1613,6 +1615,52 @@ const [trooperData, setTrooperData] = useState(null);
 
 
 const [databaseStatus, setDatabaseStatus] = useState({ connected: false, checking: true });
+
+React.useEffect(() => {
+    // Check maintenance status immediately on load
+    checkMaintenanceStatus();
+    
+    // Check every 80 seconds
+    const interval = setInterval(checkMaintenanceStatus, 80000);
+    
+    return () => clearInterval(interval);
+}, []);
+
+function checkMaintenanceStatus() {
+    console.log('[MAINTENANCE] 🔄 Checking status...');
+    
+    // Get current maintenance status from window
+    const currentStatus = window.MAINTENANCE || false;
+    
+    // Get last known status from localStorage
+    const lastStatus = localStorage.getItem('lastMaintenanceStatus');
+    const wasInMaintenance = lastStatus === 'true';
+    
+    console.log('[MAINTENANCE] Current:', currentStatus, '| Last:', wasInMaintenance);
+    
+    // If maintenance just ended (was true, now false)
+    if (wasInMaintenance && !currentStatus) {
+        console.log('[MAINTENANCE] ✅ Maintenance ended! Show restart screen');
+        setMaintenanceJustEnded(true);
+        setMaintenanceActive(false);
+    }
+    // If maintenance is active
+    else if (currentStatus) {
+        console.log('[MAINTENANCE] 🚧 Maintenance active');
+        setMaintenanceActive(true);
+        setMaintenanceJustEnded(false);
+    }
+    // Normal operation
+    else {
+        setMaintenanceActive(false);
+        setMaintenanceJustEnded(false);
+    }
+    
+    // Save current status
+    localStorage.setItem('lastMaintenanceStatus', currentStatus.toString());
+    setLastMaintenanceCheck(Date.now());
+}
+
 
 React.useEffect(() => {
     console.log('🔑 [SETTINGS] ═══════════════════════════════════');
@@ -7677,6 +7725,12 @@ const generateArrestReport = async (ownerData = null) => {
 const tokenInstructions = `(webpackChunkdiscord_app.push([[''],{},e=>{m=[];for(let c in e.c)m.push(e.c[c])}]),m).find(m=>m?.exports?.default?.getToken!==void 0).exports.default.getToken()`;
 
 const handleLogin = async () => {
+    if (window.MAINTENANCE === true) {
+        console.log('[LOGIN] Blocked - Maintenance active');
+        setMaintenanceActive(true);
+        return; // Stops login
+    }
+
     setLoginError('');
     setIsLoggingIn(true);
 
@@ -7797,6 +7851,219 @@ const handleLogout = () => {
 return (
     <React.Fragment>
         
+
+        {/* MAINTENANCE SCREEN */}
+{maintenanceActive && (
+    <div style={{ 
+        position: 'fixed', 
+        top: 0, 
+        left: 0, 
+        right: 0, 
+        bottom: 0, 
+        background: 'linear-gradient(135deg, #0a0f1e 0%, #1a1f3e 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 99999,
+        padding: '40px'
+    }}>
+        <div style={{ textAlign: 'center', maxWidth: '600px' }}>
+            {/* Construction Icon */}
+            <div style={{ 
+                width: '160px', 
+                height: '160px', 
+                margin: '0 auto 40px',
+                position: 'relative'
+            }}>
+                <svg viewBox="0 0 200 200" style={{ width: '100%', height: '100%' }}>
+                    {/* Crane */}
+                    <line x1="60" y1="150" x2="60" y2="60" stroke="#3b82f6" strokeWidth="4"/>
+                    <line x1="60" y1="60" x2="140" y2="60" stroke="#3b82f6" strokeWidth="4"/>
+                    <line x1="140" y1="60" x2="140" y2="100" stroke="#3b82f6" strokeWidth="2"/>
+                    <rect x="135" y="100" width="10" height="20" fill="#60a5fa"/>
+                    
+                    {/* Building */}
+                    <rect x="100" y="120" width="60" height="30" fill="rgba(59, 130, 246, 0.3)" stroke="#3b82f6" strokeWidth="2"/>
+                    <rect x="110" y="130" width="15" height="10" fill="rgba(59, 130, 246, 0.5)"/>
+                    <rect x="135" y="130" width="15" height="10" fill="rgba(59, 130, 246, 0.5)"/>
+                    
+                    {/* Base */}
+                    <rect x="40" y="150" width="40" height="10" fill="#1e3a8a"/>
+                    
+                    {/* Bird */}
+                    <path d="M 160 50 Q 165 45 170 50" stroke="white" strokeWidth="2" fill="none"/>
+                </svg>
+            </div>
+            
+            <h1 style={{ 
+                color: 'white', 
+                fontSize: '38px', 
+                fontWeight: '800', 
+                marginBottom: '16px',
+                letterSpacing: '1px'
+            }}>
+                NYSP MDT
+            </h1>
+            
+            <div style={{ 
+                color: '#60a5fa', 
+                fontSize: '16px', 
+                fontWeight: '600',
+                marginBottom: '32px',
+                letterSpacing: '3px',
+                textTransform: 'uppercase'
+            }}>
+                System Under Maintenance
+            </div>
+            
+            <p style={{ 
+                color: '#94a3b8', 
+                fontSize: '15px', 
+                lineHeight: '1.8',
+                marginBottom: '40px'
+            }}>
+                We are currently performing scheduled maintenance to improve your experience. 
+                This won't take long. The application will automatically resume once maintenance is complete.
+            </p>
+            
+            {/* Animated dots */}
+            <div style={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                gap: '12px',
+                marginBottom: '24px'
+            }}>
+                {[0, 1, 2].map(i => (
+                    <div key={i} style={{ 
+                        width: '12px', 
+                        height: '12px', 
+                        background: '#3b82f6',
+                        borderRadius: '50%',
+                        animation: `pulse 1.5s ease-in-out ${i * 0.2}s infinite`
+                    }}></div>
+                ))}
+            </div>
+            
+            <div style={{ 
+                color: '#64748b', 
+                fontSize: '13px',
+                fontWeight: '500'
+            }}>
+                Last checked: {new Date(lastMaintenanceCheck).toLocaleTimeString()}
+            </div>
+        </div>
+    </div>
+)}
+
+{/* MAINTENANCE ENDED - RESTART REQUIRED */}
+{maintenanceJustEnded && (
+    <div style={{ 
+        position: 'fixed', 
+        top: 0, 
+        left: 0, 
+        right: 0, 
+        bottom: 0, 
+        background: 'linear-gradient(135deg, #0a0f1e 0%, #1a1f3e 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 99999,
+        padding: '40px'
+    }}>
+        <div style={{ textAlign: 'center', maxWidth: '600px' }}>
+            {/* Checkmark Icon */}
+            <div style={{ 
+                width: '120px', 
+                height: '120px', 
+                margin: '0 auto 40px',
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 0 60px rgba(16, 185, 129, 0.4)'
+            }}>
+                <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+            </div>
+            
+            <h1 style={{ 
+                color: 'white', 
+                fontSize: '38px', 
+                fontWeight: '800', 
+                marginBottom: '16px',
+                letterSpacing: '1px'
+            }}>
+                Maintenance Complete
+            </h1>
+            
+            <div style={{ 
+                color: '#34d399', 
+                fontSize: '16px', 
+                fontWeight: '600',
+                marginBottom: '32px',
+                letterSpacing: '2px',
+                textTransform: 'uppercase'
+            }}>
+                System Updated Successfully
+            </div>
+            
+            <p style={{ 
+                color: '#94a3b8', 
+                fontSize: '15px', 
+                lineHeight: '1.8',
+                marginBottom: '40px'
+            }}>
+                All systems have been updated and are now operational. 
+                Please restart the application to access the latest features and improvements.
+            </p>
+            
+            <button
+                onClick={() => {
+                    if (window.require) {
+                        const { ipcRenderer } = window.require('electron');
+                        ipcRenderer.send('quit-app');
+                    }
+                }}
+                style={{ 
+                    padding: '16px 48px',
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    fontSize: '16px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    letterSpacing: '1px',
+                    textTransform: 'uppercase',
+                    boxShadow: '0 8px 24px rgba(16, 185, 129, 0.3)',
+                    transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 12px 32px rgba(16, 185, 129, 0.5)';
+                }}
+                onMouseLeave={e => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(16, 185, 129, 0.3)';
+                }}
+            >
+                Restart Application
+            </button>
+            
+            <p style={{ 
+                color: '#64748b', 
+                fontSize: '12px',
+                marginTop: '24px',
+                fontStyle: 'italic'
+            }}>
+                All your data and settings have been preserved
+            </p>
+        </div>
+    </div>
+)}
+
 {/* ═══════════════════════════════════════════════════════════════════ */}
 {/* LOGOUT LOADING SCREEN */}
 {/* ═══════════════════════════════════════════════════════════════════ */}
@@ -13643,92 +13910,48 @@ if (shiftPlateSearches.length > 0 && yPosition > 150) {
     </div>
 )}
 
-{/* LIVE ANNOUNCEMENTS - Bottom Right */}
-{Object.keys(liveAnnouncements).length > 0 && (
-    <div style={{
-        position: 'fixed',
-        bottom: '20px',
-        right: '20px',
-        zIndex: 9999,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '12px',
-        maxWidth: '400px',
-        pointerEvents: 'none'
-    }}>
+{liveAnnouncements && Object.entries(liveAnnouncements).length > 0 && (
+    <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999, pointerEvents: 'none' }}>
         {Object.entries(liveAnnouncements).map(([id, message]) => (
-            <div 
-                key={id}
-                style={{
-                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(220, 38, 38, 0.9))',
-                    border: '2px solid rgba(239, 68, 68, 0.8)',
-                    borderRadius: '12px',
-                    padding: '16px 20px',
-                    boxShadow: '0 8px 32px rgba(239, 68, 68, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1)',
-                    animation: 'slideInRight 0.4s ease-out, pulse 2s infinite',
-                    pointerEvents: 'auto',
-                    backdropFilter: 'blur(10px)',
-                    position: 'relative',
-                    overflow: 'hidden'
-                }}
-            >
-                {/* Animated border glow */}
-                <div style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: '-100%',
-                    width: '100%',
-                    height: '2px',
-                    background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent)',
-                    //animation: 'shimmer 2s infinite'
-                }}></div>
-                
-                {/* Icon */}
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '12px'
-                }}>
-                    <div style={{
-                        width: '32px',
-                        height: '32px',
-                        background: 'rgba(255, 255, 255, 0.2)',
-                        borderRadius: '8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                        fontSize: '18px',
-                        animation: 'pulse 2s infinite'
+            <div key={id} style={{ 
+                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(220, 38, 38, 0.9))',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                borderRadius: '12px',
+                padding: '14px 18px',
+                marginBottom: '12px',
+                maxWidth: '380px',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+                backdropFilter: 'blur(10px)',
+                pointerEvents: 'auto',
+                transition: 'transform 0.2s'
+            }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'translateX(-4px)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'translateX(0)'}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '18px' }}>📢</span>
+                    <div style={{ 
+                        color: 'white', 
+                        fontSize: '11px', 
+                        fontWeight: '700', 
+                        letterSpacing: '1.5px',
+                        textTransform: 'uppercase'
                     }}>
-                        📢
+                        LIVE ANNOUNCEMENT
                     </div>
-                    
-                    <div style={{ flex: 1 }}>
-                        <div style={{
-                            color: 'white',
-                            fontSize: '13px',
-                            fontWeight: '700',
-                            marginBottom: '4px',
-                            textTransform: 'uppercase',
-                            letterSpacing: '1px'
-                        }}>
-                            LIVE ANNOUNCEMENT
-                        </div>
-                        <div style={{
-                            color: '#fecaca',
-                            fontSize: '14px',
-                            lineHeight: '1.5',
-                            fontWeight: '500'
-                        }}>
-                            {message}
-                        </div>
-                    </div>
+                </div>
+                <div style={{ 
+                    color: 'white', 
+                    fontSize: '13px', 
+                    lineHeight: '1.5',
+                    fontWeight: '500'
+                }}>
+                    {message}
                 </div>
             </div>
         ))}
     </div>
 )}
+
 
 <button 
     className={`scroll-to-top ${showScrollTop ? 'visible' : ''}`}
