@@ -21,8 +21,8 @@ body {
         radial-gradient(ellipse at 15% 15%, rgba(30, 58, 138, 0.25) 0%, transparent 45%),
         radial-gradient(ellipse at 85% 85%, rgba(5, 46, 22, 0.2) 0%, transparent 45%);
     background-attachment: fixed;
-    margin: 0;
-    padding: 0;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
 }
 
 /* BETA watermark */
@@ -260,9 +260,11 @@ body::before {
 }
 .main-content { 
     width: 100%;
-    max-width: 100%; /* Changed from 1000px */
+    max-width: 100%;
     margin: 0 auto;
-    padding: 0 20px; 
+    padding: 0 20px;
+    box-sizing: border-box;
+    overflow-x: hidden;
 }
 .card {
     background: linear-gradient(135deg, #2a2a2a 0%, #252525 100%);
@@ -627,10 +629,12 @@ body:not(.no-visual-effects) input:focus {
 }
 
 html, body {
-    overflow-x: hidden; /* ðŸ”¥ ADD THIS */
-    max-width: 100vw;   /* ðŸ”¥ ADD THIS */
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100vh;
+    overflow-x: hidden;
 }
-
 @keyframes ripple-effect {
     0% {
         width: 0;
