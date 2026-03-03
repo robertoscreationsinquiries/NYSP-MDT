@@ -23,22 +23,7 @@ html {
     overflow-x: hidden;
     overflow-y: scroll;
 }
-body {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    min-height: 100vh;
-    position: relative;
-    overflow-x: hidden;
-    background: #07090f;
-    background-image:
-        radial-gradient(ellipse at 15% 15%, rgba(30, 58, 138, 0.25) 0%, transparent 45%),
-        radial-gradient(ellipse at 85% 85%, rgba(5, 46, 22, 0.2) 0%, transparent 45%);
-    background-attachment: scroll; /* ← CHANGE FROM fixed TO scroll */
-    background-size: 100% 100%;
-    background-repeat: no-repeat;
-    background-position: top left;
-}
+
 #background-layer {
     position: fixed;
     top: 0;
@@ -965,6 +950,26 @@ html, body {
     margin-bottom: 28px;
 }
 
+.app-background {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #07090f;
+    background-image:
+        radial-gradient(ellipse at 15% 15%, rgba(30, 58, 138, 0.25) 0%, transparent 45%),
+        radial-gradient(ellipse at 85% 85%, rgba(5, 46, 22, 0.2) 0%, transparent 45%);
+    z-index: -999;
+    pointer-events: none;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
 .mdt-check-row {
     display: flex;
     align-items: center;
@@ -1403,6 +1408,7 @@ body::after {
     </style>
 </head>
 <body>
+    <div class="app-background"></div>
     <div id="root"></div>
     <div id="background-layer"></div>
     
