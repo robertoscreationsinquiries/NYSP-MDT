@@ -24,20 +24,7 @@ html {
     overflow-y: scroll;
 }
 
-#background-layer {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: #07090f;
-    background-image:
-        radial-gradient(ellipse at 15% 15%, rgba(30, 58, 138, 0.25) 0%, transparent 45%),
-        radial-gradient(ellipse at 85% 85%, rgba(5, 46, 22, 0.2) 0%, transparent 45%);
-    background-size: cover;
-    z-index: -999;
-    pointer-events: none;
-}
+
 /* BETA watermark */
 body::before {
     content: 'BETA';
@@ -954,8 +941,8 @@ html, body {
     position: fixed;
     top: 0;
     left: 0;
-    right: 0;
-    bottom: 0;
+    right: 0;  /* ← Use right: 0 instead of width: 100vw */
+    bottom: 0; /* ← Use bottom: 0 instead of height: 100vh */
     background: #07090f;
     background-image:
         radial-gradient(ellipse at 15% 15%, rgba(30, 58, 138, 0.25) 0%, transparent 45%),
@@ -1410,7 +1397,6 @@ body::after {
 <body>
     <div class="app-background"></div>
     <div id="root"></div>
-    <div id="background-layer"></div>
     
     <script type="text/babel">
         
