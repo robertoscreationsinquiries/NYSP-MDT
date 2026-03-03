@@ -18,10 +18,9 @@
     box-sizing: border-box;
 }
 html {
-    width: 100%;
-    height: 100%;
-    overflow-x: hidden;
     overflow-y: scroll;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
 }
 
 
@@ -941,8 +940,8 @@ html, body {
     position: fixed;
     top: 0;
     left: 0;
-    right: 0;  /* ← Use right: 0 instead of width: 100vw */
-    bottom: 0; /* ← Use bottom: 0 instead of height: 100vh */
+    right: -12px; /* Extend past scrollbar */
+    bottom: 0;
     background: #07090f;
     background-image:
         radial-gradient(ellipse at 15% 15%, rgba(30, 58, 138, 0.25) 0%, transparent 45%),
@@ -950,8 +949,7 @@ html, body {
     z-index: -999;
     pointer-events: none;
 }
-
-html, body {
+body {
     margin: 0;
     padding: 0;
     overflow-x: hidden;
