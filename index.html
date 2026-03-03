@@ -43,7 +43,7 @@ body::before {
     background: rgba(0, 0, 0, 0.3);
 }
 .app-container { 
-    max-width: 1200px; 
+    max-width: none; /* ← Remove the 1200px limit */
     margin: 0 auto; 
     width: 100%;
 }
@@ -940,8 +940,8 @@ html, body {
     position: fixed;
     top: 0;
     left: 0;
-    right: -12px; /* Extend past scrollbar */
-    bottom: 0;
+    width: 100vw; /* Full viewport */
+    height: 100vh;
     background: #07090f;
     background-image:
         radial-gradient(ellipse at 15% 15%, rgba(30, 58, 138, 0.25) 0%, transparent 45%),
