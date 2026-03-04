@@ -13,7 +13,9 @@
         
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html {
-    scrollbar-gutter: stable;
+    /* scrollbar-gutter: stable; ← REMOVE THIS */
+    overflow-y: scroll; /* Keep scrollbar always visible */
+    overflow-x: hidden;
 }
 body {
     background: #07090f;
@@ -8627,8 +8629,7 @@ return (
 )}
 
 {!maintenanceActive && !maintenanceJustEnded && !showLoginScreen && !showLoader && (
-            <div style={{ width: '100%', margin: 0 }}>
-
+        <div className="app-container">
 
 
 {activeView === 'home' ? (
