@@ -13,8 +13,11 @@
         
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html {
-    scrollbar-gutter: stable;
+    /* scrollbar-gutter: stable; ← DELETE THIS */
+    overflow-y: scroll;
+    overflow-x: hidden;
 }
+
 body {
     background: #07090f;
     background-image:
@@ -631,9 +634,7 @@ body:not(.no-visual-effects) input:focus {
 html, body {
     margin: 0;
     padding: 0;
-    width: 100%;
     min-height: 100vh;
-    overflow-x: hidden;
 }
 @keyframes ripple-effect {
     0% {
@@ -1334,7 +1335,35 @@ body::after {
     z-index: -1;
 }
 
+::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
 
+::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.5);
+    border-radius: 10px;
+    border: 1px solid rgba(59, 130, 246, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.6), rgba(37, 99, 235, 0.6));
+    border-radius: 10px;
+    border: 2px solid rgba(15, 23, 42, 0.5);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.8));
+}
+
+::-webkit-scrollbar-corner {
+    background: rgba(15, 23, 42, 0.5);
+}
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(59, 130, 246, 0.6) rgba(15, 23, 42, 0.5);
+}
 
 
     </style>
