@@ -44,9 +44,16 @@ body::before {
     background: rgba(0, 0, 0, 0.3);
 }
 .app-container { 
-    max-width: 1200px; 
-    margin: 0 auto; 
+    max-width: none; /* ← Remove width limit */
+    margin: 0; /* ← Remove centering */
     width: 100%;
+    padding: 0 20px; /* ← Add padding for edges instead */
+}
+
+.centered-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
 }
 .sidebar {
     width: 280px; 
