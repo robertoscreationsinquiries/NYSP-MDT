@@ -12,9 +12,7 @@
     <style>
         
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html {
-    scrollbar-gutter: stable;
-}
+
 body {
     background: #07090f;
     background-image:
