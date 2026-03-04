@@ -1340,15 +1340,15 @@ body::after {
 }
 
 ::-webkit-scrollbar-track {
-    background: rgba(15, 23, 42, 0.5);
+    background: transparent; /* ← Made transparent */
     border-radius: 10px;
-    border: 1px solid rgba(59, 130, 246, 0.1);
+    border: none; /* ← Removed border */
 }
 
 ::-webkit-scrollbar-thumb {
     background: linear-gradient(180deg, rgba(59, 130, 246, 0.6), rgba(37, 99, 235, 0.6));
     border-radius: 10px;
-    border: 2px solid rgba(15, 23, 42, 0.5);
+    border: 2px solid transparent; /* ← Optional: transparent border */
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -1356,12 +1356,12 @@ body::after {
 }
 
 ::-webkit-scrollbar-corner {
-    background: rgba(15, 23, 42, 0.5);
+    background: transparent; /* ← Made transparent */
 }
 
 * {
     scrollbar-width: thin;
-    scrollbar-color: rgba(59, 130, 246, 0.6) rgba(15, 23, 42, 0.5);
+    scrollbar-color: rgba(59, 130, 246, 0.6) transparent; /* ← Second value is track */
 }
 
 
