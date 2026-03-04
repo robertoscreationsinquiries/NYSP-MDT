@@ -11,40 +11,18 @@
     
     <style>
         
-* {
-    box-sizing: border-box !important;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
 html {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 100% !important;
-    height: 100%;
-    margin: 1 !important;
-    padding: 0 !important;
-    overflow-y: scroll !important;
-    overflow-x: hidden !important;
-    box-sizing: border-box !important;
+    scrollbar-gutter: stable;
 }
-
 body {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 1 !important;
-    padding: 0 !important;
-    min-height: 100svh;
-    overflow-x: hidden !important;
-    box-sizing: border-box !important;
     background: #07090f;
     background-image:
         radial-gradient(ellipse at 15% 15%, rgba(30, 58, 138, 0.25) 0%, transparent 45%),
         radial-gradient(ellipse at 85% 85%, rgba(5, 46, 22, 0.2) 0%, transparent 45%);
     background-attachment: fixed;
-    background-size: cover;
-}
-
-#root {
-    width: 100%;
-    min-height: 100svh;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
 }
 
 /* BETA watermark */
@@ -66,8 +44,8 @@ body::before {
     background: rgba(0, 0, 0, 0.3);
 }
 .app-container { 
-    max-width: 100%; 
-    margin: 1; 
+    max-width: 1200px; 
+    margin: 0 auto; 
     width: 100%;
 }
 .sidebar {
@@ -86,7 +64,7 @@ body::before {
     background: linear-gradient(135deg, rgba(30, 58, 138, 0.6), rgba(30, 58, 138, 0.2));
     border: 2px solid rgba(59, 130, 246, 0.4);
     border-radius: 12px;
-    padding: 0;
+    padding: 32px 24px;
     margin-bottom: 32px;
     position: relative;
     overflow: hidden;
@@ -163,7 +141,7 @@ body::before {
     background: rgba(59, 130, 246, 0.25);
     border: 1px solid rgba(59, 130, 246, 0.5);
     border-radius: 6px;
-    padding: 0;
+    padding: 6px 12px;
     color: #bfdbfe;
     font-size: 13px;
     margin: 0 auto;
@@ -283,8 +261,8 @@ body::before {
 .main-content { 
     width: 100%;
     max-width: 100%;
-    margin: 1;
-    padding: 0px;
+    margin: 0 auto;
+    padding: 0 20px;
     box-sizing: border-box;
     overflow-x: hidden;
 }
@@ -295,12 +273,12 @@ body::before {
         repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(59, 130, 246, 0.02) 10px, rgba(59, 130, 246, 0.02) 20px);
     border-radius: 4px; 
     border: 2px solid #3a3a3a; 
-    padding: 0;
+    padding: 24px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
     width: 100%;
     max-width: 100%;
     margin: 0 auto;
-    height: calc(100svh - 40px);
+    height: calc(100vh - 40px);
     overflow-y: auto;
     overflow-x: hidden;
 }
@@ -653,7 +631,9 @@ body:not(.no-visual-effects) input:focus {
 html, body {
     margin: 0;
     padding: 0;
+    width: 100%;
     min-height: 100vh;
+    overflow-x: hidden;
 }
 @keyframes ripple-effect {
     0% {
@@ -2545,7 +2525,7 @@ const updateLogsData = [
         {
         title: "MDT SYSTEM - APP OVERHAUL",
         version: "0.1.0",
-        description: ".",
+        description: "Thank you to all testers for reporting all the bugs to me. This hotfix should cover all the bugs reported so far. In addition to this new update, we have new testers to minimize the bugs in this app.",
         new: [
             'NEW - Added a Login screen upon launch.',
             'NEW - Added a backend that handles all officer-related data. In addition to this, all data is now encrypted meaning no one will be able to access your personal data as it is connected to a private cloudflare workplace.',
@@ -2665,7 +2645,7 @@ const updateLogsData = [
     {
         title: "NYSP MDT SYSTEM - SEARCH ENGINE V2.0, HOTFIXES, AND MORE!",
         version: "0.0.7",
-        description: "As requested by the current Alpha Testers, the registration system has been made more consistent with the registration formats and format-detection. Additionally, a lot of behind the scenes bugs were fixed.",
+        description: "As requested by the current Alpha Testers, the registration system has been made more consistent with the registration formats and format-detection. Additionally, a lot of behind the scenes bugs were fixed..",
         new: [],
         bugs: [
             'Fixed a bug where the 911 call system randomly stopped working. The 911-call system has been overhauled.',
