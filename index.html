@@ -12,27 +12,39 @@
     <style>
         
 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+    box-sizing: border-box !important;
 }
 html {
-    overflow-y: scroll !important;  /* ← Forces scrollbar always visible */
-    overflow-x: hidden;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    min-width: 100vw !important;
     height: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow-y: scroll !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
 }
 
 body {
-    margin: 0;
-    padding: 0;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    padding: 0 !important;
     min-height: 100vh;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
     background: #07090f;
     background-image:
         radial-gradient(ellipse at 15% 15%, rgba(30, 58, 138, 0.25) 0%, transparent 45%),
         radial-gradient(ellipse at 85% 85%, rgba(5, 46, 22, 0.2) 0%, transparent 45%);
     background-attachment: fixed;
-    background-size: 100% 100%;
-    background-repeat: no-repeat;
+    background-size: cover;
+}
+
+#root {
+    width: 100%;
+    min-height: 100vh;
 }
 
 /* BETA watermark */
@@ -2533,7 +2545,7 @@ const updateLogsData = [
         {
         title: "MDT SYSTEM - APP OVERHAUL",
         version: "0.1.0",
-        description: "Thank you to all testers for reporting all the bugs to me. This hotfix should cover all the bugs reported so far. In addition to this new update, we have new testers to minimize the bugs in this app.",
+        description: ".",
         new: [
             'NEW - Added a Login screen upon launch.',
             'NEW - Added a backend that handles all officer-related data. In addition to this, all data is now encrypted meaning no one will be able to access your personal data as it is connected to a private cloudflare workplace.',
@@ -2653,7 +2665,7 @@ const updateLogsData = [
     {
         title: "NYSP MDT SYSTEM - SEARCH ENGINE V2.0, HOTFIXES, AND MORE!",
         version: "0.0.7",
-        description: "As requested by the current Alpha Testers, the registration system has been made more consistent with the registration formats and format-detection. Additionally, a lot of behind the scenes bugs were fixed..",
+        description: "As requested by the current Alpha Testers, the registration system has been made more consistent with the registration formats and format-detection. Additionally, a lot of behind the scenes bugs were fixed.",
         new: [],
         bugs: [
             'Fixed a bug where the 911 call system randomly stopped working. The 911-call system has been overhauled.',
