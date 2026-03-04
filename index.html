@@ -11,14 +11,21 @@
     
     <style>
         
-* { margin: 0; padding: 0; box-sizing: border-box; }
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
 html {
-    /* scrollbar-gutter: stable; ← DELETE THIS */
-    overflow-y: scroll;
+    overflow-y: scroll !important;  /* ← Forces scrollbar always visible */
     overflow-x: hidden;
+    height: 100%;
 }
 
 body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
     background: #07090f;
     background-image:
         radial-gradient(ellipse at 15% 15%, rgba(30, 58, 138, 0.25) 0%, transparent 45%),
