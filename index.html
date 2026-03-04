@@ -12,17 +12,18 @@
     <style>
         
 * { margin: 0; padding: 0; box-sizing: border-box; }
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
 html {
-    overflow-y: scroll;
-    overflow-x: hidden;
     scrollbar-gutter: stable;
 }
-
+body {
+    background: #07090f;
+    background-image:
+        radial-gradient(ellipse at 15% 15%, rgba(30, 58, 138, 0.25) 0%, transparent 45%),
+        radial-gradient(ellipse at 85% 85%, rgba(5, 46, 22, 0.2) 0%, transparent 45%);
+    background-attachment: fixed;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+}
 
 /* BETA watermark */
 body::before {
@@ -43,7 +44,7 @@ body::before {
     background: rgba(0, 0, 0, 0.3);
 }
 .app-container { 
-    max-width: none; /* ← Remove the 1200px limit */
+    max-width: 1200px; 
     margin: 0 auto; 
     width: 100%;
 }
@@ -104,14 +105,7 @@ body::before {
     gap: 24px;
     flex: 1;
 }
-#root,
-.app-container,
-.main-content {
-    width: 100%;
-    max-width: 100%;
-    overflow-x: hidden;
-    box-sizing: border-box;
-}
+
 .page-header-icon {
     width: 64px;
     height: 64px;
@@ -936,25 +930,6 @@ html, body {
     margin-bottom: 28px;
 }
 
-.app-background {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;     /* ← Use right instead of width */
-    bottom: 0;    /* ← Use bottom instead of height */
-    background: #07090f;
-    background-image:
-        radial-gradient(ellipse at 15% 15%, rgba(30, 58, 138, 0.25) 0%, transparent 45%),
-        radial-gradient(ellipse at 85% 85%, rgba(5, 46, 22, 0.2) 0%, transparent 45%);
-    z-index: -999;
-    pointer-events: none;
-}
-body {
-    margin: 0;
-    padding: 0;
-    overflow-x: hidden;
-}
-
 .mdt-check-row {
     display: flex;
     align-items: center;
@@ -1393,10 +1368,10 @@ body::after {
     </style>
 </head>
 <body>
-    <div class="app-background"></div>
     <div id="root"></div>
     
     <script type="text/babel">
+    
         
         const { useState, useEffect } = React;
         const Search = ({ size = 20 }) => (<svg width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>);
