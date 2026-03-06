@@ -1609,14 +1609,6 @@ const [trooperData, setTrooperData] = useState(null);
 
 const [databaseStatus, setDatabaseStatus] = useState({ connected: false, checking: true });
 
-// Suppress SSL errors from Discord API calls
-if (window.require) {
-    const { app } = window.require('electron').remote || window.require('@electron/remote');
-    if (app) {
-        app.commandLine.appendSwitch('ignore-certificate-errors');
-    }
-}
-
 React.useEffect(() => {
     // Check maintenance status immediately on load
     checkMaintenanceStatus();
