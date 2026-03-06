@@ -1466,7 +1466,7 @@ body::after {
 
 
         function NYSPLookupTool() {
-            const APP_VERSION = '0.1.0';
+            const APP_VERSION = '0.0.8';
             const [licensePlate, setLicensePlate] = useState('');
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
@@ -1646,7 +1646,6 @@ React.useEffect(() => {
     }
 }, []); // Run once on mount
 
-
 async function checkMaintenanceStatus() {
     console.log('[MAINTENANCE] 🔄 Checking status...');
     
@@ -1666,17 +1665,31 @@ async function checkMaintenanceStatus() {
         // Get current maintenance status
         const currentStatus = window.MAINTENANCE || false;
         
-        console.log('[MAINTENANCE] Current:', currentStatus);
+        // ✅ Get PREVIOUS maintenance status from localStorage
+        const previousStatus = localStorage.getItem('maintenanceWasActive') === 'true';
         
-        // ✅ SIMPLIFIED: Just check if maintenance is active NOW
-        if (currentStatus) {
+        console.log('[MAINTENANCE] Current:', currentStatus, '| Previous:', previousStatus);
+        
+        // ✅ CHECK: Was maintenance active, but now it's not?
+        if (previousStatus && !currentStatus) {
+            console.log('[MAINTENANCE] 🔄 Maintenance ENDED! Showing update screen');
+            setMaintenanceActive(false);
+            setShowUpdateScreen(true);
+            setPreviousVersion(APP_VERSION); // Same version (maintenance, not upgrade)
+        }
+        // If maintenance is currently active
+        else if (currentStatus) {
             console.log('[MAINTENANCE] 🚧 Maintenance active');
             setMaintenanceActive(true);
-        } else {
+        } 
+        // Normal operation (no maintenance)
+        else {
             console.log('[MAINTENANCE] ✅ No maintenance');
             setMaintenanceActive(false);
         }
         
+        // ✅ Save current status for next check
+        localStorage.setItem('maintenanceWasActive', currentStatus.toString());
         setLastMaintenanceCheck(Date.now());
         
     } catch (err) {
@@ -1684,6 +1697,8 @@ async function checkMaintenanceStatus() {
         setMaintenanceActive(false);
     }
 }
+
+
 
 const SOUNDS = React.useMemo(() => {
     if (!window.SOUNDS_BASE64) return {};
@@ -1990,9 +2005,14 @@ useEffect(() => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
 }, []);
-
 const base64ToArrayBuffer = (base64) => {
-    const binaryString = window.atob(base64);
+    // ✅ Remove data URL prefix if present
+    let base64String = base64;
+    if (base64.includes('base64,')) {
+        base64String = base64.split('base64,')[1];
+    }
+    
+    const binaryString = window.atob(base64String);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
@@ -2566,7 +2586,9 @@ const updateLogsData = [
         new: [
             'NEW - Added a Login screen upon launch.',
             'NEW - Added a backend that handles all officer-related data. In addition to this, all data is now encrypted meaning no one will be able to access your personal data as it is connected to a private cloudflare workplace.',
-            'NEW - The main file that makes the app function now automatically updates upon launch (if update is available). (NOTE: If there are any changes to other files, manual download will be required.)'
+            'NEW - The main file that makes the app function now automatically updates upon launch (if update is available). (NOTE: If there are any changes to other files, manual download will be required.)',
+            'NEW - Introduction for the following frames: "System under maintenance", "System no longer under maintenance", "Application updated while you were away.',
+            'NEW - Added a "Scroll up" which scrolls all the way up with a singular click.'
         ],
         bugs: [
             'Fixed a bug where it failed to show the correct user Roblox profile after searching an individal up. (Also includes a fix for the citation fields)',
@@ -2751,7 +2773,8 @@ const creditsData = {
     developers: [
         { name: 'DaRealRobz', reason: 'Lead Developer & Project Director' },
         { name: 'Claude AI', reason: 'AI Development Assistant' },
-        { name: 'Alp_hah AI', reason: 'Behind The Scene help' },
+        { name: 'Theaviator_44789', reason: 'UI Layout help' },    
+        { name: 'Alp_hah', reason: 'Helping with Discord Server' },
     ],
     testers: [
             { name: 'Theaviator_44789', reason: 'Beta Testing & Quality- and Feature validation' },    
@@ -4649,6 +4672,19 @@ const lookupRobloxUser = async (username, retryCount = 0) => {
         setRobloxError(errorMsg);
         setLoadingRoblox(false);
         setRobloxLoadingStage('');
+    }
+};
+
+// Helper to check if field is readable
+const isFieldReadable = (fieldName) => {
+    try {
+        form.getTextField(fieldName);
+        return true;
+    } catch (e) {
+        if (e.message.includes('rich text')) {
+            return false; // Skip rich text fields
+        }
+        return true; // Other errors - still try to use it
     }
 };
 
@@ -7117,28 +7153,39 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
         addLog('=== COMPLETE FIELD LIST ===', 'info');
         
         fields.forEach(field => {
-            const name = field.getName();
-            const type = field.constructor.name;
-            
-            // Check if it's a dropdown and get options
-            if (type === 'PDFDropdown') {
-                try {
-                    const dropdown = form.getDropdown(name);
-                    const options = dropdown.getOptions();
-                    addLog(`DROPDOWN: "${name}" | Options: [${options.join(', ')}]`, 'info');
-                } catch (e) {
-                    addLog(`DROPDOWN: "${name}"`, 'info');
-                }
-            } else if (type === 'PDFTextField') {
-                addLog(`TEXT: "${name}"`, 'info');
-            } else if (type === 'PDFCheckBox') {
-                addLog(`CHECKBOX: "${name}"`, 'info');
-            } else if (type === 'PDFRadioGroup') {
-                addLog(`RADIO: "${name}"`, 'info');
+    const name = field.getName();
+    const type = field.constructor.name;
+    
+    // Check if it's a dropdown and get options
+    if (type === 'PDFDropdown') {
+        try {
+            const dropdown = form.getDropdown(name);
+            const options = dropdown.getOptions();
+            addLog(`DROPDOWN: "${name}" | Options: [${options.join(', ')}]`, 'info');
+        } catch (e) {
+            addLog(`DROPDOWN: "${name}"`, 'info');
+        }
+    } else if (type === 'PDFTextField') {
+        // ✅ Wrap in try-catch to avoid rich text field errors
+        try {
+            form.getTextField(name); // Test if readable
+            addLog(`TEXT: "${name}"`, 'info');
+        } catch (e) {
+            if (e.message.includes('rich text')) {
+                addLog(`RICH TEXT (skipped): "${name}"`, 'info');
             } else {
-                addLog(`! ${type}: "${name}"`, 'info');
+                addLog(`TEXT: "${name}"`, 'info');
             }
-        });
+        }
+    } else if (type === 'PDFCheckBox') {
+        addLog(`CHECKBOX: "${name}"`, 'info');
+    } else if (type === 'PDFRadioGroup') {
+        addLog(`RADIO: "${name}"`, 'info');
+    } else {
+        addLog(`! ${type}: "${name}"`, 'info');
+    }
+});
+
         
         addLog('=== END FIELD LIST ===', 'info');
         
@@ -7525,27 +7572,39 @@ const generateArrestReport = async (ownerData = null) => {
         addLog('=== COMPLETE FIELD LIST ===', 'info');
         
         fields.forEach(field => {
-            const name = field.getName();
-            const type = field.constructor.name;
-            
-            if (type === 'PDFDropdown') {
-                try {
-                    const dropdown = form.getDropdown(name);
-                    const options = dropdown.getOptions();
-                    addLog(`DROPDOWN: "${name}" | Options: [${options.join(', ')}]`, 'info');
-                } catch (e) {
-                    addLog(`DROPDOWN: "${name}"`, 'info');
-                }
-            } else if (type === 'PDFTextField') {
-                addLog(`TEXT: "${name}"`, 'info');
-            } else if (type === 'PDFCheckBox') {
-                addLog(`CHECKBOX: "${name}"`, 'info');
-            } else if (type === 'PDFRadioGroup') {
-                addLog(`RADIO: "${name}"`, 'info');
+    const name = field.getName();
+    const type = field.constructor.name;
+    
+    // Check if it's a dropdown and get options
+    if (type === 'PDFDropdown') {
+        try {
+            const dropdown = form.getDropdown(name);
+            const options = dropdown.getOptions();
+            addLog(`DROPDOWN: "${name}" | Options: [${options.join(', ')}]`, 'info');
+        } catch (e) {
+            addLog(`DROPDOWN: "${name}"`, 'info');
+        }
+    } else if (type === 'PDFTextField') {
+        // ✅ Wrap in try-catch to avoid rich text field errors
+        try {
+            form.getTextField(name); // Test if readable
+            addLog(`TEXT: "${name}"`, 'info');
+        } catch (e) {
+            if (e.message.includes('rich text')) {
+                addLog(`RICH TEXT (skipped): "${name}"`, 'info');
             } else {
-                addLog(`! ${type}: "${name}"`, 'info');
+                addLog(`TEXT: "${name}"`, 'info');
             }
-        });
+        }
+    } else if (type === 'PDFCheckBox') {
+        addLog(`CHECKBOX: "${name}"`, 'info');
+    } else if (type === 'PDFRadioGroup') {
+        addLog(`RADIO: "${name}"`, 'info');
+    } else {
+        addLog(`! ${type}: "${name}"`, 'info');
+    }
+});
+
         
         addLog('=== END FIELD LIST ===', 'info');
         
@@ -7967,73 +8026,88 @@ return (
             </div>
             
             <h1 style={{ 
-                color: 'white', 
-                fontSize: '42px', 
-                fontWeight: '800', 
-                marginBottom: '16px',
-                letterSpacing: '1px'
-            }}>
-                Welcome Back
-            </h1>
-            
-            <div style={{ 
-                color: '#60a5fa', 
-                fontSize: '16px', 
-                fontWeight: '600',
-                marginBottom: '32px',
-                letterSpacing: '2px',
-                textTransform: 'uppercase'
-            }}>
-                Application Updated
-            </div>
-            
-            <p style={{ 
-                color: '#94a3b8', 
-                fontSize: '16px', 
-                lineHeight: '1.8',
-                marginBottom: '24px'
-            }}>
-                While you were away, we updated your application to bring you 
-                the latest features, improvements, and bug fixes.
-            </p>
+    color: 'white', 
+    fontSize: '42px', 
+    fontWeight: '800', 
+    marginBottom: '16px',
+    letterSpacing: '1px'
+}}>
+    {previousVersion && previousVersion !== APP_VERSION ? 'Welcome Back' : 'Restart Required'}
+</h1>
 
-            {/* Version Box */}
-            <div style={{
-                background: 'rgba(59, 130, 246, 0.1)',
-                border: '2px solid rgba(59, 130, 246, 0.3)',
-                borderRadius: '12px',
-                padding: '20px 24px',
-                marginBottom: '32px',
-                display: 'inline-block'
+<div style={{ 
+    color: '#60a5fa', 
+    fontSize: '16px', 
+    fontWeight: '600',
+    marginBottom: '32px',
+    letterSpacing: '2px',
+    textTransform: 'uppercase'
+}}>
+    {previousVersion && previousVersion !== APP_VERSION ? 'Application Updated' : 'Maintenance Complete'}
+</div>
+            
+<p style={{ 
+    color: '#94a3b8', 
+    fontSize: '16px', 
+    lineHeight: '1.8',
+    marginBottom: '24px'
+}}>
+    {previousVersion && previousVersion !== APP_VERSION ? (
+        <>
+            While you were away, we updated your application from version{' '}
+            <strong style={{ color: '#ef4444' }}>{previousVersion}</strong> to{' '}
+            <strong style={{ color: '#10b981' }}>{APP_VERSION}</strong>, 
+            bringing you the latest features, improvements, and bug fixes.
+        </>
+    ) : (
+        <>
+            System maintenance has been completed. The application has been 
+            updated and is ready to use. Please restart to continue.
+        </>
+    )}
+</p>
+
+
+            {/* Version Box - only show if version actually changed */}
+{previousVersion && previousVersion !== APP_VERSION && (
+    <div style={{
+        background: 'rgba(59, 130, 246, 0.1)',
+        border: '2px solid rgba(59, 130, 246, 0.3)',
+        borderRadius: '12px',
+        padding: '20px 24px',
+        marginBottom: '32px',
+        display: 'inline-block'
+    }}>
+        <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '16px',
+            fontSize: '18px',
+            fontWeight: '600'
+        }}>
+            <span style={{ color: '#94a3b8' }}>
+                Version
+            </span>
+            <span style={{ 
+                color: '#ef4444',
+                textDecoration: 'line-through',
+                opacity: 0.7
             }}>
-                <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '16px',
-                    fontSize: '18px',
-                    fontWeight: '600'
-                }}>
-                    <span style={{ color: '#94a3b8' }}>
-                        Version
-                    </span>
-                    <span style={{ 
-                        color: '#ef4444',
-                        textDecoration: 'line-through',
-                        opacity: 0.7
-                    }}>
-                        {previousVersion}
-                    </span>
-                    <span style={{ color: '#60a5fa', fontSize: '24px' }}>→</span>
-                    <span style={{ 
-                        color: '#10b981',
-                        fontSize: '22px',
-                        fontWeight: '700',
-                        textShadow: '0 0 20px rgba(16, 185, 129, 0.5)'
-                    }}>
-                        {APP_VERSION}
-                    </span>
-                </div>
-            </div>
+                {previousVersion}
+            </span>
+            <span style={{ color: '#60a5fa', fontSize: '24px' }}>→</span>
+            <span style={{ 
+                color: '#10b981',
+                fontSize: '22px',
+                fontWeight: '700',
+                textShadow: '0 0 20px rgba(16, 185, 129, 0.5)'
+            }}>
+                {APP_VERSION}
+            </span>
+        </div>
+    </div>
+)}
+
 
             <p style={{ 
                 color: '#94a3b8', 
@@ -10624,7 +10698,7 @@ return (
                 letterSpacing: '2px',
                 textShadow: '0 0 30px rgba(59, 130, 246, 0.8)'
             }}>
-                NY CAD SYSTEM
+                ORCR CAD SYSTEM
             </h2>
 
             <div style={{
