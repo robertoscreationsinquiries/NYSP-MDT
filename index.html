@@ -1466,6 +1466,7 @@ body::after {
 
 
         function NYSPLookupTool() {
+            const APP_VERSION = '0.0.8';
             const [licensePlate, setLicensePlate] = useState('');
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
@@ -1576,8 +1577,9 @@ const [nightMode, setNightMode] = useState(false);
 const [showUsefulLinks, setShowUsefulLinks] = useState(false);
 const [selectedDepartment, setSelectedDepartment] = useState(null);
 const [maintenanceActive, setMaintenanceActive] = React.useState(false);
-const [maintenanceJustEnded, setMaintenanceJustEnded] = React.useState(false);
 const [lastMaintenanceCheck, setLastMaintenanceCheck] = React.useState(Date.now());
+const [showUpdateScreen, setShowUpdateScreen] = React.useState(false);
+const [previousVersion, setPreviousVersion] = React.useState(null);
 const [soundSettings, setSoundSettings] = useState({
     platePass: true,
     plateFail: true,
@@ -1619,13 +1621,39 @@ React.useEffect(() => {
     return () => clearInterval(interval);
 }, []);
 
+// ═══════════════════════════════════════════════════════════════════════
+// VERSION TRACKING - Show update screen when version changes
+// ═══════════════════════════════════════════════════════════════════════
+React.useEffect(() => {
+    console.log('[VERSION] Current app version:', APP_VERSION);
+    
+    // Get last known version from localStorage
+    const lastVersion = localStorage.getItem('appVersion');
+    console.log('[VERSION] Last registered version:', lastVersion || 'NONE (first launch)');
+    
+    if (lastVersion && lastVersion !== APP_VERSION) {
+        // Version changed! Show update screen
+        console.log('[VERSION] 🎉 Version changed:', lastVersion, '→', APP_VERSION);
+        setPreviousVersion(lastVersion);
+        setShowUpdateScreen(true);
+    } else if (!lastVersion) {
+        // First launch - just save version silently
+        console.log('[VERSION] First launch - saving current version');
+        localStorage.setItem('appVersion', APP_VERSION);
+    } else {
+        // Same version - no update screen
+        console.log('[VERSION] ✅ Same version, no update needed');
+    }
+}, []); // Run once on mount
+
+
 async function checkMaintenanceStatus() {
     console.log('[MAINTENANCE] 🔄 Checking status...');
     
     try {
         // RE-FETCH maintenance.js from Cloudflare
         const response = await fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/maintenance', {
-            cache: 'no-store' // Don't cache, always get fresh
+            cache: 'no-store'
         });
         
         const maintenanceScript = await response.text();
@@ -1638,37 +1666,21 @@ async function checkMaintenanceStatus() {
         // Get current maintenance status
         const currentStatus = window.MAINTENANCE || false;
         
-        // Get last known status from localStorage
-        const lastStatus = localStorage.getItem('lastMaintenanceStatus');
-        const wasInMaintenance = lastStatus === 'true';
+        console.log('[MAINTENANCE] Current:', currentStatus);
         
-        console.log('[MAINTENANCE] Current:', currentStatus, '| Last:', wasInMaintenance);
-        
-        // If maintenance just ended (was true, now false)
-        if (wasInMaintenance && !currentStatus) {
-            console.log('[MAINTENANCE] ✅ Maintenance ended! Show restart screen');
-            setMaintenanceJustEnded(true);
-            setMaintenanceActive(false);
-        }
-        // If maintenance is active
-        else if (currentStatus) {
+        // ✅ SIMPLIFIED: Just check if maintenance is active NOW
+        if (currentStatus) {
             console.log('[MAINTENANCE] 🚧 Maintenance active');
             setMaintenanceActive(true);
-            setMaintenanceJustEnded(false);
-        }
-        // Normal operation
-        else {
+        } else {
+            console.log('[MAINTENANCE] ✅ No maintenance');
             setMaintenanceActive(false);
-            setMaintenanceJustEnded(false);
         }
         
-        // Save current status
-        localStorage.setItem('lastMaintenanceStatus', currentStatus.toString());
         setLastMaintenanceCheck(Date.now());
         
     } catch (err) {
         console.error('[MAINTENANCE] Check failed:', err);
-        // On error, assume no maintenance
         setMaintenanceActive(false);
     }
 }
@@ -7920,8 +7932,8 @@ return (
     </div>
 )}
 
-{/* MAINTENANCE ENDED - RESTART REQUIRED */}
-{maintenanceJustEnded && (
+{/* UPDATE SCREEN - New Version Available */}
+{showUpdateScreen && (
     <div style={{ 
         position: 'fixed', 
         top: 0, 
@@ -7935,100 +7947,158 @@ return (
         zIndex: 99999,
         padding: '40px'
     }}>
-        <div style={{ textAlign: 'center', maxWidth: '600px' }}>
-            {/* Checkmark Icon */}
+        <div style={{ textAlign: 'center', maxWidth: '700px' }}>
+            {/* Sparkle Icon */}
             <div style={{ 
                 width: '120px', 
                 height: '120px', 
                 margin: '0 auto 40px',
-                background: 'linear-gradient(135deg, #10b981, #059669)',
+                background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 0 60px rgba(16, 185, 129, 0.4)'
+                boxShadow: '0 0 60px rgba(59, 130, 246, 0.5)',
+                animation: 'pulse 2s ease-in-out infinite'
             }}>
-                <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"></polyline>
+                <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
                 </svg>
             </div>
             
             <h1 style={{ 
                 color: 'white', 
-                fontSize: '38px', 
+                fontSize: '42px', 
                 fontWeight: '800', 
                 marginBottom: '16px',
                 letterSpacing: '1px'
             }}>
-                Maintenance Complete
+                Welcome Back
             </h1>
             
             <div style={{ 
-                color: '#34d399', 
+                color: '#60a5fa', 
                 fontSize: '16px', 
                 fontWeight: '600',
                 marginBottom: '32px',
                 letterSpacing: '2px',
                 textTransform: 'uppercase'
             }}>
-                System Updated Successfully
+                Application Updated
             </div>
             
             <p style={{ 
                 color: '#94a3b8', 
-                fontSize: '15px', 
+                fontSize: '16px', 
                 lineHeight: '1.8',
-                marginBottom: '40px'
+                marginBottom: '24px'
             }}>
-                All systems have been updated and are now operational. 
-                Please restart the application to access the latest features and improvements.
+                While you were away, we updated your application to bring you 
+                the latest features, improvements, and bug fixes.
+            </p>
+
+            {/* Version Box */}
+            <div style={{
+                background: 'rgba(59, 130, 246, 0.1)',
+                border: '2px solid rgba(59, 130, 246, 0.3)',
+                borderRadius: '12px',
+                padding: '20px 24px',
+                marginBottom: '32px',
+                display: 'inline-block'
+            }}>
+                <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '16px',
+                    fontSize: '18px',
+                    fontWeight: '600'
+                }}>
+                    <span style={{ color: '#94a3b8' }}>
+                        Version
+                    </span>
+                    <span style={{ 
+                        color: '#ef4444',
+                        textDecoration: 'line-through',
+                        opacity: 0.7
+                    }}>
+                        {previousVersion}
+                    </span>
+                    <span style={{ color: '#60a5fa', fontSize: '24px' }}>→</span>
+                    <span style={{ 
+                        color: '#10b981',
+                        fontSize: '22px',
+                        fontWeight: '700',
+                        textShadow: '0 0 20px rgba(16, 185, 129, 0.5)'
+                    }}>
+                        {APP_VERSION}
+                    </span>
+                </div>
+            </div>
+
+            <p style={{ 
+                color: '#94a3b8', 
+                fontSize: '14px', 
+                lineHeight: '1.8',
+                marginBottom: '40px',
+                fontStyle: 'italic'
+            }}>
+                Please restart the application to experience the new changes. 
+                All your data and settings have been preserved.
             </p>
             
             <button
                 onClick={() => {
+                    // Save new version to localStorage
+                    localStorage.setItem('appVersion', APP_VERSION);
+                    console.log('[VERSION] ✅ Saved new version:', APP_VERSION);
+                    
+                    // Quit app (Electron will restart)
                     if (window.require) {
                         const { ipcRenderer } = window.require('electron');
                         ipcRenderer.send('quit-app');
+                    } else {
+                        // Fallback for browser
+                        window.location.reload();
                     }
                 }}
                 style={{ 
-                    padding: '16px 48px',
-                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    padding: '18px 56px',
+                    background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
                     color: 'white',
                     border: 'none',
                     borderRadius: '12px',
-                    fontSize: '16px',
+                    fontSize: '17px',
                     fontWeight: '700',
                     cursor: 'pointer',
                     letterSpacing: '1px',
                     textTransform: 'uppercase',
-                    boxShadow: '0 8px 24px rgba(16, 185, 129, 0.3)',
+                    boxShadow: '0 8px 24px rgba(59, 130, 246, 0.4)',
                     transition: 'all 0.2s'
                 }}
                 onMouseEnter={e => {
                     e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 12px 32px rgba(16, 185, 129, 0.5)';
+                    e.currentTarget.style.boxShadow = '0 12px 32px rgba(59, 130, 246, 0.6)';
                 }}
                 onMouseLeave={e => {
                     e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(16, 185, 129, 0.3)';
+                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(59, 130, 246, 0.4)';
                 }}
             >
-                Restart Application
+                Restart & Continue
             </button>
             
             <p style={{ 
                 color: '#64748b', 
                 fontSize: '12px',
-                marginTop: '24px',
-                fontStyle: 'italic'
+                marginTop: '28px',
+                fontStyle: 'italic',
+                opacity: 0.7
             }}>
-                All your data and settings have been preserved
+                Thank you for using CAD APP • Licensed under GNU GPL
             </p>
         </div>
     </div>
 )}
-
 {/* ═══════════════════════════════════════════════════════════════════ */}
 {/* LOGOUT LOADING SCREEN */}
 {/* ═══════════════════════════════════════════════════════════════════ */}
@@ -8224,7 +8294,7 @@ return (
         {/* ═══════════════════════════════════════════════════════════════════ */}
 {/* LOGIN SCREEN */}
 {/* ═══════════════════════════════════════════════════════════════════ */}
-{!maintenanceActive && !maintenanceJustEnded && showLoginScreen && (
+{!maintenanceActive && !showUpdateScreen && showLoginScreen && (
     <div style={{
         position: 'fixed',
         top: 0,
