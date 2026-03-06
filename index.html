@@ -1609,7 +1609,13 @@ const [trooperData, setTrooperData] = useState(null);
 
 const [databaseStatus, setDatabaseStatus] = useState({ connected: false, checking: true });
 
-
+// Suppress SSL errors from Discord API calls
+if (window.require) {
+    const { app } = window.require('electron').remote || window.require('@electron/remote');
+    if (app) {
+        app.commandLine.appendSwitch('ignore-certificate-errors');
+    }
+}
 
 React.useEffect(() => {
     // Check maintenance status immediately on load
@@ -1621,39 +1627,58 @@ React.useEffect(() => {
     return () => clearInterval(interval);
 }, []);
 
-function checkMaintenanceStatus() {
+async function checkMaintenanceStatus() {
     console.log('[MAINTENANCE] 🔄 Checking status...');
     
-    // Get current maintenance status from window
-    const currentStatus = window.MAINTENANCE || false;
-    
-    // Get last known status from localStorage
-    const lastStatus = localStorage.getItem('lastMaintenanceStatus');
-    const wasInMaintenance = lastStatus === 'true';
-    
-    console.log('[MAINTENANCE] Current:', currentStatus, '| Last:', wasInMaintenance);
-    
-    // If maintenance just ended (was true, now false)
-    if (wasInMaintenance && !currentStatus) {
-        console.log('[MAINTENANCE] ✅ Maintenance ended! Show restart screen');
-        setMaintenanceJustEnded(true);
+    try {
+        // RE-FETCH maintenance.js from Cloudflare
+        const response = await fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/maintenance', {
+            cache: 'no-store' // Don't cache, always get fresh
+        });
+        
+        const maintenanceScript = await response.text();
+        
+        // Execute the script to update window.MAINTENANCE
+        eval(maintenanceScript);
+        
+        console.log('[MAINTENANCE] Updated from server:', window.MAINTENANCE);
+        
+        // Get current maintenance status
+        const currentStatus = window.MAINTENANCE || false;
+        
+        // Get last known status from localStorage
+        const lastStatus = localStorage.getItem('lastMaintenanceStatus');
+        const wasInMaintenance = lastStatus === 'true';
+        
+        console.log('[MAINTENANCE] Current:', currentStatus, '| Last:', wasInMaintenance);
+        
+        // If maintenance just ended (was true, now false)
+        if (wasInMaintenance && !currentStatus) {
+            console.log('[MAINTENANCE] ✅ Maintenance ended! Show restart screen');
+            setMaintenanceJustEnded(true);
+            setMaintenanceActive(false);
+        }
+        // If maintenance is active
+        else if (currentStatus) {
+            console.log('[MAINTENANCE] 🚧 Maintenance active');
+            setMaintenanceActive(true);
+            setMaintenanceJustEnded(false);
+        }
+        // Normal operation
+        else {
+            setMaintenanceActive(false);
+            setMaintenanceJustEnded(false);
+        }
+        
+        // Save current status
+        localStorage.setItem('lastMaintenanceStatus', currentStatus.toString());
+        setLastMaintenanceCheck(Date.now());
+        
+    } catch (err) {
+        console.error('[MAINTENANCE] Check failed:', err);
+        // On error, assume no maintenance
         setMaintenanceActive(false);
     }
-    // If maintenance is active
-    else if (currentStatus) {
-        console.log('[MAINTENANCE] 🚧 Maintenance active');
-        setMaintenanceActive(true);
-        setMaintenanceJustEnded(false);
-    }
-    // Normal operation
-    else {
-        setMaintenanceActive(false);
-        setMaintenanceJustEnded(false);
-    }
-    
-    // Save current status
-    localStorage.setItem('lastMaintenanceStatus', currentStatus.toString());
-    setLastMaintenanceCheck(Date.now());
 }
 
 const SOUNDS = React.useMemo(() => {
@@ -7404,9 +7429,14 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
         
         addLog('All available fields filled', 'success');
         
-        form.flatten()
-        // Save the filled PDF
-         if (window.require) {
+addLog('Flattening form and saving PDF...', 'info');
+form.flatten(); // Flatten BEFORE saving
+
+// Save the filled PDF
+const finalPdfBytes = await pdfDoc.save(); // ← YOU FORGOT THIS LINE!
+
+// Open in browser
+if (window.require) {
             // Electron environment
             const { shell } = window.require('electron');
             const fs = window.require('fs');
@@ -7618,16 +7648,14 @@ const generateArrestReport = async (ownerData = null) => {
         
         addLog('✔ All fields filled successfully', 'success');
         
-        // ✅ CRITICAL: Flatten the form before saving
-        form.flatten();
-        
-        // Save the filled PDF
-        const finalPdfBytes = await pdfDoc.save();
-        
-// ✅ NEW: Open in default browser (not blob URL)
-        addLog('Opening PDF in browser...', 'info');
-        
-        if (window.require) {
+addLog('Flattening form and saving PDF...', 'info');
+form.flatten(); // Flatten BEFORE saving
+
+// Save the filled PDF
+const finalPdfBytes = await pdfDoc.save(); // ← YOU FORGOT THIS LINE!
+
+// Open in browser
+if (window.require) {
             // Electron environment
             const { shell } = window.require('electron');
             const fs = window.require('fs');
@@ -7846,7 +7874,7 @@ return (
                 marginBottom: '16px',
                 letterSpacing: '1px'
             }}>
-                NYSP MDT
+                ORCRP CAD
             </h1>
             
             <div style={{ 
@@ -7866,8 +7894,9 @@ return (
                 lineHeight: '1.8',
                 marginBottom: '40px'
             }}>
-                We are currently performing scheduled maintenance to improve your experience. 
-                This won't take long. The application will automatically resume once maintenance is complete.
+                We are currently performing scheduled maintenance to improve your experience.
+                Your access to the application will soon be returned. This popup will close once the data has been safely moved. 
+                Please await further instructions.
             </p>
             
             {/* Animated dots */}
@@ -9739,44 +9768,6 @@ return (
                     </div>
                 </div>
 
-                {/* ── OFFICER INFORMATION ── */}
-                <div style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
-                    <h3 style={{ color: '#93c5fd', fontSize: '16px', fontWeight: '700', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '2px' }}>
-                        👮 OFFICER INFORMATION
-                    </h3>
-                    {editableTrooperSettings && (
-                        <div style={{ display: 'grid', gap: '12px' }}>
-                            {[
-                                { label: 'Username', key: 'Username' },
-                            ].map(({ label, key }) => (
-                                <div key={key}>
-                                    <label style={{ color: '#bfdbfe', fontSize: '13px', marginBottom: '4px', display: 'block' }}>{label}</label>
-                                    <input type="text" value={editableTrooperSettings[key] || ''} onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, [key]: e.target.value})} style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '8px', color: 'white', fontSize: '13px', boxSizing: 'border-box' }} />
-                                </div>
-                            ))}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                {[{ label: 'First Name', key: 'FirstName' }, { label: 'Last Name', key: 'LastName' }].map(({ label, key }) => (
-                                    <div key={key}>
-                                        <label style={{ color: '#bfdbfe', fontSize: '13px', marginBottom: '4px', display: 'block' }}>{label}</label>
-                                        <input type="text" value={editableTrooperSettings[key] || ''} onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, [key]: e.target.value})} style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '8px', color: 'white', fontSize: '13px', boxSizing: 'border-box' }} />
-                                    </div>
-                                ))}
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                {[{ label: 'Badge ID', key: 'BadgeID' }, { label: 'Zone', key: 'Zone' }].map(({ label, key }) => (
-                                    <div key={key}>
-                                        <label style={{ color: '#bfdbfe', fontSize: '13px', marginBottom: '4px', display: 'block' }}>{label}</label>
-                                        <input type="text" value={editableTrooperSettings[key] || ''} onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, [key]: e.target.value})} style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '8px', color: 'white', fontSize: '13px', boxSizing: 'border-box' }} />
-                                    </div>
-                                ))}
-                            </div>
-                            <div>
-                                <label style={{ color: '#bfdbfe', fontSize: '13px', marginBottom: '4px', display: 'block' }}>Registration Expiry Date (MM/DD/YY)</label>
-                                <input type="text" value={editableTrooperSettings.expDate || ''} onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, expDate: e.target.value})} placeholder="03/13/26" style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '8px', color: 'white', fontSize: '13px', boxSizing: 'border-box' }} />
-                            </div>
-                        </div>
-                    )}
-                </div>
 
                 {/* ── DEVELOPER TOOLS ── */}
                 <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
@@ -10638,7 +10629,7 @@ return (
                         color: '#fca5a5',
                         fontSize: '13px'
                     }}>
-                        <strong>LEGAL DISCLAIMER:</strong> Use of this software is at your own risk. The developer assumes no liability for any damages, violations, or consequences arising from its use.
+                        <strong>DISCLAIMER:</strong> Use of this software is at your own risk. The developer assumes no liability for any violations, or consequences arising from its use.
                     </p>
                 </div>
             </div>
