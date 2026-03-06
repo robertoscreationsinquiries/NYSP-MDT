@@ -3,7 +3,7 @@
 // Updates check every 15 seconds
 // ═══════════════════════════════════════════════════════════════════════════
 
-const activeMaintenance = true
+const activeMaintenance = false
 
 
 // Export for use in the application
