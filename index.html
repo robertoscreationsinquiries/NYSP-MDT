@@ -1513,7 +1513,8 @@ const [trooperSettings, setTrooperSettings] = React.useState({
     Department: 'N/A',
     RegistrationChannelID: 'N/A',
     DatabaseChannelID: 'N/A',
-    GuildID: 'N/A'
+    GuildID: 'N/A',
+    ExpiryDate: 'N/A'
 });
 const trooperName = trooperSettings?.Username || '';
 const badgeId = trooperSettings?.BadgeID || '';
@@ -2893,7 +2894,8 @@ if (settings.DiscordAccountToken) {
         LastName: 'N/A',
         RegistrationChannelID: 'N/A',
         DatabaseChannelID: 'N/A',
-        GuildID: 'N/A'
+        GuildID: 'N/A',
+        ExpiryDate: 'N/A'
     };
     setTrooperSettings(defaultSettings);
     setEditableTrooperSettings({...defaultSettings});
@@ -2910,7 +2912,8 @@ if (settings.DiscordAccountToken) {
         LastName: 'N/A',
         RegistrationChannelID: 'N/A',
         DatabaseChannelID: 'N/A',
-        GuildID: 'N/A'
+        GuildID: 'N/A',
+                ExpiryDate: 'N/A'
     };
     setTrooperSettings(defaultSettings);
     setEditableTrooperSettings({...defaultSettings});
@@ -8845,7 +8848,7 @@ return (
                             { label: 'BADGE ID', value: `#${trooperSettings?.BadgeID || '00000'}`, mono: true },
                             { label: 'ZONE', value: `ZONE ${trooperSettings?.Zone || '—'}` },
                             { label: 'USERNAME', value: trooperSettings?.Username || 'UNKNOWN' },
-                            { label: 'REG. EXPIRY', value: trooperSettings?.expDate || '—' },
+                            { label: 'REG. EXPIRY', value: trooperSettings?.ExpiryDate || '—' },
                         ].map(({ label, value, mono }) => (
                             <div key={label} style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)' }}>
                                 <div style={{ color: '#93c5fd', fontSize: '9px', letterSpacing: '1.5px', fontWeight: '700', marginBottom: '4px' }}>{label}</div>
