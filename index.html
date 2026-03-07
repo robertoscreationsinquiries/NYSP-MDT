@@ -1466,7 +1466,7 @@ body::after {
 
 
         function NYSPLookupTool() {
-            const APP_VERSION = '0.0.8';
+            const APP_VERSION = '0.1.0';
             const [licensePlate, setLicensePlate] = useState('');
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
@@ -11819,6 +11819,7 @@ if (window.electronAPI?.quit) {
             padding: '20px',
             animation: 'fadeIn 0.3s ease-out'
         }}
+        
         onClick={(e) => {
             if (e.target === e.currentTarget) setShowFAQ(false);
         }}
@@ -11895,35 +11896,40 @@ if (window.electronAPI?.quit) {
                             </p>
                         </div>
                     </div>
-                    <button
-                        onClick={() => setShowFAQ(false)}
-                        style={{
-                            width: '40px',
-                            height: '40px',
-                            borderRadius: '10px',
-                            background: 'rgba(239, 68, 68, 0.1)',
-                            border: '1px solid rgba(239, 68, 68, 0.3)',
-                            color: '#f87171',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.target.style.background = 'rgba(239, 68, 68, 0.2)';
-                            e.target.style.transform = 'scale(1.05)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.target.style.background = 'rgba(239, 68, 68, 0.1)';
-                            e.target.style.transform = 'scale(1)';
-                        }}
-                        
-                    >
-                        <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+                    
+                    <button 
+                onClick={() => setShowUpdateLog(false)}
+                style={{
+                    position: 'absolute',
+                    top: '20px',
+                    right: '20px',
+                    width: '40px',
+                    height: '40px',
+                    padding: '0',
+                    background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '50%',
+                    cursor: 'pointer',
+                    fontSize: '20px',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.3s',
+                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)'
+                }}
+                onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'scale(1.02)';
+                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(239, 68, 68, 0.6)';
+                }}
+                onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.4)';
+                }}
+            >
+                X
+            </button>
                 </div>
             </div>
 
