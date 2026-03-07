@@ -4702,7 +4702,7 @@ const lookupUser = async () => {
     setWarrantInfo(null);
     setWarrantFlash(false);
     
-    if (!licensePlate.trim()) { setError('Enter license plate'); addLog('No plate', 'error'); return; }
+    if (!licensePlate.trim()) { setError('No input detected.'); addLog('No plate', 'error'); return; }
     if (!tokenSaved) { setError('Save token first'); addLog('No token', 'error'); return; }
 
     setLoading(true);
@@ -8120,46 +8120,52 @@ return (
                 All your data and settings have been preserved.
             </p>
             
-            <button
-                onClick={() => {
-                    // Save new version to localStorage
-                    localStorage.setItem('appVersion', APP_VERSION);
-                    console.log('[VERSION] ✅ Saved new version:', APP_VERSION);
-                    
-                    // Quit app (Electron will restart)
-                    if (window.require) {
-                        const { ipcRenderer } = window.require('electron');
-                        ipcRenderer.send('quit-app');
-                    } else {
-                        // Fallback for browser
-                        window.location.reload();
-                    }
-                }}
-                style={{ 
-                    padding: '18px 56px',
-                    background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '12px',
-                    fontSize: '17px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    letterSpacing: '1px',
-                    textTransform: 'uppercase',
-                    boxShadow: '0 8px 24px rgba(59, 130, 246, 0.4)',
-                    transition: 'all 0.2s'
-                }}
-                onMouseEnter={e => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 12px 32px rgba(59, 130, 246, 0.6)';
-                }}
-                onMouseLeave={e => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(59, 130, 246, 0.4)';
-                }}
-            >
-                Restart & Continue
-            </button>
+<button
+    onClick={() => {
+        // ✅ Different behavior based on screen type
+        if (previousVersion && previousVersion !== APP_VERSION) {
+            // VERSION CHANGED: Just dismiss screen, let user continue
+            console.log('[VERSION] ✅ User acknowledged version update');
+            localStorage.setItem('appVersion', APP_VERSION);
+            setShowUpdateScreen(false);
+        } else {
+            // MAINTENANCE ENDED: Must restart app
+            console.log('[MAINTENANCE] ✅ User closing app after maintenance');
+            localStorage.setItem('appVersion', APP_VERSION);
+            
+            if (window.require) {
+                const { ipcRenderer } = window.require('electron');
+                ipcRenderer.send('quit-app');
+            } else {
+                window.location.reload();
+            }
+        }
+    }}
+    style={{ 
+        padding: '18px 56px',
+        background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+        color: 'white',
+        border: 'none',
+        borderRadius: '12px',
+        fontSize: '17px',
+        fontWeight: '700',
+        cursor: 'pointer',
+        letterSpacing: '1px',
+        textTransform: 'uppercase',
+        boxShadow: '0 8px 24px rgba(59, 130, 246, 0.4)',
+        transition: 'all 0.2s'
+    }}
+    onMouseEnter={e => {
+        e.currentTarget.style.transform = 'translateY(-2px)';
+        e.currentTarget.style.boxShadow = '0 12px 32px rgba(59, 130, 246, 0.6)';
+    }}
+    onMouseLeave={e => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = '0 8px 24px rgba(59, 130, 246, 0.4)';
+    }}
+>
+    {previousVersion && previousVersion !== APP_VERSION ? 'Continue' : 'Close App'}
+</button>
             
             <p style={{ 
                 color: '#64748b', 
