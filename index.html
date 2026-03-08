@@ -1701,26 +1701,6 @@ async function checkMaintenanceStatus() {
 
 
 
-const SOUNDS = React.useMemo(() => {
-    if (!window.SOUNDS_BASE64) return {};
-    
-    const sounds = {};
-    for (const [key, base64] of Object.entries(window.SOUNDS_BASE64)) {
-        // ✅ Check if base64 already has data URL prefix
-        if (base64.startsWith('data:')) {
-            // Already has prefix, use as-is
-            sounds[key] = base64;
-        } else {
-            // No prefix, add it
-            const audioType = base64.startsWith('UklGR') ? 'audio/wav' : 'audio/mpeg';
-            sounds[key] = `data:${audioType};base64,${base64}`;
-        }
-    }
-    
-    console.log('[SOUNDS] ✅ Processed sounds:', Object.keys(sounds));
-    return sounds;
-}, []);
-
 React.useEffect(() => {
     console.log('🔑 [SETTINGS] ═══════════════════════════════════');
     console.log('🔑 [SETTINGS] Checking for Hugging Face API key...');
@@ -3147,7 +3127,6 @@ useEffect(() => {
     return () => clearInterval(interval);
 }, []);
             
-
 const playSound = (type) => {
     if (type === 'fail' && !soundSettings.plateFail) return;
     if (type === 'pass' && !soundSettings.platePass) return;
@@ -3158,14 +3137,17 @@ const playSound = (type) => {
         if (type === 'fail') soundKey = 'plateFail';
         else if (type === 'pass') soundKey = 'platePass';
         
-        if (soundKey && SOUNDS[soundKey]) {
-            const audio = new Audio(SOUNDS[soundKey]);
+        // ✅ Use window.SOUNDS (created by sounds.js from Cloudflare)
+        if (soundKey && window.SOUNDS && window.SOUNDS[soundKey]) {
+            const audio = new Audio(window.SOUNDS[soundKey]);
             audio.volume = 0.5;
             audio.play().catch(e => {
                 console.error('Audio playback failed:', e);
-                addLog(`🔇 Sound playback blocked by browser`, 'error');
+                console.log('Sound playback blocked by browser',);
             });
-            addLog(`🔊 Playing sound: ${type}`, 'info');
+                console.log('Sound playing!',);
+        } else {
+            console.error('[SOUND] Not available:', soundKey);
         }
     } catch (e) {
         console.error('Sound error:', e);
