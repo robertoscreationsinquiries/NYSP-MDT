@@ -1466,7 +1466,7 @@ body::after {
 
 
         function NYSPLookupTool() {
-            const APP_VERSION = '0.1.0';
+            const APP_VERSION = '0.0.8';
             const [licensePlate, setLicensePlate] = useState('');
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
@@ -1703,11 +1703,21 @@ async function checkMaintenanceStatus() {
 
 const SOUNDS = React.useMemo(() => {
     if (!window.SOUNDS_BASE64) return {};
+    
     const sounds = {};
     for (const [key, base64] of Object.entries(window.SOUNDS_BASE64)) {
-        const audioType = base64.startsWith('UklGR') ? 'audio/wav' : 'audio/mpeg';
-        sounds[key] = `data:${audioType};base64,${base64}`;
+        // ✅ Check if base64 already has data URL prefix
+        if (base64.startsWith('data:')) {
+            // Already has prefix, use as-is
+            sounds[key] = base64;
+        } else {
+            // No prefix, add it
+            const audioType = base64.startsWith('UklGR') ? 'audio/wav' : 'audio/mpeg';
+            sounds[key] = `data:${audioType};base64,${base64}`;
+        }
     }
+    
+    console.log('[SOUNDS] ✅ Processed sounds:', Object.keys(sounds));
     return sounds;
 }, []);
 
