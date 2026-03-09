@@ -7127,42 +7127,18 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
     addLog(`Vehicle Timestamp: ${finalVehicle.timestamp}`, 'info');
     
     try {
-        addLog('Loading PDF template...', 'info');
-        
-        // ✅ FIX: Try multiple possible paths for TrafficINF.pdf
-        let pdfBytes;
-        const possiblePaths = [
-            'TrafficINF.pdf',
-            './TrafficINF.pdf',
-            '../TrafficINF.pdf',
-            'src/TrafficINF.pdf',
-            './src/TrafficINF.pdf'
-        ];
+        addLog('Loading PDF template from cache...', 'info');
 
-        let pdfFound = false;
-        for (const path of possiblePaths) {
-            try {
-                addLog(`Trying path: ${path}`, 'info');
-                const response = await fetch(path);
-                if (response.ok) {
-                    pdfBytes = await response.arrayBuffer();
-                    pdfFound = true;
-                    addLog(`✅ Found TrafficINF.pdf at: ${path}`, 'success');
-                    break;
-                }
-            } catch (e) {
-                continue;
-            }
+        if (!window.PDF_TEMPLATES?.TRAFFIC_CITATION && !window.PDF_CACHE?.TRAFFIC_CITATION) {
+            throw new Error('PDF templates not loaded. Please restart the application.');
         }
 
-        if (!pdfFound) {
-            addLog('❌ TrafficINF.pdf not found in any expected location', 'error');
-            addLog('Searched paths: ' + possiblePaths.join(', '), 'info');
-            throw new Error('TrafficINF.pdf not found. Make sure it is in the App build folder.');
-        }
-        
-        addLog('PDF loaded, inspecting form fields...', 'info');
-        
+        const pdfBytes = window.PDF_CACHE?.TRAFFIC_CITATION
+            ? window.PDF_CACHE.TRAFFIC_CITATION.slice(0)
+            : base64ToArrayBuffer(window.PDF_TEMPLATES.TRAFFIC_CITATION);
+
+        addLog('✅ PDF template loaded successfully', 'success');
+
         // Load PDF with pdf-lib
         const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
         const form = pdfDoc.getForm();
@@ -7568,42 +7544,18 @@ const generateArrestReport = async (ownerData = null) => {
     console.log('   - Final Discord ID used:', discordId);
     
     try {
-        addLog('Loading Arrest/Summons PDF template...', 'info');
-        
-        // ✅ FIX: Try multiple possible paths for arrsmmsRPT.pdf
-        let pdfBytes;
-        const possiblePaths = [
-            'arrsmmsRPT.pdf',
-            './arrsmmsRPT.pdf',
-            '../arrsmmsRPT.pdf',
-            'src/arrsmmsRPT.pdf',
-            './src/arrsmmsRPT.pdf'
-        ];
+                addLog('Loading Arrest/Summons PDF template from cache...', 'info');
 
-        let pdfFound = false;
-        for (const path of possiblePaths) {
-            try {
-                addLog(`Trying path: ${path}`, 'info');
-                const response = await fetch(path);
-                if (response.ok) {
-                    pdfBytes = await response.arrayBuffer();
-                    pdfFound = true;
-                    addLog(`✅ Found arrsmmsRPT.pdf at: ${path}`, 'success');
-                    break;
-                }
-            } catch (e) {
-                continue;
-            }
+        if (!window.PDF_TEMPLATES?.ARREST_REPORT && !window.PDF_CACHE?.ARREST_REPORT) {
+            throw new Error('PDF templates not loaded. Please restart the application.');
         }
 
-        if (!pdfFound) {
-            addLog('❌ arrsmmsRPT.pdf not found in any expected location', 'error');
-            addLog('Searched paths: ' + possiblePaths.join(', '), 'info');
-            throw new Error('arrsmmsRPT.pdf not found. Make sure it is in the App build folder.');
-        }
-        
-        addLog('PDF loaded, inspecting form fields...', 'info');
-        
+        const pdfBytes = window.PDF_CACHE?.ARREST_REPORT
+            ? window.PDF_CACHE.ARREST_REPORT.slice(0)
+            : base64ToArrayBuffer(window.PDF_TEMPLATES.ARREST_REPORT);
+
+        addLog('✅ Arrest/Summons PDF template loaded successfully', 'success');
+
         // Load PDF with pdf-lib
         const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
         const form = pdfDoc.getForm();
