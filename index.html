@@ -7466,36 +7466,37 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
 addLog('All available fields filled', 'success');
 
         // Strip rich text flags before flattening (pdf-lib can't handle them)
-        // Strip rich text flags before flattening (pdf-lib can't handle them)
         addLog('--- Starting rich text strip pass ---', 'info');
         try {
             const allFields = form.getFields();
             addLog(`Scanning ${allFields.length} fields for rich text...`, 'info');
             allFields.forEach(field => {
                 const name = field.getName();
-                const type = field.constructor.name;
-                addLog(`Checking field: "${name}" (${type})`, 'info');
                 try {
-                    if (type === 'PDFTextField') {
-                        const rawField = field.acroField;
-                        addLog(`  → acroField exists: ${!!rawField}`, 'info');
-                        addLog(`  → getFlags exists: ${!!rawField.getFlags}`, 'info');
-                        const flags = rawField.getFlags ? rawField.getFlags() : 0;
-                        addLog(`  → flags: ${flags}`, 'info');
-                        const isRichText = (flags >> 25) & 1;
-                        addLog(`  → isRichText: ${isRichText}`, 'info');
+                    const rawField = field.acroField;
+                    if (!rawField || !rawField.dict) return;
+
+                    // Check for RV entry (rich text value) in the field dict directly
+                    const rvKey = PDFLib.PDFName.of('RV');
+                    const ffKey = PDFLib.PDFName.of('Ff');
+                    
+                    const hasRV = rawField.dict.has(rvKey);
+                    const ffValue = rawField.dict.get(ffKey);
+                    const flags = ffValue ? ffValue.asNumber() : 0;
+                    const isRichText = (flags >> 25) & 1;
+
+                    if (hasRV || isRichText) {
+                        addLog(`Stripping rich text from: "${name}" (hasRV=${hasRV}, isRichText=${isRichText})`, 'info');
+                        
+                        // Remove RV (rich value) entry
+                        if (hasRV) rawField.dict.delete(rvKey);
+                        
+                        // Clear the RichText bit (bit 26) from Ff flags
                         if (isRichText) {
-                            addLog(`  → STRIPPING rich text from: "${name}"`, 'info');
-                            if (rawField.setFlags) {
-                                rawField.setFlags(flags & ~(1 << 25));
-                                addLog(`  → setFlags done`, 'info');
-                            } else {
-                                addLog(`  → setFlags NOT available!`, 'error');
-                            }
-                            addLog(`  → deleting RV entry...`, 'info');
-                            rawField.dict.delete(PDFLib.PDFName.of('RV'));
-                            addLog(`  → RV deleted`, 'info');
+                            const newFlags = flags & ~(1 << 25);
+                            rawField.dict.set(ffKey, PDFLib.PDFNumber.of(newFlags));
                         }
+                        addLog(`  → Done stripping "${name}"`, 'info');
                     }
                 } catch (fe) {
                     addLog(`  → ERROR on field "${name}": ${fe.message}`, 'error');
