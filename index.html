@@ -7476,7 +7476,35 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
         addLog('All available fields filled', 'success');
         
 addLog('Flattening form and saving PDF...', 'info');
-form.flatten(); // Flatten BEFORE saving
+
+// Remove rich text fields before flattening (pdf-lib can't handle them)
+try {
+    const allFields = form.getFields();
+    allFields.forEach(field => {
+        try {
+            // Try to access it as a text field - if it throws "rich text", remove it from flatten
+            if (field.constructor.name === 'PDFTextField') {
+                const rawField = field.acroField;
+                // Check for rich text flag (bit 26 = RichText)
+                const flags = rawField.getFlags?.() ?? 0;
+                const isRichText = (flags >> 25) & 1;
+                if (isRichText) {
+                    addLog(`Removing rich text flag from field: ${field.getName()}`, 'info');
+                    // Clear the RichText flag so flatten() won't choke
+                    rawField.setFlags?.(flags & ~(1 << 25));
+                    // Also clear any RV (rich value) entry
+                    rawField.dict.delete(PDFLib.PDFName.of('RV'));
+                }
+            }
+        } catch (fe) {
+            addLog(`Could not process field ${field.getName()}: ${fe.message}`, 'info');
+        }
+    });
+} catch (prepErr) {
+    addLog(`Field prep warning: ${prepErr.message}`, 'info');
+}
+
+form.flatten();
 
 // Save the filled PDF
 const finalPdfBytes = await pdfDoc.save(); // ← YOU FORGOT THIS LINE!
@@ -7707,7 +7735,35 @@ const generateArrestReport = async (ownerData = null) => {
         addLog('✔ All fields filled successfully', 'success');
         
 addLog('Flattening form and saving PDF...', 'info');
-form.flatten(); // Flatten BEFORE saving
+
+// Remove rich text fields before flattening (pdf-lib can't handle them)
+try {
+    const allFields = form.getFields();
+    allFields.forEach(field => {
+        try {
+            // Try to access it as a text field - if it throws "rich text", remove it from flatten
+            if (field.constructor.name === 'PDFTextField') {
+                const rawField = field.acroField;
+                // Check for rich text flag (bit 26 = RichText)
+                const flags = rawField.getFlags?.() ?? 0;
+                const isRichText = (flags >> 25) & 1;
+                if (isRichText) {
+                    addLog(`Removing rich text flag from field: ${field.getName()}`, 'info');
+                    // Clear the RichText flag so flatten() won't choke
+                    rawField.setFlags?.(flags & ~(1 << 25));
+                    // Also clear any RV (rich value) entry
+                    rawField.dict.delete(PDFLib.PDFName.of('RV'));
+                }
+            }
+        } catch (fe) {
+            addLog(`Could not process field ${field.getName()}: ${fe.message}`, 'info');
+        }
+    });
+} catch (prepErr) {
+    addLog(`Field prep warning: ${prepErr.message}`, 'info');
+}
+
+form.flatten();
 
 // Save the filled PDF
 const finalPdfBytes = await pdfDoc.save(); // ← YOU FORGOT THIS LINE!
@@ -10582,7 +10638,7 @@ return (
                                                 }
                                             }}
                                         >
-                                            {isAcknowledged ? '✓ ACKNOWLEDGED' : '👍 ACKNOWLEDGE'}
+                                            {isAcknowledged ? '✓ ACKNOWLEDGED' : 'ACKNOWLEDGE'}
                                         </button>
 
                                         {/* DISMISS BUTTON */}
@@ -10618,7 +10674,7 @@ return (
                                                 e.target.style.boxShadow = '0 4px 16px rgba(239, 68, 68, 0.4)';
                                             }}
                                         >
-                                            ❌ DISMISS
+                                            DISMISS
                                         </button>
                                     </div>
                                 </div>
