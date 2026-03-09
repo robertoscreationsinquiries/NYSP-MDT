@@ -7127,20 +7127,45 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
     addLog(`Vehicle Timestamp: ${finalVehicle.timestamp}`, 'info');
     
     try {
-        addLog('Loading PDF template from base64...', 'info');
-                if (!window.PDF_TEMPLATES || !window.PDF_TEMPLATES.TRAFFIC_CITATION) {
-            throw new Error('PDF templates not loaded. Please restart the application.');
+        addLog('Loading PDF template...', 'info');
+        
+        // ✅ FIX: Try multiple possible paths for TrafficINF.pdf
+        let pdfBytes;
+        const possiblePaths = [
+            'TrafficINF.pdf',
+            './TrafficINF.pdf',
+            '../TrafficINF.pdf',
+            'src/TrafficINF.pdf',
+            './src/TrafficINF.pdf'
+        ];
+
+        let pdfFound = false;
+        for (const path of possiblePaths) {
+            try {
+                addLog(`Trying path: ${path}`, 'info');
+                const response = await fetch(path);
+                if (response.ok) {
+                    pdfBytes = await response.arrayBuffer();
+                    pdfFound = true;
+                    addLog(`✅ Found TrafficINF.pdf at: ${path}`, 'success');
+                    break;
+                }
+            } catch (e) {
+                continue;
+            }
         }
-        // Load PDF from base64
-        const pdfBytes = base64ToArrayBuffer(window.PDF_TEMPLATES.TRAFFIC_CITATION);
-        addLog('✅ PDF template loaded successfully', 'success');
+
+        if (!pdfFound) {
+            addLog('❌ TrafficINF.pdf not found in any expected location', 'error');
+            addLog('Searched paths: ' + possiblePaths.join(', '), 'info');
+            throw new Error('TrafficINF.pdf not found. Make sure it is in the App build folder.');
+        }
+        
+        addLog('PDF loaded, inspecting form fields...', 'info');
         
         // Load PDF with pdf-lib
         const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
         const form = pdfDoc.getForm();
-        
-        // ✅ FIX: Flatten form to avoid rich text field errors
-        addLog('Flattening form fields...', 'info');
         
         // Get all field names for debugging with detailed info
         const fields = form.getFields();
@@ -7148,39 +7173,28 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
         addLog('=== COMPLETE FIELD LIST ===', 'info');
         
         fields.forEach(field => {
-    const name = field.getName();
-    const type = field.constructor.name;
-    
-    // Check if it's a dropdown and get options
-    if (type === 'PDFDropdown') {
-        try {
-            const dropdown = form.getDropdown(name);
-            const options = dropdown.getOptions();
-            addLog(`DROPDOWN: "${name}" | Options: [${options.join(', ')}]`, 'info');
-        } catch (e) {
-            addLog(`DROPDOWN: "${name}"`, 'info');
-        }
-    } else if (type === 'PDFTextField') {
-        // ✅ Wrap in try-catch to avoid rich text field errors
-        try {
-            form.getTextField(name); // Test if readable
-            addLog(`TEXT: "${name}"`, 'info');
-        } catch (e) {
-            if (e.message.includes('rich text')) {
-                addLog(`RICH TEXT (skipped): "${name}"`, 'info');
-            } else {
+            const name = field.getName();
+            const type = field.constructor.name;
+            
+            // Check if it's a dropdown and get options
+            if (type === 'PDFDropdown') {
+                try {
+                    const dropdown = form.getDropdown(name);
+                    const options = dropdown.getOptions();
+                    addLog(`DROPDOWN: "${name}" | Options: [${options.join(', ')}]`, 'info');
+                } catch (e) {
+                    addLog(`DROPDOWN: "${name}"`, 'info');
+                }
+            } else if (type === 'PDFTextField') {
                 addLog(`TEXT: "${name}"`, 'info');
+            } else if (type === 'PDFCheckBox') {
+                addLog(`CHECKBOX: "${name}"`, 'info');
+            } else if (type === 'PDFRadioGroup') {
+                addLog(`RADIO: "${name}"`, 'info');
+            } else {
+                addLog(`! ${type}: "${name}"`, 'info');
             }
-        }
-    } else if (type === 'PDFCheckBox') {
-        addLog(`CHECKBOX: "${name}"`, 'info');
-    } else if (type === 'PDFRadioGroup') {
-        addLog(`RADIO: "${name}"`, 'info');
-    } else {
-        addLog(`! ${type}: "${name}"`, 'info');
-    }
-});
-
+        });
         
         addLog('=== END FIELD LIST ===', 'info');
         
@@ -7402,7 +7416,7 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
 
         // Registration Expiration Date - from settings (only if vehicle registration exists)
         if (finalVehicle.plate && finalVehicle.plate.trim() !== '' && finalVehicle.plate !== 'Unknown') {
-            const expDate = trooperSettings.expDate || '';
+            const expDate = trooperSettings?.expDate || '';
             if (expDate && expDate.trim() !== '') {
                 addLog(`Setting RegExp_af_date to: ${expDate}`, 'info');
                 const expDateSet = setField('RegExp_af_date', expDate);
@@ -7475,62 +7489,47 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
         
         addLog('All available fields filled', 'success');
         
-addLog('Flattening form and saving PDF...', 'info');
-
-// Remove rich text fields before flattening (pdf-lib can't handle them)
-try {
-    const allFields = form.getFields();
-    allFields.forEach(field => {
-        try {
-            // Try to access it as a text field - if it throws "rich text", remove it from flatten
-            if (field.constructor.name === 'PDFTextField') {
-                const rawField = field.acroField;
-                // Check for rich text flag (bit 26 = RichText)
-                const flags = rawField.getFlags?.() ?? 0;
-                const isRichText = (flags >> 25) & 1;
-                if (isRichText) {
-                    addLog(`Removing rich text flag from field: ${field.getName()}`, 'info');
-                    // Clear the RichText flag so flatten() won't choke
-                    rawField.setFlags?.(flags & ~(1 << 25));
-                    // Also clear any RV (rich value) entry
-                    rawField.dict.delete(PDFLib.PDFName.of('RV'));
-                }
+        // Save the filled PDF
+        const finalPdfBytes = await pdfDoc.save();
+        
+        // Create blob
+        const blob = new Blob([finalPdfBytes], { type: 'application/pdf' });
+        
+        console.log('📄 [PDF] Creating PDF file for browser...');
+        
+        // Check if running in Electron
+        if (window.require) {
+            try {
+                const { shell } = window.require('electron');
+                const fs = window.require('fs');
+                const path = window.require('path');
+                const os = window.require('os');
+                
+                // Create temp file path
+                const tempDir = os.tmpdir();
+                const filename = `NYSP_Citation_${Date.now()}.pdf`;
+                const filepath = path.join(tempDir, filename);
+                
+                console.log('📄 [PDF] Saving to:', filepath);
+                
+                // Write PDF to temp file
+                fs.writeFileSync(filepath, Buffer.from(finalPdfBytes));
+                
+                // Open in default browser
+                shell.openExternal(`file://${filepath}`);
+                
+                addLog('✔ Citation opened in browser', 'success');
+                console.log('📄 [PDF] Opened in default browser');
+                
+            } catch (err) {
+                console.error('📄 [PDF] Electron method failed:', err);
+                // Fallback to blob URL
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+                addLog('✔ Citation opened (fallback method)', 'success');
             }
-        } catch (fe) {
-            addLog(`Could not process field ${field.getName()}: ${fe.message}`, 'info');
-        }
-    });
-} catch (prepErr) {
-    addLog(`Field prep warning: ${prepErr.message}`, 'info');
-}
-
-form.flatten();
-
-// Save the filled PDF
-const finalPdfBytes = await pdfDoc.save(); // ← YOU FORGOT THIS LINE!
-
-// Open in browser
-if (window.require) {
-            // Electron environment
-            const { shell } = window.require('electron');
-            const fs = window.require('fs');
-            const path = window.require('path');
-            const os = window.require('os');
-            
-            // Save to temp file
-            const tempDir = os.tmpdir();
-            const filename = `NYSP_Citation_${Date.now()}.pdf`;
-            const filepath = path.join(tempDir, filename);
-            
-            fs.writeFileSync(filepath, Buffer.from(finalPdfBytes));
-            
-            // Open in DEFAULT BROWSER (not Electron window)
-            await shell.openExternal(`file://${filepath}`);
-            
-            addLog('✔ Citation opened in default browser', 'success');
         } else {
-            // Web browser environment
-            const blob = new Blob([finalPdfBytes], { type: 'application/pdf' });
+            // Browser mode - use blob URL
             const url = URL.createObjectURL(blob);
             window.open(url, '_blank');
             addLog('✔ Citation opened in new tab', 'success');
@@ -7539,16 +7538,9 @@ if (window.require) {
     } catch (err) {
         console.error('PDF Export Error:', err);
         addLog(`PDF Error: ${err.message}`, 'error');
-        
-        // Better error messages
-        if (err.message.includes('rich text')) {
-            showCustomError('PDF Export Error', 'The PDF contains rich text fields which are not supported. The form has been flattened to resolve this.');
-        } else {
-            showCustomError('Export failed', err.message);
-        }
+        showCustomError(`Export failed: ${err.message}\n\nCheck the developer console for field names`);
     }
 };
-
 
 
 const generateArrestReport = async (ownerData = null) => {
@@ -7576,18 +7568,45 @@ const generateArrestReport = async (ownerData = null) => {
     console.log('   - Final Discord ID used:', discordId);
     
     try {
-        addLog('Loading Arrest/Summons PDF template from base64...', 'info');
+        addLog('Loading Arrest/Summons PDF template...', 'info');
         
-               // Load PDF from base64
-        const pdfBytes = base64ToArrayBuffer(window.PDF_TEMPLATES.TRAFFIC_CITATION);
-        addLog('✅ PDF template loaded successfully', 'success');
+        // ✅ FIX: Try multiple possible paths for arrsmmsRPT.pdf
+        let pdfBytes;
+        const possiblePaths = [
+            'arrsmmsRPT.pdf',
+            './arrsmmsRPT.pdf',
+            '../arrsmmsRPT.pdf',
+            'src/arrsmmsRPT.pdf',
+            './src/arrsmmsRPT.pdf'
+        ];
+
+        let pdfFound = false;
+        for (const path of possiblePaths) {
+            try {
+                addLog(`Trying path: ${path}`, 'info');
+                const response = await fetch(path);
+                if (response.ok) {
+                    pdfBytes = await response.arrayBuffer();
+                    pdfFound = true;
+                    addLog(`✅ Found arrsmmsRPT.pdf at: ${path}`, 'success');
+                    break;
+                }
+            } catch (e) {
+                continue;
+            }
+        }
+
+        if (!pdfFound) {
+            addLog('❌ arrsmmsRPT.pdf not found in any expected location', 'error');
+            addLog('Searched paths: ' + possiblePaths.join(', '), 'info');
+            throw new Error('arrsmmsRPT.pdf not found. Make sure it is in the App build folder.');
+        }
+        
+        addLog('PDF loaded, inspecting form fields...', 'info');
         
         // Load PDF with pdf-lib
         const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
         const form = pdfDoc.getForm();
-        
-        // ✅ FIX: Flatten form to avoid rich text field errors
-        addLog('Flattening form fields...', 'info');
         
         // Get all field names for debugging
         const fields = form.getFields();
@@ -7595,39 +7614,27 @@ const generateArrestReport = async (ownerData = null) => {
         addLog('=== COMPLETE FIELD LIST ===', 'info');
         
         fields.forEach(field => {
-    const name = field.getName();
-    const type = field.constructor.name;
-    
-    // Check if it's a dropdown and get options
-    if (type === 'PDFDropdown') {
-        try {
-            const dropdown = form.getDropdown(name);
-            const options = dropdown.getOptions();
-            addLog(`DROPDOWN: "${name}" | Options: [${options.join(', ')}]`, 'info');
-        } catch (e) {
-            addLog(`DROPDOWN: "${name}"`, 'info');
-        }
-    } else if (type === 'PDFTextField') {
-        // ✅ Wrap in try-catch to avoid rich text field errors
-        try {
-            form.getTextField(name); // Test if readable
-            addLog(`TEXT: "${name}"`, 'info');
-        } catch (e) {
-            if (e.message.includes('rich text')) {
-                addLog(`RICH TEXT (skipped): "${name}"`, 'info');
-            } else {
+            const name = field.getName();
+            const type = field.constructor.name;
+            
+            if (type === 'PDFDropdown') {
+                try {
+                    const dropdown = form.getDropdown(name);
+                    const options = dropdown.getOptions();
+                    addLog(`DROPDOWN: "${name}" | Options: [${options.join(', ')}]`, 'info');
+                } catch (e) {
+                    addLog(`DROPDOWN: "${name}"`, 'info');
+                }
+            } else if (type === 'PDFTextField') {
                 addLog(`TEXT: "${name}"`, 'info');
+            } else if (type === 'PDFCheckBox') {
+                addLog(`CHECKBOX: "${name}"`, 'info');
+            } else if (type === 'PDFRadioGroup') {
+                addLog(`RADIO: "${name}"`, 'info');
+            } else {
+                addLog(`! ${type}: "${name}"`, 'info');
             }
-        }
-    } else if (type === 'PDFCheckBox') {
-        addLog(`CHECKBOX: "${name}"`, 'info');
-    } else if (type === 'PDFRadioGroup') {
-        addLog(`RADIO: "${name}"`, 'info');
-    } else {
-        addLog(`! ${type}: "${name}"`, 'info');
-    }
-});
-
+        });
         
         addLog('=== END FIELD LIST ===', 'info');
         
@@ -7734,77 +7741,59 @@ const generateArrestReport = async (ownerData = null) => {
         
         addLog('✔ All fields filled successfully', 'success');
         
-addLog('Flattening form and saving PDF...', 'info');
-
-// Remove rich text fields before flattening (pdf-lib can't handle them)
-try {
-    const allFields = form.getFields();
-    allFields.forEach(field => {
-        try {
-            // Try to access it as a text field - if it throws "rich text", remove it from flatten
-            if (field.constructor.name === 'PDFTextField') {
-                const rawField = field.acroField;
-                // Check for rich text flag (bit 26 = RichText)
-                const flags = rawField.getFlags?.() ?? 0;
-                const isRichText = (flags >> 25) & 1;
-                if (isRichText) {
-                    addLog(`Removing rich text flag from field: ${field.getName()}`, 'info');
-                    // Clear the RichText flag so flatten() won't choke
-                    rawField.setFlags?.(flags & ~(1 << 25));
-                    // Also clear any RV (rich value) entry
-                    rawField.dict.delete(PDFLib.PDFName.of('RV'));
-                }
+        // Save the filled PDF
+        const finalPdfBytes = await pdfDoc.save();
+        
+        // Create blob and open in new tab
+        // Create blob
+        const blob = new Blob([finalPdfBytes], { type: 'application/pdf' });
+        
+        console.log('📄 [PDF] Creating PDF file for browser...');
+        
+        // Check if running in Electron
+        if (window.require) {
+            try {
+                const { shell } = window.require('electron');
+                const fs = window.require('fs');
+                const path = window.require('path');
+                const os = window.require('os');
+                
+                // Create temp file path
+                const tempDir = os.tmpdir();
+                const filename = `NYSP_Citation_${Date.now()}.pdf`;
+                const filepath = path.join(tempDir, filename);
+                
+                console.log('📄 [PDF] Saving to:', filepath);
+                
+                // Write PDF to temp file
+                fs.writeFileSync(filepath, Buffer.from(finalPdfBytes));
+                
+                // Open in default browser
+                shell.openExternal(`file://${filepath}`);
+                
+                addLog('✔ Citation opened in browser', 'success');
+                console.log('📄 [PDF] Opened in default browser');
+                
+            } catch (err) {
+                console.error('📄 [PDF] Electron method failed:', err);
+                // Fallback to blob URL
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+                addLog('✔ Citation opened (fallback method)', 'success');
             }
-        } catch (fe) {
-            addLog(`Could not process field ${field.getName()}: ${fe.message}`, 'info');
-        }
-    });
-} catch (prepErr) {
-    addLog(`Field prep warning: ${prepErr.message}`, 'info');
-}
-
-form.flatten();
-
-// Save the filled PDF
-const finalPdfBytes = await pdfDoc.save(); // ← YOU FORGOT THIS LINE!
-
-// Open in browser
-if (window.require) {
-            // Electron environment
-            const { shell } = window.require('electron');
-            const fs = window.require('fs');
-            const path = window.require('path');
-            const os = window.require('os');
-            
-            // Save to temp file
-            const tempDir = os.tmpdir();
-            const filename = `NY_REPORT_${Date.now()}.pdf`;
-            const filepath = path.join(tempDir, filename);
-            
-            fs.writeFileSync(filepath, Buffer.from(finalPdfBytes));
-            
-            // Open in DEFAULT BROWSER (not Electron window)
-            await shell.openExternal(`file://${filepath}`);
-            
-            addLog('✔ Citation opened in default browser', 'success');
         } else {
-            // Web browser environment
-            const blob = new Blob([finalPdfBytes], { type: 'application/pdf' });
+            // Browser mode - use blob URL
             const url = URL.createObjectURL(blob);
             window.open(url, '_blank');
             addLog('✔ Citation opened in new tab', 'success');
         }
         
+        addLog('✔ Arrest/Summons Report opened in new tab', 'success');
+        
     } catch (err) {
         console.error('PDF Export Error:', err);
-        addLog(`PDF Error: ${err.message}`, 'error');
-        
-        // Better error messages
-        if (err.message.includes('rich text')) {
-            showCustomError('PDF Export Error', 'The PDF contains rich text fields which are not supported. The form has been flattened to resolve this.');
-        } else {
-            showCustomError('Export failed', err.message);
-        }
+        addLog(`❌ PDF Error: ${err.message}`, 'error');
+        showCustomError('Export failed', `${err.message}\n\nMake sure arrsmmsRPT.pdf is in the same folder as this HTML file`);
     }
 };
 
