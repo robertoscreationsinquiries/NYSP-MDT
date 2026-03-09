@@ -7463,8 +7463,30 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
         const affirmSet = setField('AffDate_af_date', affirmDate) || setField('DateOff_af_date', affirmDate);
         if (!affirmSet) addLog(`❌ FAILED to set Date AFFIRMED`, 'error');
         
-        addLog('All available fields filled', 'success');
-        
+addLog('All available fields filled', 'success');
+
+        // Strip rich text flags before flattening (pdf-lib can't handle them)
+        try {
+            form.getFields().forEach(field => {
+                try {
+                    if (field.constructor.name === 'PDFTextField') {
+                        const rawField = field.acroField;
+                        const flags = rawField.getFlags ? rawField.getFlags() : 0;
+                        const isRichText = (flags >> 25) & 1;
+                        if (isRichText) {
+                            addLog(`Stripping rich text flag from: ${field.getName()}`, 'info');
+                            if (rawField.setFlags) rawField.setFlags(flags & ~(1 << 25));
+                            rawField.dict.delete(PDFLib.PDFName.of('RV'));
+                        }
+                    }
+                } catch (fe) { /* skip */ }
+            });
+        } catch (prepErr) {
+            addLog(`Rich text prep warning: ${prepErr.message}`, 'info');
+        }
+
+        form.flatten();
+
         // Save the filled PDF
         const finalPdfBytes = await pdfDoc.save();
         
