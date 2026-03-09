@@ -7505,10 +7505,6 @@ addLog('All available fields filled', 'success');
         } catch (prepErr) {
             addLog(`Rich text prep OUTER ERROR: ${prepErr.message}`, 'error');
         }
-        addLog('--- Rich text strip pass complete, calling flatten ---', 'info');
-
-        form.flatten();
-        addLog('--- flatten() completed ---', 'info');
 
         // Save the filled PDF
         const finalPdfBytes = await pdfDoc.save();
