@@ -2791,7 +2791,7 @@ React.useEffect(() => {
 
 React.useEffect(() => {
     if (micHotkey) {
-        window.electron?.invoke('register-global-shortcut', { key: micHotkey, id: 'mic-toggle' });
+        window.electron?.invoke('register-global-shortcut', { key: micHotkey, id: 'mic-toggle', requireFocus: keybindsRequireFocus });
     }
     window.electron?.on('global-shortcut-fired', (id) => {
         if (id === 'mic-toggle' && activeView === 'search' && useMicrophone && !loading && !searchCooldown) {
@@ -2799,7 +2799,7 @@ React.useEffect(() => {
         }
     });
     return () => window.electron?.removeAllListeners?.('global-shortcut-fired');
-}, [micHotkey, voiceActive, useMicrophone, loading, searchCooldown, activeView]);
+}, [micHotkey, voiceActive, useMicrophone, loading, searchCooldown, activeView, keybindsRequireFocus]);
 
 
 React.useEffect(() => {
@@ -10462,7 +10462,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                         </div>
                                         {micTestError && <div style={{ color: '#fca5a5', fontSize: '11px', marginBottom: '8px', padding: '6px 10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px' }}>⚠️ {micTestError}</div>}
                                         <button onClick={() => micTestActive ? stopMicTest() : startMicTest()} style={S.btn(micTestActive ? '#ef4444' : '#a855f7', false)}>
-                                            {micTestActive ? '⏹ Stop Test' : '🎙️ Test Microphone'}
+                                            {micTestActive ? 'Stop Test' : '🎙️ Test Microphone'}
                                         </button>
                                     </div>
                                 )}
