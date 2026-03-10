@@ -2706,7 +2706,8 @@ const updateLogsData = [
             'CHANGE - The app now aims to become more personalized to the user; depending on what department you are in, it will either say "NYSP" or "EGPD" across the application.',
             'CHANGE - Changed Minimode setting title to Sidetab.',
             'CHANGE - Changed "NYSP_SETTINGSTOOL" file to "CADSystemSettings".',
-            'CHANGE - The "Export settings" title text has been changed in the settings and now saves all data.'
+            'CHANGE - The "Export settings" title text has been changed in the settings and now saves all data.',
+            'CHANGE - Changed and simplified the process of exporting developer logs.',
         ],
         removed: [
             'REMOVED the "Mini-mode" button. This may be brought back in the future.',
@@ -7552,7 +7553,7 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
 
         // Registration Expiration Date - from settings (only if vehicle registration exists)
         if (finalVehicle.plate && finalVehicle.plate.trim() !== '' && finalVehicle.plate !== 'Unknown') {
-            const expDate = trooperSettings?.expDate || '';
+            const expDate = editableTrooperSettings?.expDate || '';
             if (expDate && expDate.trim() !== '') {
                 addLog(`Setting RegExp_af_date to: ${expDate}`, 'info');
                 const expDateSet = setField('RegExp_af_date', expDate);
@@ -9115,7 +9116,7 @@ return (
                             { label: 'BADGE ID', value: `#${trooperSettings?.BadgeID || '00000'}`, mono: true },
                             { label: 'ZONE', value: `ZONE ${trooperSettings?.Zone || '—'}` },
                             { label: 'USERNAME', value: trooperSettings?.Username || 'UNKNOWN' },
-                            { label: 'REG. EXPIRY', value: trooperSettings?.ExpiryDate || '—' },
+                            { label: 'REG. EXPIRY', value: editableTrooperSettings?.expDate || '—' },
                         ].map(({ label, value, mono }) => (
                             <div key={label} style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)' }}>
                                 <div style={{ color: '#93c5fd', fontSize: '9px', letterSpacing: '1.5px', fontWeight: '700', marginBottom: '4px' }}>{label}</div>
@@ -10066,9 +10067,8 @@ return (
                             {tokenSaved ? 'Update Token' : 'Save Token'}
                         </button>
                         <p style={{ fontSize: '12px', color: '#fef3c7', marginTop: '8px' }}>
-                            To get your token: follow tutorial in the folder.
+                            To get your token: follow tutorials provided in the Discord server or contact the owner.
                         </p>
-                        <div className="code-box">{tokenInstructions}</div>
                     </div>
 
                     {/* Groq API Key */}
@@ -10238,11 +10238,14 @@ onFocus={e => { setIsRecordingKeybind(true); e.currentTarget.style.borderColor =
                                 const min = String(now.getMinutes()).padStart(2, '0');
                                 const filename = `${mm}${dd}${yyyy}${hh}${min}_EXPORTCADLOGS.txt`;
 
-                                const sensitivePatterns = [
+const sensitivePatterns = [
                                     /DiscordAccountToken=.+/gi,
                                     /discord.*token[^\n]*/gi,
                                     /NjE[A-Za-z0-9+/=]{20,}/g,
                                     /localStorage.*token[^\n]*/gi,
+                                    /GroqConsoleAPIKey=.+/gi,
+                                    /groq.*key[^\n]*/gi,
+                                    /gsk_[A-Za-z0-9]{20,}/g,
                                 ];
 
                                 let logsText = consoleLogs
