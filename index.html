@@ -1617,6 +1617,9 @@ const micAudioCtxRef = React.useRef(null);
 const voiceStreamRef = React.useRef(null);
 const voiceAudioCtxRef = React.useRef(null);
 const voiceProcessorRef = React.useRef(null);
+const [micHotkey, setMicHotkey] = useState('');
+const [micHotkeyDraft, setMicHotkeyDraft] = useState('');
+const [isRecordingMicHotkey, setIsRecordingMicHotkey] = useState(false);
 // ──────────────────────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════
 // LOGIN SYSTEM STATE
@@ -1737,6 +1740,11 @@ React.useEffect(() => {
             const trimmedLine = line.trim();
             if (trimmedLine.startsWith('USE_MICROPHONE=')) {
                 setUseMicrophone(trimmedLine.split('=')[1]?.trim() !== 'FALSE');
+            }
+
+            if (trimmedLine.startsWith('MIC_HOTKEY=')) {
+                const val = trimmedLine.split('=')[1]?.trim();
+                if (val) { setMicHotkey(val); setMicHotkeyDraft(val); }
             }
             
            if (trimmedLine.startsWith('GroqConsoleAPIKey=')) {
@@ -2049,7 +2057,7 @@ const blob = new Blob(chunks, { type: 'audio/wav' });
         };
         recorder.start();
         setVoiceActive(true);
-        setVoiceNotif('🎙️ Recording — click 🎙️ again when done to search');
+        setVoiceNotif('Recording - click 🎙️ again when done to search');
     } catch(e) {
         setVoiceNotif('Error: ' + (e.message || 'Mic denied'));
         setVoiceActive(false);
@@ -3270,6 +3278,7 @@ VisualEffects=${visualEffects ? 'TRUE' : 'FALSE'}
 MiniMode=${compactMode ? 'TRUE' : 'FALSE'}
 ActiveSession=NONE
 USE_MICROPHONE=${useMicrophone ? 'TRUE' : 'FALSE'}
+MIC_HOTKEY=${micHotkey || ''}
 DevConsoleEnabled=${showDevConsole ? 'TRUE' : 'FALSE'}
 DiscordAccountToken=${discordToken || ''}
 GroqConsoleAPIKey=${groqConsoleAPIKey || ''}
@@ -3861,6 +3870,28 @@ React.useEffect(() => {
     }, 1000);
     return () => clearInterval(interval);
 }, [calls]);
+
+React.useEffect(() => {
+    if (!micHotkey) return;
+    const handler = (e) => {
+        if (isRecordingKeybind || isRecordingMicHotkey) return;
+        const parts = [];
+        if (e.ctrlKey) parts.push('CTRL');
+        if (e.shiftKey) parts.push('SHIFT');
+        if (e.altKey) parts.push('ALT');
+        const key = e.key.toUpperCase();
+        if (!['CONTROL','SHIFT','ALT','META'].includes(key)) parts.push(key);
+        const pressed = parts.join('+');
+        if (pressed === micHotkey && activeView === 'search') {
+            e.preventDefault();
+            if (!useMicrophone) return;
+            if (loading || searchCooldown) return;
+            voiceActive ? stopVoicePlate() : startVoicePlate();
+        }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+}, [micHotkey, voiceActive, useMicrophone, loading, searchCooldown, activeView, isRecordingKeybind, isRecordingMicHotkey]);
 
 // Offline detection
 React.useEffect(() => {
@@ -10346,33 +10377,30 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                 </div>
 
                 {/* ── APPEARANCE ── */}
-                <div style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
-                    <h3 style={{ color: '#c4b5fd', fontSize: '16px', fontWeight: '700', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        🎨 APPEARANCE
-                    </h3>
-
-                    <div style={{ marginBottom: '12px', padding: '14px', background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: '10px' }}>
-                        <label style={{ color: '#c4b5fd', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                            <input type="checkbox" checked={dyslexiaFont} onChange={(e) => { const checked = e.target.checked; setDyslexiaFont(checked); checked ? document.body.classList.add('dyslexia-font') : document.body.classList.remove('dyslexia-font'); addLog(`✅ Dyslexia font ${checked ? 'enabled' : 'disabled'}`, 'success'); }} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
-                            Enable Normal Font
-                        </label>
-                        <p style={{ fontSize: '12px', color: '#ddd6fe', marginTop: '8px', marginLeft: '30px', opacity: 0.8 }}>Enables normal font and gets rid of the MDT-style font.</p>
+                <div style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: '14px', padding: '20px', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                        <span style={{ fontSize: '18px' }}>🎨</span>
+                        <div>
+                            <div style={{ color: '#c4b5fd', fontSize: '13px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase' }}>Appearance</div>
+                            <div style={{ color: '#475569', fontSize: '11px' }}>Display and visual preferences</div>
+                        </div>
                     </div>
-
-                    <div style={{ marginBottom: '12px', padding: '14px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '10px' }}>
-                        <label style={{ color: '#93c5fd', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                            <input type="checkbox" checked={visualEffects} onChange={(e) => { const checked = e.target.checked; setVisualEffects(checked); addLog(`✅ Visual effects ${checked ? 'enabled' : 'disabled'}`, 'success'); }} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
-                            Enable Visual Feedback Effects
-                        </label>
-                        <p style={{ fontSize: '12px', color: '#bfdbfe', marginTop: '8px', marginLeft: '30px', opacity: 0.8 }}>Pulse animations, shake effects, and glowing borders.</p>
-                    </div>
-
-                    <div style={{ padding: '14px', background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: '10px' }}>
-                        <label style={{ color: '#c4b5fd', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                            <input type="checkbox" id="mini-mode-checkbox" checked={compactMode} onChange={(e) => { const checked = e.target.checked; setCompactMode(checked); if (window.require) { try { const { ipcRenderer } = window.require('electron'); ipcRenderer.send('toggle-compact-mode', checked); addLog(`📱 Mini mode ${checked ? 'enabled' : 'disabled'}`, 'success'); } catch (err) { console.error('⚠️ [MINI-MODE] Error:', err); } } }} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
-                            Sidetab Navigation
-                        </label>
-                        <p style={{ fontSize: '12px', color: '#ddd6fe', marginTop: '8px', marginLeft: '30px', opacity: 0.8 }}>Enables a sidetab on the left to allow for quicker navigation between tabs.</p>
+                    <div style={{ display: 'grid', gap: '8px' }}>
+                        {[
+                            { label: 'Normal Font', desc: 'Disables the MDT-style monospace font', state: dyslexiaFont, setter: (v) => { setDyslexiaFont(v); v ? document.body.classList.add('dyslexia-font') : document.body.classList.remove('dyslexia-font'); } },
+                            { label: 'Visual Feedback Effects', desc: 'Pulse animations, shake effects, glowing borders', state: visualEffects, setter: setVisualEffects },
+                            { label: 'Sidetab Navigation', desc: 'Quick-access nav tab on the left edge', state: compactMode, setter: (v) => { setCompactMode(v); if (window.require) { try { window.require('electron').ipcRenderer.send('toggle-compact-mode', v); } catch(_) {} } } },
+                        ].map(({ label, desc, state, setter }) => (
+                            <div key={label} onClick={() => setter(!state)} style={{ padding: '12px 16px', background: state ? 'rgba(139,92,246,0.1)' : 'rgba(255,255,255,0.02)', border: `1px solid ${state ? 'rgba(139,92,246,0.35)' : 'rgba(255,255,255,0.06)'}`, borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.2s' }}>
+                                <div>
+                                    <div style={{ color: state ? '#ddd6fe' : '#9ca3af', fontSize: '13px', fontWeight: '600', transition: 'color 0.2s' }}>{label}</div>
+                                    <div style={{ color: '#4b5563', fontSize: '11px', marginTop: '2px' }}>{desc}</div>
+                                </div>
+                                <div style={{ width: '36px', height: '20px', borderRadius: '10px', background: state ? '#7c3aed' : 'rgba(255,255,255,0.1)', border: `1px solid ${state ? '#7c3aed' : 'rgba(255,255,255,0.1)'}`, position: 'relative', transition: 'all 0.2s', flexShrink: 0 }}>
+                                    <div style={{ position: 'absolute', top: '2px', left: state ? '18px' : '2px', width: '14px', height: '14px', borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }} />
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
@@ -10427,6 +10455,55 @@ onFocus={e => { setIsRecordingKeybind(true); e.currentTarget.style.borderColor =
         >
             Save Keybind
         </button>
+    </div>
+
+    {/* ── Mic Hotkey ── */}
+    <div style={{ marginTop: '16px', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '12px', padding: '18px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+            <div style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg, #065f46, #10b981)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', flexShrink: 0 }}>🎙️</div>
+            <div>
+                <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700', letterSpacing: '0.5px' }}>Mic Toggle (Plate Search)</div>
+                <div style={{ color: '#475569', fontSize: '11px', marginTop: '2px' }}>Toggles voice-to-plate while on the plate search page</div>
+            </div>
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ color: '#64748b', fontSize: '11px' }}>Active:</span>
+                <span style={{ fontFamily: 'monospace', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', padding: '3px 10px', borderRadius: '6px', color: '#6ee7b7', fontSize: '12px', fontWeight: '700', letterSpacing: '1px' }}>{micHotkey || 'NONE'}</span>
+            </div>
+        </div>
+        <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(16,185,129,0.15)', borderRadius: '10px', padding: '12px', marginBottom: '10px' }}>
+            <div style={{ color: '#475569', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '8px' }}>Recording Keybind</div>
+            <div
+                tabIndex={0}
+                onKeyDown={(e) => {
+                    e.preventDefault();
+                    const parts = [];
+                    if (e.ctrlKey) parts.push('CTRL');
+                    if (e.shiftKey) parts.push('SHIFT');
+                    if (e.altKey) parts.push('ALT');
+                    const key = e.key.toUpperCase();
+                    if (!['CONTROL','SHIFT','ALT','META'].includes(key)) parts.push(key);
+                    if (parts.length > 0) setMicHotkeyDraft(parts.join('+'));
+                }}
+                onFocus={e => { setIsRecordingMicHotkey(true); e.currentTarget.style.borderColor = 'rgba(16,185,129,0.7)'; }}
+                onBlur={e => { setIsRecordingMicHotkey(false); e.currentTarget.style.borderColor = micHotkeyDraft !== micHotkey ? 'rgba(16,185,129,0.5)' : 'rgba(16,185,129,0.2)'; }}
+                style={{ width: '100%', padding: '12px 16px', background: 'rgba(15,23,42,0.8)', border: `1px solid ${micHotkeyDraft !== micHotkey ? 'rgba(16,185,129,0.5)' : 'rgba(16,185,129,0.2)'}`, borderRadius: '8px', color: micHotkeyDraft ? '#e2e8f0' : '#475569', fontSize: '14px', fontFamily: 'monospace', letterSpacing: '2px', cursor: 'text', outline: 'none', boxSizing: 'border-box', minHeight: '46px', display: 'flex', alignItems: 'center', userSelect: 'none', transition: 'border-color 0.2s' }}
+            >
+                {micHotkeyDraft || <span style={{ color: '#334155' }}>Click here, then press your key combination...</span>}
+            </div>
+            <p style={{ color: '#334155', fontSize: '10px', marginTop: '6px' }}>Only active when on the License Plate Search page.</p>
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+                onClick={() => { setMicHotkey(micHotkeyDraft); addLog(`✅ Mic hotkey set to: ${micHotkeyDraft}`, 'success'); }}
+                disabled={!micHotkeyDraft || micHotkeyDraft === micHotkey}
+                style={{ flex: 1, padding: '9px 20px', background: (!micHotkeyDraft || micHotkeyDraft === micHotkey) ? 'rgba(16,185,129,0.1)' : 'linear-gradient(135deg, #10b981, #059669)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '8px', color: (!micHotkeyDraft || micHotkeyDraft === micHotkey) ? '#475569' : 'white', fontSize: '11px', fontWeight: '700', cursor: (!micHotkeyDraft || micHotkeyDraft === micHotkey) ? 'not-allowed' : 'pointer', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.2s' }}
+            >Save Hotkey</button>
+            <button
+                onClick={() => { setMicHotkey(''); setMicHotkeyDraft(''); addLog('🎙️ Mic hotkey cleared', 'info'); }}
+                disabled={!micHotkey}
+                style={{ padding: '9px 16px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', color: micHotkey ? '#f87171' : '#475569', fontSize: '11px', fontWeight: '700', cursor: micHotkey ? 'pointer' : 'not-allowed', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.2s' }}
+            >Clear</button>
+        </div>
     </div>
 </div>
 
@@ -10577,7 +10654,7 @@ const sensitivePatterns = [
                                     addLog(`🎙️ Microphone ${val ? 'enabled' : 'disabled'}`, 'info');
                                 }} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#a78bfa' }} />
                                 <span style={{ fontSize: '14px' }}>🎙️</span>
-                                Use Microphone
+                                Use Microphone (EXPERIMENTAL)
                                 <span style={{ marginLeft: 'auto', fontSize: '11px', padding: '2px 8px', borderRadius: '12px', background: useMicrophone ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.07)', color: useMicrophone ? '#c4b5fd' : '#4b5563', fontWeight: '700', letterSpacing: '1px' }}>
                                     {useMicrophone ? 'ON' : 'OFF'}
                                 </span>
@@ -10631,7 +10708,7 @@ const sensitivePatterns = [
     <div style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(34,197,94,0.15)', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
         <div style={{ color: '#64748b', fontSize: '11px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '10px' }}>Will export:</div>
 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-            {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','AmericanDateFormat','ACTIONBAR_KEYBIND'].map(k => (
+            {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY'].map(k => (
                 <span key={k} style={{ padding: '2px 8px', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '4px', color: '#4ade80', fontSize: '10px', fontFamily: 'monospace' }}>{k}</span>
             ))}
             <span style={{ padding: '2px 8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '4px', color: '#f87171', fontSize: '10px', fontFamily: 'monospace' }}>ActiveSession</span>
@@ -10658,6 +10735,8 @@ const sensitivePatterns = [
         )}
     </div>
 )}
+
+
 {activeView === 'calls' && (
     <div style={{
         padding: '20px',
