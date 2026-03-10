@@ -1597,6 +1597,7 @@ const [soundSettings, setSoundSettings] = useState({
     LoginIncorrect: true,
     LoginPageCorrect: true
 });
+const [isRecordingKeybind, setIsRecordingKeybind] = useState(false);
 const [showWelcomePopup, setShowWelcomePopup] = React.useState(false);
 const [hfAPIKey, setHfAPIKey] = useState('');
 const [groqConsoleAPIKey, setGroqConsoleAPIKey] = useState('');
@@ -2060,7 +2061,7 @@ const executeCommand = (rawInput) => {
         setCommandBarOpen(false);
         setCommandBarInput('/');
 
-if (cmdPart === '/search') {
+        if (cmdPart === '/search') {
             setActiveView('search');
             setTimeout(() => lookupUser(argPart.toUpperCase()), 100);
         } else if (cmdPart === '/lookup') {
@@ -2103,8 +2104,9 @@ useEffect(() => {
         if (isF) keyMatch = e.key === keyChar;
         else keyMatch = e.key.toUpperCase() === keyChar;
 
-        if (ctrl && shift && alt && keyMatch) {
+if (ctrl && shift && alt && keyMatch) {
             e.preventDefault();
+            if (isRecordingKeybind) return;
             setCommandBarOpen(o => !o);
             setCommandBarInput('/');
             setCommandBarError('');
@@ -3071,10 +3073,10 @@ const saveSettingsToFile = async () => {
     setSavingSettings(true);
     addLog('Exporting settings to CADSystemSettings.txt...', 'info');
 
-    const settingsContent = `RegistrationChannelID=${trooperSettings?.RegistrationChannelID || ''}
-DatabaseChannelID=${trooperSettings?.DatabaseChannelID || ''}
-GuildID=${trooperSettings?.GuildID || ''}
-expDate=${trooperSettings?.expDate || ''}
+const settingsContent = `RegistrationChannelID=${editableTrooperSettings?.RegistrationChannelID || trooperSettings?.RegistrationChannelID || ''}
+DatabaseChannelID=${editableTrooperSettings?.DatabaseChannelID || trooperSettings?.DatabaseChannelID || ''}
+GuildID=${editableTrooperSettings?.GuildID || trooperSettings?.GuildID || ''}
+expDate=${editableTrooperSettings?.expDate || trooperSettings?.expDate || ''}
 DyslexiaFont=${dyslexiaFont ? 'TRUE' : 'FALSE'}
 VisualEffects=${visualEffects ? 'TRUE' : 'FALSE'}
 MiniMode=${compactMode ? 'TRUE' : 'FALSE'}
@@ -4841,7 +4843,7 @@ const isFieldReadable = (fieldName) => {
 };
 
 const lookupUser = async (plateOverride) => {
-    if (plateOverride) setLicensePlate(plateOverride);
+    const effectivePlate = (typeof plateOverride === 'string' ? plateOverride : licensePlate || '').trim();
 
     if (searchCooldown) {
         showCustomError('Search Cooldown', `Please wait ${cooldownTime} seconds before searching again`);
@@ -4854,10 +4856,10 @@ const lookupUser = async (plateOverride) => {
     setWarrantInfo(null);
     setWarrantFlash(false);
     
-const effectivePlate = (plateOverride || licensePlate || '').trim();
     if (!effectivePlate) { setError('No input detected.'); addLog('No plate', 'error'); return; }
     if (!tokenSaved) { setError('Save token first'); addLog('No token', 'error'); return; }
 
+    setLicensePlate(effectivePlate.toUpperCase());
     setLoading(true);
     setError('');
     setResult(null);
@@ -4865,7 +4867,7 @@ const effectivePlate = (plateOverride || licensePlate || '').trim();
 
     setSearchProgress(0);
 
-const searchedPlate = (plateOverride || licensePlate || '').trim().toUpperCase();
+    const searchedPlate = effectivePlate.toUpperCase();
 
     try {
         setSearchProgress(10);
@@ -4876,7 +4878,7 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
                 console.log('Using trooper settings: ', editableTrooperSettings)
         
         setSearchProgress(30);
-const searchedPlate = (plateOverride || licensePlate || '').trim().toUpperCase();
+        const searchedPlate = effectivePlate.toUpperCase();
         
         // Generate all search variants
         const plateVariants = generatePlateVariants(searchedPlate);
@@ -9645,19 +9647,7 @@ return (
                     </div>
                 )}
 
-                {/* DEV CONSOLE */}
-                {showDevConsole && consoleLogs.length > 0 && (
-                    <div className="console-box" style={{ marginTop: '16px' }}>
-                        <div className="console-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Terminal size={14} /> Developer Console</div>
-                            <button onClick={() => { const logsText = consoleLogs.map(log => `[${log.timestamp}] [${log.type.toUpperCase()}] ${log.message}`).join('\n'); const blob = new Blob([logsText], { type: 'text/plain' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `NYSP_MDT_Logs_${new Date().toISOString().split('T')[0]}.txt`; a.click(); URL.revokeObjectURL(url); addLog('📥 Console logs exported', 'success'); }}
-                                style={{ padding: '4px 12px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '10px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                EXPORT
-                            </button>
-                        </div>
-                        {consoleLogs.map((log, i) => (<div key={i} className={`console-log console-${log.type}`}>[{log.timestamp}] {log.message}</div>))}
-                    </div>
-                )}
+                
             </div>
         )}
     </div>
@@ -9969,19 +9959,7 @@ return (
                     </div>
                 )}
 
-                {/* DEV CONSOLE */}
-                {showDevConsole && consoleLogs.length > 0 && (
-                    <div className="console-box" style={{ marginTop: '16px' }}>
-                        <div className="console-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Terminal size={14} /> Developer Console</div>
-                            <button onClick={() => { const logsText = consoleLogs.map(log => `[${log.timestamp}] [${log.type.toUpperCase()}] ${log.message}`).join('\n'); const blob = new Blob([logsText], { type: 'text/plain' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `NYSP_MDT_Logs_${new Date().toISOString().split('T')[0]}.txt`; a.click(); URL.revokeObjectURL(url); addLog('📥 Console logs exported', 'success'); }}
-                                style={{ padding: '4px 12px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '10px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                EXPORT
-                            </button>
-                        </div>
-                        {consoleLogs.map((log, i) => (<div key={i} className={`console-log console-${log.type}`}>[{log.timestamp}] {log.message}</div>))}
-                    </div>
-                )}
+                
             </div>
         )}
     </div>
@@ -10202,6 +10180,7 @@ return (
             <div style={{ color: '#475569', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '8px' }}>Recording Keybind</div>
             <div
                 tabIndex={0}
+                
                 onKeyDown={(e) => {
                     e.preventDefault();
                     const parts = [];
@@ -10213,8 +10192,8 @@ return (
                     if (parts.length > 0) setKeybindDraft(parts.join('+'));
                 }}
                 style={{ width: '100%', padding: '12px 16px', background: 'rgba(15,23,42,0.8)', border: `1px solid ${keybindDraft !== actionBarKeybind ? 'rgba(59,130,246,0.5)' : 'rgba(59,130,246,0.2)'}`, borderRadius: '8px', color: keybindDraft ? '#e2e8f0' : '#475569', fontSize: '14px', fontFamily: 'monospace', letterSpacing: '2px', cursor: 'text', outline: 'none', boxSizing: 'border-box', minHeight: '46px', display: 'flex', alignItems: 'center', userSelect: 'none', transition: 'border-color 0.2s' }}
-                onFocus={e => e.currentTarget.style.borderColor = 'rgba(59,130,246,0.7)'}
-                onBlur={e => e.currentTarget.style.borderColor = keybindDraft !== actionBarKeybind ? 'rgba(59,130,246,0.5)' : 'rgba(59,130,246,0.2)'}
+onFocus={e => { setIsRecordingKeybind(true); e.currentTarget.style.borderColor = 'rgba(59,130,246,0.7)'; }}
+                onBlur={e => { setIsRecordingKeybind(false); e.currentTarget.style.borderColor = keybindDraft !== actionBarKeybind ? 'rgba(59,130,246,0.5)' : 'rgba(59,130,246,0.2)'; }}
             >
                 {keybindDraft || <span style={{ color: '#334155' }}>Click here, then press your key combination...</span>}
             </div>
@@ -10234,26 +10213,63 @@ return (
 
                 {/* ── DEVELOPER TOOLS ── */}
                 <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
-                    <h3 style={{ color: '#fde047', fontSize: '16px', fontWeight: '700', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '2px' }}>
+                    <h3 style={{ color: '#fde047', fontSize: '16px', fontWeight: '700', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '2px' }}>
                         🛠️ DEVELOPER TOOLS
                     </h3>
-                    <div style={{ marginBottom: '12px', padding: '14px', background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.2)', borderRadius: '10px' }}>
-                        <label style={{ color: '#fde047', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                            <input type="checkbox" checked={showDevConsole} onChange={(e) => { setShowDevConsole(e.target.checked); addLog(`📊 Console ${e.target.checked ? 'shown' : 'hidden'}`, 'success'); }} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
-                            Show Built-in Developer Console
-                        </label>
-                        <p style={{ fontSize: '12px', color: '#fef08a', marginTop: '8px', marginLeft: '30px', opacity: 0.8 }}>Shows real-time logs at the bottom of each page.</p>
-                    </div>
-                    <div style={{ padding: '14px', background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.2)', borderRadius: '10px' }}>
+                    <p style={{ color: '#475569', fontSize: '12px', marginBottom: '20px' }}>Diagnostic and troubleshooting utilities.</p>
+
+                    <div style={{ display: 'grid', gap: '10px' }}>
                         <button
                             onClick={() => { if (window.require) { const { ipcRenderer } = window.require('electron'); ipcRenderer.send('open-dev-tools'); } }}
-                            style={{ width: '100%', padding: '12px', background: 'rgba(234,179,8,0.15)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: '8px', color: '#fde047', fontSize: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s' }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(234,179,8,0.25)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(234,179,8,0.15)'}
+                            style={{ width: '100%', padding: '12px 16px', background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.25)', borderRadius: '10px', color: '#fde047', fontSize: '13px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s', letterSpacing: '1px', textTransform: 'uppercase' }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(234,179,8,0.2)'; e.currentTarget.style.borderColor = 'rgba(234,179,8,0.5)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(234,179,8,0.1)'; e.currentTarget.style.borderColor = 'rgba(234,179,8,0.25)'; }}
                         >
                             🔧 Open Electron Developer Tools
                         </button>
-                        <p style={{ fontSize: '12px', color: '#fef08a', marginTop: '8px', textAlign: 'center', opacity: 0.8 }}>Full browser DevTools (Network, Elements, Console, etc.)</p>
+
+                        <button
+                            onClick={() => {
+                                const now = new Date();
+                                const mm = String(now.getMonth() + 1).padStart(2, '0');
+                                const dd = String(now.getDate()).padStart(2, '0');
+                                const yyyy = now.getFullYear();
+                                const hh = String(now.getHours()).padStart(2, '0');
+                                const min = String(now.getMinutes()).padStart(2, '0');
+                                const filename = `${mm}${dd}${yyyy}${hh}${min}_EXPORTCADLOGS.txt`;
+
+                                const sensitivePatterns = [
+                                    /DiscordAccountToken=.+/gi,
+                                    /discord.*token[^\n]*/gi,
+                                    /NjE[A-Za-z0-9+/=]{20,}/g,
+                                    /localStorage.*token[^\n]*/gi,
+                                ];
+
+                                let logsText = consoleLogs
+                                    .map(log => `[${log.timestamp}] [${log.type.toUpperCase()}] ${log.message}`)
+                                    .join('\n');
+
+                                sensitivePatterns.forEach(pattern => {
+                                    logsText = logsText.replace(pattern, '[REDACTED]');
+                                });
+
+                                const header = `NYSP MDT — Exported Logs\nExported: ${now.toLocaleString()}\nTotal entries: ${consoleLogs.length}\n${'═'.repeat(60)}\n\n`;
+                                const blob = new Blob([header + logsText], { type: 'text/plain' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = filename;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                                addLog(`📥 Logs exported as ${filename}`, 'success');
+                                showCustomError('Logs Exported', `Saved as ${filename}\n\nSensitive data (tokens) has been redacted.`, true);
+                            }}
+                            style={{ width: '100%', padding: '12px 16px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '10px', color: '#60a5fa', fontSize: '13px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s', letterSpacing: '1px', textTransform: 'uppercase' }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.2)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; }}
+                        >
+                            📄 Export Logs
+                        </button>
                     </div>
                 </div>
 
@@ -10264,7 +10280,12 @@ return (
                     </h3>
                     {editableTrooperSettings && (
                         <div style={{ display: 'grid', gap: '12px' }}>
-                            {[{ label: 'Registration Channel ID', key: 'RegistrationChannelID' }, { label: 'Database Channel ID', key: 'DatabaseChannelID' }, { label: 'Guild ID', key: 'GuildID' }].map(({ label, key }) => (
+{[
+                                { label: 'Registration Channel ID', key: 'RegistrationChannelID' },
+                                { label: 'Database Channel ID', key: 'DatabaseChannelID' },
+                                { label: 'Guild ID', key: 'GuildID' },
+                                { label: 'License Plate Expiry Dates', key: 'expDate' }
+                            ].map(({ label, key }) => (
                                 <div key={key}>
                                     <label style={{ color: '#d1fae5', fontSize: '13px', marginBottom: '4px', display: 'block' }}>{label}</label>
                                     <input type="text" value={editableTrooperSettings[key] || ''} onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, [key]: e.target.value})} style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '8px', color: 'white', fontSize: '13px', boxSizing: 'border-box' }} />
@@ -10342,37 +10363,7 @@ return (
 </div>
 
 
-                {/* ── DEV CONSOLE ── */}
-                {showDevConsole && consoleLogs.length > 0 && (
-                    <div className="console-box" style={{ marginTop: '20px' }}>
-                        <div className="console-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Terminal size={16} /> Developer Console
-                            </div>
-                            <button
-                                onClick={() => {
-                                    const logsText = consoleLogs.map(log => `[${log.timestamp}] [${log.type.toUpperCase()}] ${log.message}`).join('\n');
-                                    const blob = new Blob([logsText], { type: 'text/plain' });
-                                    const url = URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = `NYSP_MDT_Logs_${new Date().toISOString().split('T')[0]}.txt`;
-                                    a.click();
-                                    URL.revokeObjectURL(url);
-                                    addLog('📥 Console logs exported', 'success');
-                                }}
-                                style={{ padding: '4px 12px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '10px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px' }}
-                            >
-                                EXPORT
-                            </button>
-                        </div>
-                        {consoleLogs.map((log, i) => (
-                            <div key={i} className={`console-log console-${log.type}`}>
-                                [{log.timestamp}] {log.message}
-                            </div>
-                        ))}
-                    </div>
-                )}
+                
             </div>
         )}
     </div>
