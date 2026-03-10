@@ -1961,91 +1961,73 @@ const PHONETIC_MAP = {
     'uniform':'U','victor':'V','whiskey':'W','yankee':'Y','zulu':'Z'
 };
 
+const processVoskText = (text) => {
+    const words = text.toLowerCase().trim().split(/\s+/);
+    for (const word of words) {
+        const clean = word.replace(/[^a-z0-9\-]/g, '');
+        if (clean === 'space') {
+            setLicensePlate(prev => prev + ' ');
+        } else if (clean === 'enter') {
+            stopVoicePlate();
+            setTimeout(() => lookupUser(), 100);
+            return;
+        } else if (PHONETIC_MAP[clean]) {
+            setLicensePlate(prev => (prev + PHONETIC_MAP[clean]).toUpperCase());
+        } else if (clean.length === 1 && /[a-z]/.test(clean)) {
+            setLicensePlate(prev => (prev + clean).toUpperCase());
+        } else {
+            const numWords = {'zero':'0','one':'1','two':'2','three':'3','four':'4','five':'5','six':'6','seven':'7','eight':'8','nine':'9'};
+            if (numWords[clean]) setLicensePlate(prev => prev + numWords[clean]);
+        }
+    }
+};
+
 const stopVoicePlate = () => {
-    if (voiceRecogRef.current) {
-        try { voiceRecogRef.current.stop(); } catch(e) {}
-        voiceRecogRef.current = null;
+    if (window.require) {
+        try {
+            const { ipcRenderer } = window.require('electron');
+            ipcRenderer.invoke('vosk-stop');
+            ipcRenderer.removeAllListeners('vosk-result');
+            ipcRenderer.removeAllListeners('vosk-error');
+        } catch(e) {}
     }
     setVoiceActive(false);
     setVoiceNotif(false);
 };
 
-const startVoicePlate = () => {
+const startVoicePlate = async () => {
     if (!useMicrophone) {
         showCustomError('Microphone Disabled', 'Enable "Use Microphone" in Settings → Audio, Sound & Voice first.');
         return;
     }
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-        showCustomError('Not Supported', 'Speech recognition is not available in this version of the app.');
+    if (!window.require) {
+        showCustomError('Not Available', 'Voice recognition requires the desktop app.');
         return;
     }
+    try {
+        const { ipcRenderer } = window.require('electron');
 
-    const recog = new SpeechRecognition();
-    recog.lang = 'en-US';
-    recog.continuous = true;
-    recog.interimResults = false;
-    recog.maxAlternatives = 3;
+        ipcRenderer.on('vosk-result', (event, { text }) => {
+            processVoskText(text);
+        });
 
-    recog.onstart = () => {
+        ipcRenderer.on('vosk-error', (event, { error }) => {
+            showCustomError('Voice Error', `Microphone error: ${error}`);
+            stopVoicePlate();
+        });
+
+        const result = await ipcRenderer.invoke('vosk-start');
+        if (result.error) {
+            showCustomError('Voice Error', result.error);
+            ipcRenderer.removeAllListeners('vosk-result');
+            ipcRenderer.removeAllListeners('vosk-error');
+            return;
+        }
+
         setVoiceActive(true);
         setVoiceNotif(true);
-    };
-
-    recog.onresult = (event) => {
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-            if (!event.results[i].isFinal) continue;
-
-            // Try all alternatives for best match
-            let matched = null;
-            for (let a = 0; a < event.results[i].length; a++) {
-                const words = event.results[i][a].transcript.trim().toLowerCase().split(/\s+/);
-                for (const word of words) {
-                    const clean = word.replace(/[^a-z\-]/g, '');
-                    if (clean === 'space') { matched = ' '; break; }
-                    if (clean === 'enter') { matched = 'ENTER'; break; }
-                    if (PHONETIC_MAP[clean]) { matched = PHONETIC_MAP[clean]; break; }
-                    // Single letter spoken directly
-                    if (clean.length === 1 && /[a-z]/.test(clean)) { matched = clean.toUpperCase(); break; }
-                    // Number spoken
-                    const numWords = {'zero':'0','one':'1','two':'2','three':'3','four':'4','five':'5','six':'6','seven':'7','eight':'8','nine':'9'};
-                    if (numWords[clean]) { matched = numWords[clean]; break; }
-                }
-                if (matched) break;
-            }
-
-            if (matched === 'ENTER') {
-                stopVoicePlate();
-                setTimeout(() => lookupUser(), 100);
-            } else if (matched) {
-                setLicensePlate(prev => (prev + matched).toUpperCase());
-            }
-        }
-    };
-
-    recog.onerror = (e) => {
-        if (e.error === 'not-allowed') {
-            showCustomError('Microphone Denied', 'Microphone access was denied. Check your system permissions.');
-        } else if (e.error !== 'no-speech') {
-            showCustomError('Voice Error', `Speech recognition error: ${e.error}`);
-        }
-        stopVoicePlate();
-    };
-
-    recog.onend = () => {
-        // Auto-restart if still supposed to be active (handles gaps in speech)
-        if (voiceRecogRef.current) {
-            try { voiceRecogRef.current.start(); } catch(e) {}
-        }
-    };
-
-    voiceRecogRef.current = recog;
-    try {
-        recog.start();
     } catch(e) {
-        showCustomError('Voice Error', 'Could not start speech recognition.');
-        stopVoicePlate();
+        showCustomError('Voice Error', 'Could not start voice recognition: ' + e.message);
     }
 };
 
