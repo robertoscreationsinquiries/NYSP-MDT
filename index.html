@@ -1968,61 +1968,84 @@ const processVoskText = (text) => {
     }
 };
 
-const stopVoicePlate = async () => {
-    if (voiceProcessorRef.current) { voiceProcessorRef.current.disconnect(); voiceProcessorRef.current = null; }
-    if (voiceStreamRef.current) { voiceStreamRef.current.getTracks().forEach(t => t.stop()); voiceStreamRef.current = null; }
-    if (voiceAudioCtxRef.current) { voiceAudioCtxRef.current.close(); voiceAudioCtxRef.current = null; }
-    window.electron?.invoke('vosk-stop');
-    setVoiceActive(false);
-    setVoiceNotif('');
-};
 
 
 const startVoicePlate = async () => {
     if (!useMicrophone) return;
+    if (voiceActive) { stopVoicePlate(); return; }
     setVoiceNotif('Starting...');
     try {
-        const res = await window.electron?.invoke('vosk-start');
-        if (!res?.success) { setVoiceNotif('Error: ' + (res?.error || 'Failed')); return; }
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 16000, channelCount: 1 } });
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         voiceStreamRef.current = stream;
-        const ctx = new AudioContext({ sampleRate: 16000 });
+
+        // Live volume meter
+        const ctx = new AudioContext();
         voiceAudioCtxRef.current = ctx;
         const source = ctx.createMediaStreamSource(stream);
-        const processor = ctx.createScriptProcessor(4096, 1, 1);
-        voiceProcessorRef.current = processor;
-        processor.onaudioprocess = (e) => {
-            const copy = e.inputBuffer.getChannelData(0).slice(0).buffer;
-            window.electron?.send('vosk-audio-chunk', copy);
-        };
-// Live volume meter
         const analyser = ctx.createAnalyser();
         analyser.fftSize = 256;
         source.connect(analyser);
-        source.connect(processor);
-        processor.connect(ctx.destination);
         const meterData = new Uint8Array(analyser.frequencyBinCount);
         const meterTick = () => {
-            if (!voiceProcessorRef.current) return;
+            if (!voiceStreamRef.current) return;
             analyser.getByteFrequencyData(meterData);
             const avg = meterData.reduce((a,b) => a+b,0) / meterData.length;
             setMicLevel(Math.min(100, Math.round((avg / 128) * 100)));
             requestAnimationFrame(meterTick);
         };
         meterTick();
-        window.electron?.on('vosk-result', (text) => processVoskText(text));
-        window.electron?.on('vosk-partial', (text) => { if (text) setVoiceNotif('Hearing: ' + text); });
+
+        // Record using MediaRecorder
+        const recorder = new MediaRecorder(stream);
+        voiceProcessorRef.current = recorder;
+        const chunks = [];
+        recorder.ondataavailable = (e) => chunks.push(e.data);
+        recorder.onstop = async () => {
+            setVoiceNotif('Processing...');
+            setMicLevel(0);
+            try {
+                const blob = new Blob(chunks, { type: 'audio/webm' });
+                const formData = new FormData();
+                formData.append('file', blob, 'audio.webm');
+                formData.append('model', 'whisper-large-v3-turbo');
+                formData.append('response_format', 'json');
+                const apiKey = groqConsoleAPIKey || window.GROQ_CONSOLE_API_KEY || localStorage.getItem('groqConsoleAPIKey');
+                const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + apiKey },
+                    body: formData
+                });
+                const data = await res.json();
+                const text = data?.text?.trim();
+                if (text) {
+                    processVoskText(text);
+                } else {
+                    setVoiceNotif('No speech detected, try again');
+                }
+            } catch(e) {
+                setVoiceNotif('Error: ' + e.message);
+            }
+        };
+        recorder.start();
         setVoiceActive(true);
-        setVoiceNotif('🎙️ Listening — say letters phonetically, "space", or "enter" to search');
+        setVoiceNotif('🎙️ Recording — click 🎙️ again when done to search');
     } catch(e) {
         setVoiceNotif('Error: ' + (e.message || 'Mic denied'));
-setVoiceActive(false);
-    setVoiceNotif('');
-    setMicLevel(0);
+        setVoiceActive(false);
     }
 };
-// ─────────────────────────────────────────────────────────────────────────
 
+const stopVoicePlate = () => {
+    if (voiceProcessorRef.current?.state === 'recording') {
+        voiceProcessorRef.current.stop();
+    }
+    if (voiceStreamRef.current) { voiceStreamRef.current.getTracks().forEach(t => t.stop()); voiceStreamRef.current = null; }
+    if (voiceAudioCtxRef.current) { voiceAudioCtxRef.current.close(); voiceAudioCtxRef.current = null; }
+    voiceProcessorRef.current = null;
+    setVoiceActive(false);
+    setVoiceNotif('');
+    setMicLevel(0);
+};
 useEffect(() => {
     if (!useMicrophone && micTestActive) {
         stopMicTest();
