@@ -2038,7 +2038,6 @@ const getCommandSuggestion = (input) => {
 };
 
 const executeCommand = (rawInput) => {
-    const trimmed = rawInput.trim().toLowerCase();
     const parts = rawInput.trim().split(/\s+/);
     const cmdPart = parts[0].toLowerCase();
     const argPart = parts.slice(1).join(' ').trim();
@@ -2058,14 +2057,17 @@ const executeCommand = (rawInput) => {
 
     try {
         setCommandBarHint('');
+        setCommandBarOpen(false);
+        setCommandBarInput('/');
+
         if (cmdPart === '/search') {
             setLicensePlate(argPart.toUpperCase());
             setActiveView('search');
-            setTimeout(() => lookupUser(), 100);
+            setTimeout(() => lookupUser(), 150);
         } else if (cmdPart === '/lookup') {
             setSearchUsername(argPart);
             setActiveView('database-search');
-            setTimeout(() => searchByUsername(argPart), 100);
+            // Just prefill — don't auto-trigger search, let user confirm
         } else if (cmdPart === '/licenseplate') {
             setActiveView('search');
         } else if (cmdPart === '/citizen') {
@@ -2075,13 +2077,10 @@ const executeCommand = (rawInput) => {
         } else if (cmdPart === '/home') {
             setActiveView('home');
         }
-        setCommandBarOpen(false);
-        setCommandBarInput('/');
     } catch (err) {
         triggerCommandBarError('Command failed – try again');
     }
 };
-
 const triggerCommandBarError = (msg) => {
     setCommandBarError(msg);
     let flashes = 0;
@@ -3111,63 +3110,83 @@ const showCustomError = (title, message) => {
     const errorOverlay = document.createElement('div');
     errorOverlay.style.cssText = `
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.9);
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(6px);
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 9999;
+        z-index: 99999;
+        animation: fadeIn 0.15s ease;
     `;
-    
+
     const errorBox = document.createElement('div');
-    errorBox.className = visualEffects ? 'shake-animation' : '';
+    if (visualEffects) errorBox.className = 'shake-animation';
     errorBox.style.cssText = `
-        background: linear-gradient(135deg, #1e3a8a, #334155);
+        background: linear-gradient(135deg, #0a0f1e 0%, #0f172a 60%, #1e1f2e 100%);
         border-radius: 16px;
-        padding: 40px;
-        max-width: 500px;
+        padding: 36px 40px;
+        max-width: 460px;
+        width: 90%;
         text-align: center;
-        border: 2px solid #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.5);
+        box-shadow: 0 0 0 1px rgba(239,68,68,0.1), 0 24px 60px rgba(0,0,0,0.7), 0 0 40px rgba(239,68,68,0.08);
+        position: relative;
+        overflow: hidden;
     `;
-    
+
     errorBox.innerHTML = `
+        <div style="position:absolute;top:-40%;right:-10%;width:50%;height:200%;background:radial-gradient(circle,rgba(239,68,68,0.06) 0%,transparent 70%);pointer-events:none;"></div>
         <div style="
-            width: 80px;
-            height: 80px;
-            background: linear-gradient(135deg, #ef4444, #dc2626);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justifyContent: center;
-            margin: 0 auto 24px;
-        ">
-            <span style="font-size: 48px;"> </span>
-        </div>
-        <h2 style="color: white; font-size: 24px; margin-bottom: 16px;">${title}</h2>
-        <p style="color: #bfdbfe; font-size: 14px; margin-bottom: 32px; line-height: 1.6;">${message}</p>
+            width: 56px; height: 56px;
+            background: linear-gradient(135deg, rgba(239,68,68,0.2), rgba(220,38,38,0.1));
+            border: 1px solid rgba(239,68,68,0.4);
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 26px;
+            box-shadow: 0 4px 20px rgba(239,68,68,0.2);
+        ">⚠️</div>
+        <div style="
+            display: inline-block;
+            background: rgba(239,68,68,0.1);
+            border: 1px solid rgba(239,68,68,0.25);
+            border-radius: 4px;
+            padding: 2px 10px;
+            color: #f87171;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 14px;
+        ">SYSTEM ALERT</div>
+        <h2 style="color: #f1f5f9; font-size: 20px; font-weight: 800; margin-bottom: 10px; letter-spacing: 0.5px;">${title}</h2>
+        <p style="color: #64748b; font-size: 13px; margin-bottom: 28px; line-height: 1.7;">${message || ''}</p>
         <button id="closeError" style="
-            padding: 14px 32px;
-            background: #3b82f6;
+            padding: 11px 36px;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
             color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
+            border-radius: 9px;
+            font-size: 13px;
+            font-weight: 700;
             cursor: pointer;
-        ">OK</button>
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            box-shadow: 0 4px 16px rgba(239,68,68,0.35);
+            transition: all 0.2s;
+        ">DISMISS</button>
     `;
-    
+
     errorOverlay.appendChild(errorBox);
     document.body.appendChild(errorOverlay);
-    
-    document.getElementById('closeError').onclick = () => {
-        document.body.removeChild(errorOverlay);
-    };
-};
 
+    const closeBtn = errorBox.querySelector('#closeError');
+    closeBtn.onmouseenter = () => closeBtn.style.boxShadow = '0 6px 24px rgba(239,68,68,0.55)';
+    closeBtn.onmouseleave = () => closeBtn.style.boxShadow = '0 4px 16px rgba(239,68,68,0.35)';
+    closeBtn.onclick = () => document.body.removeChild(errorOverlay);
+    errorOverlay.onclick = (e) => { if (e.target === errorOverlay) document.body.removeChild(errorOverlay); };
+};
 
 React.useEffect(() => {
     if (activeView === 'calls' && tokenSaved && selectedUserSession) {
@@ -10127,30 +10146,54 @@ return (
 
                 {/* ── HOTKEYS & KEYBINDS ── */}
 <div style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
-    <h3 style={{ color: '#60a5fa', fontSize: '16px', fontWeight: '700', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '2px' }}>
+    <h3 style={{ color: '#60a5fa', fontSize: '16px', fontWeight: '700', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '2px' }}>
         ⌨️ HOTKEYS & KEYBINDS
     </h3>
-    <div style={{ padding: '14px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '10px' }}>
-        <div style={{ color: '#93c5fd', fontSize: '13px', fontWeight: '600', marginBottom: '10px' }}>Action Bar / Command Palette</div>
-        <div style={{ color: '#bfdbfe', fontSize: '12px', marginBottom: '12px', opacity: 0.8 }}>
-            Current keybind: <span style={{ fontFamily: 'monospace', background: 'rgba(59,130,246,0.2)', padding: '2px 8px', borderRadius: '4px' }}>{actionBarKeybind}</span>
+    <p style={{ color: '#475569', fontSize: '12px', marginBottom: '20px' }}>Configure keyboard shortcuts for quick access features.</p>
+
+    <div style={{ padding: '18px', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+            <div style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', flexShrink: 0 }}>⌨️</div>
+            <div>
+                <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700', letterSpacing: '0.5px' }}>Action Bar / Command Palette</div>
+                <div style={{ color: '#475569', fontSize: '11px', marginTop: '2px' }}>Opens the command palette overlay</div>
+            </div>
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ color: '#64748b', fontSize: '11px' }}>Active:</span>
+                <span style={{ fontFamily: 'monospace', background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', padding: '3px 10px', borderRadius: '6px', color: '#60a5fa', fontSize: '12px', fontWeight: '700', letterSpacing: '1px' }}>{actionBarKeybind}</span>
+            </div>
         </div>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <input
-                type="text"
-                value={keybindDraft}
-                onChange={(e) => setKeybindDraft(e.target.value.toUpperCase())}
-                placeholder="e.g. CTRL+K, F3, ALT+SPACE"
-                style={{ flex: 1, padding: '10px 14px', background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', color: 'white', fontSize: '13px', fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box' }}
-            />
-            <button
-                onClick={() => { setActionBarKeybind(keybindDraft); addLog(`✅ Action bar keybind set to: ${keybindDraft}`, 'success'); }}
-                style={{ padding: '10px 18px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'none', borderRadius: '8px', color: 'white', fontSize: '12px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap', letterSpacing: '1px' }}
+
+        <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '10px', padding: '12px', marginBottom: '10px' }}>
+            <div style={{ color: '#475569', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '8px' }}>Recording Keybind</div>
+            <div
+                tabIndex={0}
+                onKeyDown={(e) => {
+                    e.preventDefault();
+                    const parts = [];
+                    if (e.ctrlKey) parts.push('CTRL');
+                    if (e.shiftKey) parts.push('SHIFT');
+                    if (e.altKey) parts.push('ALT');
+                    const key = e.key.toUpperCase();
+                    if (!['CONTROL','SHIFT','ALT','META'].includes(key)) parts.push(key);
+                    if (parts.length > 0) setKeybindDraft(parts.join('+'));
+                }}
+                style={{ width: '100%', padding: '12px 16px', background: 'rgba(15,23,42,0.8)', border: `1px solid ${keybindDraft !== actionBarKeybind ? 'rgba(59,130,246,0.5)' : 'rgba(59,130,246,0.2)'}`, borderRadius: '8px', color: keybindDraft ? '#e2e8f0' : '#475569', fontSize: '14px', fontFamily: 'monospace', letterSpacing: '2px', cursor: 'text', outline: 'none', boxSizing: 'border-box', minHeight: '46px', display: 'flex', alignItems: 'center', userSelect: 'none', transition: 'border-color 0.2s' }}
+                onFocus={e => e.currentTarget.style.borderColor = 'rgba(59,130,246,0.7)'}
+                onBlur={e => e.currentTarget.style.borderColor = keybindDraft !== actionBarKeybind ? 'rgba(59,130,246,0.5)' : 'rgba(59,130,246,0.2)'}
             >
-                Save Keybind
-            </button>
+                {keybindDraft || <span style={{ color: '#334155' }}>Click here, then press your key combination...</span>}
+            </div>
+            <p style={{ color: '#334155', fontSize: '10px', marginTop: '6px' }}>Click the box above and press any key combination — e.g. CTRL+K, F3, ALT+SPACE</p>
         </div>
-        <p style={{ fontSize: '11px', color: '#60a5fa', marginTop: '8px', opacity: 0.7 }}>Formats: CTRL+K · CTRL+SHIFT+P · F3 · ALT+SPACE</p>
+
+        <button
+            onClick={() => { setActionBarKeybind(keybindDraft); addLog(`✅ Action bar keybind set to: ${keybindDraft}`, 'success'); }}
+            disabled={!keybindDraft || keybindDraft === actionBarKeybind}
+            style={{ padding: '9px 20px', background: (!keybindDraft || keybindDraft === actionBarKeybind) ? 'rgba(59,130,246,0.1)' : 'linear-gradient(135deg, #3b82f6, #2563eb)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', color: (!keybindDraft || keybindDraft === actionBarKeybind) ? '#475569' : 'white', fontSize: '11px', fontWeight: '700', cursor: (!keybindDraft || keybindDraft === actionBarKeybind) ? 'not-allowed' : 'pointer', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.2s' }}
+        >
+            Save Keybind
+        </button>
     </div>
 </div>
 
@@ -14338,47 +14381,39 @@ if (shiftPlateSearches.length > 0 && yPosition > 150) {
 )}
 
 {liveAnnouncements && Object.entries(liveAnnouncements).length > 0 && (
-    <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999, pointerEvents: 'none' }}>
+    <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999, pointerEvents: 'none', display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {Object.entries(liveAnnouncements).map(([id, message]) => (
-            <div key={id} style={{ 
-                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(220, 38, 38, 0.9))',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                borderRadius: '12px',
-                padding: '14px 18px',
-                marginBottom: '12px',
-                maxWidth: '380px',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
-                backdropFilter: 'blur(10px)',
-                pointerEvents: 'auto',
-                transition: 'transform 0.2s'
-            }}
-            onMouseEnter={e => e.currentTarget.style.transform = 'translateX(-4px)'}
-            onMouseLeave={e => e.currentTarget.style.transform = 'translateX(0)'}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '18px' }}>📢</span>
-                    <div style={{ 
-                        color: 'white', 
-                        fontSize: '11px', 
-                        fontWeight: '700', 
-                        letterSpacing: '1.5px',
-                        textTransform: 'uppercase'
-                    }}>
-                        LIVE ANNOUNCEMENT
-                    </div>
+            <div key={id}
+                style={{
+                    background: 'linear-gradient(135deg, #0a0f1e 0%, #0f172a 100%)',
+                    border: '1px solid rgba(239,68,68,0.4)',
+                    borderLeft: '3px solid #ef4444',
+                    borderRadius: '12px',
+                    padding: '14px 16px',
+                    maxWidth: '360px',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 20px rgba(239,68,68,0.06)',
+                    backdropFilter: 'blur(12px)',
+                    pointerEvents: 'auto',
+                    transition: 'transform 0.2s, box-shadow 0.2s',
+                    position: 'relative',
+                    overflow: 'hidden',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateX(-4px)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.7), 0 0 24px rgba(239,68,68,0.1)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateX(0)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.6), 0 0 20px rgba(239,68,68,0.06)'; }}
+            >
+                <div style={{ position: 'absolute', top: 0, right: 0, width: '40%', height: '100%', background: 'radial-gradient(circle at right, rgba(239,68,68,0.04) 0%, transparent 70%)', pointerEvents: 'none' }}></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <div style={{ width: '22px', height: '22px', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', flexShrink: 0 }}>📢</div>
+                    <div style={{ color: '#f87171', fontSize: '10px', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase' }}>Live Announcement</div>
+                    <div style={{ marginLeft: 'auto', width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 6px rgba(239,68,68,0.8)', animation: 'pulse 2s infinite' }}></div>
                 </div>
-                <div style={{ 
-                    color: 'white', 
-                    fontSize: '13px', 
-                    lineHeight: '1.5',
-                    fontWeight: '500'
-                }}>
+                <div style={{ color: '#cbd5e1', fontSize: '12px', lineHeight: '1.6', fontWeight: '500', paddingLeft: '2px' }}>
                     {message}
                 </div>
             </div>
         ))}
     </div>
 )}
-
 
 <button 
     className={`scroll-to-top ${showScrollTop ? 'visible' : ''}`}
