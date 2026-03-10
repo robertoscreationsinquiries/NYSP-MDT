@@ -1565,6 +1565,12 @@ const [pausedTime, setPausedTime] = useState(0);
 const [pauseStartTime, setPauseStartTime] = useState(null);
 const [dyslexiaFont, setDyslexiaFont] = useState(false);
 const [visualEffects, setVisualEffects] = useState(true);
+const [commandBarOpen, setCommandBarOpen] = useState(false);
+const [commandBarInput, setCommandBarInput] = useState('/');
+const [commandBarError, setCommandBarError] = useState('');
+const [commandBarHint, setCommandBarHint] = useState('');
+const [actionBarKeybind, setActionBarKeybind] = useState('CTRL+K');
+const [keybindDraft, setKeybindDraft] = useState('CTRL+K');
 const [showUpdateLog, setShowUpdateLog] = useState(false);
 const [recentRegistrationFlash, setRecentRegistrationFlash] = useState(false);
 const [savingSettings, setSavingSettings] = useState(false);
@@ -2010,6 +2016,105 @@ const base64ToArrayBuffer = (base64) => {
     }
     return bytes.buffer;
 };
+
+// ═══════════════════════════════════════════════════════
+// ACTION BAR / COMMAND PALETTE
+// ═══════════════════════════════════════════════════════
+
+const COMMANDS = [
+    { cmd: '/search', requiresInput: true },
+    { cmd: '/lookup', requiresInput: true },
+    { cmd: '/licenseplate', requiresInput: false },
+    { cmd: '/citizen', requiresInput: false },
+    { cmd: '/calls', requiresInput: false },
+    { cmd: '/home', requiresInput: false },
+];
+
+const getCommandSuggestion = (input) => {
+    if (!input.startsWith('/')) return '';
+    const lower = input.toLowerCase();
+    const match = COMMANDS.find(c => c.cmd.startsWith(lower) && c.cmd !== lower);
+    return match ? match.cmd.slice(lower.length) : '';
+};
+
+const executeCommand = (rawInput) => {
+    const trimmed = rawInput.trim().toLowerCase();
+    const parts = rawInput.trim().split(/\s+/);
+    const cmdPart = parts[0].toLowerCase();
+    const argPart = parts.slice(1).join(' ').trim();
+
+    const matched = COMMANDS.find(c => c.cmd === cmdPart);
+
+    if (!matched) {
+        triggerCommandBarError('Unknown command');
+        return;
+    }
+
+    if (matched.requiresInput && !argPart) {
+        if (cmdPart === '/search') setCommandBarHint('Enter a license plate to search → opens RUN LICENSEPLATE TAB');
+        if (cmdPart === '/lookup') setCommandBarHint('Enter a citizen name or ID → opens ID LOOKUP / CITIZENID');
+        return;
+    }
+
+    try {
+        setCommandBarHint('');
+        if (cmdPart === '/search') {
+            setLicensePlate(argPart.toUpperCase());
+            setActiveView('search');
+            setTimeout(() => lookupUser(), 100);
+        } else if (cmdPart === '/lookup') {
+            setSearchUsername(argPart);
+            setActiveView('database-search');
+            setTimeout(() => searchByUsername(argPart), 100);
+        } else if (cmdPart === '/licenseplate') {
+            setActiveView('search');
+        } else if (cmdPart === '/citizen') {
+            setActiveView('database-search');
+        } else if (cmdPart === '/calls') {
+            setActiveView('calls');
+        } else if (cmdPart === '/home') {
+            setActiveView('home');
+        }
+        setCommandBarOpen(false);
+        setCommandBarInput('/');
+    } catch (err) {
+        triggerCommandBarError('Command failed – try again');
+    }
+};
+
+const triggerCommandBarError = (msg) => {
+    setCommandBarError(msg);
+    let flashes = 0;
+    const interval = setInterval(() => {
+        flashes++;
+        if (flashes >= 6) { clearInterval(interval); setCommandBarError(''); }
+    }, 300);
+};
+
+useEffect(() => {
+    const handler = (e) => {
+        const keybind = actionBarKeybind.toUpperCase();
+        const ctrl = keybind.includes('CTRL') ? e.ctrlKey : true;
+        const shift = keybind.includes('SHIFT') ? e.shiftKey : !e.shiftKey || keybind.includes('SHIFT');
+        const alt = keybind.includes('ALT') ? e.altKey : !e.altKey;
+        const keyChar = keybind.replace('CTRL+','').replace('SHIFT+','').replace('ALT+','');
+        const isF = keyChar.startsWith('F') && !isNaN(keyChar.slice(1));
+
+        let keyMatch = false;
+        if (isF) keyMatch = e.key === keyChar;
+        else keyMatch = e.key.toUpperCase() === keyChar;
+
+        if (ctrl && shift && alt && keyMatch) {
+            e.preventDefault();
+            setCommandBarOpen(o => !o);
+            setCommandBarInput('/');
+            setCommandBarError('');
+            setCommandBarHint('');
+        }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+}, [actionBarKeybind]);
 
 const formatDate = (date, includeTime = false) => {
       const d = new Date(date);
@@ -8774,6 +8879,83 @@ return (
 {!maintenanceActive && !showUpdateScreen && !showLoginScreen && !showLoader && (
         <div className="app-container">
 
+{/* ═══ ACTION BAR / COMMAND PALETTE ═══ */}
+{commandBarOpen && (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+        onClick={(e) => { if (e.target === e.currentTarget) { setCommandBarOpen(false); setCommandBarInput('/'); } }}>
+        <div style={{ width: '600px', background: '#0f1419', border: '1px solid rgba(59,130,246,0.4)', borderRadius: '14px', padding: '20px', boxShadow: '0 20px 60px rgba(0,0,0,0.8)' }}>
+            
+            {/* Error flash */}
+            {commandBarError && (
+                <div style={{ color: '#ef4444', fontSize: '12px', fontWeight: '700', letterSpacing: '1px', marginBottom: '8px', textAlign: 'center', animation: 'flash-red 0.3s ease-in-out' }}>
+                    {commandBarError}
+                </div>
+            )}
+
+            {/* Input wrapper with ghost text */}
+            <div style={{ position: 'relative', marginBottom: '8px' }}>
+                {/* Ghost suggestion overlay */}
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, padding: '14px 16px', fontSize: '16px', fontFamily: 'monospace', letterSpacing: '1px', pointerEvents: 'none', color: 'transparent', whiteSpace: 'pre' }}>
+                    <span style={{ color: 'transparent' }}>{commandBarInput}</span>
+                    <span style={{ color: 'rgba(255,255,255,0.25)' }}>{getCommandSuggestion(commandBarInput)}</span>
+                </div>
+                <input
+                    autoFocus
+                    type="text"
+                    value={commandBarInput}
+                    onChange={(e) => {
+                        const val = e.target.value;
+                        setCommandBarInput(val.startsWith('/') ? val : '/' + val);
+                        setCommandBarHint('');
+                        setCommandBarError('');
+                    }}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Tab') {
+                            e.preventDefault();
+                            const suggestion = getCommandSuggestion(commandBarInput);
+                            if (suggestion) {
+                                const completed = commandBarInput + suggestion;
+                                const cmd = COMMANDS.find(c => c.cmd === completed.trim());
+                                setCommandBarInput(cmd?.requiresInput ? completed + ' ' : completed);
+                            }
+                        } else if (e.key === 'Enter') {
+                            executeCommand(commandBarInput);
+                        } else if (e.key === 'Escape') {
+                            setCommandBarOpen(false);
+                            setCommandBarInput('/');
+                        }
+                    }}
+                    style={{ width: '100%', padding: '14px 16px', background: 'rgba(255,255,255,0.05)', border: `1px solid ${commandBarError ? 'rgba(239,68,68,0.6)' : 'rgba(59,130,246,0.35)'}`, borderRadius: '10px', color: 'white', fontSize: '16px', fontFamily: 'monospace', letterSpacing: '1px', outline: 'none', boxSizing: 'border-box', position: 'relative', zIndex: 1, background: 'transparent' }}
+                />
+            </div>
+
+            {/* TAB hint */}
+            {getCommandSuggestion(commandBarInput) && (
+                <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '11px', marginBottom: '8px', letterSpacing: '1px' }}>
+                    Press TAB to accept suggestion
+                </div>
+            )}
+
+            {/* Input-required hint */}
+            {commandBarHint && (
+                <div style={{ color: '#fbbf24', fontSize: '12px', marginBottom: '8px', letterSpacing: '0.5px' }}>
+                    {commandBarHint}
+                </div>
+            )}
+
+            {/* Command list */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '12px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '12px' }}>
+                {COMMANDS.map(c => (
+                    <span key={c.cmd} style={{ padding: '3px 10px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '6px', color: '#60a5fa', fontSize: '11px', fontFamily: 'monospace', cursor: 'pointer' }}
+                        onClick={() => { setCommandBarInput(c.requiresInput ? c.cmd + ' ' : c.cmd); setCommandBarHint(''); }}>
+                        {c.cmd}{c.requiresInput ? ' {input}' : ''}
+                    </span>
+                ))}
+                <span style={{ marginLeft: 'auto', color: 'rgba(255,255,255,0.2)', fontSize: '11px', alignSelf: 'center' }}>ESC to close</span>
+            </div>
+        </div>
+    </div>
+)}
 
 {activeView === 'home' ? (
     <div style={{ 
@@ -9942,6 +10124,35 @@ return (
                         <p style={{ fontSize: '12px', color: '#ddd6fe', marginTop: '8px', marginLeft: '30px', opacity: 0.8 }}>Enables a sidetab on the left to allow for quicker navigation between tabs.</p>
                     </div>
                 </div>
+
+                {/* ── HOTKEYS & KEYBINDS ── */}
+<div style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
+    <h3 style={{ color: '#60a5fa', fontSize: '16px', fontWeight: '700', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '2px' }}>
+        ⌨️ HOTKEYS & KEYBINDS
+    </h3>
+    <div style={{ padding: '14px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '10px' }}>
+        <div style={{ color: '#93c5fd', fontSize: '13px', fontWeight: '600', marginBottom: '10px' }}>Action Bar / Command Palette</div>
+        <div style={{ color: '#bfdbfe', fontSize: '12px', marginBottom: '12px', opacity: 0.8 }}>
+            Current keybind: <span style={{ fontFamily: 'monospace', background: 'rgba(59,130,246,0.2)', padding: '2px 8px', borderRadius: '4px' }}>{actionBarKeybind}</span>
+        </div>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <input
+                type="text"
+                value={keybindDraft}
+                onChange={(e) => setKeybindDraft(e.target.value.toUpperCase())}
+                placeholder="e.g. CTRL+K, F3, ALT+SPACE"
+                style={{ flex: 1, padding: '10px 14px', background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', color: 'white', fontSize: '13px', fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box' }}
+            />
+            <button
+                onClick={() => { setActionBarKeybind(keybindDraft); addLog(`✅ Action bar keybind set to: ${keybindDraft}`, 'success'); }}
+                style={{ padding: '10px 18px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'none', borderRadius: '8px', color: 'white', fontSize: '12px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap', letterSpacing: '1px' }}
+            >
+                Save Keybind
+            </button>
+        </div>
+        <p style={{ fontSize: '11px', color: '#60a5fa', marginTop: '8px', opacity: 0.7 }}>Formats: CTRL+K · CTRL+SHIFT+P · F3 · ALT+SPACE</p>
+    </div>
+</div>
 
 
                 {/* ── DEVELOPER TOOLS ── */}
