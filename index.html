@@ -2750,6 +2750,18 @@ React.useEffect(() => {
     }
 }, [visualEffects]);
 
+React.useEffect(() => {
+    if (micHotkey) {
+        window.electron?.invoke('register-global-shortcut', { key: micHotkey, id: 'mic-toggle' });
+    }
+    window.electron?.on('global-shortcut-fired', (id) => {
+        if (id === 'mic-toggle' && activeView === 'search' && useMicrophone && !loading && !searchCooldown) {
+            voiceActive ? stopVoicePlate() : startVoicePlate();
+        }
+    });
+    return () => window.electron?.removeAllListeners?.('global-shortcut-fired');
+}, [micHotkey, voiceActive, useMicrophone, loading, searchCooldown, activeView]);
+
 
 React.useEffect(() => {
     console.log('🔄 [SETTINGS] Syncing API key from localStorage to UI...');
@@ -10261,481 +10273,222 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
         </button>
 
         {!settingsWarningDismissed ? (
-            /* ── WARNING SCREEN ── */
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px', padding: '40px', textAlign: 'center' }}>
-                <div style={{ 
-                    width: '90px', height: '90px',
-                    background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                    borderRadius: '50%',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    marginBottom: '28px',
-                    boxShadow: '0 0 40px rgba(239,68,68,0.4)'
-                }}>
+                <div style={{ width: '90px', height: '90px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '28px', boxShadow: '0 0 40px rgba(239,68,68,0.4)' }}>
                     <span style={{ fontSize: '48px', color: 'white', fontWeight: 'bold' }}>!</span>
                 </div>
                 <h2 style={{ color: '#fca5a5', fontSize: '34px', fontWeight: 'bold', marginBottom: '12px', letterSpacing: '2px' }}>WARNING</h2>
                 <h3 style={{ color: 'white', fontSize: '18px', marginBottom: '20px', opacity: 0.85 }}>YOU ARE ABOUT TO ENTER SETTINGS</h3>
-                <p style={{ color: '#bfdbfe', fontSize: '14px', lineHeight: '1.9', maxWidth: '580px', marginBottom: '36px', opacity: 0.85 }}>
-                    Sensitive information is hidden here which may be vulnerable to hackers if not covered. 
-                    We recommend ensuring you have no video recording or screen sharing active for safety purposes.
-                </p>
-                <button 
-                    onClick={() => { if (continueButtonEnabled) { setSettingsWarningDismissed(true); setHasVisitedSettingsBefore(true); } }}
-                    disabled={!continueButtonEnabled}
-                    style={{
-                        padding: '14px 56px',
-                        background: continueButtonEnabled ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#374151',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '10px',
-                        fontSize: '16px',
-                        fontWeight: '700',
-                        cursor: continueButtonEnabled ? 'pointer' : 'not-allowed',
-                        transition: 'all 0.3s',
-                        letterSpacing: '1px',
-                        boxShadow: continueButtonEnabled ? '0 4px 16px rgba(59,130,246,0.4)' : 'none'
-                    }}
-                >
+                <p style={{ color: '#bfdbfe', fontSize: '14px', lineHeight: '1.9', maxWidth: '580px', marginBottom: '36px', opacity: 0.85 }}>Sensitive information is hidden here which may be vulnerable to hackers if not covered. We recommend ensuring you have no video recording or screen sharing active for safety purposes.</p>
+                <button onClick={() => { if (continueButtonEnabled) { setSettingsWarningDismissed(true); setHasVisitedSettingsBefore(true); } }} disabled={!continueButtonEnabled} style={{ padding: '14px 56px', background: continueButtonEnabled ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#374151', color: 'white', border: 'none', borderRadius: '10px', fontSize: '16px', fontWeight: '700', cursor: continueButtonEnabled ? 'pointer' : 'not-allowed', transition: 'all 0.3s', letterSpacing: '1px', boxShadow: continueButtonEnabled ? '0 4px 16px rgba(59,130,246,0.4)' : 'none' }}>
                     {continueButtonEnabled ? 'CONTINUE' : `CONTINUE (${Math.max(0, 3 - Math.floor((Date.now() - (window.settingsStartTime || Date.now())) / 1000))}s)`}
                 </button>
             </div>
         ) : (
             <div>
-                <h2 style={{ color: 'white', fontSize: '26px', fontWeight: '700', marginBottom: '28px', letterSpacing: '1px', borderBottom: '1px solid rgba(59,130,246,0.2)', paddingBottom: '16px' }}>
-                    ⚙️ Configuration
-                </h2>
+                <h2 style={{ color: 'white', fontSize: '22px', fontWeight: '700', marginBottom: '24px', letterSpacing: '1px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '14px' }}>⚙️ Configuration</h2>
 
-                {/* ── AUTHENTICATION ── */}
-                <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
-                    <h3 style={{ color: '#fca5a5', fontSize: '16px', fontWeight: '700', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        🔒 AUTHENTICATION
-                    </h3>
+                {/* shared sub-styles as inline helpers */}
+                {(() => {
+                    const S = {
+                        section: (accent) => ({ borderLeft: `3px solid ${accent}`, paddingLeft: '18px', marginBottom: '28px' }),
+                        sectionHead: (color) => ({ color, fontSize: '10px', fontWeight: '800', letterSpacing: '2.5px', textTransform: 'uppercase', marginBottom: '4px' }),
+                        sectionSub: { color: '#374151', fontSize: '11px', marginBottom: '14px' },
+                        row: (on, accent) => ({ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: on ? `${accent}12` : 'rgba(255,255,255,0.02)', border: `1px solid ${on ? `${accent}30` : 'rgba(255,255,255,0.05)'}`, borderRadius: '9px', cursor: 'pointer', transition: 'all 0.15s', marginBottom: '7px' }),
+                        rowLabel: (on) => ({ color: on ? '#e2e8f0' : '#6b7280', fontSize: '13px', fontWeight: '600', transition: 'color 0.15s' }),
+                        rowDesc: { color: '#374151', fontSize: '11px', marginTop: '2px' },
+                        toggle: (on, accent) => ({ width: '38px', height: '21px', borderRadius: '11px', background: on ? accent : 'rgba(255,255,255,0.08)', position: 'relative', transition: 'all 0.2s', flexShrink: 0, marginLeft: '14px' }),
+                        toggleDot: (on) => ({ position: 'absolute', top: '2px', left: on ? '19px' : '2px', width: '15px', height: '15px', borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.4)' }),
+                        input: { width: '100%', padding: '10px 12px', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', color: '#e2e8f0', fontSize: '13px', boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.2s' },
+                        fieldLabel: { color: '#4b5563', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '5px' },
+                        divider: { height: '1px', background: 'rgba(255,255,255,0.04)', margin: '14px 0' },
+                        btn: (color, disabled) => ({ width: '100%', padding: '11px', background: disabled ? 'rgba(255,255,255,0.03)' : `${color}18`, border: `1px solid ${disabled ? 'rgba(255,255,255,0.05)' : `${color}30`}`, borderRadius: '8px', color: disabled ? '#374151' : color, fontSize: '12px', fontWeight: '700', cursor: disabled ? 'not-allowed' : 'pointer', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }),
+                    };
 
-                    <div className="token-box" style={{ marginBottom: '16px' }}>
-                        <label>Discord Account Token</label>
-                        <input type="password" value={discordToken} onChange={(e) => setDiscordToken(e.target.value)} placeholder="Enter your Discord token" />
-                        <button onClick={saveToken} className="btn-warning">
-                            {tokenSaved ? 'Update Token' : 'Save Token'}
-                        </button>
-                        <p style={{ fontSize: '12px', color: '#fef3c7', marginTop: '8px' }}>
-                            To get your token: follow tutorials provided in the Discord server or contact the owner.
-                        </p>
-                    </div>
-
-                    {/* Groq API Key */}
-                    <div style={{ marginTop: '16px', padding: '16px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '10px' }}>
-                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#e2e8f0', fontSize: '13px' }}>Groq Console API Key</label>
-                        <input
-                            type="password"
-                            value={groqConsoleAPIKey}
-                            onChange={(e) => setGroqConsoleAPIKey(e.target.value)}
-                            placeholder="Enter Groq Console API Key..."
-                            style={{ width: '100%', padding: '10px', background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', color: 'white', fontSize: '13px', marginBottom: '10px', boxSizing: 'border-box' }}
-                        />
-                        <button 
-                            onClick={async () => {
-                                if (!groqConsoleAPIKey || groqConsoleAPIKey.trim() === '') {
-                                    alert('❌ ERROR\n\nPlease enter a Groq API key before clicking Update.');
-                                    showCustomError('Error', 'Please enter a Hugging Face API key');
-                                    return;
-                                }
-                                const apiKey = groqConsoleAPIKey.trim();
-                                try {
-                                    localStorage.setItem('groqConsoleAPIKey', apiKey);
-                                    window.GROQ_CONSOLE_API_KEY = apiKey;
-                                    addLog('✅ Groq API key updated successfully', 'success');
-                                } catch (error) {
-                                    alert('❌ ERROR\n\nFailed to save API key!\n\nError: ' + error.message);
-                                    showCustomError('Error', 'Failed to save API key: ' + error.message);
-                                }
-                            }}
-                            style={{ padding: '10px 16px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'none', borderRadius: '8px', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer', width: '100%', boxShadow: '0 4px 12px rgba(59,130,246,0.3)', transition: 'all 0.2s' }}
-                            onMouseEnter={e => e.currentTarget.style.boxShadow = '0 6px 18px rgba(59,130,246,0.5)'}
-                            onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(59,130,246,0.3)'}
-                        >
-                            UPDATE GROQ API KEY
-                        </button>
-                        <p style={{ fontSize: '11px', color: '#64748b', marginTop: '8px' }}>Instructions on how to install is present in a .txt file.</p>
-                    </div>
-
-
-                    {tokenSaved && (
-                        <div style={{ marginTop: '16px', padding: '14px', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '10px' }}>
-                            <p style={{ color: '#fde047', fontSize: '12px', fontWeight: '700', marginBottom: '4px' }}>⚠ RATE LIMIT WARNING</p>
-                            <p style={{ color: '#fef3c7', fontSize: '11px', margin: 0 }}>Discord limits API requests. If you see 403/429 errors, wait 60 seconds between searches.</p>
+                    const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
+                        <div onClick={onToggle} style={S.row(on, accent)}>
+                            <div><div style={S.rowLabel(on)}>{label}</div>{desc && <div style={S.rowDesc}>{desc}</div>}</div>
+                            <div style={S.toggle(on, accent)}><div style={S.toggleDot(on)} /></div>
                         </div>
-                    )}
-                    {/* Logout */}
-                    <button
-                        onClick={handleLogout}
-                        style={{ marginTop: '16px', padding: '12px 24px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', borderRadius: '10px', color: '#fff', fontSize: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(239,68,68,0.3)', transition: 'all 0.2s' }}
-                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(239,68,68,0.5)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(239,68,68,0.3)'; }}
-                    >
-                        <XCircle size={18} /> LOGOUT
-                    </button>
-                </div>
+                    );
 
-                {/* ── APPEARANCE ── */}
-                <div style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: '14px', padding: '20px', marginBottom: '16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                        <span style={{ fontSize: '18px' }}>🎨</span>
+                    const KeybindRecorder = ({ label, desc, active, draft, setDraft, onSave, setRecording, accent, conflictKey, conflictLabel }) => {
+                        const hasConflict = draft && draft === conflictKey;
+                        const canSave = draft && draft !== active && !hasConflict;
+                        return (
+                            <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '14px', marginBottom: '10px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                    <div><div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700' }}>{label}</div><div style={S.rowDesc}>{desc}</div></div>
+                                    <span style={{ fontFamily: 'monospace', background: `${accent}18`, border: `1px solid ${accent}50`, padding: '3px 10px', borderRadius: '6px', color: accent, fontSize: '11px', fontWeight: '700', letterSpacing: '1px', flexShrink: 0, marginLeft: '10px' }}>{active || 'NONE'}</span>
+                                </div>
+                                <div tabIndex={0} onKeyDown={(e) => { e.preventDefault(); const p = []; if (e.ctrlKey) p.push('CTRL'); if (e.shiftKey) p.push('SHIFT'); if (e.altKey) p.push('ALT'); const k = e.key.toUpperCase(); if (!['CONTROL','SHIFT','ALT','META'].includes(k)) p.push(k); if (p.length > 0) setDraft(p.join('+')); }} onFocus={e => { setRecording(true); e.currentTarget.style.borderColor = accent; }} onBlur={e => { setRecording(false); e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; }} style={{ ...S.input, fontFamily: 'monospace', letterSpacing: '2px', fontSize: '13px', minHeight: '40px', display: 'flex', alignItems: 'center', userSelect: 'none', cursor: 'text', marginBottom: '8px', color: draft ? '#e2e8f0' : '#374151' }}>
+                                    {draft || <span style={{ color: '#2d3748' }}>Click here, then press a key combination...</span>}
+                                </div>
+                                {hasConflict && <div style={{ color: '#fca5a5', fontSize: '11px', marginBottom: '8px', padding: '6px 10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px' }}>⚠ Conflicts with "{conflictLabel}" — choose a different combination</div>}
+                                <button onClick={() => { if (canSave) onSave(); }} disabled={!canSave} style={S.btn(accent, !canSave)}>Save Keybind</button>
+                            </div>
+                        );
+                    };
+
+                    return (
                         <div>
-                            <div style={{ color: '#c4b5fd', fontSize: '13px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase' }}>Appearance</div>
-                            <div style={{ color: '#475569', fontSize: '11px' }}>Display and visual preferences</div>
-                        </div>
-                    </div>
-                    <div style={{ display: 'grid', gap: '8px' }}>
-                        {[
-                            { label: 'Normal Font', desc: 'Disables the MDT-style monospace font', state: dyslexiaFont, setter: (v) => { setDyslexiaFont(v); v ? document.body.classList.add('dyslexia-font') : document.body.classList.remove('dyslexia-font'); } },
-                            { label: 'Visual Feedback Effects', desc: 'Pulse animations, shake effects, glowing borders', state: visualEffects, setter: setVisualEffects },
-                            { label: 'Sidetab Navigation', desc: 'Quick-access nav tab on the left edge', state: compactMode, setter: (v) => { setCompactMode(v); if (window.require) { try { window.require('electron').ipcRenderer.send('toggle-compact-mode', v); } catch(_) {} } } },
-                        ].map(({ label, desc, state, setter }) => (
-                            <div key={label} onClick={() => setter(!state)} style={{ padding: '12px 16px', background: state ? 'rgba(139,92,246,0.1)' : 'rgba(255,255,255,0.02)', border: `1px solid ${state ? 'rgba(139,92,246,0.35)' : 'rgba(255,255,255,0.06)'}`, borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.2s' }}>
-                                <div>
-                                    <div style={{ color: state ? '#ddd6fe' : '#9ca3af', fontSize: '13px', fontWeight: '600', transition: 'color 0.2s' }}>{label}</div>
-                                    <div style={{ color: '#4b5563', fontSize: '11px', marginTop: '2px' }}>{desc}</div>
+
+                            {/* ── AUTHENTICATION ── */}
+                            <div style={S.section('#ef4444')}>
+                                <div style={S.sectionHead('#f87171')}>🔒 Authentication</div>
+                                <div style={S.sectionSub}>Credentials and account access</div>
+
+                                <div style={{ marginBottom: '12px' }}>
+                                    <div style={S.fieldLabel}>Discord Account Token</div>
+                                    <input type="password" value={discordToken} onChange={(e) => setDiscordToken(e.target.value)} placeholder="Enter your Discord token" style={{ ...S.input, marginBottom: '8px' }} onFocus={e => e.target.style.borderColor = 'rgba(239,68,68,0.4)'} onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.07)'} />
+                                    <button onClick={saveToken} style={S.btn('#ef4444', false)}>{tokenSaved ? '🔄 Update Token' : '💾 Save Token'}</button>
                                 </div>
-                                <div style={{ width: '36px', height: '20px', borderRadius: '10px', background: state ? '#7c3aed' : 'rgba(255,255,255,0.1)', border: `1px solid ${state ? '#7c3aed' : 'rgba(255,255,255,0.1)'}`, position: 'relative', transition: 'all 0.2s', flexShrink: 0 }}>
-                                    <div style={{ position: 'absolute', top: '2px', left: state ? '18px' : '2px', width: '14px', height: '14px', borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }} />
+
+                                <div style={S.divider} />
+
+                                <div style={{ marginBottom: '12px' }}>
+                                    <div style={S.fieldLabel}>Groq Console API Key</div>
+                                    <input type="password" value={groqConsoleAPIKey} onChange={(e) => setGroqConsoleAPIKey(e.target.value)} placeholder="gsk_..." style={{ ...S.input, marginBottom: '8px' }} onFocus={e => e.target.style.borderColor = 'rgba(59,130,246,0.4)'} onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.07)'} />
+                                    <button onClick={async () => { if (!groqConsoleAPIKey?.trim()) return; const k = groqConsoleAPIKey.trim(); localStorage.setItem('groqConsoleAPIKey', k); window.GROQ_CONSOLE_API_KEY = k; addLog('✅ Groq key updated', 'success'); }} style={S.btn('#3b82f6', !groqConsoleAPIKey?.trim())}>🔑 Update Groq API Key</button>
+                                </div>
+
+                                {tokenSaved && (
+                                    <div style={{ padding: '10px 12px', background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '8px', marginBottom: '10px' }}>
+                                        <div style={{ color: '#fbbf24', fontSize: '11px', fontWeight: '700', marginBottom: '2px' }}>⚠ Rate Limit Warning</div>
+                                        <div style={{ color: '#78716c', fontSize: '11px' }}>Discord limits API requests. If you see 403/429 errors, wait 60 seconds.</div>
+                                    </div>
+                                )}
+
+                                <div style={S.divider} />
+                                <button onClick={handleLogout} style={S.btn('#ef4444', false)}>
+                                    <XCircle size={14} /> Logout
+                                </button>
+                            </div>
+
+                            {/* ── APPEARANCE ── */}
+                            <div style={S.section('#8b5cf6')}>
+                                <div style={S.sectionHead('#a78bfa')}>🎨 Appearance</div>
+                                <div style={S.sectionSub}>Display and visual preferences</div>
+                                <ToggleRow label="Normal Font" desc="Disables the MDT-style monospace font" on={dyslexiaFont} accent="#8b5cf6" onToggle={() => { const v = !dyslexiaFont; setDyslexiaFont(v); v ? document.body.classList.add('dyslexia-font') : document.body.classList.remove('dyslexia-font'); }} />
+                                <ToggleRow label="Visual Feedback Effects" desc="Pulse animations, shake effects, glowing borders" on={visualEffects} accent="#8b5cf6" onToggle={() => setVisualEffects(!visualEffects)} />
+                                <ToggleRow label="Sidetab Navigation" desc="Quick-access nav panel on the left edge" on={compactMode} accent="#8b5cf6" onToggle={() => { const v = !compactMode; setCompactMode(v); if (window.require) { try { window.require('electron').ipcRenderer.send('toggle-compact-mode', v); } catch(_) {} } }} />
+                            </div>
+
+                            {/* ── HOTKEYS ── */}
+                            <div style={S.section('#3b82f6')}>
+                                <div style={S.sectionHead('#60a5fa')}>⌨️ Hotkeys & Keybinds</div>
+                                <div style={S.sectionSub}>Configure keyboard shortcuts — conflicts are blocked automatically</div>
+                                <KeybindRecorder label="Action Bar / Command Palette" desc="Opens the command palette overlay" active={actionBarKeybind} draft={keybindDraft} setDraft={setKeybindDraft} onSave={() => { setActionBarKeybind(keybindDraft); addLog(`✅ Action bar: ${keybindDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#3b82f6" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
+                                <KeybindRecorder label="Mic Toggle (Plate Search)" desc="Toggles voice-to-plate on the plate search page" active={micHotkey} draft={micHotkeyDraft} setDraft={setMicHotkeyDraft} onSave={() => { setMicHotkey(micHotkeyDraft); addLog(`✅ Mic hotkey: ${micHotkeyDraft}`, 'success'); }} setRecording={setIsRecordingMicHotkey} accent="#10b981" conflictKey={actionBarKeybind} conflictLabel="Action Bar" />
+                            </div>
+
+                            {/* ── DATA SOURCES ── */}
+                            <div style={S.section('#10b981')}>
+                                <div style={S.sectionHead('#6ee7b7')}>🗄️ Data Sources</div>
+                                <div style={S.sectionSub}>Discord channel IDs used as the citizen and vehicle database</div>
+                                {editableTrooperSettings && [
+                                    { label: 'Registration Channel ID', key: 'RegistrationChannelID' },
+                                    { label: 'Database Channel ID', key: 'DatabaseChannelID' },
+                                    { label: 'Guild ID', key: 'GuildID' },
+                                    { label: 'Plate Expiry Channel', key: 'expDate' },
+                                ].map(({ label, key }) => (
+                                    <div key={key} style={{ marginBottom: '10px' }}>
+                                        <div style={S.fieldLabel}>{label}</div>
+                                        <input type="text" value={editableTrooperSettings[key] || ''} onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, [key]: e.target.value})} style={S.input} onFocus={e => e.target.style.borderColor = 'rgba(16,185,129,0.4)'} onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.07)'} />
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* ── AUDIO, SOUND & VOICE ── */}
+                            <div style={S.section('#a855f7')}>
+                                <div style={S.sectionHead('#d8b4fe')}>🔊 Audio, Sound & Voice</div>
+                                <div style={S.sectionSub}>Call alerts, sound effects, and microphone access</div>
+
+                                <div style={{ marginBottom: '12px' }}>
+                                    <div style={S.fieldLabel}>📡 Active Session (Call Alerts)</div>
+                                    <select value={selectedUserSession} onChange={(e) => { setSelectedUserSession(e.target.value); addLog('✅ Session updated', 'success'); }} style={{ ...S.input, cursor: 'pointer' }}>
+                                        <option value="" style={{ background: '#0f172a' }}>None (No Alerts)</option>
+                                        <option value="1011898104670330920" style={{ background: '#0f172a' }}>Session 1</option>
+                                        <option value="1390212294478397471" style={{ background: '#0f172a' }}>Session 2</option>
+                                        <option value="1390212341005680650" style={{ background: '#0f172a' }}>Session 3</option>
+                                    </select>
+                                </div>
+
+                                <div style={S.divider} />
+                                <div style={{ ...S.fieldLabel, marginBottom: '8px' }}>🔔 Sound Effects</div>
+                                {[
+                                    { label: 'Plate Search — Success', key: 'platePass' },
+                                    { label: 'Plate Search — Not Found', key: 'plateFail' },
+                                    { label: 'New Call Alert', key: 'callAlert' },
+                                    { label: 'Warrant Alert', key: 'warrantAlert' },
+                                ].map(({ label, key }) => (
+                                    <ToggleRow key={key} label={label} on={soundSettings[key]} accent="#a855f7" onToggle={() => setSoundSettings({...soundSettings, [key]: !soundSettings[key]})} />
+                                ))}
+
+                                <div style={S.divider} />
+                                <div style={{ ...S.fieldLabel, marginBottom: '8px' }}>🎙️ Microphone & Voice</div>
+                                <ToggleRow label="Enable Microphone (EXPERIMENTAL)" desc="Voice-to-plate dictation on the plate search page" on={useMicrophone} accent="#a855f7" onToggle={() => { const v = !useMicrophone; setUseMicrophone(v); if (!v) { stopMicTest(); stopVoicePlate(); } }} />
+
+                                {useMicrophone && (
+                                    <div style={{ marginTop: '8px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                            <span style={S.fieldLabel}>Input Level</span>
+                                            <span style={{ color: micTestActive ? '#d8b4fe' : '#2d3748', fontSize: '10px', fontWeight: '700' }}>{micTestActive ? micLevel + '%' : '—'}</span>
+                                        </div>
+                                        <div style={{ height: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.04)', overflow: 'hidden', marginBottom: '10px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                                            <div style={{ height: '100%', width: micLevel + '%', background: micLevel > 85 ? '#ef4444' : micLevel > 55 ? '#a855f7' : '#6366f1', transition: micTestActive ? 'width 0.05s' : 'width 0.3s', borderRadius: '4px' }} />
+                                        </div>
+                                        {micTestError && <div style={{ color: '#fca5a5', fontSize: '11px', marginBottom: '8px', padding: '6px 10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px' }}>⚠️ {micTestError}</div>}
+                                        <button onClick={() => micTestActive ? stopMicTest() : startMicTest()} style={S.btn(micTestActive ? '#ef4444' : '#a855f7', false)}>
+                                            {micTestActive ? '⏹ Stop Test' : '🎙️ Test Microphone'}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* ── DEVELOPER TOOLS ── */}
+                            <div style={S.section('#f59e0b')}>
+                                <div style={S.sectionHead('#fcd34d')}>🛠️ Developer Tools</div>
+                                <div style={S.sectionSub}>Diagnostic and troubleshooting utilities</div>
+                                <div style={{ display: 'grid', gap: '8px' }}>
+                                    <button onClick={() => { if (window.require) window.require('electron').ipcRenderer.send('open-dev-tools'); }} style={S.btn('#f59e0b', false)}>🔧 Open Electron Developer Tools</button>
+                                    <button onClick={() => {
+                                        const now = new Date();
+                                        const pad = (n) => String(n).padStart(2,'0');
+                                        const filename = `${pad(now.getMonth()+1)}${pad(now.getDate())}${now.getFullYear()}${pad(now.getHours())}${pad(now.getMinutes())}_EXPORTCADLOGS.txt`;
+                                        const patterns = [/DiscordAccountToken=.+/gi,/discord.*token[^\n]*/gi,/NjE[A-Za-z0-9+/=]{20,}/g,/GroqConsoleAPIKey=.+/gi,/gsk_[A-Za-z0-9]{20,}/g];
+                                        let txt = consoleLogs.map(l => `[${l.timestamp}] [${l.type.toUpperCase()}] ${l.message}`).join('\n');
+                                        patterns.forEach(p => { txt = txt.replace(p, '[REDACTED]'); });
+                                        const blob = new Blob([`NYSP MDT — Exported Logs\n${now.toLocaleString()}\n${'═'.repeat(60)}\n\n` + txt], { type: 'text/plain' });
+                                        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+                                        addLog(`📥 ${filename}`, 'success');
+                                    }} style={S.btn('#3b82f6', false)}>📄 Export Logs</button>
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                </div>
 
-                {/* ── HOTKEYS & KEYBINDS ── */}
-<div style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
-    <h3 style={{ color: '#60a5fa', fontSize: '16px', fontWeight: '700', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '2px' }}>
-        ⌨️ HOTKEYS & KEYBINDS
-    </h3>
-    <p style={{ color: '#475569', fontSize: '12px', marginBottom: '20px' }}>Configure keyboard shortcuts for quick access features.</p>
-
-    <div style={{ padding: '18px', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-            <div style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', flexShrink: 0 }}>⌨️</div>
-            <div>
-                <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700', letterSpacing: '0.5px' }}>Action Bar / Command Palette</div>
-                <div style={{ color: '#475569', fontSize: '11px', marginTop: '2px' }}>Opens the command palette overlay</div>
-            </div>
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ color: '#64748b', fontSize: '11px' }}>Active:</span>
-                <span style={{ fontFamily: 'monospace', background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', padding: '3px 10px', borderRadius: '6px', color: '#60a5fa', fontSize: '12px', fontWeight: '700', letterSpacing: '1px' }}>{actionBarKeybind}</span>
-            </div>
-        </div>
-
-        <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '10px', padding: '12px', marginBottom: '10px' }}>
-            <div style={{ color: '#475569', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '8px' }}>Recording Keybind</div>
-            <div
-                tabIndex={0}
-                
-                onKeyDown={(e) => {
-                    e.preventDefault();
-                    const parts = [];
-                    if (e.ctrlKey) parts.push('CTRL');
-                    if (e.shiftKey) parts.push('SHIFT');
-                    if (e.altKey) parts.push('ALT');
-                    const key = e.key.toUpperCase();
-                    if (!['CONTROL','SHIFT','ALT','META'].includes(key)) parts.push(key);
-                    if (parts.length > 0) setKeybindDraft(parts.join('+'));
-                }}
-                style={{ width: '100%', padding: '12px 16px', background: 'rgba(15,23,42,0.8)', border: `1px solid ${keybindDraft !== actionBarKeybind ? 'rgba(59,130,246,0.5)' : 'rgba(59,130,246,0.2)'}`, borderRadius: '8px', color: keybindDraft ? '#e2e8f0' : '#475569', fontSize: '14px', fontFamily: 'monospace', letterSpacing: '2px', cursor: 'text', outline: 'none', boxSizing: 'border-box', minHeight: '46px', display: 'flex', alignItems: 'center', userSelect: 'none', transition: 'border-color 0.2s' }}
-onFocus={e => { setIsRecordingKeybind(true); e.currentTarget.style.borderColor = 'rgba(59,130,246,0.7)'; }}
-                onBlur={e => { setIsRecordingKeybind(false); e.currentTarget.style.borderColor = keybindDraft !== actionBarKeybind ? 'rgba(59,130,246,0.5)' : 'rgba(59,130,246,0.2)'; }}
-            >
-                {keybindDraft || <span style={{ color: '#334155' }}>Click here, then press your key combination...</span>}
-            </div>
-            <p style={{ color: '#334155', fontSize: '10px', marginTop: '6px' }}>Click the box above and press any key combination; e.g. CTRL+K, F3, ALT+SPACE</p>
-        </div>
-
-        <button
-            onClick={() => { setActionBarKeybind(keybindDraft); addLog(`✅ Action bar keybind set to: ${keybindDraft}`, 'success'); }}
-            disabled={!keybindDraft || keybindDraft === actionBarKeybind}
-            style={{ padding: '9px 20px', background: (!keybindDraft || keybindDraft === actionBarKeybind) ? 'rgba(59,130,246,0.1)' : 'linear-gradient(135deg, #3b82f6, #2563eb)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', color: (!keybindDraft || keybindDraft === actionBarKeybind) ? '#475569' : 'white', fontSize: '11px', fontWeight: '700', cursor: (!keybindDraft || keybindDraft === actionBarKeybind) ? 'not-allowed' : 'pointer', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.2s' }}
-        >
-            Save Keybind
-        </button>
-    </div>
-
-    {/* ── Mic Hotkey ── */}
-    <div style={{ marginTop: '16px', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '12px', padding: '18px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-            <div style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg, #065f46, #10b981)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', flexShrink: 0 }}>🎙️</div>
-            <div>
-                <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700', letterSpacing: '0.5px' }}>Mic Toggle (Plate Search)</div>
-                <div style={{ color: '#475569', fontSize: '11px', marginTop: '2px' }}>Toggles voice-to-plate while on the plate search page</div>
-            </div>
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ color: '#64748b', fontSize: '11px' }}>Active:</span>
-                <span style={{ fontFamily: 'monospace', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', padding: '3px 10px', borderRadius: '6px', color: '#6ee7b7', fontSize: '12px', fontWeight: '700', letterSpacing: '1px' }}>{micHotkey || 'NONE'}</span>
-            </div>
-        </div>
-        <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(16,185,129,0.15)', borderRadius: '10px', padding: '12px', marginBottom: '10px' }}>
-            <div style={{ color: '#475569', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '8px' }}>Recording Keybind</div>
-            <div
-                tabIndex={0}
-                onKeyDown={(e) => {
-                    e.preventDefault();
-                    const parts = [];
-                    if (e.ctrlKey) parts.push('CTRL');
-                    if (e.shiftKey) parts.push('SHIFT');
-                    if (e.altKey) parts.push('ALT');
-                    const key = e.key.toUpperCase();
-                    if (!['CONTROL','SHIFT','ALT','META'].includes(key)) parts.push(key);
-                    if (parts.length > 0) setMicHotkeyDraft(parts.join('+'));
-                }}
-                onFocus={e => { setIsRecordingMicHotkey(true); e.currentTarget.style.borderColor = 'rgba(16,185,129,0.7)'; }}
-                onBlur={e => { setIsRecordingMicHotkey(false); e.currentTarget.style.borderColor = micHotkeyDraft !== micHotkey ? 'rgba(16,185,129,0.5)' : 'rgba(16,185,129,0.2)'; }}
-                style={{ width: '100%', padding: '12px 16px', background: 'rgba(15,23,42,0.8)', border: `1px solid ${micHotkeyDraft !== micHotkey ? 'rgba(16,185,129,0.5)' : 'rgba(16,185,129,0.2)'}`, borderRadius: '8px', color: micHotkeyDraft ? '#e2e8f0' : '#475569', fontSize: '14px', fontFamily: 'monospace', letterSpacing: '2px', cursor: 'text', outline: 'none', boxSizing: 'border-box', minHeight: '46px', display: 'flex', alignItems: 'center', userSelect: 'none', transition: 'border-color 0.2s' }}
-            >
-                {micHotkeyDraft || <span style={{ color: '#334155' }}>Click here, then press your key combination...</span>}
-            </div>
-            <p style={{ color: '#334155', fontSize: '10px', marginTop: '6px' }}>Only active when on the License Plate Search page.</p>
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-                onClick={() => { setMicHotkey(micHotkeyDraft); addLog(`✅ Mic hotkey set to: ${micHotkeyDraft}`, 'success'); }}
-                disabled={!micHotkeyDraft || micHotkeyDraft === micHotkey}
-                style={{ flex: 1, padding: '9px 20px', background: (!micHotkeyDraft || micHotkeyDraft === micHotkey) ? 'rgba(16,185,129,0.1)' : 'linear-gradient(135deg, #10b981, #059669)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '8px', color: (!micHotkeyDraft || micHotkeyDraft === micHotkey) ? '#475569' : 'white', fontSize: '11px', fontWeight: '700', cursor: (!micHotkeyDraft || micHotkeyDraft === micHotkey) ? 'not-allowed' : 'pointer', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.2s' }}
-            >Save Hotkey</button>
-            <button
-                onClick={() => { setMicHotkey(''); setMicHotkeyDraft(''); addLog('🎙️ Mic hotkey cleared', 'info'); }}
-                disabled={!micHotkey}
-                style={{ padding: '9px 16px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', color: micHotkey ? '#f87171' : '#475569', fontSize: '11px', fontWeight: '700', cursor: micHotkey ? 'pointer' : 'not-allowed', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.2s' }}
-            >Clear</button>
-        </div>
-    </div>
-</div>
-
-
-                {/* ── DEVELOPER TOOLS ── */}
-                <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
-                    <h3 style={{ color: '#fde047', fontSize: '16px', fontWeight: '700', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '2px' }}>
-                        🛠️ DEVELOPER TOOLS
-                    </h3>
-                    <p style={{ color: '#475569', fontSize: '12px', marginBottom: '20px' }}>Diagnostic and troubleshooting utilities.</p>
-
-                    <div style={{ display: 'grid', gap: '10px' }}>
-                        <button
-                            onClick={() => { if (window.require) { const { ipcRenderer } = window.require('electron'); ipcRenderer.send('open-dev-tools'); } }}
-                            style={{ width: '100%', padding: '12px 16px', background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.25)', borderRadius: '10px', color: '#fde047', fontSize: '13px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s', letterSpacing: '1px', textTransform: 'uppercase' }}
-                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(234,179,8,0.2)'; e.currentTarget.style.borderColor = 'rgba(234,179,8,0.5)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(234,179,8,0.1)'; e.currentTarget.style.borderColor = 'rgba(234,179,8,0.25)'; }}
-                        >
-                            🔧 Open Electron Developer Tools
-                        </button>
-
-                        <button
-                            onClick={() => {
-                                const now = new Date();
-                                const mm = String(now.getMonth() + 1).padStart(2, '0');
-                                const dd = String(now.getDate()).padStart(2, '0');
-                                const yyyy = now.getFullYear();
-                                const hh = String(now.getHours()).padStart(2, '0');
-                                const min = String(now.getMinutes()).padStart(2, '0');
-                                const filename = `${mm}${dd}${yyyy}${hh}${min}_EXPORTCADLOGS.txt`;
-
-const sensitivePatterns = [
-                                    /DiscordAccountToken=.+/gi,
-                                    /discord.*token[^\n]*/gi,
-                                    /NjE[A-Za-z0-9+/=]{20,}/g,
-                                    /localStorage.*token[^\n]*/gi,
-                                    /GroqConsoleAPIKey=.+/gi,
-                                    /groq.*key[^\n]*/gi,
-                                    /gsk_[A-Za-z0-9]{20,}/g,
-                                ];
-
-                                let logsText = consoleLogs
-                                    .map(log => `[${log.timestamp}] [${log.type.toUpperCase()}] ${log.message}`)
-                                    .join('\n');
-
-                                sensitivePatterns.forEach(pattern => {
-                                    logsText = logsText.replace(pattern, '[REDACTED]');
-                                });
-
-                                const header = `NYSP MDT — Exported Logs\nExported: ${now.toLocaleString()}\nTotal entries: ${consoleLogs.length}\n${'═'.repeat(60)}\n\n`;
-                                const blob = new Blob([header + logsText], { type: 'text/plain' });
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = filename;
-                                a.click();
-                                URL.revokeObjectURL(url);
-                                addLog(`📥 Logs exported as ${filename}`, 'success');
-                                showCustomError('Logs Exported', `Saved as ${filename}\n\nSensitive data (tokens) has been redacted.`, true);
-                            }}
-                            style={{ width: '100%', padding: '12px 16px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '10px', color: '#60a5fa', fontSize: '13px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s', letterSpacing: '1px', textTransform: 'uppercase' }}
-                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.2)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; }}
-                        >
-                            📄 Export Logs
-                        </button>
-                    </div>
-                </div>
-
-                {/* ── DATA SOURCES ── */}
-                <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
-                    <h3 style={{ color: '#86efac', fontSize: '16px', fontWeight: '700', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '2px' }}>
-                        🗄️ DATA SOURCES
-                    </h3>
-                    {editableTrooperSettings && (
-                        <div style={{ display: 'grid', gap: '12px' }}>
-{[
-                                { label: 'Registration Channel ID', key: 'RegistrationChannelID' },
-                                { label: 'Database Channel ID', key: 'DatabaseChannelID' },
-                                { label: 'Guild ID', key: 'GuildID' },
-                                { label: 'License Plate Expiry Dates', key: 'expDate' }
-                            ].map(({ label, key }) => (
-                                <div key={key}>
-                                    <label style={{ color: '#d1fae5', fontSize: '13px', marginBottom: '4px', display: 'block' }}>{label}</label>
-                                    <input type="text" value={editableTrooperSettings[key] || ''} onChange={(e) => setEditableTrooperSettings({...editableTrooperSettings, [key]: e.target.value})} style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '8px', color: 'white', fontSize: '13px', boxSizing: 'border-box' }} />
+                            {/* ── EXPORT SETTINGS ── */}
+                            <div style={S.section('#22c55e')}>
+                                <div style={S.sectionHead('#4ade80')}>💾 Export Settings</div>
+                                <div style={S.sectionSub}>Write all current settings to your CADSystemSettings.txt file</div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '12px' }}>
+                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','USE_MICROPHONE'].map(k => (
+                                        <span key={k} style={{ padding: '2px 7px', background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.18)', borderRadius: '4px', color: '#4ade80', fontSize: '10px', fontFamily: 'monospace' }}>{k}</span>
+                                    ))}
+                                    <span style={{ padding: '2px 7px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '4px', color: '#f87171', fontSize: '10px', fontFamily: 'monospace' }}>ActiveSession*</span>
                                 </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/* ── AUDIO, SOUND & VOICE ── */}
-                <div style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
-                    <h3 style={{ color: '#c4b5fd', fontSize: '16px', fontWeight: '700', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '2px' }}>
-                        🔊 AUDIO, SOUND & VOICE
-                    </h3>
-                    <p style={{ color: '#475569', fontSize: '12px', marginBottom: '20px' }}>Manage alert sounds, session monitoring, and microphone access.</p>
-
-                    {/* Active Session */}
-                    <div style={{ marginBottom: '20px' }}>
-                        <label style={{ color: '#c4b5fd', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '8px' }}>📡 Active Session (Call Alerts)</label>
-                        <select value={selectedUserSession} onChange={(e) => { const value = e.target.value; setSelectedUserSession(value); addLog(`✅ Active session ${value ? 'set to ' + value : 'cleared'}`, 'success'); }} style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: '8px', color: 'white', fontSize: '14px', cursor: 'pointer', marginBottom: '6px' }}>
-                            <option value="" style={{ background: '#1e3a8a' }}>None (No Alerts)</option>
-                            <option value="1011898104670330920" style={{ background: '#1e3a8a' }}>Session 1</option>
-                            <option value="1390212294478397471" style={{ background: '#1e3a8a' }}>Session 2</option>
-                            <option value="1390212341005680650" style={{ background: '#1e3a8a' }}>Session 3</option>
-                        </select>
-                        <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>Plays an alert sound when a new dispatch call arrives for the selected session.</p>
-                    </div>
-
-                    {/* Divider */}
-                    <div style={{ height: '1px', background: 'rgba(139,92,246,0.15)', marginBottom: '20px' }} />
-
-                    {/* Sound Toggles */}
-                    <div style={{ marginBottom: '20px' }}>
-                        <label style={{ color: '#c4b5fd', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '12px' }}>🔔 Sound Effects</label>
-                        <div style={{ display: 'grid', gap: '8px' }}>
-                            {[
-                                { label: 'Plate Search — Success', key: 'platePass', icon: '✅' },
-                                { label: 'Plate Search — Not Found', key: 'plateFail', icon: '❌' },
-                                { label: 'New Call Alert', key: 'callAlert', icon: '📟' },
-                                { label: 'Warrant Alert', key: 'warrantAlert', icon: '⚠️' },
-                            ].map(({ label, key, icon }) => (
-                                <div key={key} style={{ padding: '11px 14px', background: soundSettings[key] ? 'rgba(139,92,246,0.12)' : 'rgba(255,255,255,0.03)', border: `1px solid ${soundSettings[key] ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.07)'}`, borderRadius: '8px', transition: 'all 0.2s' }}>
-                                    <label style={{ color: soundSettings[key] ? '#ddd6fe' : '#6b7280', fontSize: '13px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', transition: 'color 0.2s' }}>
-                                        <input type="checkbox" checked={soundSettings[key]} onChange={(e) => setSoundSettings({...soundSettings, [key]: e.target.checked})} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#a78bfa' }} />
-                                        {label}
-                                    </label>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Divider */}
-                    <div style={{ height: '1px', background: 'rgba(139,92,246,0.15)', marginBottom: '20px' }} />
-
-                    {/* Microphone */}
-                    <div>
-                        <label style={{ color: '#c4b5fd', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '12px' }}>🎙️ Microphone & Voice</label>
-
-                        {/* Use Microphone toggle */}
-                        <div style={{ padding: '12px 14px', background: useMicrophone ? 'rgba(139,92,246,0.12)' : 'rgba(255,255,255,0.03)', border: `1px solid ${useMicrophone ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.07)'}`, borderRadius: '8px', marginBottom: '14px', transition: 'all 0.2s' }}>
-                            <label style={{ color: useMicrophone ? '#ddd6fe' : '#6b7280', fontSize: '13px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                                <input type="checkbox" checked={useMicrophone} onChange={(e) => {
-                                    const val = e.target.checked;
-                                    setUseMicrophone(val);
-                                    if (!val && micTestActive) stopMicTest();
-                                    addLog(`🎙️ Microphone ${val ? 'enabled' : 'disabled'}`, 'info');
-                                }} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#a78bfa' }} />
-                                <span style={{ fontSize: '14px' }}>🎙️</span>
-                                Use Microphone (EXPERIMENTAL)
-                                <span style={{ marginLeft: 'auto', fontSize: '11px', padding: '2px 8px', borderRadius: '12px', background: useMicrophone ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.07)', color: useMicrophone ? '#c4b5fd' : '#4b5563', fontWeight: '700', letterSpacing: '1px' }}>
-                                    {useMicrophone ? 'ON' : 'OFF'}
-                                </span>
-                            </label>
-                            <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '6px', marginLeft: '26px' }}>Controls whether the app can access your microphone for voice features. Always uses the Windows default input device.</p>
-                        </div>
-
-                        {/* Volume meter */}
-                        <div style={{ marginBottom: '10px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                <span style={{ color: '#6b7280', fontSize: '11px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px' }}>Input Level</span>
-                                <span style={{ color: micTestActive ? '#a78bfa' : '#374151', fontSize: '11px', fontWeight: '700' }}>{micTestActive ? `${micLevel}%` : '—'}</span>
+                                <div style={{ color: '#374151', fontSize: '11px', marginBottom: '12px' }}>* ActiveSession is not saved — it requires manual activation each launch.</div>
+                                <button onClick={saveSettingsToFile} disabled={savingSettings} style={{ ...S.btn('#22c55e', savingSettings), padding: '13px' }}>
+                                    {savingSettings ? '⏳ Saving...' : '💾 Export to Local File'}
+                                </button>
                             </div>
-                            <div style={{ width: '100%', height: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.07)' }}>
-                                <div style={{
-                                    height: '100%',
-                                    width: `${micLevel}%`,
-                                    borderRadius: '6px',
-                                    background: micLevel > 85 ? 'linear-gradient(90deg, #a78bfa, #ef4444)' : micLevel > 50 ? 'linear-gradient(90deg, #7c3aed, #a78bfa)' : 'linear-gradient(90deg, #6d28d9, #8b5cf6)',
-                                    transition: micTestActive ? 'width 0.05s linear' : 'width 0.3s ease',
-                                    boxShadow: micTestActive && micLevel > 0 ? '0 0 8px rgba(139,92,246,0.6)' : 'none'
-                                }} />
-                            </div>
+
                         </div>
-
-                        {/* Error message */}
-                        {micTestError && (
-                            <div style={{ padding: '9px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '7px', color: '#fca5a5', fontSize: '12px', marginBottom: '10px' }}>
-                                ⚠️ {micTestError}
-                            </div>
-                        )}
-
-                        {/* Test button */}
-                        <button
-                            onClick={() => { if (micTestActive) { stopMicTest(); } else { startMicTest(); } }}
-                            style={{ width: '100%', padding: '11px 16px', background: micTestActive ? 'rgba(239,68,68,0.12)' : 'rgba(139,92,246,0.12)', border: `1px solid ${micTestActive ? 'rgba(239,68,68,0.35)' : 'rgba(139,92,246,0.35)'}`, borderRadius: '8px', color: micTestActive ? '#fca5a5' : '#c4b5fd', fontSize: '13px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.2s' }}
-                            onMouseEnter={e => { e.currentTarget.style.background = micTestActive ? 'rgba(239,68,68,0.2)' : 'rgba(139,92,246,0.2)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = micTestActive ? 'rgba(239,68,68,0.12)' : 'rgba(139,92,246,0.12)'; }}
-                        >
-                            {micTestActive ? '⏹ Stop Test' : '🎙️ Test Microphone'}
-                        </button>
-                    </div>
-                </div>
-
-                                {/* ── EXPORT SETTINGS ── */}
-<div style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
-    <h3 style={{ color: '#4ade80', fontSize: '16px', fontWeight: '700', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '2px' }}>
-        💾 EXPORT SETTINGS
-    </h3>
-    <p style={{ color: '#475569', fontSize: '12px', marginBottom: '20px' }}>Write all current settings directly to your CADSystemSettings.txt file.</p>
-    <div style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(34,197,94,0.15)', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
-        <div style={{ color: '#64748b', fontSize: '11px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '10px' }}>Will export:</div>
-<div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-            {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY'].map(k => (
-                <span key={k} style={{ padding: '2px 8px', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '4px', color: '#4ade80', fontSize: '10px', fontFamily: 'monospace' }}>{k}</span>
-            ))}
-            <span style={{ padding: '2px 8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '4px', color: '#f87171', fontSize: '10px', fontFamily: 'monospace' }}>ActiveSession</span>
-        </div>
-        <div style={{ marginTop: '10px', padding: '10px 12px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px' }}>
-            <div style={{ color: '#f87171', fontSize: '10px', fontWeight: '700', letterSpacing: '1px', marginBottom: '4px' }}>⚠ EXPORT NOTE</div>
-            <div style={{ color: '#64748b', fontSize: '11px', lineHeight: '1.6' }}>— ActiveSession will not be saved as it requires manual activation and verification from the user upon every launch.</div>
-        </div>
-    </div>
-    <button
-        onClick={saveSettingsToFile}
-        disabled={savingSettings}
-        style={{ width: '100%', padding: '13px', background: savingSettings ? 'rgba(34,197,94,0.1)' : 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(5,150,105,0.15))', border: '1px solid rgba(34,197,94,0.35)', borderRadius: '10px', color: savingSettings ? '#475569' : '#4ade80', fontSize: '13px', fontWeight: '700', cursor: savingSettings ? 'not-allowed' : 'pointer', letterSpacing: '1.5px', textTransform: 'uppercase', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-        onMouseEnter={e => { if (!savingSettings) { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.3), rgba(5,150,105,0.25))'; e.currentTarget.style.borderColor = 'rgba(34,197,94,0.6)'; }}}
-        onMouseLeave={e => { if (!savingSettings) { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(5,150,105,0.15))'; e.currentTarget.style.borderColor = 'rgba(34,197,94,0.35)'; }}}
-    >
-        {savingSettings ? '⏳ SAVING...' : 'EXPORT TO local file'}
-    </button>
-</div>
-
-
-                
+                    );
+                })()}
             </div>
         )}
     </div>
 )}
-
 
 {activeView === 'calls' && (
     <div style={{
