@@ -1686,7 +1686,7 @@ const [panicModalOpen, setPanicModalOpen] = useState(false);
 const panicAlarmRef = React.useRef(null);
 
 const startPanicAlarm = React.useCallback(() => {
-    if (window.SOUNDS_BASE64?.panicAlarm) {
+    if (window.SOUNDS_BASE64 && window.SOUNDS_BASE64.panicAlarm) {
         const audio = new Audio('data:audio/mp3;base64,' + window.SOUNDS_BASE64.panicAlarm);
         audio.loop = true;
         audio.volume = 0.8;
