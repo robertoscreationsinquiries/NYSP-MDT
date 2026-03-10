@@ -1685,6 +1685,24 @@ const [panicHotkeyDraft, setPanicHotkeyDraft] = useState('');
 const [panicModalOpen, setPanicModalOpen] = useState(false);
 const [panicNotif, setPanicNotif] = useState('');
 const [panicNotifType, setPanicNotifType] = useState('');
+
+const triggerPanicActivate = React.useCallback(async () => {
+    setPanicModalOpen(false);
+    setPanicNotifType('activated');
+    addLog('🚨 PANIC BUTTON ACTIVATED', 'error');
+    setPanicNotif('🚨 Panic activated — sending command to Roblox...');
+    try {
+        const result = await window.electron?.invoke('trigger-panic-roblox');
+        if (result?.success) {
+            setPanicNotif('🚨 Panic button activated. All units have been notified. /panic sent to Roblox. Update responding units with your location.');
+        } else {
+            setPanicNotif('🚨 Panic button activated. All units have been notified. Roblox not found — manually type /panic in chat!');
+        }
+    } catch(e) {
+        setPanicNotif('🚨 Panic button activated. All units have been notified. Manually type /panic in Roblox chat!');
+    }
+    setTimeout(() => setPanicNotif(''), 9000);
+}, []);
 const [isRecordingMicHotkey, setIsRecordingMicHotkey] = useState(false);
 // ──────────────────────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════
@@ -9309,12 +9327,12 @@ return (
             </div>
             {/* Body */}
             <div style={{ background: '#f8f5f0', padding: '28px 28px 24px', textAlign: 'center' }}>
-<PanicCountdown onExpire={() => { setPanicModalOpen(false); setPanicNotif('🚨 Panic button activated. All units have been notified. Update responding units with your location.'); setPanicNotifType('activated'); setTimeout(() => setPanicNotif(''), 8000); addLog('🚨 PANIC BUTTON ACTIVATED', 'error'); }} />
+<PanicCountdown onExpire={() => { triggerPanicActivate(); }} />
                 <div style={{ display: 'flex', gap: '12px' }}>
                     <button onClick={() => { setPanicModalOpen(false); setPanicNotif('The panic button has been disengaged. You can activate it at any time again.'); setPanicNotifType('disengaged'); setTimeout(() => setPanicNotif(''), 5000); }} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '800', cursor: 'pointer', letterSpacing: '1.5px', textTransform: 'uppercase', boxShadow: '0 4px 16px rgba(16,185,129,0.4)' }}>
                         ✓ DISENGAGE
                     </button>
-                    <button onClick={() => { setPanicModalOpen(false); setPanicNotif('🚨 Panic button activated. All units have been notified. Update responding units with your location.'); setPanicNotifType('activated'); setTimeout(() => setPanicNotif(''), 8000); addLog('🚨 PANIC BUTTON ACTIVATED', 'error'); }} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '800', cursor: 'pointer', letterSpacing: '1.5px', textTransform: 'uppercase', boxShadow: '0 4px 16px rgba(239,68,68,0.4)' }}>
+                    <button onClick={() => { triggerPanicActivate(); }} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '800', cursor: 'pointer', letterSpacing: '1.5px', textTransform: 'uppercase', boxShadow: '0 4px 16px rgba(239,68,68,0.4)' }}>
                         🚨 ACTIVATE
                     </button>
                 </div>
