@@ -3183,16 +3183,10 @@ const usefulLinksData = [
 useEffect(() => {
     const loadSettingsSync = async () => {
         try {
-addLog('📂 Loading trooper settings...', 'info');
-            let settingsText = null;
-            if (window.SETTINGS_FILE_CONTENT) {
-                settingsText = window.SETTINGS_FILE_CONTENT;
-                addLog('📂 Using injected settings from main.js', 'info');
-            } else {
-                try { const r = await fetch('CADSystemSettings.txt'); if (r.ok) settingsText = await r.text(); } catch(_) {}
-            }
-            if (settingsText) {
-                
+            addLog('ðŸ“‚ Loading trooper settings from settings_NYSPTOOL.txt...', 'info');
+            const response = await fetch('settings_NYSPTOOL.txt');
+            if (response.ok) {
+                const text = await response.text();
                 const settings = {};
                 
                 text.split('\n').forEach(line => {
