@@ -4761,6 +4761,11 @@ Return ONLY the JSON array, no other text.`;
 };
 
 const KeybindRecorder = ({ label, desc, active, draft, setDraft, onSave, setRecording, accent, conflictKey, conflictLabel }) => {
+    console.log('[KEYBIND] KeybindRecorder RENDERED —', label);
+    React.useEffect(() => {
+        console.log('[KEYBIND] KeybindRecorder MOUNTED —', label);
+        return () => console.log('[KEYBIND] KeybindRecorder UNMOUNTED —', label);
+    }, []);
     const hasConflict = draft && draft === conflictKey;
     const canSave = draft && draft !== active && !hasConflict;
     const S_input = { width: '100%', padding: '10px 12px', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', color: '#e2e8f0', fontSize: '13px', boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.2s' };
