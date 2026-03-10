@@ -10406,7 +10406,6 @@ const sensitivePatterns = [
                                 <div key={key} style={{ padding: '11px 14px', background: soundSettings[key] ? 'rgba(139,92,246,0.12)' : 'rgba(255,255,255,0.03)', border: `1px solid ${soundSettings[key] ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.07)'}`, borderRadius: '8px', transition: 'all 0.2s' }}>
                                     <label style={{ color: soundSettings[key] ? '#ddd6fe' : '#6b7280', fontSize: '13px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', transition: 'color 0.2s' }}>
                                         <input type="checkbox" checked={soundSettings[key]} onChange={(e) => setSoundSettings({...soundSettings, [key]: e.target.checked})} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#a78bfa' }} />
-                                        <span style={{ fontSize: '14px' }}>{icon}</span>
                                         {label}
                                     </label>
                                 </div>
