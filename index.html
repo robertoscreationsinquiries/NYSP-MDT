@@ -1545,14 +1545,7 @@ const [loaderChecks, setLoaderChecks] = React.useState([
     { label: 'DISCORD',        status: 'pending', result: '—' },
     { label: 'ROBLOX API',     status: 'pending', result: '—' }
 ]);
-const [useMicrophone, setUseMicrophone] = useState(true);
-const [micTestActive, setMicTestActive] = useState(false);
-const [micLevel, setMicLevel] = useState(0);
-const [micTestError, setMicTestError] = useState('');
-const micStreamRef = React.useRef(null);
-const micAnimFrameRef = React.useRef(null);
-const micAnalyserRef = React.useRef(null);
-const micAudioCtxRef = React.useRef(null);
+
 const [showWelcome, setShowWelcome] = useState(false);
 const [isOffline, setIsOffline] = useState(false);
 const [shiftStartTime, setShiftStartTime] = useState(null);
@@ -1610,6 +1603,21 @@ const [showWelcomePopup, setShowWelcomePopup] = React.useState(false);
 const [hfAPIKey, setHfAPIKey] = useState('');
 const [groqConsoleAPIKey, setGroqConsoleAPIKey] = useState('');
 const [databaseSearchUsername, setDatabaseSearchUsername] = useState('');
+// ── Mic / Voice state ─────────────────────────────────────────────────────
+const [useMicrophone, setUseMicrophone] = useState(true);
+const [micTestActive, setMicTestActive] = useState(false);
+const [micLevel, setMicLevel] = useState(0);
+const [micTestError, setMicTestError] = useState('');
+const [voiceActive, setVoiceActive] = useState(false);
+const [voiceNotif, setVoiceNotif] = useState('');
+const micStreamRef = React.useRef(null);
+const micAnimFrameRef = React.useRef(null);
+const micAnalyserRef = React.useRef(null);
+const micAudioCtxRef = React.useRef(null);
+const voiceStreamRef = React.useRef(null);
+const voiceAudioCtxRef = React.useRef(null);
+const voiceProcessorRef = React.useRef(null);
+// ──────────────────────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════
 // LOGIN SYSTEM STATE
 // ══════════════════════════════════════════════════════════════════════════
@@ -1623,8 +1631,6 @@ const [showBanScreen, setShowBanScreen] = useState(false);
 const [banReason, setBanReason] = useState('');
 const [showLogoutScreen, setShowLogoutScreen] = useState(false);
 const [trooperData, setTrooperData] = useState(null);
-const [voiceActive, setVoiceActive] = useState(false);
-const [voiceNotif, setVoiceNotif] = useState(false);
 const voiceRecogRef = React.useRef(null);
 
 
@@ -1729,6 +1735,9 @@ React.useEffect(() => {
         
         lines.forEach(line => {
             const trimmedLine = line.trim();
+            if (trimmedLine.startsWith('USE_MICROPHONE=')) {
+                setUseMicrophone(trimmedLine.split('=')[1]?.trim() !== 'FALSE');
+            }
             
            if (trimmedLine.startsWith('GroqConsoleAPIKey=')) {
                 const key = trimmedLine.split('=')[1];
@@ -1777,10 +1786,6 @@ React.useEffect(() => {
                     console.warn('⚠️ [SETTINGS] Reason: Empty, contains brackets, or is placeholder');
                     console.warn('═══════════════════════════════════════════════════');
                 }
-            }
-        if (trimmedLine.startsWith('USE_MICROPHONE=')) {
-                const val = trimmedLine.split('=')[1]?.trim();
-                setUseMicrophone(val !== 'FALSE');
             }
         });
     } else {
@@ -1947,89 +1952,61 @@ useEffect(() => {
     }
 }, [trooperSettings]);
 
-const PHONETIC_MAP = {
-    'adam':'A','boy':'B','charles':'C','david':'D','edward':'E',
-    'frank':'F','george':'G','henry':'H','ida':'I','john':'J',
-    'king':'K','lincoln':'L','mary':'M','nora':'N','ocean':'O',
-    'paul':'P','queen':'Q','robert':'R','sam':'S','tom':'T',
-    'union':'U','victor':'V','william':'W','x-ray':'X','xray':'X','young':'Y','zebra':'Z',
-    // Also support NATO as fallback
-    'alpha':'A','bravo':'B','charlie':'C','delta':'D','echo':'E',
-    'foxtrot':'F','golf':'G','hotel':'H','india':'I','juliet':'J',
-    'kilo':'K','lima':'L','mike':'M','november':'N','oscar':'O',
-    'papa':'P','quebec':'Q','romeo':'R','sierra':'S','tango':'T',
-    'uniform':'U','victor':'V','whiskey':'W','yankee':'Y','zulu':'Z'
-};
 
 const processVoskText = (text) => {
     const words = text.toLowerCase().trim().split(/\s+/);
-    for (const word of words) {
-        const clean = word.replace(/[^a-z0-9\-]/g, '');
-        if (clean === 'space') {
-            setLicensePlate(prev => prev + ' ');
-        } else if (clean === 'enter') {
-            stopVoicePlate();
-            setTimeout(() => lookupUser(), 100);
-            return;
-        } else if (PHONETIC_MAP[clean]) {
-            setLicensePlate(prev => (prev + PHONETIC_MAP[clean]).toUpperCase());
-        } else if (clean.length === 1 && /[a-z]/.test(clean)) {
-            setLicensePlate(prev => (prev + clean).toUpperCase());
-        } else {
-            const numWords = {'zero':'0','one':'1','two':'2','three':'3','four':'4','five':'5','six':'6','seven':'7','eight':'8','nine':'9'};
-            if (numWords[clean]) setLicensePlate(prev => prev + numWords[clean]);
-        }
+    let built = '';
+    for (const w of words) {
+        if (w === 'space') { built += ' '; continue; }
+        if (w === 'enter') { stopVoicePlate(); setTimeout(() => lookupUser(), 100); return; }
+        const mapped = PHONETIC_MAP[w];
+        if (mapped) built += mapped;
+    }
+    if (built) {
+        setLicensePlate(prev => (prev + built).toUpperCase());
+        setVoiceNotif('Heard: ' + text);
     }
 };
 
-const stopVoicePlate = () => {
-    if (window.require) {
-        try {
-            const { ipcRenderer } = window.require('electron');
-            ipcRenderer.invoke('vosk-stop');
-            ipcRenderer.removeAllListeners('vosk-result');
-            ipcRenderer.removeAllListeners('vosk-error');
-        } catch(e) {}
-    }
+const stopVoicePlate = async () => {
+    if (voiceProcessorRef.current) { voiceProcessorRef.current.disconnect(); voiceProcessorRef.current = null; }
+    if (voiceStreamRef.current) { voiceStreamRef.current.getTracks().forEach(t => t.stop()); voiceStreamRef.current = null; }
+    if (voiceAudioCtxRef.current) { voiceAudioCtxRef.current.close(); voiceAudioCtxRef.current = null; }
+    window.electron?.invoke('vosk-stop');
     setVoiceActive(false);
-    setVoiceNotif(false);
+    setVoiceNotif('');
 };
+
 
 const startVoicePlate = async () => {
-    if (!useMicrophone) {
-        showCustomError('Microphone Disabled', 'Enable "Use Microphone" in Settings → Audio, Sound & Voice first.');
-        return;
-    }
-    if (!window.require) {
-        showCustomError('Not Available', 'Voice recognition requires the desktop app.');
-        return;
-    }
+    if (!useMicrophone) return;
+    setVoiceNotif('Starting...');
     try {
-        const { ipcRenderer } = window.require('electron');
-
-        ipcRenderer.on('vosk-result', (event, { text }) => {
-            processVoskText(text);
-        });
-
-        ipcRenderer.on('vosk-error', (event, { error }) => {
-            showCustomError('Voice Error', `Microphone error: ${error}`);
-            stopVoicePlate();
-        });
-
-        const result = await ipcRenderer.invoke('vosk-start');
-        if (result.error) {
-            showCustomError('Voice Error', result.error);
-            ipcRenderer.removeAllListeners('vosk-result');
-            ipcRenderer.removeAllListeners('vosk-error');
-            return;
-        }
-
+        const res = await window.electron?.invoke('vosk-start');
+        if (!res?.success) { setVoiceNotif('Error: ' + (res?.error || 'Failed')); return; }
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 16000, channelCount: 1 } });
+        voiceStreamRef.current = stream;
+        const ctx = new AudioContext({ sampleRate: 16000 });
+        voiceAudioCtxRef.current = ctx;
+        const source = ctx.createMediaStreamSource(stream);
+        const processor = ctx.createScriptProcessor(4096, 1, 1);
+        voiceProcessorRef.current = processor;
+        processor.onaudioprocess = (e) => {
+            const copy = e.inputBuffer.getChannelData(0).slice(0).buffer;
+            window.electron?.send('vosk-audio-chunk', copy);
+        };
+        source.connect(processor);
+        processor.connect(ctx.destination);
+        window.electron?.on('vosk-result', (text) => processVoskText(text));
+        window.electron?.on('vosk-partial', (text) => { if (text) setVoiceNotif('Hearing: ' + text); });
         setVoiceActive(true);
-        setVoiceNotif(true);
+        setVoiceNotif('🎙️ Listening — say letters phonetically, "space", or "enter" to search');
     } catch(e) {
-        showCustomError('Voice Error', 'Could not start voice recognition: ' + e.message);
+        setVoiceNotif('Error: ' + (e.message || 'Mic denied'));
+        setVoiceActive(false);
     }
 };
+// ─────────────────────────────────────────────────────────────────────────
 
 useEffect(() => {
     if (!useMicrophone && micTestActive) {
@@ -2245,61 +2222,52 @@ const formatDate = (date, includeTime = false) => {
     return formatDate(currentTime, true);
 };
 
+// ── Mic Test ──────────────────────────────────────────────────────────────
 const stopMicTest = () => {
-    if (micAnimFrameRef.current) cancelAnimationFrame(micAnimFrameRef.current);
-    if (micStreamRef.current) micStreamRef.current.getTracks().forEach(t => t.stop());
-    if (micAudioCtxRef.current) micAudioCtxRef.current.close().catch(() => {});
-    micStreamRef.current = null;
+    if (micAnimFrameRef.current) { cancelAnimationFrame(micAnimFrameRef.current); micAnimFrameRef.current = null; }
+    if (micStreamRef.current) { micStreamRef.current.getTracks().forEach(t => t.stop()); micStreamRef.current = null; }
+    if (micAudioCtxRef.current) { micAudioCtxRef.current.close(); micAudioCtxRef.current = null; }
     micAnalyserRef.current = null;
-    micAudioCtxRef.current = null;
-    micAnimFrameRef.current = null;
     setMicTestActive(false);
     setMicLevel(0);
-    setMicTestError('');
 };
 
 const startMicTest = async () => {
-    if (!useMicrophone) {
-        setMicTestError('Microphone is turned off in settings.');
-        return;
-    }
     setMicTestError('');
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         micStreamRef.current = stream;
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        micAudioCtxRef.current = audioCtx;
-        const source = audioCtx.createMediaStreamSource(stream);
-        const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 512;
-        source.connect(analyser);
+        const ctx = new AudioContext();
+        micAudioCtxRef.current = ctx;
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
         micAnalyserRef.current = analyser;
+        ctx.createMediaStreamSource(stream).connect(analyser);
         setMicTestActive(true);
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        const data = new Uint8Array(analyser.frequencyBinCount);
         const tick = () => {
-            if (!micAnalyserRef.current) return;
-            analyser.getByteTimeDomainData(dataArray);
-            let sum = 0;
-            for (let i = 0; i < dataArray.length; i++) {
-                const v = (dataArray[i] - 128) / 128;
-                sum += v * v;
-            }
-            const rms = Math.sqrt(sum / dataArray.length);
-            setMicLevel(Math.min(100, Math.round(rms * 400)));
+            analyser.getByteFrequencyData(data);
+            const avg = data.reduce((a,b) => a+b, 0) / data.length;
+            setMicLevel(Math.min(100, Math.round((avg / 128) * 100)));
             micAnimFrameRef.current = requestAnimationFrame(tick);
         };
         tick();
-    } catch (err) {
-        if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-            setMicTestError('No microphone detected on this system.');
-        } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-            setMicTestError('Microphone access denied. Check your system permissions.');
-        } else {
-            setMicTestError('Could not access microphone: ' + err.message);
-        }
-        setMicTestActive(false);
-        setMicLevel(0);
+    } catch(e) {
+        setMicTestError(e.message || 'Microphone access denied');
     }
+};
+
+// ── Voice-to-Plate ────────────────────────────────────────────────────────
+const PHONETIC_MAP = {
+    adam:'A',boy:'B',charles:'C',david:'D',edward:'E',frank:'F',george:'G',
+    henry:'H',ida:'I',john:'J',king:'K',lincoln:'L',mary:'M',nora:'N',
+    ocean:'O',paul:'P',queen:'Q',robert:'R',sam:'S',thomas:'T',union:'U',
+    victor:'V',william:'W',xray:'X',yellow:'Y',zebra:'Z',
+    alpha:'A',bravo:'B',charlie:'C',delta:'D',echo:'E',foxtrot:'F',golf:'G',
+    hotel:'H',india:'I',juliet:'J',kilo:'K',lima:'L',mike:'M',november:'N',
+    oscar:'O',papa:'P',quebec:'Q',romeo:'R',sierra:'S',tango:'T',uniform:'U',
+    whiskey:'W',yankee:'Y',
+    zero:'0',one:'1',two:'2',three:'3',four:'4',five:'5',six:'6',seven:'7',eight:'8',nine:'9'
 };
 
 const checkDatabaseConnection = async () => {
@@ -9555,7 +9523,7 @@ return (
                             <strong>Experimental Voice to Letters function is in use.</strong> Say phonetic words (Adam, Boy…), numbers, SPACE, or ENTER.
                         </div>
                     )}
-                    <div style={{ display: 'flex', gap: '8px' }}>
+<div style={{ display: 'flex', gap: '8px' }}>
                         <button
                             onClick={lookupUser}
                             disabled={loading || !tokenSaved}
@@ -9565,22 +9533,16 @@ return (
                         >
                             {loading ? <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> SEARCHING...</> : <><Search size={18} /> SEARCH DATABASE</>}
                         </button>
-
                         {useMicrophone && (
                             <button
-                                onClick={() => { if (voiceActive) { stopVoicePlate(); } else { startVoicePlate(); } }}
-                                title={voiceActive ? 'Stop voice input' : 'Voice to plate (phonetic alphabet)'}
-                                style={{ padding: '14px 16px', background: voiceActive ? 'rgba(139,92,246,0.25)' : 'rgba(139,92,246,0.1)', border: `1px solid ${voiceActive ? 'rgba(139,92,246,0.6)' : 'rgba(139,92,246,0.3)'}`, borderRadius: '10px', color: voiceActive ? '#c4b5fd' : '#7c3aed', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', flexShrink: 0, position: 'relative' }}
-                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.25)'; e.currentTarget.style.borderColor = 'rgba(139,92,246,0.6)'; e.currentTarget.style.color = '#c4b5fd'; }}
-                                onMouseLeave={e => { if (!voiceActive) { e.currentTarget.style.background = 'rgba(139,92,246,0.1)'; e.currentTarget.style.borderColor = 'rgba(139,92,246,0.3)'; e.currentTarget.style.color = '#7c3aed'; } }}
-                            >
-                                {voiceActive
-                                    ? <span style={{ width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', animation: 'pulse-opacity 1s infinite' }}>🎙️</span>
-: <span style={{fontSize:'16px'}}>🎤</span>
-                                }
-                            </button>
+                                onClick={voiceActive ? stopVoicePlate : startVoicePlate}
+                                title="Voice to plate"
+                                style={{ padding: '14px 16px', background: voiceActive ? 'linear-gradient(135deg,#dc2626,#991b1b)' : 'rgba(59,130,246,0.15)', border: '1px solid ' + (voiceActive ? '#dc2626' : 'rgba(59,130,246,0.3)'), borderRadius: '10px', color: voiceActive ? 'white' : '#93c5fd', fontSize: '18px', cursor: 'pointer' }}>🎙️</button>
                         )}
                     </div>
+                    {voiceNotif && (
+                        <div style={{ marginTop: '8px', padding: '10px 14px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '8px', color: '#93c5fd', fontSize: '12px' }}>{voiceNotif}</div>
+                    )}
 
                     {loading && searchProgress > 0 && (
                         <div style={{ marginTop: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', overflow: 'hidden', height: '4px' }}>
