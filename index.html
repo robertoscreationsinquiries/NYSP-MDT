@@ -2004,9 +2004,9 @@ const startVoicePlate = async () => {
             setVoiceNotif('Processing...');
             setMicLevel(0);
             try {
-                const blob = new Blob(chunks, { type: 'audio/webm' });
+const blob = new Blob(chunks, { type: 'audio/wav' });
                 const formData = new FormData();
-                formData.append('file', blob, 'audio.webm');
+                formData.append('file', blob, 'audio.wav');
                 formData.append('model', 'whisper-large-v3-turbo');
                 formData.append('response_format', 'json');
                 const apiKey = groqConsoleAPIKey || window.GROQ_CONSOLE_API_KEY || localStorage.getItem('groqConsoleAPIKey');
@@ -2016,9 +2016,12 @@ const startVoicePlate = async () => {
                     body: formData
                 });
                 const data = await res.json();
+                console.log('[WHISPER] Response:', JSON.stringify(data));
                 const text = data?.text?.trim();
                 if (text) {
                     processVoskText(text);
+                } else if (data?.error) {
+                    setVoiceNotif('Groq error: ' + data.error.message);
                 } else {
                     setVoiceNotif('No speech detected, try again');
                 }
