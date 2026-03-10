@@ -2061,11 +2061,11 @@ const executeCommand = (rawInput) => {
         setCommandBarInput('/');
 
 if (cmdPart === '/search') {
-            setLicensePlate(argPart.toUpperCase());
             setActiveView('search');
-            setTimeout(() => lookupUser(argPart.toUpperCase()), 300);
+            setTimeout(() => lookupUser(argPart.toUpperCase()), 100);
         } else if (cmdPart === '/lookup') {
             setSearchUsername(argPart);
+            setSearchCitizenId(argPart);
             setActiveView('database-search');
             setTimeout(() => searchByUsername(argPart), 300);
         } else if (cmdPart === '/licenseplate') {
@@ -2683,7 +2683,8 @@ const updateLogsData = [
             'NEW - Added a backend that handles all officer-related data. In addition to this, all data is now encrypted meaning no one will be able to access your personal data as it is connected to a private cloudflare workplace.',
             'NEW - The main file that makes the app function now automatically updates upon launch (if update is available). (NOTE: If there are any changes to other files, manual download will be required.)',
             'NEW - Introduction for the following frames: "System under maintenance", "System no longer under maintenance", "Application updated while you were away.',
-            'NEW - Added a "Scroll up" which scrolls all the way up with a singular click.'
+            'NEW - Added a "Scroll up" which scrolls all the way up with a singular click.',
+            'NEW - Added a command bar allowing users to quickly search up license plates and such. Default keybind is CTRL+K, can be changed in the settings tab.'
         ],
         bugs: [
             'Fixed a bug where it failed to show the correct user Roblox profile after searching an individal up. (Also includes a fix for the citation fields)',
@@ -2703,6 +2704,7 @@ const updateLogsData = [
             'CHANGE - The app now aims to become more personalized to the user; depending on what department you are in, it will either say "NYSP" or "EGPD" across the application.',
             'CHANGE - Changed Minimode setting title to Sidetab.',
             'CHANGE - Changed "NYSP_SETTINGSTOOL" file to "CADSystemSettings".',
+            'CHANGE - The "Export settings" title text has been changed in the settings and now saves all data.'
         ],
         removed: [
             'REMOVED the "Mini-mode" button. This may be brought back in the future.',
@@ -3076,7 +3078,7 @@ expDate=${trooperSettings?.expDate || ''}
 DyslexiaFont=${dyslexiaFont ? 'TRUE' : 'FALSE'}
 VisualEffects=${visualEffects ? 'TRUE' : 'FALSE'}
 MiniMode=${compactMode ? 'TRUE' : 'FALSE'}
-ActiveSession=${selectedUserSession || 'NONE'}
+ActiveSession=NONE
 DevConsoleEnabled=${showDevConsole ? 'TRUE' : 'FALSE'}
 DiscordAccountToken=${discordToken || ''}
 GroqConsoleAPIKey=${groqConsoleAPIKey || ''}
@@ -3089,12 +3091,27 @@ ACTIONBAR_KEYBIND=${actionBarKeybind || 'CTRL+K'}`;
             const result = await ipcRenderer.invoke('write-cad-settings', { content: settingsContent });
             if (result.success) {
                 addLog(`✅ Settings written to: ${result.path}`, 'success');
-                showCustomError('Settings Exported', `CADSystemSettings.txt has been updated successfully.\n\nPath: ${result.path}`);
+
+                // Re-inject settings into the live app without restart
+                const lines = settingsContent.split('\n');
+                lines.forEach(line => {
+                    const eq = line.indexOf('=');
+                    if (eq < 0) return;
+                    const key = line.substring(0, eq).trim();
+                    const val = line.substring(eq + 1).trim();
+                    if (key === 'DiscordAccountToken') { setDiscordToken(val); localStorage.setItem('discordToken', val); }
+                    if (key === 'GroqConsoleAPIKey') { setGroqConsoleAPIKey(val); localStorage.setItem('groqConsoleAPIKey', val); window.GROQ_CONSOLE_API_KEY = val; }
+                    if (key === 'DyslexiaFont') setDyslexiaFont(val === 'TRUE');
+                    if (key === 'VisualEffects') setVisualEffects(val === 'TRUE');
+                    if (key === 'ACTIONBAR_KEYBIND') setActionBarKeybind(val);
+                    if (key === 'AmericanDateFormat') setTrooperSettings(prev => ({ ...prev, AmericanDateFormat: val }));
+                });
+
+                showCustomError('Settings Exported', `CADSystemSettings.txt updated successfully. All settings are now live — no restart required.`, true);
             } else {
                 throw new Error(result.error || 'Write failed');
             }
         } else {
-            // Fallback for non-Electron: download the file
             const blob = new Blob([settingsContent], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -3103,7 +3120,7 @@ ACTIONBAR_KEYBIND=${actionBarKeybind || 'CTRL+K'}`;
             a.click();
             URL.revokeObjectURL(url);
             addLog('✅ Settings downloaded as CADSystemSettings.txt', 'success');
-            showCustomError('Settings Exported', 'CADSystemSettings.txt has been downloaded. Replace your existing file with this one.');
+            showCustomError('Settings Exported', 'CADSystemSettings.txt has been downloaded. Replace your existing file with this one.', true);
         }
     } catch (err) {
         addLog(`❌ Export failed: ${err.message}`, 'error');
@@ -3112,22 +3129,33 @@ ACTIONBAR_KEYBIND=${actionBarKeybind || 'CTRL+K'}`;
 
     setSavingSettings(false);
 };
-const showCustomError = (title, message) => {
+const showCustomError = (title, message, g_background = false) => {
+    const isGood = g_background === true;
+    const accent = isGood ? '#10b981' : '#ef4444';
+    const accentDim = isGood ? 'rgba(16,185,129,' : 'rgba(239,68,68,';
+    const icon = isGood ? '✅' : '⚠️';
+    const label = isGood ? 'SUCCESS' : 'SYSTEM ALERT';
+    const btnGrad = isGood
+        ? 'linear-gradient(135deg, #10b981, #059669)'
+        : 'linear-gradient(135deg, #ef4444, #dc2626)';
+    const btnShadow = isGood
+        ? '0 4px 16px rgba(16,185,129,0.35)'
+        : '0 4px 16px rgba(239,68,68,0.35)';
+
     const errorOverlay = document.createElement('div');
     errorOverlay.style.cssText = `
         position: fixed;
         top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0, 0, 0, 0.75);
+        background: rgba(0,0,0,0.75);
         backdrop-filter: blur(6px);
         display: flex;
         align-items: center;
         justify-content: center;
         z-index: 99999;
-        animation: fadeIn 0.15s ease;
     `;
 
     const errorBox = document.createElement('div');
-    if (visualEffects) errorBox.className = 'shake-animation';
+    if (visualEffects && !isGood) errorBox.className = 'shake-animation';
     errorBox.style.cssText = `
         background: linear-gradient(135deg, #0a0f1e 0%, #0f172a 60%, #1e1f2e 100%);
         border-radius: 16px;
@@ -3135,42 +3163,42 @@ const showCustomError = (title, message) => {
         max-width: 460px;
         width: 90%;
         text-align: center;
-        border: 1px solid rgba(239, 68, 68, 0.5);
-        box-shadow: 0 0 0 1px rgba(239,68,68,0.1), 0 24px 60px rgba(0,0,0,0.7), 0 0 40px rgba(239,68,68,0.08);
+        border: 1px solid ${accentDim}0.5);
+        box-shadow: 0 0 0 1px ${accentDim}0.1), 0 24px 60px rgba(0,0,0,0.7), 0 0 40px ${accentDim}0.08);
         position: relative;
         overflow: hidden;
     `;
 
     errorBox.innerHTML = `
-        <div style="position:absolute;top:-40%;right:-10%;width:50%;height:200%;background:radial-gradient(circle,rgba(239,68,68,0.06) 0%,transparent 70%);pointer-events:none;"></div>
+        <div style="position:absolute;top:-40%;right:-10%;width:50%;height:200%;background:radial-gradient(circle,${accentDim}0.06) 0%,transparent 70%);pointer-events:none;"></div>
         <div style="
             width: 56px; height: 56px;
-            background: linear-gradient(135deg, rgba(239,68,68,0.2), rgba(220,38,38,0.1));
-            border: 1px solid rgba(239,68,68,0.4);
+            background: ${accentDim}0.15);
+            border: 1px solid ${accentDim}0.4);
             border-radius: 14px;
             display: flex; align-items: center; justify-content: center;
             margin: 0 auto 20px;
             font-size: 26px;
-            box-shadow: 0 4px 20px rgba(239,68,68,0.2);
-        ">⚠️</div>
+            box-shadow: 0 4px 20px ${accentDim}0.2);
+        ">${icon}</div>
         <div style="
             display: inline-block;
-            background: rgba(239,68,68,0.1);
-            border: 1px solid rgba(239,68,68,0.25);
+            background: ${accentDim}0.1);
+            border: 1px solid ${accentDim}0.25);
             border-radius: 4px;
             padding: 2px 10px;
-            color: #f87171;
+            color: ${accent};
             font-size: 10px;
             font-weight: 700;
             letter-spacing: 2px;
             text-transform: uppercase;
             margin-bottom: 14px;
-        ">SYSTEM ALERT</div>
+        ">${label}</div>
         <h2 style="color: #f1f5f9; font-size: 20px; font-weight: 800; margin-bottom: 10px; letter-spacing: 0.5px;">${title}</h2>
         <p style="color: #64748b; font-size: 13px; margin-bottom: 28px; line-height: 1.7;">${message || ''}</p>
         <button id="closeError" style="
             padding: 11px 36px;
-            background: linear-gradient(135deg, #ef4444, #dc2626);
+            background: ${btnGrad};
             color: white;
             border: none;
             border-radius: 9px;
@@ -3179,7 +3207,7 @@ const showCustomError = (title, message) => {
             cursor: pointer;
             letter-spacing: 1px;
             text-transform: uppercase;
-            box-shadow: 0 4px 16px rgba(239,68,68,0.35);
+            box-shadow: ${btnShadow};
             transition: all 0.2s;
         ">DISMISS</button>
     `;
@@ -3188,12 +3216,11 @@ const showCustomError = (title, message) => {
     document.body.appendChild(errorOverlay);
 
     const closeBtn = errorBox.querySelector('#closeError');
-    closeBtn.onmouseenter = () => closeBtn.style.boxShadow = '0 6px 24px rgba(239,68,68,0.55)';
-    closeBtn.onmouseleave = () => closeBtn.style.boxShadow = '0 4px 16px rgba(239,68,68,0.35)';
+    closeBtn.onmouseenter = () => closeBtn.style.boxShadow = `0 6px 24px ${accentDim}0.55)`;
+    closeBtn.onmouseleave = () => closeBtn.style.boxShadow = btnShadow;
     closeBtn.onclick = () => document.body.removeChild(errorOverlay);
     errorOverlay.onclick = (e) => { if (e.target === errorOverlay) document.body.removeChild(errorOverlay); };
 };
-
 React.useEffect(() => {
     if (activeView === 'calls' && tokenSaved && selectedUserSession) {
         const loadCalls = async () => {
@@ -4813,8 +4840,8 @@ const isFieldReadable = (fieldName) => {
     }
 };
 
-const lookupUser = async () => {
-
+const lookupUser = async (plateOverride) => {
+    if (plateOverride) setLicensePlate(plateOverride);
 
     if (searchCooldown) {
         showCustomError('Search Cooldown', `Please wait ${cooldownTime} seconds before searching again`);
@@ -4827,7 +4854,8 @@ const lookupUser = async () => {
     setWarrantInfo(null);
     setWarrantFlash(false);
     
-    if (!licensePlate.trim()) { setError('No input detected.'); addLog('No plate', 'error'); return; }
+const effectivePlate = (plateOverride || licensePlate || '').trim();
+    if (!effectivePlate) { setError('No input detected.'); addLog('No plate', 'error'); return; }
     if (!tokenSaved) { setError('Save token first'); addLog('No token', 'error'); return; }
 
     setLoading(true);
@@ -4837,7 +4865,7 @@ const lookupUser = async () => {
 
     setSearchProgress(0);
 
-    const searchedPlate = licensePlate.trim().toUpperCase();
+const searchedPlate = (plateOverride || licensePlate || '').trim().toUpperCase();
 
     try {
         setSearchProgress(10);
@@ -4848,7 +4876,7 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
                 console.log('Using trooper settings: ', editableTrooperSettings)
         
         setSearchProgress(30);
-        const searchedPlate = licensePlate.trim().toUpperCase();
+const searchedPlate = (plateOverride || licensePlate || '').trim().toUpperCase();
         
         // Generate all search variants
         const plateVariants = generatePlateVariants(searchedPlate);
@@ -10190,7 +10218,7 @@ return (
             >
                 {keybindDraft || <span style={{ color: '#334155' }}>Click here, then press your key combination...</span>}
             </div>
-            <p style={{ color: '#334155', fontSize: '10px', marginTop: '6px' }}>Click the box above and press any key combination — e.g. CTRL+K, F3, ALT+SPACE</p>
+            <p style={{ color: '#334155', fontSize: '10px', marginTop: '6px' }}>Click the box above and press any key combination; e.g. CTRL+K, F3, ALT+SPACE</p>
         </div>
 
         <button
@@ -10283,6 +10311,36 @@ return (
                     </div>
                 </div>
 
+                                {/* ── EXPORT SETTINGS ── */}
+<div style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
+    <h3 style={{ color: '#4ade80', fontSize: '16px', fontWeight: '700', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '2px' }}>
+        💾 EXPORT SETTINGS
+    </h3>
+    <p style={{ color: '#475569', fontSize: '12px', marginBottom: '20px' }}>Write all current settings directly to your CADSystemSettings.txt file.</p>
+    <div style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(34,197,94,0.15)', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
+        <div style={{ color: '#64748b', fontSize: '11px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '10px' }}>Will export:</div>
+<div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','AmericanDateFormat','ACTIONBAR_KEYBIND'].map(k => (
+                <span key={k} style={{ padding: '2px 8px', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '4px', color: '#4ade80', fontSize: '10px', fontFamily: 'monospace' }}>{k}</span>
+            ))}
+            <span style={{ padding: '2px 8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '4px', color: '#f87171', fontSize: '10px', fontFamily: 'monospace' }}>ActiveSession</span>
+        </div>
+        <div style={{ marginTop: '10px', padding: '10px 12px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px' }}>
+            <div style={{ color: '#f87171', fontSize: '10px', fontWeight: '700', letterSpacing: '1px', marginBottom: '4px' }}>⚠ EXPORT NOTE</div>
+            <div style={{ color: '#64748b', fontSize: '11px', lineHeight: '1.6' }}>— ActiveSession will not be saved as it requires manual activation and verification from the user upon every launch.</div>
+        </div>
+    </div>
+    <button
+        onClick={saveSettingsToFile}
+        disabled={savingSettings}
+        style={{ width: '100%', padding: '13px', background: savingSettings ? 'rgba(34,197,94,0.1)' : 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(5,150,105,0.15))', border: '1px solid rgba(34,197,94,0.35)', borderRadius: '10px', color: savingSettings ? '#475569' : '#4ade80', fontSize: '13px', fontWeight: '700', cursor: savingSettings ? 'not-allowed' : 'pointer', letterSpacing: '1.5px', textTransform: 'uppercase', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+        onMouseEnter={e => { if (!savingSettings) { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.3), rgba(5,150,105,0.25))'; e.currentTarget.style.borderColor = 'rgba(34,197,94,0.6)'; }}}
+        onMouseLeave={e => { if (!savingSettings) { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(5,150,105,0.15))'; e.currentTarget.style.borderColor = 'rgba(34,197,94,0.35)'; }}}
+    >
+        {savingSettings ? '⏳ SAVING...' : 'EXPORT TO local file'}
+    </button>
+</div>
+
 
                 {/* ── DEV CONSOLE ── */}
                 {showDevConsole && consoleLogs.length > 0 && (
@@ -10315,30 +10373,6 @@ return (
                         ))}
                     </div>
                 )}
-                {/* ── EXPORT SETTINGS ── */}
-<div style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
-    <h3 style={{ color: '#4ade80', fontSize: '16px', fontWeight: '700', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '2px' }}>
-        💾 EXPORT SETTINGS
-    </h3>
-    <p style={{ color: '#475569', fontSize: '12px', marginBottom: '20px' }}>Write all current settings directly to your CADSystemSettings.txt file.</p>
-    <div style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(34,197,94,0.15)', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
-        <div style={{ color: '#64748b', fontSize: '11px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '10px' }}>Will export:</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-            {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','ActiveSession','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','AmericanDateFormat','ACTIONBAR_KEYBIND'].map(k => (
-                <span key={k} style={{ padding: '2px 8px', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '4px', color: '#4ade80', fontSize: '10px', fontFamily: 'monospace' }}>{k}</span>
-            ))}
-        </div>
-    </div>
-    <button
-        onClick={saveSettingsToFile}
-        disabled={savingSettings}
-        style={{ width: '100%', padding: '13px', background: savingSettings ? 'rgba(34,197,94,0.1)' : 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(5,150,105,0.15))', border: '1px solid rgba(34,197,94,0.35)', borderRadius: '10px', color: savingSettings ? '#475569' : '#4ade80', fontSize: '13px', fontWeight: '700', cursor: savingSettings ? 'not-allowed' : 'pointer', letterSpacing: '1.5px', textTransform: 'uppercase', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-        onMouseEnter={e => { if (!savingSettings) { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.3), rgba(5,150,105,0.25))'; e.currentTarget.style.borderColor = 'rgba(34,197,94,0.6)'; }}}
-        onMouseLeave={e => { if (!savingSettings) { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(5,150,105,0.15))'; e.currentTarget.style.borderColor = 'rgba(34,197,94,0.35)'; }}}
-    >
-        {savingSettings ? '⏳ SAVING...' : 'EXPORT TO local file'}
-    </button>
-</div>
             </div>
         )}
     </div>
@@ -14411,38 +14445,41 @@ if (shiftPlateSearches.length > 0 && yPosition > 150) {
 )}
 
 {liveAnnouncements && Object.entries(liveAnnouncements).length > 0 && (
-    <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999, pointerEvents: 'none', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+    <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999, pointerEvents: 'none', display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {Object.entries(liveAnnouncements).map(([id, message]) => (
             <div key={id}
                 style={{
-                    background: 'linear-gradient(135deg, rgba(10,15,30,0.98), rgba(15,23,42,0.98))',
-                    border: '1px solid rgba(239,68,68,0.5)',
-                    borderRadius: '10px',
-                    padding: '12px 14px',
-                    maxWidth: '320px',
-                    boxShadow: '0 4px 24px rgba(0,0,0,0.7)',
+                    background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,58,138,0.25))',
+                    border: '1px solid rgba(239,68,68,0.35)',
+                    borderRadius: '14px',
+                    padding: '14px 16px',
+                    maxWidth: '340px',
+                    boxShadow: '0 4px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)',
                     pointerEvents: 'auto',
-                    transition: 'transform 0.2s',
+                    transition: 'transform 0.2s, box-shadow 0.2s',
                     position: 'relative',
                     overflow: 'hidden',
-                    fontFamily: 'inherit',
                 }}
-                onMouseEnter={e => e.currentTarget.style.transform = 'translateX(-3px)'}
-                onMouseLeave={e => e.currentTarget.style.transform = 'translateX(0)'}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateX(-4px)'; e.currentTarget.style.boxShadow = '0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateX(0)'; e.currentTarget.style.boxShadow = '0 4px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)'; }}
             >
-                {/* subtle red glow top-right */}
-                <div style={{ position: 'absolute', top: '-30%', right: '-10%', width: '50%', height: '160%', background: 'radial-gradient(circle, rgba(239,68,68,0.07) 0%, transparent 70%)', pointerEvents: 'none' }}></div>
+                {/* top accent line like cards in the app */}
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(239,68,68,0.7), transparent)' }}></div>
+                {/* ambient glow */}
+                <div style={{ position: 'absolute', top: '-50%', right: '-10%', width: '50%', height: '200%', background: 'radial-gradient(circle, rgba(239,68,68,0.06) 0%, transparent 70%)', pointerEvents: 'none' }}></div>
 
-                {/* header row */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                    <div style={{ width: '4px', height: '28px', background: 'linear-gradient(180deg, #ef4444, #dc2626)', borderRadius: '2px', flexShrink: 0 }}></div>
-                    <span style={{ fontSize: '14px' }}>📢</span>
-                    <span style={{ color: '#ef4444', fontSize: '9px', fontWeight: '800', letterSpacing: '2.5px', textTransform: 'uppercase' }}>LIVE ANNOUNCEMENT</span>
-                    <div style={{ marginLeft: 'auto', width: '5px', height: '5px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 6px rgba(239,68,68,0.9)', flexShrink: 0 }}></div>
+                {/* header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', position: 'relative', zIndex: 1 }}>
+                    <div style={{ width: '28px', height: '28px', background: 'linear-gradient(135deg, rgba(239,68,68,0.2), rgba(220,38,38,0.1))', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', flexShrink: 0 }}>📢</div>
+                    <span style={{ color: '#f87171', fontSize: '10px', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase' }}>LIVE ANNOUNCEMENT</span>
+                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px rgba(239,68,68,0.9)', animation: 'pulse-dot 2s ease-in-out infinite' }}></div>
+                        <span style={{ color: '#ef4444', fontSize: '9px', fontWeight: '700', letterSpacing: '1px' }}>LIVE</span>
+                    </div>
                 </div>
 
                 {/* message */}
-                <div style={{ color: '#94a3b8', fontSize: '11px', lineHeight: '1.6', fontWeight: '500', paddingLeft: '12px', letterSpacing: '0.2px' }}>
+                <div style={{ color: '#94a3b8', fontSize: '12px', lineHeight: '1.6', fontWeight: '500', position: 'relative', zIndex: 1, paddingLeft: '2px' }}>
                     {message}
                 </div>
             </div>
