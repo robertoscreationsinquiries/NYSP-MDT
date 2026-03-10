@@ -1683,10 +1683,30 @@ const [panicEnabled, setPanicEnabled] = useState(false);
 const [panicHotkey, setPanicHotkey] = useState('');
 const [panicHotkeyDraft, setPanicHotkeyDraft] = useState('');
 const [panicModalOpen, setPanicModalOpen] = useState(false);
+const panicAlarmRef = React.useRef(null);
+
+const startPanicAlarm = React.useCallback(() => {
+    if (window.SOUNDS_BASE64?.panicAlarm) {
+        const audio = new Audio('data:audio/mp3;base64,' + window.SOUNDS_BASE64.panicAlarm);
+        audio.loop = true;
+        audio.volume = 0.8;
+        audio.play().catch(() => {});
+        panicAlarmRef.current = audio;
+    }
+}, []);
+
+const stopPanicAlarm = React.useCallback(() => {
+    if (panicAlarmRef.current) {
+        panicAlarmRef.current.pause();
+        panicAlarmRef.current.currentTime = 0;
+        panicAlarmRef.current = null;
+    }
+}, []);
 const [panicNotif, setPanicNotif] = useState('');
 const [panicNotifType, setPanicNotifType] = useState('');
 
 const triggerPanicActivate = React.useCallback(async () => {
+    stopPanicAlarm();
     setPanicModalOpen(false);
     setPanicNotifType('activated');
     addLog('🚨 PANIC BUTTON ACTIVATED', 'error');
@@ -4022,9 +4042,10 @@ React.useEffect(() => {
         if (!['CONTROL','SHIFT','ALT','META'].includes(k)) parts.push(k);
         const pressed = parts.join('+');
         if (pressed === panicHotkey && !holdTimer) {
-            holdTimer = setTimeout(() => {
-                setPanicModalOpen(true);
-            }, 2000);
+holdTimer = setTimeout(() => {
+                    setPanicModalOpen(true);
+                    startPanicAlarm();
+                }, 2000);
         }
     };
     const cancelHandler = () => {
@@ -9329,7 +9350,7 @@ return (
             <div style={{ background: '#f8f5f0', padding: '28px 28px 24px', textAlign: 'center' }}>
 <PanicCountdown onExpire={() => { triggerPanicActivate(); }} />
                 <div style={{ display: 'flex', gap: '12px' }}>
-                    <button onClick={() => { setPanicModalOpen(false); setPanicNotif('The panic button has been disengaged. You can activate it at any time again.'); setPanicNotifType('disengaged'); setTimeout(() => setPanicNotif(''), 5000); }} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '800', cursor: 'pointer', letterSpacing: '1.5px', textTransform: 'uppercase', boxShadow: '0 4px 16px rgba(16,185,129,0.4)' }}>
+                    <button onClick={() => { stopPanicAlarm(); setPanicModalOpen(false); setPanicNotif('The panic button has been disengaged. You can activate it at any time again.'); setPanicNotifType('disengaged'); setTimeout(() => setPanicNotif(''), 5000); }} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '800', cursor: 'pointer', letterSpacing: '1.5px', textTransform: 'uppercase', boxShadow: '0 4px 16px rgba(16,185,129,0.4)' }}>
                         ✓ DISENGAGE
                     </button>
                     <button onClick={() => { triggerPanicActivate(); }} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '800', cursor: 'pointer', letterSpacing: '1.5px', textTransform: 'uppercase', boxShadow: '0 4px 16px rgba(239,68,68,0.4)' }}>
@@ -10522,7 +10543,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
 <div style={S.section('#10b981', 'rgba(16,185,129,0.06)')}>
                                 <div style={S.sectionHead('#6ee7b7')}>🗄️ Data Sources</div>
                                 <div style={S.sectionSub}>Configure keyboard shortcuts — conflicts are blocked automatically</div>
-                                <ToggleRow label="Panic Button" desc="Enables the panic button hotkey system" on={panicEnabled} accent="#ef4444" onToggle={() => setPanicEnabled(v => !v)} />
+                                <ToggleRow label="Panic Button" desc="Enables the panic button hotkey system. AUTOHOTKEY APPLICATION REQUIRED!" on={panicEnabled} accent="#ef4444" onToggle={() => setPanicEnabled(v => !v)} />
 {panicEnabled && (
     <KeybindRecorder label="Panic Button Hotkey" desc="Hold this key for 2 seconds to trigger the panic alert" active={panicHotkey} draft={panicHotkeyDraft} setDraft={setPanicHotkeyDraft} onSave={() => { setPanicHotkey(panicHotkeyDraft); addLog(`✅ Panic hotkey set to: ${panicHotkeyDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#ef4444" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
 )}
