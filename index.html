@@ -1954,18 +1954,33 @@ useEffect(() => {
 
 
 const processVoskText = (text) => {
-    const words = text.toLowerCase().trim().split(/\s+/);
+    console.log('[PHONETIC] Raw text from Whisper:', text);
+    const words = text.toLowerCase().trim().replace(/[.,!?]/g, '').split(/\s+/);
     let built = '';
+    let anyMapped = false;
+
     for (const w of words) {
-        if (w === 'space') { built += ' '; continue; }
-        if (w === 'enter') { stopVoicePlate(); setTimeout(() => lookupUser(), 100); return; }
+        if (w === 'space') { built += ' '; anyMapped = true; continue; }
+        if (w === 'enter') continue;
         const mapped = PHONETIC_MAP[w];
-        if (mapped) built += mapped;
+        if (mapped) {
+            built += mapped;
+            anyMapped = true;
+        }
     }
-    if (built) {
-        setLicensePlate(prev => (prev + built).toUpperCase());
-        setVoiceNotif('Heard: ' + text);
+
+    if (!anyMapped || built.trim() === '') {
+        setVoiceNotif('❌ Phonetic alphabet was not used during translation. Try again using Adam, Boy, Charles...');
+        setVoiceActive(false);
+        return;
     }
+
+    const final = built.toUpperCase();
+    console.log('[PHONETIC] Mapped result:', final);
+    setLicensePlate(final);
+    setVoiceNotif('✅ Plate set to: ' + final + ' — searching...');
+    setVoiceActive(false);
+    setTimeout(() => lookupUser(final), 300);
 };
 
 
@@ -2025,8 +2040,9 @@ const blob = new Blob(chunks, { type: 'audio/wav' });
                 } else {
                     setVoiceNotif('No speech detected, try again');
                 }
-            } catch(e) {
+} catch(e) {
                 setVoiceNotif('Error: ' + e.message);
+                setVoiceActive(false);
             }
         };
         recorder.start();
@@ -5020,7 +5036,7 @@ const isFieldReadable = (fieldName) => {
 };
 
 const lookupUser = async (plateOverride) => {
-    const effectivePlate = (typeof plateOverride === 'string' ? plateOverride : licensePlate || '').trim();
+    const effectivePlate = typeof plateOverride === 'string' ? plateOverride : licensePlate;
 
     if (searchCooldown) {
         showCustomError('Search Cooldown', `Please wait ${cooldownTime} seconds before searching again`);
@@ -9567,7 +9583,7 @@ return (
 <div style={{ display: 'flex', gap: '8px' }}>
                         <button
                             onClick={lookupUser}
-                            disabled={loading || !tokenSaved}
+                            disabled={loading || !tokenSaved || voiceActive}
                             style={{ flex: 1, padding: '14px', background: loading ? 'rgba(59,130,246,0.3)' : 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '14px', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', boxShadow: loading ? 'none' : '0 4px 16px rgba(59,130,246,0.4)', transition: 'all 0.2s', letterSpacing: '1px', textTransform: 'uppercase' }}
                             onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 6px 24px rgba(59,130,246,0.6)'; }}
                             onMouseLeave={e => { if (!loading) e.currentTarget.style.boxShadow = '0 4px 16px rgba(59,130,246,0.4)'; }}
