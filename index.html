@@ -9724,9 +9724,9 @@ return (
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                     e.preventDefault();
-                                    if (searchCooldown || loadingSearch || !searchCitizenId || searchCitizenId.trim() === '') return;
+if (searchCooldown || loadingSearch || !searchCitizenId || searchCitizenId.trim() === '') return;
                                     setSearchUsername(searchCitizenId);
-                                    setTimeout(() => { searchByUsername(); }, 50);
+                                    searchByUsername(searchCitizenId);
                                 }
                             }}
                             placeholder="Enter Discord User ID..."
@@ -9738,7 +9738,7 @@ return (
                     </div>
 
                     <button
-                        onClick={searchByUsername}
+onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                         disabled={loadingSearch || !tokenSaved}
                         style={{ width: '100%', padding: '14px', background: loadingSearch ? 'rgba(59,130,246,0.3)' : 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '14px', fontWeight: '700', cursor: loadingSearch ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', boxShadow: loadingSearch ? 'none' : '0 4px 16px rgba(59,130,246,0.4)', transition: 'all 0.2s', letterSpacing: '1px', textTransform: 'uppercase' }}
                         onMouseEnter={e => { if (!loadingSearch) e.currentTarget.style.boxShadow = '0 6px 24px rgba(59,130,246,0.6)'; }}
