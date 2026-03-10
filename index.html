@@ -4760,12 +4760,16 @@ Return ONLY the JSON array, no other text.`;
     }
 };
 
+const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
+    <div onClick={onToggle} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: on ? `${accent}12` : 'rgba(255,255,255,0.02)', border: `1px solid ${on ? `${accent}30` : 'rgba(255,255,255,0.05)'}`, borderRadius: '9px', cursor: 'pointer', transition: 'all 0.15s', marginBottom: '7px' }}>
+        <div><div style={{ color: on ? '#e2e8f0' : '#6b7280', fontSize: '13px', fontWeight: '600' }}>{label}</div>{desc && <div style={{ color: '#374151', fontSize: '11px', marginTop: '2px' }}>{desc}</div>}</div>
+        <div style={{ width: '38px', height: '21px', borderRadius: '11px', background: on ? accent : 'rgba(255,255,255,0.08)', position: 'relative', transition: 'all 0.2s', flexShrink: 0, marginLeft: '14px' }}>
+            <div style={{ position: 'absolute', top: '2px', left: on ? '19px' : '2px', width: '15px', height: '15px', borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.4)' }} />
+        </div>
+    </div>
+);
+
 const KeybindRecorder = ({ label, desc, active, draft, setDraft, onSave, setRecording, accent, conflictKey, conflictLabel }) => {
-    console.log('[KEYBIND] KeybindRecorder RENDERED —', label);
-    React.useEffect(() => {
-        console.log('[KEYBIND] KeybindRecorder MOUNTED —', label);
-        return () => console.log('[KEYBIND] KeybindRecorder UNMOUNTED —', label);
-    }, []);
     const hasConflict = draft && draft === conflictKey;
     const canSave = draft && draft !== active && !hasConflict;
     const S_input = { width: '100%', padding: '10px 12px', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', color: '#e2e8f0', fontSize: '13px', boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.2s' };
@@ -4776,40 +4780,14 @@ const KeybindRecorder = ({ label, desc, active, draft, setDraft, onSave, setReco
                 <div><div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700' }}>{label}</div><div style={{ color: '#374151', fontSize: '11px', marginTop: '2px' }}>{desc}</div></div>
                 <span style={{ fontFamily: 'monospace', background: `${accent}18`, border: `1px solid ${accent}50`, padding: '3px 10px', borderRadius: '6px', color: accent, fontSize: '11px', fontWeight: '700', letterSpacing: '1px', flexShrink: 0, marginLeft: '10px' }}>{active || 'NONE'}</span>
             </div>
-<div tabIndex={0}
-    onKeyDown={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        console.log('[KEYBIND] keydown fired', e.key, 'ctrl:', e.ctrlKey, 'shift:', e.shiftKey, 'alt:', e.altKey);
-        const p = [];
-        if (e.ctrlKey) p.push('CTRL');
-        if (e.shiftKey) p.push('SHIFT');
-        if (e.altKey) p.push('ALT');
-        const k = e.key.toUpperCase();
-        if (!['CONTROL','SHIFT','ALT','META'].includes(k)) p.push(k);
-        if (p.length > 0) {
-            console.log('[KEYBIND] setting draft to:', p.join('+'));
-            setDraft(p.join('+'));
-        }
-    }}
-    onFocus={e => {
-        console.log('[KEYBIND] FOCUSED —', label);
-        setRecording(true);
-        e.currentTarget.style.borderColor = accent;
-    }}
-    onBlur={e => {
-        console.log('[KEYBIND] BLURRED —', label, '| relatedTarget:', e.relatedTarget);
-        console.log('[KEYBIND] blur reason — active element after blur:', document.activeElement);
-        setRecording(false);
-        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)';
-    }}
-    onMouseDown={e => {
-        console.log('[KEYBIND] mousedown on recorder');
-        e.stopPropagation();
-    }}
-    style={{ ...S_input, fontFamily: 'monospace', letterSpacing: '2px', fontSize: '13px', minHeight: '40px', display: 'flex', alignItems: 'center', userSelect: 'none', cursor: 'text', marginBottom: '8px', color: draft ? '#e2e8f0' : '#374151' }}>
-    {draft || <span style={{ color: '#2d3748' }}>Click here, then press a key combination...</span>}
-</div>
+            <div tabIndex={0}
+                onKeyDown={(e) => { e.preventDefault(); e.stopPropagation(); const p = []; if (e.ctrlKey) p.push('CTRL'); if (e.shiftKey) p.push('SHIFT'); if (e.altKey) p.push('ALT'); const k = e.key.toUpperCase(); if (!['CONTROL','SHIFT','ALT','META'].includes(k)) p.push(k); if (p.length > 0) setDraft(p.join('+')); }}
+                onFocus={e => { setRecording(true); e.currentTarget.style.borderColor = accent; }}
+                onBlur={e => { setRecording(false); e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; }}
+                onMouseDown={e => e.stopPropagation()}
+                style={{ ...S_input, fontFamily: 'monospace', letterSpacing: '2px', fontSize: '13px', minHeight: '40px', display: 'flex', alignItems: 'center', userSelect: 'none', cursor: 'text', marginBottom: '8px', color: draft ? '#e2e8f0' : '#374151' }}>
+                {draft || <span style={{ color: '#2d3748' }}>Click here, then press a key combination...</span>}
+            </div>
             {hasConflict && <div style={{ color: '#fca5a5', fontSize: '11px', marginBottom: '8px', padding: '6px 10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px' }}>⚠ Conflicts with "{conflictLabel}" — choose a different combination</div>}
             <button onClick={() => { if (canSave) onSave(); }} disabled={!canSave} style={S_btn(accent, !canSave)}>Save Keybind</button>
         </div>
@@ -10363,13 +10341,6 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                         divider: { height: '1px', background: 'rgba(255,255,255,0.04)', margin: '14px 0' },
                         btn: (color, disabled) => ({ width: '100%', padding: '11px', background: disabled ? 'rgba(255,255,255,0.03)' : `${color}18`, border: `1px solid ${disabled ? 'rgba(255,255,255,0.05)' : `${color}30`}`, borderRadius: '8px', color: disabled ? '#374151' : color, fontSize: '12px', fontWeight: '700', cursor: disabled ? 'not-allowed' : 'pointer', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }),
                     };
-
-                    const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
-                        <div onClick={onToggle} style={S.row(on, accent)}>
-                            <div><div style={S.rowLabel(on)}>{label}</div>{desc && <div style={S.rowDesc}>{desc}</div>}</div>
-                            <div style={S.toggle(on, accent)}><div style={S.toggleDot(on)} /></div>
-                        </div>
-                    );
 
                     return (
                         <div>
