@@ -1463,6 +1463,31 @@ body::after {
 };
 
     
+const PanicCountdown = ({ onExpire }) => {
+            const [seconds, setSeconds] = React.useState(10);
+            React.useEffect(() => {
+                if (seconds <= 0) { onExpire(); return; }
+                const t = setTimeout(() => setSeconds(s => s - 1), 1000);
+                return () => clearTimeout(t);
+            }, [seconds]);
+            const pct = (seconds / 10) * 100;
+            const color = seconds <= 3 ? '#ef4444' : seconds <= 6 ? '#f59e0b' : '#10b981';
+            return (
+                <div style={{ marginBottom: '28px' }}>
+                    <p style={{ color: '#1a1a1a', fontSize: '15px', lineHeight: '1.7', marginBottom: '16px', fontWeight: '500' }}>
+                        Panic button activation has been registered. If this was unintentional, react promptly and disengage the function by clicking <strong>"DISENGAGE"</strong> below.
+                    </p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                        <div style={{ flex: 1, height: '6px', background: 'rgba(0,0,0,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: '3px', transition: 'width 1s linear, background 0.3s' }} />
+                        </div>
+                        <span style={{ fontSize: '18px', fontWeight: '900', color, minWidth: '28px', textAlign: 'right', fontFamily: 'monospace' }}>{seconds}</span>
+                    </div>
+                    <div style={{ color: '#9ca3af', fontSize: '11px', textAlign: 'right' }}>seconds to auto-activate</div>
+                </div>
+            );
+        };
+
         const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
             <div onClick={onToggle} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: on ? `${accent}12` : 'rgba(255,255,255,0.02)', border: `1px solid ${on ? `${accent}30` : 'rgba(255,255,255,0.05)'}`, borderRadius: '9px', cursor: 'pointer', transition: 'all 0.15s', marginBottom: '7px' }}>
                 <div><div style={{ color: on ? '#e2e8f0' : '#6b7280', fontSize: '13px', fontWeight: '600' }}>{label}</div>{desc && <div style={{ color: '#374151', fontSize: '11px', marginTop: '2px' }}>{desc}</div>}</div>
@@ -9284,9 +9309,7 @@ return (
             </div>
             {/* Body */}
             <div style={{ background: '#f8f5f0', padding: '28px 28px 24px', textAlign: 'center' }}>
-                <p style={{ color: '#1a1a1a', fontSize: '15px', lineHeight: '1.7', marginBottom: '28px', fontWeight: '500' }}>
-                    Panic button activation has been registered. If this was unintentional, react promptly and disengage the function by clicking <strong>"DISENGAGE"</strong> below.
-                </p>
+<PanicCountdown onExpire={() => { setPanicModalOpen(false); setPanicNotif('🚨 Panic button activated. All units have been notified. Update responding units with your location.'); setPanicNotifType('activated'); setTimeout(() => setPanicNotif(''), 8000); addLog('🚨 PANIC BUTTON ACTIVATED', 'error'); }} />
                 <div style={{ display: 'flex', gap: '12px' }}>
                     <button onClick={() => { setPanicModalOpen(false); setPanicNotif('The panic button has been disengaged. You can activate it at any time again.'); setPanicNotifType('disengaged'); setTimeout(() => setPanicNotif(''), 5000); }} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '800', cursor: 'pointer', letterSpacing: '1.5px', textTransform: 'uppercase', boxShadow: '0 4px 16px rgba(16,185,129,0.4)' }}>
                         ✓ DISENGAGE
