@@ -2243,10 +2243,10 @@ const triggerCommandBarError = (msg) => {
 useEffect(() => {
 const handler = (e) => {
         if (isRecordingKeybind || isRecordingMicHotkey) return;
-        const ctrl = keybind.includes('CTRL') ? e.ctrlKey : true;
-        const shift = keybind.includes('SHIFT') ? e.shiftKey : !e.shiftKey || keybind.includes('SHIFT');
-        const alt = keybind.includes('ALT') ? e.altKey : !e.altKey;
-        const keyChar = keybind.replace('CTRL+','').replace('SHIFT+','').replace('ALT+','');
+        const ctrl = actionBarKeybind.includes('CTRL') ? e.ctrlKey : true;
+        const shift = actionBarKeybind.includes('SHIFT') ? e.shiftKey : !e.shiftKey || actionBarKeybind.includes('SHIFT');
+        const alt = actionBarKeybind.includes('ALT') ? e.altKey : !e.altKey;
+        const keyChar = actionBarKeybind.replace('CTRL+','').replace('SHIFT+','').replace('ALT+','');
         const isF = keyChar.startsWith('F') && !isNaN(keyChar.slice(1));
 
         let keyMatch = false;
