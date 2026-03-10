@@ -1545,6 +1545,14 @@ const [loaderChecks, setLoaderChecks] = React.useState([
     { label: 'DISCORD',        status: 'pending', result: '—' },
     { label: 'ROBLOX API',     status: 'pending', result: '—' }
 ]);
+const [useMicrophone, setUseMicrophone] = useState(true);
+const [micTestActive, setMicTestActive] = useState(false);
+const [micLevel, setMicLevel] = useState(0);
+const [micTestError, setMicTestError] = useState('');
+const micStreamRef = React.useRef(null);
+const micAnimFrameRef = React.useRef(null);
+const micAnalyserRef = React.useRef(null);
+const micAudioCtxRef = React.useRef(null);
 const [showWelcome, setShowWelcome] = useState(false);
 const [isOffline, setIsOffline] = useState(false);
 const [shiftStartTime, setShiftStartTime] = useState(null);
@@ -1710,7 +1718,7 @@ async function checkMaintenanceStatus() {
 
 React.useEffect(() => {
     console.log('🔑 [SETTINGS] ═══════════════════════════════════');
-    console.log('🔑 [SETTINGS] Checking for Hugging Face API key...');
+    console.log('🔑 [SETTINGS] Checking for GROQ & USE_MICROPHONE setting...');
     console.log('🔑 [SETTINGS] ═══════════════════════════════════');
     
     if (window.SETTINGS_FILE_CONTENT) {
@@ -1766,6 +1774,10 @@ React.useEffect(() => {
                     console.warn('⚠️ [SETTINGS] Reason: Empty, contains brackets, or is placeholder');
                     console.warn('═══════════════════════════════════════════════════');
                 }
+            }
+        if (trimmedLine.startsWith('USE_MICROPHONE=')) {
+                const val = trimmedLine.split('=')[1]?.trim();
+                setUseMicrophone(val !== 'FALSE');
             }
         });
     } else {
@@ -1931,6 +1943,12 @@ useEffect(() => {
         setSelectedDepartment(trooperSettings?.Department);
     }
 }, [trooperSettings]);
+
+useEffect(() => {
+    if (!useMicrophone && micTestActive) {
+        stopMicTest();
+    }
+}, [useMicrophone]);
 
 useEffect(() => {
     const handleKeyDown = (e) => {
@@ -2140,7 +2158,62 @@ const formatDate = (date, includeTime = false) => {
     return formatDate(currentTime, true);
 };
 
+const stopMicTest = () => {
+    if (micAnimFrameRef.current) cancelAnimationFrame(micAnimFrameRef.current);
+    if (micStreamRef.current) micStreamRef.current.getTracks().forEach(t => t.stop());
+    if (micAudioCtxRef.current) micAudioCtxRef.current.close().catch(() => {});
+    micStreamRef.current = null;
+    micAnalyserRef.current = null;
+    micAudioCtxRef.current = null;
+    micAnimFrameRef.current = null;
+    setMicTestActive(false);
+    setMicLevel(0);
+    setMicTestError('');
+};
 
+const startMicTest = async () => {
+    if (!useMicrophone) {
+        setMicTestError('Microphone is turned off in settings.');
+        return;
+    }
+    setMicTestError('');
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        micStreamRef.current = stream;
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        micAudioCtxRef.current = audioCtx;
+        const source = audioCtx.createMediaStreamSource(stream);
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 512;
+        source.connect(analyser);
+        micAnalyserRef.current = analyser;
+        setMicTestActive(true);
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        const tick = () => {
+            if (!micAnalyserRef.current) return;
+            analyser.getByteTimeDomainData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                const v = (dataArray[i] - 128) / 128;
+                sum += v * v;
+            }
+            const rms = Math.sqrt(sum / dataArray.length);
+            setMicLevel(Math.min(100, Math.round(rms * 400)));
+            micAnimFrameRef.current = requestAnimationFrame(tick);
+        };
+        tick();
+    } catch (err) {
+        if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+            setMicTestError('No microphone detected on this system.');
+        } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            setMicTestError('Microphone access denied. Check your system permissions.');
+        } else {
+            setMicTestError('Could not access microphone: ' + err.message);
+        }
+        setMicTestActive(false);
+        setMicLevel(0);
+    }
+};
 
 const checkDatabaseConnection = async () => {
     if (!tokenSaved || !discordToken || !trooperSettings) {
@@ -10298,40 +10371,108 @@ const sensitivePatterns = [
                     )}
                 </div>
 
-                {/* ── AUDIO & ALERTS ── */}
-                <div style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
-                    <h3 style={{ color: '#fde047', fontSize: '16px', fontWeight: '700', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '2px' }}>
-                        🔔 AUDIO & ALERTS
-                    </h3>
-                    <label style={{ color: '#fef3c7', fontSize: '14px', fontWeight: '500', marginBottom: '12px', display: 'block' }}>Active Session (Call Alerts)</label>
-                    <select value={selectedUserSession} onChange={(e) => { const value = e.target.value; setSelectedUserSession(value); addLog(`✅ Active session ${value ? 'set to ' + value : 'cleared'}`, 'success'); }} style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '8px', color: 'white', fontSize: '14px', cursor: 'pointer', marginBottom: '8px' }}>
-                        <option value="" style={{ background: '#1e3a8a' }}>None (No Alerts)</option>
-                        <option value="1011898104670330920" style={{ background: '#1e3a8a' }}>Session 1</option>
-                        <option value="1390212294478397471" style={{ background: '#1e3a8a' }}>Session 2</option>
-                        <option value="1390212341005680650" style={{ background: '#1e3a8a' }}>Session 3</option>
-                    </select>
-                    <p style={{ fontSize: '12px', color: '#fef3c7', opacity: 0.8 }}>When a new call comes in for this session, you'll hear an alert sound.</p>
-                </div>
-
-                {/* ── SOUND SETTINGS ── */}
+                {/* ── AUDIO, SOUND & VOICE ── */}
                 <div style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '20px' }}>
-                    <h3 style={{ color: '#c4b5fd', fontSize: '16px', fontWeight: '700', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '2px' }}>
-                        🔊 SOUND SETTINGS
+                    <h3 style={{ color: '#c4b5fd', fontSize: '16px', fontWeight: '700', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '2px' }}>
+                        🔊 AUDIO, SOUND & VOICE
                     </h3>
-                    <div style={{ display: 'grid', gap: '10px' }}>
-                        {[
-                            { label: 'Enable Plate Search Success Sound', key: 'platePass' },
-                            { label: 'Enable Plate Search Fail Sound', key: 'plateFail' },
-                            { label: 'Enable New Call Alert Sound', key: 'callAlert' },
-                            { label: 'Enable Warrant Alert Sound', key: 'warrantAlert' },
-                        ].map(({ label, key }) => (
-                            <div key={key} style={{ padding: '12px 14px', background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)', borderRadius: '8px' }}>
-                                <label style={{ color: '#ddd6fe', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                                    <input type="checkbox" checked={soundSettings[key]} onChange={(e) => setSoundSettings({...soundSettings, [key]: e.target.checked})} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
-                                    {label}
-                                </label>
+                    <p style={{ color: '#475569', fontSize: '12px', marginBottom: '20px' }}>Manage alert sounds, session monitoring, and microphone access.</p>
+
+                    {/* Active Session */}
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ color: '#c4b5fd', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '8px' }}>📡 Active Session (Call Alerts)</label>
+                        <select value={selectedUserSession} onChange={(e) => { const value = e.target.value; setSelectedUserSession(value); addLog(`✅ Active session ${value ? 'set to ' + value : 'cleared'}`, 'success'); }} style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: '8px', color: 'white', fontSize: '14px', cursor: 'pointer', marginBottom: '6px' }}>
+                            <option value="" style={{ background: '#1e3a8a' }}>None (No Alerts)</option>
+                            <option value="1011898104670330920" style={{ background: '#1e3a8a' }}>Session 1</option>
+                            <option value="1390212294478397471" style={{ background: '#1e3a8a' }}>Session 2</option>
+                            <option value="1390212341005680650" style={{ background: '#1e3a8a' }}>Session 3</option>
+                        </select>
+                        <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>Plays an alert sound when a new dispatch call arrives for the selected session.</p>
+                    </div>
+
+                    {/* Divider */}
+                    <div style={{ height: '1px', background: 'rgba(139,92,246,0.15)', marginBottom: '20px' }} />
+
+                    {/* Sound Toggles */}
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ color: '#c4b5fd', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '12px' }}>🔔 Sound Effects</label>
+                        <div style={{ display: 'grid', gap: '8px' }}>
+                            {[
+                                { label: 'Plate Search — Success', key: 'platePass', icon: '✅' },
+                                { label: 'Plate Search — Not Found', key: 'plateFail', icon: '❌' },
+                                { label: 'New Call Alert', key: 'callAlert', icon: '📟' },
+                                { label: 'Warrant Alert', key: 'warrantAlert', icon: '⚠️' },
+                            ].map(({ label, key, icon }) => (
+                                <div key={key} style={{ padding: '11px 14px', background: soundSettings[key] ? 'rgba(139,92,246,0.12)' : 'rgba(255,255,255,0.03)', border: `1px solid ${soundSettings[key] ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.07)'}`, borderRadius: '8px', transition: 'all 0.2s' }}>
+                                    <label style={{ color: soundSettings[key] ? '#ddd6fe' : '#6b7280', fontSize: '13px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', transition: 'color 0.2s' }}>
+                                        <input type="checkbox" checked={soundSettings[key]} onChange={(e) => setSoundSettings({...soundSettings, [key]: e.target.checked})} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#a78bfa' }} />
+                                        <span style={{ fontSize: '14px' }}>{icon}</span>
+                                        {label}
+                                    </label>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Divider */}
+                    <div style={{ height: '1px', background: 'rgba(139,92,246,0.15)', marginBottom: '20px' }} />
+
+                    {/* Microphone */}
+                    <div>
+                        <label style={{ color: '#c4b5fd', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '12px' }}>🎙️ Microphone & Voice</label>
+
+                        {/* Use Microphone toggle */}
+                        <div style={{ padding: '12px 14px', background: useMicrophone ? 'rgba(139,92,246,0.12)' : 'rgba(255,255,255,0.03)', border: `1px solid ${useMicrophone ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.07)'}`, borderRadius: '8px', marginBottom: '14px', transition: 'all 0.2s' }}>
+                            <label style={{ color: useMicrophone ? '#ddd6fe' : '#6b7280', fontSize: '13px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                                <input type="checkbox" checked={useMicrophone} onChange={(e) => {
+                                    const val = e.target.checked;
+                                    setUseMicrophone(val);
+                                    if (!val && micTestActive) stopMicTest();
+                                    addLog(`🎙️ Microphone ${val ? 'enabled' : 'disabled'}`, 'info');
+                                }} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#a78bfa' }} />
+                                <span style={{ fontSize: '14px' }}>🎙️</span>
+                                Use Microphone
+                                <span style={{ marginLeft: 'auto', fontSize: '11px', padding: '2px 8px', borderRadius: '12px', background: useMicrophone ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.07)', color: useMicrophone ? '#c4b5fd' : '#4b5563', fontWeight: '700', letterSpacing: '1px' }}>
+                                    {useMicrophone ? 'ON' : 'OFF'}
+                                </span>
+                            </label>
+                            <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '6px', marginLeft: '26px' }}>Controls whether the app can access your microphone for voice features. Always uses the Windows default input device.</p>
+                        </div>
+
+                        {/* Volume meter */}
+                        <div style={{ marginBottom: '10px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                <span style={{ color: '#6b7280', fontSize: '11px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px' }}>Input Level</span>
+                                <span style={{ color: micTestActive ? '#a78bfa' : '#374151', fontSize: '11px', fontWeight: '700' }}>{micTestActive ? `${micLevel}%` : '—'}</span>
                             </div>
-                        ))}
+                            <div style={{ width: '100%', height: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.07)' }}>
+                                <div style={{
+                                    height: '100%',
+                                    width: `${micLevel}%`,
+                                    borderRadius: '6px',
+                                    background: micLevel > 85 ? 'linear-gradient(90deg, #a78bfa, #ef4444)' : micLevel > 50 ? 'linear-gradient(90deg, #7c3aed, #a78bfa)' : 'linear-gradient(90deg, #6d28d9, #8b5cf6)',
+                                    transition: micTestActive ? 'width 0.05s linear' : 'width 0.3s ease',
+                                    boxShadow: micTestActive && micLevel > 0 ? '0 0 8px rgba(139,92,246,0.6)' : 'none'
+                                }} />
+                            </div>
+                        </div>
+
+                        {/* Error message */}
+                        {micTestError && (
+                            <div style={{ padding: '9px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '7px', color: '#fca5a5', fontSize: '12px', marginBottom: '10px' }}>
+                                ⚠️ {micTestError}
+                            </div>
+                        )}
+
+                        {/* Test button */}
+                        <button
+                            onClick={() => { if (micTestActive) { stopMicTest(); } else { startMicTest(); } }}
+                            style={{ width: '100%', padding: '11px 16px', background: micTestActive ? 'rgba(239,68,68,0.12)' : 'rgba(139,92,246,0.12)', border: `1px solid ${micTestActive ? 'rgba(239,68,68,0.35)' : 'rgba(139,92,246,0.35)'}`, borderRadius: '8px', color: micTestActive ? '#fca5a5' : '#c4b5fd', fontSize: '13px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.2s' }}
+                            onMouseEnter={e => { e.currentTarget.style.background = micTestActive ? 'rgba(239,68,68,0.2)' : 'rgba(139,92,246,0.2)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = micTestActive ? 'rgba(239,68,68,0.12)' : 'rgba(139,92,246,0.12)'; }}
+                        >
+                            {micTestActive ? '⏹ Stop Test' : '🎙️ Test Microphone'}
+                        </button>
                     </div>
                 </div>
 
