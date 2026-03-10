@@ -1654,6 +1654,12 @@ const voiceAudioCtxRef = React.useRef(null);
 const voiceProcessorRef = React.useRef(null);
 const [micHotkey, setMicHotkey] = useState('');
 const [micHotkeyDraft, setMicHotkeyDraft] = useState('');
+const [panicEnabled, setPanicEnabled] = useState(false);
+const [panicHotkey, setPanicHotkey] = useState('');
+const [panicHotkeyDraft, setPanicHotkeyDraft] = useState('');
+const [panicModalOpen, setPanicModalOpen] = useState(false);
+const [panicNotif, setPanicNotif] = useState('');
+const [panicNotifType, setPanicNotifType] = useState('');
 const [isRecordingMicHotkey, setIsRecordingMicHotkey] = useState(false);
 // ──────────────────────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════
@@ -1779,6 +1785,13 @@ React.useEffect(() => {
 
 if (trimmedLine.startsWith('KEYBINDS_REQUIRE_FOCUS=')) {
     setKeybindsRequireFocus(trimmedLine.split('=')[1]?.trim() !== 'FALSE');
+}
+if (trimmedLine.startsWith('PANIC_ENABLED=')) {
+    setPanicEnabled(trimmedLine.split('=')[1]?.trim() === 'TRUE');
+}
+if (trimmedLine.startsWith('PANIC_HOTKEY=')) {
+    const val = trimmedLine.split('=')[1]?.trim();
+    if (val) { setPanicHotkey(val); setPanicHotkeyDraft(val); }
 }
 if (trimmedLine.startsWith('MIC_HOTKEY=')) {
                 const val = trimmedLine.split('=')[1]?.trim();
@@ -3330,6 +3343,8 @@ MiniMode=${compactMode ? 'TRUE' : 'FALSE'}
 ActiveSession=NONE
 USE_MICROPHONE=${useMicrophone ? 'TRUE' : 'FALSE'}
 MIC_HOTKEY=${micHotkey || ''}
+PANIC_ENABLED=${panicEnabled ? 'TRUE' : 'FALSE'}
+PANIC_HOTKEY=${panicHotkey || ''}
 DevConsoleEnabled=${showDevConsole ? 'TRUE' : 'FALSE'}
 DiscordAccountToken=${discordToken || ''}
 GroqConsoleAPIKey=${groqConsoleAPIKey || ''}
@@ -3356,8 +3371,11 @@ KEYBINDS_REQUIRE_FOCUS=${keybindsRequireFocus ? 'TRUE' : 'FALSE'}`;
                     if (key === 'DyslexiaFont') setDyslexiaFont(val === 'TRUE');
                     if (key === 'VisualEffects') setVisualEffects(val === 'TRUE');
 if (key === 'ACTIONBAR_KEYBIND') setActionBarKeybind(val);
-                    if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
+if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
+                    if (key === 'PANIC_ENABLED') setPanicEnabled(val === 'TRUE');
+                    if (key === 'PANIC_HOTKEY') { setPanicHotkey(val); setPanicHotkeyDraft(val); }
                     if (key === 'AmericanDateFormat') setTrooperSettings(prev => ({ ...prev, AmericanDateFormat: val }));
+                    
                 });
 
                 showCustomError('Settings Exported', `CADSystemSettings.txt updated successfully. All settings are now live — no restart required.`, true);
@@ -3946,6 +3964,37 @@ if (isRecordingKeybind || isRecordingMicHotkey) return;
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
 }, [micHotkey, voiceActive, useMicrophone, loading, searchCooldown, activeView, isRecordingKeybind, isRecordingMicHotkey]);
+
+React.useEffect(() => {
+    if (!panicEnabled || !panicHotkey) return;
+    let holdTimer = null;
+    const handler = (e) => {
+        if (isRecordingKeybind || isRecordingMicHotkey) return;
+        if (keybindsRequireFocus && !document.hasFocus()) return;
+        const parts = [];
+        if (e.ctrlKey) parts.push('CTRL');
+        if (e.shiftKey) parts.push('SHIFT');
+        if (e.altKey) parts.push('ALT');
+        const k = e.key.toUpperCase();
+        if (!['CONTROL','SHIFT','ALT','META'].includes(k)) parts.push(k);
+        const pressed = parts.join('+');
+        if (pressed === panicHotkey && !holdTimer) {
+            holdTimer = setTimeout(() => {
+                setPanicModalOpen(true);
+            }, 2000);
+        }
+    };
+    const cancelHandler = () => {
+        if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+    };
+    window.addEventListener('keydown', handler);
+    window.addEventListener('keyup', cancelHandler);
+    return () => {
+        window.removeEventListener('keydown', handler);
+        window.removeEventListener('keyup', cancelHandler);
+        if (holdTimer) clearTimeout(holdTimer);
+    };
+}, [panicEnabled, panicHotkey, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey]);
 
 // Offline detection
 React.useEffect(() => {
@@ -9217,7 +9266,40 @@ return (
 {!maintenanceActive && !showUpdateScreen && !showLoginScreen && !showLoader && (
         <div className="app-container">
 
-{/* ═══ ACTION BAR / COMMAND PALETTE ═══ */}
+{panicNotif && (
+    <div style={{ position: 'fixed', bottom: '32px', left: '50%', transform: 'translateX(-50%)', zIndex: 99998, padding: '14px 28px', background: panicNotifType === 'activated' ? 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.1))' : 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.1))', border: `1px solid ${panicNotifType === 'activated' ? 'rgba(239,68,68,0.4)' : 'rgba(16,185,129,0.4)'}`, borderRadius: '12px', color: panicNotifType === 'activated' ? '#fca5a5' : '#6ee7b7', fontSize: '13px', fontWeight: '700', backdropFilter: 'blur(10px)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', maxWidth: '500px', textAlign: 'center', letterSpacing: '0.5px' }}>
+        {panicNotif}
+    </div>
+)}
+
+{panicModalOpen && (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
+        <div style={{ width: '380px', borderRadius: '0px', overflow: 'hidden', boxShadow: '0 0 0 2px rgba(239,68,68,0.8), 0 32px 80px rgba(0,0,0,0.9), 0 0 60px rgba(239,68,68,0.3)', animation: 'panicPulse 1s ease-in-out infinite' }}>
+            <style>{`@keyframes panicPulse { 0%,100% { box-shadow: 0 0 0 2px rgba(239,68,68,0.8), 0 32px 80px rgba(0,0,0,0.9), 0 0 60px rgba(239,68,68,0.3); } 50% { box-shadow: 0 0 0 4px rgba(239,68,68,1), 0 32px 80px rgba(0,0,0,0.9), 0 0 100px rgba(239,68,68,0.6); } } @keyframes panicSpin { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }`}</style>
+            {/* Header */}
+            <div style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)', padding: '32px 24px 28px', textAlign: 'center' }}>
+                <div style={{ fontSize: '52px', marginBottom: '12px', animation: 'panicSpin 1s ease-in-out infinite' }}>📡</div>
+                <div style={{ color: 'white', fontSize: '24px', fontWeight: '900', letterSpacing: '3px', textTransform: 'uppercase', marginBottom: '6px' }}>PANIC BUTTON</div>
+                <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: '13px', letterSpacing: '1px' }}>ALERT REGISTERED — {new Date().toLocaleTimeString()}</div>
+            </div>
+            {/* Body */}
+            <div style={{ background: '#f8f5f0', padding: '28px 28px 24px', textAlign: 'center' }}>
+                <p style={{ color: '#1a1a1a', fontSize: '15px', lineHeight: '1.7', marginBottom: '28px', fontWeight: '500' }}>
+                    Panic button activation has been registered. If this was unintentional, react promptly and disengage the function by clicking <strong>"DISENGAGE"</strong> below.
+                </p>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                    <button onClick={() => { setPanicModalOpen(false); setPanicNotif('The panic button has been disengaged. You can activate it at any time again.'); setPanicNotifType('disengaged'); setTimeout(() => setPanicNotif(''), 5000); }} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '800', cursor: 'pointer', letterSpacing: '1.5px', textTransform: 'uppercase', boxShadow: '0 4px 16px rgba(16,185,129,0.4)' }}>
+                        ✓ DISENGAGE
+                    </button>
+                    <button onClick={() => { setPanicModalOpen(false); setPanicNotif('🚨 Panic button activated. All units have been notified. Update responding units with your location.'); setPanicNotifType('activated'); setTimeout(() => setPanicNotif(''), 8000); addLog('🚨 PANIC BUTTON ACTIVATED', 'error'); }} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '800', cursor: 'pointer', letterSpacing: '1.5px', textTransform: 'uppercase', boxShadow: '0 4px 16px rgba(239,68,68,0.4)' }}>
+                        🚨 ACTIVATE
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+)}
+
 {commandBarOpen && (
     <div style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
         onClick={(e) => { if (e.target === e.currentTarget) { setCommandBarOpen(false); setCommandBarInput('/'); } }}>
@@ -10399,7 +10481,11 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
 <div style={S.section('#10b981', 'rgba(16,185,129,0.06)')}>
                                 <div style={S.sectionHead('#6ee7b7')}>🗄️ Data Sources</div>
                                 <div style={S.sectionSub}>Configure keyboard shortcuts — conflicts are blocked automatically</div>
-                                <ToggleRow label="Only Fire When App is Focused" desc="Keybinds won't trigger when another window is active" on={keybindsRequireFocus} accent="#3b82f6" onToggle={() => setKeybindsRequireFocus(v => !v)} />
+                                <ToggleRow label="Panic Button" desc="Enables the panic button hotkey system" on={panicEnabled} accent="#ef4444" onToggle={() => setPanicEnabled(v => !v)} />
+{panicEnabled && (
+    <KeybindRecorder label="Panic Button Hotkey" desc="Hold this key for 2 seconds to trigger the panic alert" active={panicHotkey} draft={panicHotkeyDraft} setDraft={setPanicHotkeyDraft} onSave={() => { setPanicHotkey(panicHotkeyDraft); addLog(`✅ Panic hotkey set to: ${panicHotkeyDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#ef4444" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
+)}
+                                <ToggleRow label="Only Fire When App is Focused" desc="Hotkeys won't trigger when you are on a different tab with this setting enabled." on={keybindsRequireFocus} accent="#3b82f6" onToggle={() => setKeybindsRequireFocus(v => !v)} />
 <KeybindRecorder label="Action Bar / Command Palette"desc="Opens the command palette overlay" active={actionBarKeybind} draft={keybindDraft} setDraft={setKeybindDraft} onSave={() => { setActionBarKeybind(keybindDraft); addLog(`✅ Action bar: ${keybindDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#3b82f6" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
                                 <KeybindRecorder label="Mic Toggle (Plate Search)" desc="Toggles voice-to-plate on the plate search page" active={micHotkey} draft={micHotkeyDraft} setDraft={setMicHotkeyDraft} onSave={() => { setMicHotkey(micHotkeyDraft); addLog(`✅ Mic hotkey: ${micHotkeyDraft}`, 'success'); }} setRecording={setIsRecordingMicHotkey} accent="#10b981" conflictKey={actionBarKeybind} conflictLabel="Action Bar" />
                             </div>
@@ -10493,7 +10579,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                 <div style={S.sectionHead('#4ade80')}>💾 Export Settings</div>
                                 <div style={S.sectionSub}>Write all current settings to your CADSystemSettings.txt file</div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '12px' }}>
-                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY', 'KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE'].map(k => (
+                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE','PANIC_ENABLED','PANIC_HOTKEY'].map(k => (
                                         <span key={k} style={{ padding: '2px 7px', background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.18)', borderRadius: '4px', color: '#4ade80', fontSize: '10px', fontFamily: 'monospace' }}>{k}</span>
                                     ))}
                                     <span style={{ padding: '2px 7px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '4px', color: '#f87171', fontSize: '10px', fontFamily: 'monospace' }}>ActiveSession*</span>
