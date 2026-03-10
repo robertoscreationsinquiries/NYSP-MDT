@@ -1463,6 +1463,39 @@ body::after {
 };
 
     
+        const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
+            <div onClick={onToggle} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: on ? `${accent}12` : 'rgba(255,255,255,0.02)', border: `1px solid ${on ? `${accent}30` : 'rgba(255,255,255,0.05)'}`, borderRadius: '9px', cursor: 'pointer', transition: 'all 0.15s', marginBottom: '7px' }}>
+                <div><div style={{ color: on ? '#e2e8f0' : '#6b7280', fontSize: '13px', fontWeight: '600' }}>{label}</div>{desc && <div style={{ color: '#374151', fontSize: '11px', marginTop: '2px' }}>{desc}</div>}</div>
+                <div style={{ width: '38px', height: '21px', borderRadius: '11px', background: on ? accent : 'rgba(255,255,255,0.08)', position: 'relative', transition: 'all 0.2s', flexShrink: 0, marginLeft: '14px' }}>
+                    <div style={{ position: 'absolute', top: '2px', left: on ? '19px' : '2px', width: '15px', height: '15px', borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.4)' }} />
+                </div>
+            </div>
+        );
+
+        const KeybindRecorder = ({ label, desc, active, draft, setDraft, onSave, setRecording, accent, conflictKey, conflictLabel }) => {
+            const hasConflict = draft && draft === conflictKey;
+            const canSave = draft && draft !== active && !hasConflict;
+            const S_input = { width: '100%', padding: '10px 12px', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', color: '#e2e8f0', fontSize: '13px', boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.2s' };
+            const S_btn = (color, disabled) => ({ width: '100%', padding: '11px', background: disabled ? 'rgba(255,255,255,0.03)' : `${color}18`, border: `1px solid ${disabled ? 'rgba(255,255,255,0.05)' : `${color}30`}`, borderRadius: '8px', color: disabled ? '#374151' : color, fontSize: '12px', fontWeight: '700', cursor: disabled ? 'not-allowed' : 'pointer', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' });
+            return (
+                <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '14px', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                        <div><div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700' }}>{label}</div><div style={{ color: '#374151', fontSize: '11px', marginTop: '2px' }}>{desc}</div></div>
+                        <span style={{ fontFamily: 'monospace', background: `${accent}18`, border: `1px solid ${accent}50`, padding: '3px 10px', borderRadius: '6px', color: accent, fontSize: '11px', fontWeight: '700', letterSpacing: '1px', flexShrink: 0, marginLeft: '10px' }}>{active || 'NONE'}</span>
+                    </div>
+                    <div tabIndex={0}
+                        onKeyDown={(e) => { e.preventDefault(); e.stopPropagation(); e.nativeEvent && e.nativeEvent.stopImmediatePropagation(); const p = []; if (e.ctrlKey) p.push('CTRL'); if (e.shiftKey) p.push('SHIFT'); if (e.altKey) p.push('ALT'); const k = e.key.toUpperCase(); if (!['CONTROL','SHIFT','ALT','META'].includes(k)) p.push(k); if (p.length > 0) setDraft(p.join('+')); }}
+                        onFocus={e => { setRecording(true); e.currentTarget.style.borderColor = accent; }}
+                        onBlur={e => { setRecording(false); e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; }}
+                        onMouseDown={e => e.stopPropagation()}
+                        style={{ ...S_input, fontFamily: 'monospace', letterSpacing: '2px', fontSize: '13px', minHeight: '40px', display: 'flex', alignItems: 'center', userSelect: 'none', cursor: 'text', marginBottom: '8px', color: draft ? '#e2e8f0' : '#374151' }}>
+                        {draft || <span style={{ color: '#2d3748' }}>Click here, then press a key combination...</span>}
+                    </div>
+                    {hasConflict && <div style={{ color: '#fca5a5', fontSize: '11px', marginBottom: '8px', padding: '6px 10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px' }}>⚠ Conflicts with "{conflictLabel}" — choose a different combination</div>}
+                    <button onClick={() => { if (canSave) onSave(); }} disabled={!canSave} style={S_btn(accent, !canSave)}>Save Keybind</button>
+                </div>
+            );
+        };
 
 
         function NYSPLookupTool() {
@@ -1571,6 +1604,8 @@ const [commandBarInput, setCommandBarInput] = useState('/');
 const [commandBarError, setCommandBarError] = useState('');
 const [commandBarHint, setCommandBarHint] = useState('');
 const [actionBarKeybind, setActionBarKeybind] = useState('CTRL+K');
+const [keybindsRequireFocus, setKeybindsRequireFocus] = useState(true);
+
 const [keybindDraft, setKeybindDraft] = useState('CTRL+K');
 const [showUpdateLog, setShowUpdateLog] = useState(false);
 const [recentRegistrationFlash, setRecentRegistrationFlash] = useState(false);
@@ -1742,7 +1777,10 @@ React.useEffect(() => {
                 setUseMicrophone(trimmedLine.split('=')[1]?.trim() !== 'FALSE');
             }
 
-            if (trimmedLine.startsWith('MIC_HOTKEY=')) {
+if (trimmedLine.startsWith('KEYBINDS_REQUIRE_FOCUS=')) {
+    setKeybindsRequireFocus(trimmedLine.split('=')[1]?.trim() !== 'FALSE');
+}
+if (trimmedLine.startsWith('MIC_HOTKEY=')) {
                 const val = trimmedLine.split('=')[1]?.trim();
                 if (val) { setMicHotkey(val); setMicHotkeyDraft(val); }
             }
@@ -2242,7 +2280,8 @@ const triggerCommandBarError = (msg) => {
 
 useEffect(() => {
 const handler = (e) => {
-        if (isRecordingKeybind || isRecordingMicHotkey) return;
+if (isRecordingKeybind || isRecordingMicHotkey) return;
+        if (keybindsRequireFocus && !document.hasFocus()) return;
         const ctrl = actionBarKeybind.includes('CTRL') ? e.ctrlKey : true;
         const shift = actionBarKeybind.includes('SHIFT') ? e.shiftKey : !e.shiftKey || actionBarKeybind.includes('SHIFT');
         const alt = actionBarKeybind.includes('ALT') ? e.altKey : !e.altKey;
@@ -3295,7 +3334,8 @@ DevConsoleEnabled=${showDevConsole ? 'TRUE' : 'FALSE'}
 DiscordAccountToken=${discordToken || ''}
 GroqConsoleAPIKey=${groqConsoleAPIKey || ''}
 AmericanDateFormat=${trooperSettings?.AmericanDateFormat || 'FALSE'}
-ACTIONBAR_KEYBIND=${actionBarKeybind || 'CTRL+K'}`;
+ACTIONBAR_KEYBIND=${actionBarKeybind || 'CTRL+K'}
+KEYBINDS_REQUIRE_FOCUS=${keybindsRequireFocus ? 'TRUE' : 'FALSE'}`;
 
     try {
         if (window.require) {
@@ -3315,7 +3355,8 @@ ACTIONBAR_KEYBIND=${actionBarKeybind || 'CTRL+K'}`;
                     if (key === 'GroqConsoleAPIKey') { setGroqConsoleAPIKey(val); localStorage.setItem('groqConsoleAPIKey', val); window.GROQ_CONSOLE_API_KEY = val; }
                     if (key === 'DyslexiaFont') setDyslexiaFont(val === 'TRUE');
                     if (key === 'VisualEffects') setVisualEffects(val === 'TRUE');
-                    if (key === 'ACTIONBAR_KEYBIND') setActionBarKeybind(val);
+if (key === 'ACTIONBAR_KEYBIND') setActionBarKeybind(val);
+                    if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
                     if (key === 'AmericanDateFormat') setTrooperSettings(prev => ({ ...prev, AmericanDateFormat: val }));
                 });
 
@@ -3886,7 +3927,8 @@ React.useEffect(() => {
 React.useEffect(() => {
     if (!micHotkey) return;
     const handler = (e) => {
-        if (isRecordingKeybind || isRecordingMicHotkey) return;
+if (isRecordingKeybind || isRecordingMicHotkey) return;
+        if (keybindsRequireFocus && !document.hasFocus()) return;
         const parts = [];
         if (e.ctrlKey) parts.push('CTRL');
         if (e.shiftKey) parts.push('SHIFT');
@@ -4760,39 +4802,6 @@ Return ONLY the JSON array, no other text.`;
     }
 };
 
-const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
-    <div onClick={onToggle} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: on ? `${accent}12` : 'rgba(255,255,255,0.02)', border: `1px solid ${on ? `${accent}30` : 'rgba(255,255,255,0.05)'}`, borderRadius: '9px', cursor: 'pointer', transition: 'all 0.15s', marginBottom: '7px' }}>
-        <div><div style={{ color: on ? '#e2e8f0' : '#6b7280', fontSize: '13px', fontWeight: '600' }}>{label}</div>{desc && <div style={{ color: '#374151', fontSize: '11px', marginTop: '2px' }}>{desc}</div>}</div>
-        <div style={{ width: '38px', height: '21px', borderRadius: '11px', background: on ? accent : 'rgba(255,255,255,0.08)', position: 'relative', transition: 'all 0.2s', flexShrink: 0, marginLeft: '14px' }}>
-            <div style={{ position: 'absolute', top: '2px', left: on ? '19px' : '2px', width: '15px', height: '15px', borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.4)' }} />
-        </div>
-    </div>
-);
-
-const KeybindRecorder = ({ label, desc, active, draft, setDraft, onSave, setRecording, accent, conflictKey, conflictLabel }) => {
-    const hasConflict = draft && draft === conflictKey;
-    const canSave = draft && draft !== active && !hasConflict;
-    const S_input = { width: '100%', padding: '10px 12px', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', color: '#e2e8f0', fontSize: '13px', boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.2s' };
-    const S_btn = (color, disabled) => ({ width: '100%', padding: '11px', background: disabled ? 'rgba(255,255,255,0.03)' : `${color}18`, border: `1px solid ${disabled ? 'rgba(255,255,255,0.05)' : `${color}30`}`, borderRadius: '8px', color: disabled ? '#374151' : color, fontSize: '12px', fontWeight: '700', cursor: disabled ? 'not-allowed' : 'pointer', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' });
-    return (
-        <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '14px', marginBottom: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                <div><div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700' }}>{label}</div><div style={{ color: '#374151', fontSize: '11px', marginTop: '2px' }}>{desc}</div></div>
-                <span style={{ fontFamily: 'monospace', background: `${accent}18`, border: `1px solid ${accent}50`, padding: '3px 10px', borderRadius: '6px', color: accent, fontSize: '11px', fontWeight: '700', letterSpacing: '1px', flexShrink: 0, marginLeft: '10px' }}>{active || 'NONE'}</span>
-            </div>
-            <div tabIndex={0}
-                onKeyDown={(e) => { e.preventDefault(); e.stopPropagation(); const p = []; if (e.ctrlKey) p.push('CTRL'); if (e.shiftKey) p.push('SHIFT'); if (e.altKey) p.push('ALT'); const k = e.key.toUpperCase(); if (!['CONTROL','SHIFT','ALT','META'].includes(k)) p.push(k); if (p.length > 0) setDraft(p.join('+')); }}
-                onFocus={e => { setRecording(true); e.currentTarget.style.borderColor = accent; }}
-                onBlur={e => { setRecording(false); e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; }}
-                onMouseDown={e => e.stopPropagation()}
-                style={{ ...S_input, fontFamily: 'monospace', letterSpacing: '2px', fontSize: '13px', minHeight: '40px', display: 'flex', alignItems: 'center', userSelect: 'none', cursor: 'text', marginBottom: '8px', color: draft ? '#e2e8f0' : '#374151' }}>
-                {draft || <span style={{ color: '#2d3748' }}>Click here, then press a key combination...</span>}
-            </div>
-            {hasConflict && <div style={{ color: '#fca5a5', fontSize: '11px', marginBottom: '8px', padding: '6px 10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px' }}>⚠ Conflicts with "{conflictLabel}" — choose a different combination</div>}
-            <button onClick={() => { if (canSave) onSave(); }} disabled={!canSave} style={S_btn(accent, !canSave)}>Save Keybind</button>
-        </div>
-    );
-};
 
 
 const parseRegistration = async (message) => {
@@ -10390,7 +10399,8 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
 <div style={S.section('#10b981', 'rgba(16,185,129,0.06)')}>
                                 <div style={S.sectionHead('#6ee7b7')}>🗄️ Data Sources</div>
                                 <div style={S.sectionSub}>Configure keyboard shortcuts — conflicts are blocked automatically</div>
-                                <KeybindRecorder label="Action Bar / Command Palette" desc="Opens the command palette overlay" active={actionBarKeybind} draft={keybindDraft} setDraft={setKeybindDraft} onSave={() => { setActionBarKeybind(keybindDraft); addLog(`✅ Action bar: ${keybindDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#3b82f6" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
+                                <ToggleRow label="Only Fire When App is Focused" desc="Keybinds won't trigger when another window is active" on={keybindsRequireFocus} accent="#3b82f6" onToggle={() => setKeybindsRequireFocus(v => !v)} />
+<KeybindRecorder label="Action Bar / Command Palette"desc="Opens the command palette overlay" active={actionBarKeybind} draft={keybindDraft} setDraft={setKeybindDraft} onSave={() => { setActionBarKeybind(keybindDraft); addLog(`✅ Action bar: ${keybindDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#3b82f6" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
                                 <KeybindRecorder label="Mic Toggle (Plate Search)" desc="Toggles voice-to-plate on the plate search page" active={micHotkey} draft={micHotkeyDraft} setDraft={setMicHotkeyDraft} onSave={() => { setMicHotkey(micHotkeyDraft); addLog(`✅ Mic hotkey: ${micHotkeyDraft}`, 'success'); }} setRecording={setIsRecordingMicHotkey} accent="#10b981" conflictKey={actionBarKeybind} conflictLabel="Action Bar" />
                             </div>
 
@@ -10483,7 +10493,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                 <div style={S.sectionHead('#4ade80')}>💾 Export Settings</div>
                                 <div style={S.sectionSub}>Write all current settings to your CADSystemSettings.txt file</div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '12px' }}>
-                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','USE_MICROPHONE'].map(k => (
+                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY', 'KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE'].map(k => (
                                         <span key={k} style={{ padding: '2px 7px', background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.18)', borderRadius: '4px', color: '#4ade80', fontSize: '10px', fontFamily: 'monospace' }}>{k}</span>
                                     ))}
                                     <span style={{ padding: '2px 7px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '4px', color: '#f87171', fontSize: '10px', fontFamily: 'monospace' }}>ActiveSession*</span>
