@@ -1686,12 +1686,39 @@ const [panicModalOpen, setPanicModalOpen] = useState(false);
 const panicAlarmRef = React.useRef(null);
 
 const startPanicAlarm = React.useCallback(() => {
-    if (window.SOUNDS_BASE64 && window.SOUNDS_BASE64.panicAlarm) {
-        const audio = new Audio('data:audio/mp3;base64,' + window.SOUNDS_BASE64.panicAlarm);
+    console.log('[PANIC ALARM] startPanicAlarm called');
+    console.log('[PANIC ALARM] window.SOUNDS_BASE64 exists:', !!window.SOUNDS_BASE64);
+    console.log('[PANIC ALARM] window.SOUNDS exists:', !!window.SOUNDS);
+    console.log('[PANIC ALARM] panicAlarm in SOUNDS_BASE64:', !!(window.SOUNDS_BASE64 && window.SOUNDS_BASE64.panicAlarm));
+    console.log('[PANIC ALARM] panicAlarm in SOUNDS:', !!(window.SOUNDS && window.SOUNDS.panicAlarm));
+
+    // Try window.SOUNDS first (pre-processed data URLs), fall back to raw base64
+    let src = null;
+    if (window.SOUNDS && window.SOUNDS.panicAlarm) {
+        src = window.SOUNDS.panicAlarm;
+        console.log('[PANIC ALARM] Using window.SOUNDS.panicAlarm');
+    } else if (window.SOUNDS_BASE64 && window.SOUNDS_BASE64.panicAlarm) {
+        src = 'data:audio/mpeg;base64,' + window.SOUNDS_BASE64.panicAlarm;
+        console.log('[PANIC ALARM] Using window.SOUNDS_BASE64.panicAlarm (raw)');
+    } else {
+        console.error('[PANIC ALARM] ❌ No panicAlarm sound found! Available SOUNDS keys:', Object.keys(window.SOUNDS || {}));
+        console.error('[PANIC ALARM] ❌ Available SOUNDS_BASE64 keys:', Object.keys(window.SOUNDS_BASE64 || {}));
+        return;
+    }
+
+    try {
+        const audio = new Audio(src);
         audio.loop = true;
         audio.volume = 0.8;
-        audio.play().catch(() => {});
+        const playPromise = audio.play();
+        if (playPromise) {
+            playPromise
+                .then(() => console.log('[PANIC ALARM] ✅ Playing'))
+                .catch(err => console.error('[PANIC ALARM] ❌ Play failed:', err.message));
+        }
         panicAlarmRef.current = audio;
+    } catch(err) {
+        console.error('[PANIC ALARM] ❌ Audio creation failed:', err.message);
     }
 }, []);
 
