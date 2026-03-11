@@ -1691,6 +1691,8 @@ const startPanicAlarm = React.useCallback(() => {
     console.log('[PANIC ALARM] window.SOUNDS exists:', !!window.SOUNDS);
     console.log('[PANIC ALARM] panicAlarm in SOUNDS_BASE64:', !!(window.SOUNDS_BASE64 && window.SOUNDS_BASE64.panicAlarm));
     console.log('[PANIC ALARM] panicAlarm in SOUNDS:', !!(window.SOUNDS && window.SOUNDS.panicAlarm));
+    console.log(Object.keys(window.SOUNDS_BASE64))
+
 
     // Try window.SOUNDS first (pre-processed data URLs), fall back to raw base64
     let src = null;
