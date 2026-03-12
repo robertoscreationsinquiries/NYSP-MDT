@@ -1631,6 +1631,7 @@ const [commandBarHint, setCommandBarHint] = useState('');
 const [actionBarKeybind, setActionBarKeybind] = useState('CTRL+K');
 const [acknowledgeKeybind, setAcknowledgeKeybind] = useState('');
 const [acknowledgeKeybindDraft, setAcknowledgeKeybindDraft] = useState('');
+const acknowledgedCallsRef = React.useRef([]);
 const [keybindsRequireFocus, setKeybindsRequireFocus] = useState(true);
 
 const [keybindDraft, setKeybindDraft] = useState('CTRL+K');
@@ -3671,6 +3672,7 @@ React.useEffect(() => {
                     
                     setCalls(parsedCalls);
                     window._currentCalls = parsedCalls;
+                    // Also keep a global ref updated for hotkey use from any tab
                     addLog(`📞 Loaded ${parsedCalls.length} active calls`, 'info');
                 }
             } catch (e) {
@@ -3876,7 +3878,9 @@ React.useEffect(() => {
                         // Check if any unacknowledged calls exist
                         const hasUnacknowledged = validCalls.some(c => !acknowledgedCalls.includes(c.id));
                         if (hasUnacknowledged) {
-                            playAlertSound(); // Start looping sound
+                            playAlertSound();
+                        } else {
+                            stopAlertSound();
                         }
                         setCallButtonFlash(true);
                         setTimeout(() => setCallButtonFlash(false), 10000);
@@ -4119,7 +4123,8 @@ React.useEffect(() => {
                 }, 2000);
             }
         } else {
-            // Triple tap mode
+            // Triple tap mode — ignore key repeat events (held down)
+            if (e.repeat) return;
             setPanicTapCount(prev => {
                 const next = prev + 1;
                 if (panicTapTimerRef.current) clearTimeout(panicTapTimerRef.current);
@@ -4128,7 +4133,7 @@ React.useEffect(() => {
                     window.electron?.ipcRenderer?.invoke('trigger-panic-roblox').catch(() => {});
                     setPanicNotif('🚨 Panic button activated. All units have been notified. Update responding units with your location.');
                     setPanicNotifType('activated');
-                    addLog('🚨 PANIC BUTTON ACTIVATED (Triple Tap)', 'error');
+                    addLog('🚨 PANIC BUTTON ACTIVATED (Rapid Tap)', 'error');
                     setTimeout(() => setPanicNotif(''), 8000);
                     return 0;
                 }
@@ -4150,6 +4155,16 @@ React.useEffect(() => {
 }, [panicEnabled, panicHotkey, panicTriggerMode, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey, panicCooldownUntil]);
 
 React.useEffect(() => {
+    if (!window._currentCalls || window._currentCalls.length === 0) return;
+    const allAcked = window._currentCalls.every(c => acknowledgedCalls.includes(c.id));
+    if (allAcked) stopAlertSound();
+}, [acknowledgedCalls]);
+
+React.useEffect(() => {
+    acknowledgedCallsRef.current = acknowledgedCalls;
+}, [acknowledgedCalls]);
+
+React.useEffect(() => {
     if (!acknowledgeKeybind) return;
     const handler = (e) => {
         if (isRecordingKeybind || isRecordingMicHotkey) return;
@@ -4162,13 +4177,12 @@ React.useEffect(() => {
         if (!['CONTROL','SHIFT','ALT','META'].includes(k)) parts.push(k);
         if (parts.join('+') !== acknowledgeKeybind) return;
         e.preventDefault();
-        setAcknowledgedCalls(prev => {
-            const allIds = (window._currentCalls || []).map(c => c.id);
-            const unacked = allIds.filter(id => !prev.includes(id));
-            if (unacked.length === 0) return prev;
-            addLog(`✅ ${unacked.length} call(s) acknowledged via hotkey`, 'success');
-            return [...prev, ...unacked];
-        });
+        const allIds = (window._currentCalls || []).map(c => c.id);
+        const currentAcked = acknowledgedCallsRef.current;
+        const unacked = allIds.filter(id => !currentAcked.includes(id));
+        if (unacked.length === 0) return;
+        setAcknowledgedCalls([...currentAcked, ...unacked]);
+        addLog(`✅ ${unacked.length} call(s) acknowledged via hotkey`, 'success');
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -5641,7 +5655,8 @@ if (parseFailedButVehicleExists) {
         errorMessage: parseErrorMessage,
         plate: searchedPlate,
         phoneticPlate: convertToPhonetic(searchedPlate),
-        discordUserId: ownerId
+        discordUserId: ownerId,
+        rawDiscordMessage: foundMessages?.[0]?.content || null
     });
     
     // ✅ Set regData to minimal object so code below works
@@ -7423,9 +7438,15 @@ const guildId = trooperSettings?.GuildID || editableTrooperSettings?.GuildID || 
             setDatabaseSearchUsername('Unknown');
         }
         
-        // STEP 2: Get Database Channel ID
-        const databaseChannelId = trooperSettings?.DatabaseChannelID;
-        
+        // STEP 2: Get Database Channel ID — check all sources
+        let databaseChannelId = trooperSettings?.DatabaseChannelID;
+        if (!databaseChannelId || databaseChannelId === 'N/A' || databaseChannelId.trim() === '') {
+            // Fall back to parsing SETTINGS_FILE_CONTENT directly
+            if (window.SETTINGS_FILE_CONTENT) {
+                const match = window.SETTINGS_FILE_CONTENT.match(/^DatabaseChannelID=(.+)$/m);
+                if (match) databaseChannelId = match[1].trim();
+            }
+        }
         if (!databaseChannelId || databaseChannelId === 'N/A' || databaseChannelId.trim() === '') {
             console.error('❌ [RECORDS] Database Channel ID not configured');
             showCustomError('Error', 'Database Channel ID not configured. Please update Configuration.');
@@ -10137,22 +10158,36 @@ return (
                         {registration && registration.parseFailed && (
                             <div className="vehicle-box" style={{ border: '2px solid #ef4444', borderRadius: '14px', animation: visualEffects ? 'pulse-border-red 2s infinite' : 'none' }}>
                                 <div className="box-header" style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)', color: '#fff', borderRadius: '12px 12px 0 0' }}>
-                                    <Car size={16} /> Vehicle Details
+                                    <Car size={16} /> Vehicle Details — Improperly Registered
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', background: 'linear-gradient(135deg, rgba(220,38,38,0.12), rgba(185,28,28,0.12))', borderRadius: '0 0 12px 12px', textAlign: 'center' }}>
-                                    <div style={{ fontSize: '56px', marginBottom: '18px', filter: 'drop-shadow(0 0 10px rgba(239,68,68,0.5))' }}>⚠️</div>
-                                    <div style={{ fontSize: '17px', fontWeight: '800', color: '#ef4444', marginBottom: '10px', letterSpacing: '1px', textTransform: 'uppercase' }}>VEHICLE IMPROPERLY REGISTERED</div>
-                                    <div style={{ fontSize: '13px', color: '#fca5a5', maxWidth: '380px', lineHeight: '1.7', marginBottom: '20px' }}>Vehicle registration was detected but could not be properly parsed. Manual verification is required.</div>
-                                    <div style={{ padding: '8px 18px', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', fontSize: '11px', color: '#f87171', fontWeight: '700', letterSpacing: '1px' }}>MANUAL SEARCH REQUIRED</div>
+                                <div style={{ padding: '14px 16px 6px', display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(220,38,38,0.08)', borderBottom: '1px solid rgba(239,68,68,0.2)' }}>
+                                    <span style={{ fontSize: '20px' }}>⚠️</span>
+                                    <div>
+                                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#ef4444', letterSpacing: '1px', textTransform: 'uppercase' }}>Vehicle Improperly Registered</div>
+                                        <div style={{ fontSize: '11px', color: '#fca5a5', marginTop: '2px' }}>Registration detected but could not be parsed — raw record shown below</div>
+                                    </div>
                                 </div>
                                 {registration.plate && (
-                                    <div style={{ margin: '16px', background: 'linear-gradient(135deg, #064e3b, #065f46)', border: '2px solid #10b981', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-                                        <div style={{ fontSize: '10px', color: '#6ee7b7', fontWeight: '700', marginBottom: '6px', letterSpacing: '2px' }}>LICENSE PLATE</div>
-                                        <div style={{ fontSize: '26px', fontWeight: '900', color: 'white', letterSpacing: '4px', fontFamily: 'monospace', marginBottom: '10px' }}>{registration.plate}</div>
-                                        <div style={{ fontSize: '10px', color: '#6ee7b7', fontWeight: '700', marginBottom: '4px', letterSpacing: '2px' }}>PHONETIC SPELLING</div>
-                                        <div style={{ fontSize: '15px', fontWeight: '700', color: '#d1fae5', letterSpacing: '2px' }}>{registration.phoneticPlate || 'N/A'}</div>
+                                    <div style={{ margin: '14px 16px 0', background: 'linear-gradient(135deg, #064e3b, #065f46)', border: '2px solid #10b981', borderRadius: '10px', padding: '12px 16px', textAlign: 'center' }}>
+                                        <div style={{ fontSize: '10px', color: '#6ee7b7', fontWeight: '700', marginBottom: '4px', letterSpacing: '2px' }}>LICENSE PLATE</div>
+                                        <div style={{ fontSize: '24px', fontWeight: '900', color: 'white', letterSpacing: '4px', fontFamily: 'monospace' }}>{registration.plate}</div>
+                                        <div style={{ fontSize: '10px', color: '#6ee7b7', fontWeight: '700', marginTop: '6px', marginBottom: '2px', letterSpacing: '2px' }}>PHONETIC</div>
+                                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#d1fae5', letterSpacing: '2px' }}>{registration.phoneticPlate || 'N/A'}</div>
                                     </div>
                                 )}
+                                {registration.rawDiscordMessage && (
+                                    <div style={{ margin: '14px 16px', background: 'rgba(15,23,42,0.7)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '10px', padding: '14px' }}>
+                                        <div style={{ fontSize: '10px', color: '#f87171', fontWeight: '700', letterSpacing: '2px', marginBottom: '10px', textTransform: 'uppercase' }}>Raw Discord Record</div>
+                                        {registration.rawDiscordMessage.split('\n').map((line, i) => (
+                                            <div key={i} style={{ fontSize: '12px', color: line.trim() === '' ? 'transparent' : '#e2e8f0', lineHeight: '1.8', borderBottom: line.trim() === '' ? 'none' : '1px solid rgba(255,255,255,0.04)', padding: '3px 0', fontFamily: line.includes(':') ? 'inherit' : 'monospace' }}>
+                                                {line.trim() === '' ? '​' : line}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                <div style={{ margin: '0 16px 16px', padding: '8px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '6px', textAlign: 'center', fontSize: '11px', color: '#f87171', fontWeight: '700', letterSpacing: '1px' }}>
+                                    MANUAL SEARCH REQUIRED
+                                </div>
                             </div>
                         )}
 
