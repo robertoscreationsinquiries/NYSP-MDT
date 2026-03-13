@@ -2262,126 +2262,198 @@ const PHONETIC_TO_LETTER = {
 };
 
 const parseDispatchSpeech = (text) => {
-    // Expects "Dispatch run plate Adam Mary James 4 4 6 5"
+    console.log('[DISPATCH PARSE] Raw input:', text);
     const lower = text.toLowerCase().trim();
     const dispatchIdx = lower.indexOf('dispatch');
-    if (dispatchIdx === -1) return null;
+    if (dispatchIdx === -1) {
+        console.warn('[DISPATCH PARSE] ⚠️ "dispatch" keyword not found in:', lower);
+        return null;
+    }
     const after = lower.slice(dispatchIdx + 8).trim();
+    console.log('[DISPATCH PARSE] After "dispatch":', after);
 
-    // Extract plate command
     const plateMatch = after.match(/run\s+plate\s+(.+)/i);
-    if (!plateMatch) return null;
+    if (!plateMatch) {
+        console.warn('[DISPATCH PARSE] ⚠️ "run plate" not found in:', after);
+        return null;
+    }
 
     const plateWords = plateMatch[1].trim().replace(/[.,!?]/g, '').split(/\s+/);
+    console.log('[DISPATCH PARSE] Plate words to map:', plateWords);
     let plate = '';
     for (const w of plateWords) {
         const mapped = PHONETIC_TO_LETTER[w];
-        if (mapped !== undefined) plate += mapped;
-        else if (/^\d+$/.test(w)) plate += w; // raw digits
+        if (mapped !== undefined) {
+            plate += mapped;
+            console.log('[DISPATCH PARSE]  ', w, '→', mapped);
+        } else if (/^\d+$/.test(w)) {
+            plate += w;
+            console.log('[DISPATCH PARSE]  ', w, '→', w, '(raw digit)');
+        } else {
+            console.log('[DISPATCH PARSE]  ', w, '→ (no mapping, skipped)');
+        }
     }
-    return plate.toUpperCase() || null;
+    const result = plate.toUpperCase() || null;
+    console.log('[DISPATCH PARSE] ✅ Final plate:', result);
+    return result;
 };
 
 const startRadioRecording = async () => {
-    if (!aiDispatchEnabled || radioActive) return;
+    console.log('[DISPATCH] 🎙️ startRadioRecording called — aiDispatchEnabled:', aiDispatchEnabled, '| radioActive:', radioActive);
+    if (!aiDispatchEnabled || radioActive) {
+        console.log('[DISPATCH] ⛔ Blocked — conditions not met');
+        return;
+    }
     try {
+        console.log('[DISPATCH] 🎙️ Requesting microphone...');
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         radioStreamRef.current = stream;
+        console.log('[DISPATCH] ✅ Mic granted — setting up MediaRecorder');
+
         const recorder = new MediaRecorder(stream);
         radioProcessorRef.current = recorder;
         const chunks = [];
-        recorder.ondataavailable = (e) => chunks.push(e.data);
+
+        recorder.ondataavailable = (e) => {
+            if (e.data.size > 0) chunks.push(e.data);
+        };
+
         recorder.onstop = async () => {
+            console.log('[DISPATCH] ⏹️ Recording stopped — processing audio, chunks:', chunks.length);
+            setDispatchNotif('📡 Dispatch is processing request...');
+            setDispatchNotifType('processing');
+
             try {
                 const blob = new Blob(chunks, { type: 'audio/webm' });
+                console.log('[DISPATCH] 🎵 Audio blob size:', blob.size, 'bytes');
+
+                if (blob.size < 1000) {
+                    console.warn('[DISPATCH] ⚠️ Audio too short, ignoring');
+                    setDispatchNotif('');
+                    setDispatchNotifType('');
+                    return;
+                }
+
                 const formData = new FormData();
                 formData.append('file', blob, 'radio.webm');
                 formData.append('model', 'whisper-large-v3-turbo');
                 formData.append('response_format', 'json');
+
                 const apiKey = groqConsoleAPIKey || window.GROQ_CONSOLE_API_KEY || localStorage.getItem('groqConsoleAPIKey');
+                console.log('[DISPATCH] 🔑 API key present:', !!apiKey, '| length:', apiKey?.length);
+
+                console.log('[DISPATCH] 📤 Sending to Whisper API...');
                 const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + apiKey },
                     body: formData
                 });
+
+                console.log('[DISPATCH] 📥 Whisper response status:', res.status);
                 const data = await res.json();
+                console.log('[DISPATCH] 📝 Whisper raw response:', JSON.stringify(data));
+
+                if (data?.error) {
+                    console.error('[DISPATCH] ❌ Whisper API error:', data.error);
+                    setDispatchNotif('');
+                    setDispatchNotifType('');
+                    return;
+                }
+
                 const text = data?.text?.trim();
-                if (!text) { setDispatchNotif(''); return; }
+                console.log('[DISPATCH] 🗣️ Transcribed text:', text);
+
+                if (!text) {
+                    console.warn('[DISPATCH] ⚠️ No text transcribed');
+                    setDispatchNotif('');
+                    setDispatchNotifType('');
+                    return;
+                }
+
                 const plate = parseDispatchSpeech(text);
-                if (!plate) { setDispatchNotif(''); return; }
+                console.log('[DISPATCH] 🚗 Parsed plate:', plate);
+
+                if (!plate) {
+                    console.warn('[DISPATCH] ⚠️ Could not parse plate from:', text);
+                    setDispatchNotif('');
+                    setDispatchNotifType('');
+                    return;
+                }
+
                 triggerDispatchSearch(plate);
             } catch(e) {
+                console.error('[DISPATCH] ❌ Processing error:', e.message);
                 setDispatchNotif('');
+                setDispatchNotifType('');
             }
         };
+
         recorder.start();
         setRadioActive(true);
+        setDispatchNotif('🎙️ Dispatch is listening...');
+        setDispatchNotifType('listening');
+        console.log('[DISPATCH] ✅ Recording started');
     } catch(e) {
+        console.error('[DISPATCH] ❌ Mic error:', e.message);
         setRadioActive(false);
+        setDispatchNotif('');
+        setDispatchNotifType('');
     }
 };
 
 const stopRadioRecording = () => {
-    if (radioProcessorRef.current?.state === 'recording') radioProcessorRef.current.stop();
-    if (radioStreamRef.current) { radioStreamRef.current.getTracks().forEach(t => t.stop()); radioStreamRef.current = null; }
-    if (radioAudioCtxRef.current) { radioAudioCtxRef.current.close(); radioAudioCtxRef.current = null; }
+    console.log('[DISPATCH] ⏹️ stopRadioRecording called — recorder state:', radioProcessorRef.current?.state);
+    if (radioProcessorRef.current?.state === 'recording') {
+        radioProcessorRef.current.stop();
+        console.log('[DISPATCH] ✅ MediaRecorder.stop() called');
+    }
+    if (radioStreamRef.current) {
+        radioStreamRef.current.getTracks().forEach(t => t.stop());
+        radioStreamRef.current = null;
+        console.log('[DISPATCH] ✅ Stream tracks stopped');
+    }
     radioProcessorRef.current = null;
     setRadioActive(false);
 };
 
-const triggerDispatchSearch = async (plate) => {
+const triggerDispatchSearch = (plate) => {
+    console.log('[DISPATCH] 🚗 triggerDispatchSearch — plate:', plate);
     setActiveView('search');
     setLicensePlate(plate);
     setDispatchNotif('📡 Copy, dispatch is searching vehicle up...');
     setDispatchNotifType('searching');
 
-    // Wait one tick for state to settle, then trigger search
-    await new Promise(r => setTimeout(r, 150));
-    try {
-        await lookupUserForDispatch(plate);
-    } catch(e) {
+    // Register result listener BEFORE calling lookupUser
+    const timeout = setTimeout(() => {
+        console.warn('[DISPATCH] ⏱️ Dispatch search timed out after 30s');
+        window.removeEventListener('dispatch-result', handler);
         setDispatchNotif('');
-    }
-};
+        setDispatchNotifType('');
+    }, 30000);
 
-const lookupUserForDispatch = async (plate) => {
-    // Reuse the existing lookupUser but intercept the result via a parallel check
-    // We trigger lookupUser normally and watch result state via a polling check
-    lookupUser(plate);
-
-    // Poll for result — max 30s
-    const start = Date.now();
-    return new Promise((resolve) => {
-        const check = setInterval(() => {
-            if (Date.now() - start > 30000) {
-                clearInterval(check);
-                setDispatchNotif('');
-                resolve();
-                return;
-            }
-            // Check loading state via DOM (indirect — we watch dispatchNotif type)
-            // Result is communicated via dispatchSearchResult ref set in lookupUser
-        }, 500);
-
-        // Listen for dispatch result event
-        const handler = (e) => {
-            clearInterval(check);
-            window.removeEventListener('dispatch-result', handler);
-            const { type } = e.detail;
-            const msgs = {
-                found:     'Return vehicle is registered, no warrants. View your MDT for additional information.',
-                warrant:   'Return vehicle is registered, active warrant(s). View your MDT for additional information.',
-                notfound:  'Return vehicle is not registered. View your MDT for additional information.',
-                improper:  'Return vehicle is improperly registered. View your MDT for additional information.',
-                multiple:  'Return vehicle shows multiple registered vehicles matching. View your MDT for additional information.',
-            };
-            setDispatchNotif(msgs[type] || '');
-            setDispatchNotifType(type);
-            setTimeout(() => { setDispatchNotif(''); setDispatchNotifType(''); }, 9000);
-            resolve();
+    const handler = (e) => {
+        clearTimeout(timeout);
+        window.removeEventListener('dispatch-result', handler);
+        const { type } = e.detail;
+        console.log('[DISPATCH] 📻 Received dispatch-result event, type:', type);
+        const msgs = {
+            found:    'Return vehicle is registered, no warrants. View your MDT for additional information.',
+            warrant:  'Return vehicle is registered, active warrant(s). View your MDT for additional information.',
+            notfound: 'Return vehicle is not registered. View your MDT for additional information.',
+            improper: 'Return vehicle is improperly registered. View your MDT for additional information.',
+            multiple: 'Return vehicle shows multiple registered vehicles matching. View your MDT for additional information.',
         };
-        window.addEventListener('dispatch-result', handler);
-    });
+        setDispatchNotif(msgs[type] || '');
+        setDispatchNotifType(type);
+        setTimeout(() => { setDispatchNotif(''); setDispatchNotifType(''); }, 9000);
+    };
+    window.addEventListener('dispatch-result', handler);
+
+    // Small delay so state settles before lookupUser reads licensePlate
+    setTimeout(() => {
+        console.log('[DISPATCH] 🔍 Calling lookupUser with plate:', plate);
+        lookupUser(plate);
+    }, 200);
 };
 
 useEffect(() => {
@@ -5624,6 +5696,8 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
                 found: false
             }]);
             
+            console.log('[DISPATCH] 🔴 Firing dispatch-result: notfound');
+            window.dispatchEvent(new CustomEvent('dispatch-result', { detail: { type: 'notfound' } }));
             return;  // STOP EXECUTION
         }
         
@@ -5726,6 +5800,8 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
                     
                     playSound('pass');
                     setSearchProgress(100);
+                    console.log('[DISPATCH] 🟡 Firing dispatch-result: multiple');
+                    window.dispatchEvent(new CustomEvent('dispatch-result', { detail: { type: 'multiple' } }));
                     return;
                 }
 
@@ -6047,8 +6123,12 @@ console.log('   - Username:', memberData.user.username);
                                     playWarrantAlert();
                                     setTimeout(() => setWarrantFlash(false), 3000);
                                 }, 1000);
+                                console.log('[DISPATCH] 🔴 Firing dispatch-result: warrant');
+                                window.dispatchEvent(new CustomEvent('dispatch-result', { detail: { type: 'warrant' } }));
                             } else {
                                 setWarrantInfo(null);
+                                console.log('[DISPATCH] 🟢 Firing dispatch-result: found');
+                                window.dispatchEvent(new CustomEvent('dispatch-result', { detail: { type: 'found' } }));
                             }
                         });
                     } else {
@@ -9633,15 +9713,16 @@ return (
         left: '50%', transform: 'translateX(-50%)',
         padding: '12px 22px',
         background: dispatchNotifType === 'warrant' ? 'linear-gradient(135deg,#dc2626,#991b1b)'
-            : dispatchNotifType === 'searching' ? 'linear-gradient(135deg,#1e40af,#1d4ed8)'
+            : dispatchNotifType === 'searching' || dispatchNotifType === 'processing' ? 'linear-gradient(135deg,#1e40af,#1d4ed8)'
+            : dispatchNotifType === 'listening' ? 'linear-gradient(135deg,#5b21b6,#6d28d9)'
             : dispatchNotifType === 'found' ? 'linear-gradient(135deg,#065f46,#047857)'
             : dispatchNotifType === 'notfound' ? 'linear-gradient(135deg,#374151,#1f2937)'
             : 'linear-gradient(135deg,#92400e,#b45309)',
-        border: `1px solid ${dispatchNotifType === 'warrant' ? '#ef4444' : dispatchNotifType === 'found' ? '#10b981' : dispatchNotifType === 'searching' ? '#3b82f6' : '#6b7280'}`,
+        border: `1px solid ${dispatchNotifType === 'warrant' ? '#ef4444' : dispatchNotifType === 'found' ? '#10b981' : dispatchNotifType === 'listening' ? '#a78bfa' : dispatchNotifType === 'searching' || dispatchNotifType === 'processing' ? '#3b82f6' : '#6b7280'}`,
         borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700',
         zIndex: 9990, boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
         maxWidth: '520px', textAlign: 'center', letterSpacing: '0.3px',
-        animation: dispatchNotifType === 'searching' ? 'pulse 2s infinite' : 'none'
+        animation: ['searching','processing','listening'].includes(dispatchNotifType) ? 'pulse 2s infinite' : 'none'
     }}>
         📻 {dispatchNotif}
     </div>
