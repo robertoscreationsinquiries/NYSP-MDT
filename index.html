@@ -1648,19 +1648,7 @@ const [hfAPIKey, setHfAPIKey] = useState('');
 const [groqConsoleAPIKey, setGroqConsoleAPIKey] = useState('');
 const [databaseSearchUsername, setDatabaseSearchUsername] = useState('');
 // ── Mic / Voice state ─────────────────────────────────────────────────────
-const [useMicrophone, setUseMicrophone] = useState(false); // disabled
-const [aiDispatchEnabled, setAiDispatchEnabled] = useState(false);
-const [radioHotkey, setRadioHotkey] = useState('');
-const [radioHotkeyDraft, setRadioHotkeyDraft] = useState('');
-const [radioActive, setRadioActive] = useState(false);
-const [dispatchNotif, setDispatchNotif] = useState('');
-const [dispatchNotifType, setDispatchNotifType] = useState(''); // 'searching'|'found'|'warrant'|'notfound'|'improper'|'multiple'
-const radioStreamRef = React.useRef(null);
-const radioProcessorRef = React.useRef(null);
-const radioAudioCtxRef = React.useRef(null);
-const aiDispatchEnabledRef = React.useRef(false);
-const radioActiveRef = React.useRef(false);
-const radioHotkeyRef = React.useRef('');
+const [useMicrophone, setUseMicrophone] = useState(true);
 const [micTestActive, setMicTestActive] = useState(false);
 const [micLevel, setMicLevel] = useState(0);
 const [micTestError, setMicTestError] = useState('');
@@ -1894,14 +1882,10 @@ if (trimmedLine.startsWith('ACKNOWLEDGE_KEYBIND=')) {
     const val = trimmedLine.split('=')[1]?.trim();
     if (val) { setAcknowledgeKeybind(val); setAcknowledgeKeybindDraft(val); }
 }
-if (trimmedLine.startsWith('MIC_HOTKEY=') || trimmedLine.startsWith('RADIO_HOTKEY=')) {
+if (trimmedLine.startsWith('MIC_HOTKEY=')) {
                 const val = trimmedLine.split('=')[1]?.trim();
-                if (val) { setMicHotkey(val); setMicHotkeyDraft(val); setRadioHotkey(val); setRadioHotkeyDraft(val); }
+                if (val) { setMicHotkey(val); setMicHotkeyDraft(val); }
             }
-if (trimmedLine.startsWith('AI_DISPATCH=')) {
-    const val = trimmedLine.split('=')[1]?.trim();
-    setAiDispatchEnabled(val === 'TRUE');
-}
             
            if (trimmedLine.startsWith('GroqConsoleAPIKey=')) {
                 const key = trimmedLine.split('=')[1];
@@ -2231,186 +2215,6 @@ const stopVoicePlate = () => {
     setVoiceNotif('');
     setMicLevel(0);
 };
-
-// ── AI DISPATCH ──────────────────────────────────────────────
-const PHONETIC_TO_LETTER = {
-    adam:'A',alpha:'A',able:'A',
-    boy:'B',bravo:'B',baker:'B',
-    charles:'C',charlie:'C',
-    david:'D',delta:'D',
-    edward:'E',echo:'E',
-    frank:'F',foxtrot:'F',
-    george:'G',golf:'G',
-    henry:'H',hotel:'H',
-    ida:'I',india:'I',
-    john:'J',juliet:'J',
-    king:'K',kilo:'K',
-    lincoln:'L',lima:'L',
-    mary:'M',mike:'M',
-    nora:'N',november:'N',nancy:'N',
-    ocean:'O',oscar:'O',
-    paul:'P',papa:'P',peter:'P',
-    queen:'Q',quebec:'Q',
-    robert:'R',romeo:'R',roger:'R',
-    sam:'S',sierra:'S',sugar:'S',
-    tom:'T',tango:'T',
-    union:'U',uniform:'U',
-    victor:'V',
-    william:'W',whiskey:'W',
-    xray:'X','x-ray':'X',
-    young:'Y',yankee:'Y',
-    zebra:'Z',zulu:'Z',
-    zero:'0',one:'1',two:'2',three:'3',four:'4',
-    five:'5',six:'6',seven:'7',eight:'8',nine:'9',niner:'9'
-};
-
-const parseDispatchSpeech = (text) => {
-    // Expects "Dispatch run plate Adam Mary James 4 4 6 5"
-    const lower = text.toLowerCase().trim();
-    const dispatchIdx = lower.indexOf('dispatch');
-    if (dispatchIdx === -1) return null;
-    const after = lower.slice(dispatchIdx + 8).trim();
-
-    // Extract plate command
-    const plateMatch = after.match(/run\s+plate\s+(.+)/i);
-    if (!plateMatch) return null;
-
-    const plateWords = plateMatch[1].trim().replace(/[.,!?]/g, '').split(/\s+/);
-    let plate = '';
-    for (const w of plateWords) {
-        const mapped = PHONETIC_TO_LETTER[w];
-        if (mapped !== undefined) plate += mapped;
-        else if (/^\d+$/.test(w)) plate += w; // raw digits
-    }
-    return plate.toUpperCase() || null;
-};
-
-const startRadioRecording = async () => {
-    console.log('[DISPATCH] 🎙️ startRadioRecording — aiDispatch:', aiDispatchEnabledRef.current, '| radioActive:', radioActiveRef.current);
-    if (!aiDispatchEnabledRef.current || radioActiveRef.current) {
-        console.log('[DISPATCH] ⛔ Blocked — dispatch enabled:', aiDispatchEnabledRef.current, '| already active:', radioActiveRef.current);
-        return;
-    }
-    try {
-        console.log('[DISPATCH] 🎙️ Requesting microphone...');
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        radioStreamRef.current = stream;
-        console.log('[DISPATCH] ✅ Mic granted, tracks:', stream.getAudioTracks().length);
-        const recorder = new MediaRecorder(stream);
-        radioProcessorRef.current = recorder;
-        const chunks = [];
-        recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-        recorder.onstop = async () => {
-            console.log('[DISPATCH] ⏹️ recorder.onstop — chunks:', chunks.length);
-            setDispatchNotif('📡 Dispatch is processing request...');
-            setDispatchNotifType('processing');
-            try {
-                const blob = new Blob(chunks, { type: 'audio/webm' });
-                console.log('[DISPATCH] 🎵 Blob size:', blob.size, 'bytes');
-                if (blob.size < 1000) {
-                    console.warn('[DISPATCH] ⚠️ Audio too short (<1000 bytes), ignoring');
-                    setDispatchNotif(''); setDispatchNotifType(''); return;
-                }
-                const formData = new FormData();
-                formData.append('file', blob, 'radio.webm');
-                formData.append('model', 'whisper-large-v3-turbo');
-                formData.append('response_format', 'json');
-                const apiKey = groqConsoleAPIKey || window.GROQ_CONSOLE_API_KEY || localStorage.getItem('groqConsoleAPIKey');
-                console.log('[DISPATCH] 🔑 API key present:', !!apiKey, '| length:', apiKey?.length);
-                if (!apiKey) { console.error('[DISPATCH] ❌ No API key — aborting'); setDispatchNotif(''); setDispatchNotifType(''); return; }
-                console.log('[DISPATCH] 📤 Sending to Whisper...');
-                const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-                    method: 'POST',
-                    headers: { 'Authorization': 'Bearer ' + apiKey },
-                    body: formData
-                });
-                console.log('[DISPATCH] 📥 Whisper status:', res.status);
-                const data = await res.json();
-                console.log('[DISPATCH] 📝 Whisper response:', JSON.stringify(data));
-                if (data?.error) { console.error('[DISPATCH] ❌ Whisper error:', JSON.stringify(data.error)); setDispatchNotif(''); setDispatchNotifType(''); return; }
-                const text = data?.text?.trim();
-                console.log('[DISPATCH] 🗣️ Transcribed:', text);
-                if (!text) { console.warn('[DISPATCH] ⚠️ Empty transcript'); setDispatchNotif(''); setDispatchNotifType(''); return; }
-                const plate = parseDispatchSpeech(text);
-                console.log('[DISPATCH] 🚗 Parsed plate:', plate);
-                if (!plate) { console.warn('[DISPATCH] ⚠️ No plate parsed from: "' + text + '"'); setDispatchNotif(''); setDispatchNotifType(''); return; }
-                triggerDispatchSearch(plate);
-            } catch(e) {
-                console.error('[DISPATCH] ❌ onstop error:', e.message);
-                setDispatchNotif(''); setDispatchNotifType('');
-            }
-        };
-        recorder.start();
-        radioActiveRef.current = true;
-        setRadioActive(true);
-        setDispatchNotif('🎙️ Dispatch is listening...');
-        setDispatchNotifType('listening');
-        console.log('[DISPATCH] ✅ Recording started — state:', recorder.state);
-    } catch(e) {
-        console.error('[DISPATCH] ❌ Mic access error:', e.name, e.message);
-        radioActiveRef.current = false;
-        setRadioActive(false);
-        setDispatchNotif(''); setDispatchNotifType('');
-    }
-};
-
-const stopRadioRecording = () => {
-    console.log('[DISPATCH] ⏹️ stopRadioRecording — recorder state:', radioProcessorRef.current?.state);
-    radioActiveRef.current = false;
-    setRadioActive(false);
-    if (radioProcessorRef.current?.state === 'recording') {
-        radioProcessorRef.current.stop();
-        console.log('[DISPATCH] ✅ MediaRecorder.stop() called');
-    } else {
-        console.warn('[DISPATCH] ⚠️ Recorder not in recording state — startRadioRecording was likely blocked');
-    }
-    if (radioStreamRef.current) {
-        radioStreamRef.current.getTracks().forEach(t => t.stop());
-        radioStreamRef.current = null;
-        console.log('[DISPATCH] ✅ Stream tracks stopped');
-    }
-    radioProcessorRef.current = null;
-};
-
-const triggerDispatchSearch = (plate) => {
-    console.log('[DISPATCH] 🚗 triggerDispatchSearch — plate:', plate);
-    setActiveView('search');
-    setLicensePlate(plate);
-    setDispatchNotif('📡 Copy, dispatch is searching vehicle up...');
-    setDispatchNotifType('searching');
-
-    // Register result listener BEFORE calling lookupUser to avoid race
-    const timeout = setTimeout(() => {
-        console.warn('[DISPATCH] ⏱️ Search timed out after 30s');
-        window.removeEventListener('dispatch-result', handler);
-        setDispatchNotif(''); setDispatchNotifType('');
-    }, 30000);
-
-    const handler = (e) => {
-        clearTimeout(timeout);
-        window.removeEventListener('dispatch-result', handler);
-        const { type } = e.detail;
-        console.log('[DISPATCH] 📻 dispatch-result received:', type);
-        const msgs = {
-            found:    '✅ Return vehicle is registered, no warrants. View your MDT.',
-            warrant:  '🚨 Return vehicle is registered — active warrant(s). View your MDT.',
-            notfound: '❌ Return vehicle is not registered. View your MDT.',
-            improper: '⚠️ Return vehicle is improperly registered. View your MDT.',
-            multiple: '📋 Multiple registered vehicles match. View your MDT.',
-        };
-        setDispatchNotif(msgs[type] || '');
-        setDispatchNotifType(type);
-        setTimeout(() => { setDispatchNotif(''); setDispatchNotifType(''); }, 9000);
-    };
-    window.addEventListener('dispatch-result', handler);
-
-    // Small delay so React state (licensePlate) settles before lookupUser reads it
-    setTimeout(() => {
-        console.log('[DISPATCH] 🔍 Calling lookupUser with:', plate);
-        lookupUser(plate);
-    }, 200);
-};
-
 useEffect(() => {
     if (!useMicrophone && micTestActive) {
         stopMicTest();
@@ -3636,8 +3440,7 @@ VisualEffects=${visualEffects ? 'TRUE' : 'FALSE'}
 MiniMode=${compactMode ? 'TRUE' : 'FALSE'}
 ActiveSession=NONE
 USE_MICROPHONE=${useMicrophone ? 'TRUE' : 'FALSE'}
-RADIO_HOTKEY=${radioHotkey || ''}
-AI_DISPATCH=${aiDispatchEnabled ? 'TRUE' : 'FALSE'}
+MIC_HOTKEY=${micHotkey || ''}
 PANIC_ENABLED=${panicEnabled ? 'TRUE' : 'FALSE'}
 PANIC_HOTKEY=${panicHotkey || ''}
 PANIC_TRIGGER_MODE=${panicTriggerMode || 'HOLD'}
@@ -3673,8 +3476,6 @@ if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
                     if (key === 'PANIC_HOTKEY') { setPanicHotkey(val); setPanicHotkeyDraft(val); }
                     if (key === 'PANIC_TRIGGER_MODE') { setPanicTriggerMode(val); setPanicTriggerModeDraft(val); }
                     if (key === 'ACKNOWLEDGE_KEYBIND') { setAcknowledgeKeybind(val); setAcknowledgeKeybindDraft(val); }
-                    if (key === 'RADIO_HOTKEY') { setRadioHotkey(val); setRadioHotkeyDraft(val); }
-                    if (key === 'AI_DISPATCH') setAiDispatchEnabled(val === 'TRUE');
                     if (key === 'AmericanDateFormat') setTrooperSettings(prev => ({ ...prev, AmericanDateFormat: val }));
                     
                 });
@@ -4075,7 +3876,7 @@ React.useEffect(() => {
     checkForNewCalls();
     const interval = setInterval(checkForNewCalls, 7000);
     return () => clearInterval(interval);
-}, [selectedUserSession, tokenSaved, discordToken, dismissedCalls]);
+}, [selectedUserSession, tokenSaved, discordToken, dismissedCalls, acknowledgedCalls]);
 
 // Cleanup alert sound when leaving calls view
 React.useEffect(() => {
@@ -4253,46 +4054,27 @@ React.useEffect(() => {
 }, [calls]);
 
 React.useEffect(() => {
-    const getPressed = (e) => {
+    if (!micHotkey) return;
+    const handler = (e) => {
+if (isRecordingKeybind || isRecordingMicHotkey) return;
+        if (keybindsRequireFocus && !document.hasFocus()) return;
         const parts = [];
         if (e.ctrlKey) parts.push('CTRL');
         if (e.shiftKey) parts.push('SHIFT');
         if (e.altKey) parts.push('ALT');
-        const k = e.key.toUpperCase();
-        if (!['CONTROL','SHIFT','ALT','META'].includes(k)) parts.push(k);
-        return parts.join('+');
-    };
-    const downHandler = (e) => {
-        if (e.repeat) return;
-        const pressed = getPressed(e);
-        const hotkey = radioHotkeyRef.current;
-        const enabled = aiDispatchEnabledRef.current;
-        console.log('[DISPATCH KEY] keydown:', pressed, '| radioHotkey:', hotkey, '| aiDispatch:', enabled, '| recordingKeybind:', isRecordingKeybind, '| focus:', document.hasFocus());
-        if (!hotkey || !enabled) return;
-        if (isRecordingKeybind || isRecordingMicHotkey) return;
-        if (keybindsRequireFocus && !document.hasFocus()) return;
-        if (pressed === hotkey) {
-            console.log('[DISPATCH KEY] ✅ Match — calling startRadioRecording');
-            startRadioRecording();
+        const key = e.key.toUpperCase();
+        if (!['CONTROL','SHIFT','ALT','META'].includes(key)) parts.push(key);
+        const pressed = parts.join('+');
+        if (pressed === micHotkey && activeView === 'search') {
+            e.preventDefault();
+            if (!useMicrophone) return;
+            if (loading || searchCooldown) return;
+            voiceActive ? stopVoicePlate() : startVoicePlate();
         }
     };
-    const upHandler = (e) => {
-        const pressed = getPressed(e);
-        const hotkey = radioHotkeyRef.current;
-        if (hotkey && pressed === hotkey) {
-            console.log('[DISPATCH KEY] ⬆️ Hotkey released — calling stopRadioRecording');
-            stopRadioRecording();
-        }
-    };
-    window.addEventListener('keydown', downHandler);
-    window.addEventListener('keyup', upHandler);
-    console.log('[DISPATCH] 🎧 Radio hotkey listeners registered');
-    return () => {
-        window.removeEventListener('keydown', downHandler);
-        window.removeEventListener('keyup', upHandler);
-        console.log('[DISPATCH] 🧹 Radio hotkey listeners removed');
-    };
-}, [keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey]);
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+}, [micHotkey, voiceActive, useMicrophone, loading, searchCooldown, activeView, isRecordingKeybind, isRecordingMicHotkey]);
 
 React.useEffect(() => {
     if (!panicEnabled || !panicHotkey) return;
@@ -4359,10 +4141,6 @@ React.useEffect(() => {
 React.useEffect(() => {
     acknowledgedCallsRef.current = acknowledgedCalls;
 }, [acknowledgedCalls]);
-
-React.useEffect(() => { aiDispatchEnabledRef.current = aiDispatchEnabled; }, [aiDispatchEnabled]);
-React.useEffect(() => { radioActiveRef.current = radioActive; }, [radioActive]);
-React.useEffect(() => { radioHotkeyRef.current = radioHotkey; }, [radioHotkey]);
 
 React.useEffect(() => {
     if (!acknowledgeKeybind) return;
@@ -5669,8 +5447,6 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
                 found: false
             }]);
             
-            console.log('[DISPATCH] 🔴 Firing dispatch-result: notfound');
-            window.dispatchEvent(new CustomEvent('dispatch-result', { detail: { type: 'notfound' } }));
             return;  // STOP EXECUTION
         }
         
@@ -5737,8 +5513,6 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
                         setError('AI was unable to parse registration. Registration does exist, however user has not followed format.');
                         setLoading(false);
                         setSearchProgress(0);
-                        console.log('[DISPATCH] 🔴 Firing dispatch-result: improper (all parse failed)');
-                        window.dispatchEvent(new CustomEvent('dispatch-result', { detail: { type: 'improper' } }));
                         return;  // STOP EXECUTION instead of throwing
                     }
                     
@@ -5775,8 +5549,6 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
                     
                     playSound('pass');
                     setSearchProgress(100);
-                    console.log('[DISPATCH] 🟡 Firing dispatch-result: multiple');
-                    window.dispatchEvent(new CustomEvent('dispatch-result', { detail: { type: 'multiple' } }));
                     return;
                 }
 
@@ -5864,7 +5636,6 @@ if (parseFailedButVehicleExists) {
         discordUserId: ownerId,
         rawDiscordMessage: foundMessages?.[0]?.content || null
     });
-    window.dispatchEvent(new CustomEvent('dispatch-result', { detail: { type: 'improper' } }));
     
     // ✅ Set regData to minimal object so code below works
     regData = {
@@ -6098,12 +5869,8 @@ console.log('   - Username:', memberData.user.username);
                                     playWarrantAlert();
                                     setTimeout(() => setWarrantFlash(false), 3000);
                                 }, 1000);
-                                console.log('[DISPATCH] 🔴 Firing dispatch-result: warrant');
-                                window.dispatchEvent(new CustomEvent('dispatch-result', { detail: { type: 'warrant' } }));
                             } else {
                                 setWarrantInfo(null);
-                                console.log('[DISPATCH] 🟢 Firing dispatch-result: found');
-                                window.dispatchEvent(new CustomEvent('dispatch-result', { detail: { type: 'found' } }));
                             }
                         });
                     } else {
@@ -9682,27 +9449,6 @@ return (
     </div>
 )}
 
-{dispatchNotif && (
-    <div style={{
-        position: 'fixed', bottom: ['searching','listening','processing'].includes(dispatchNotifType) ? '80px' : '60px',
-        left: '50%', transform: 'translateX(-50%)',
-        padding: '12px 22px',
-        background: dispatchNotifType === 'warrant' ? 'linear-gradient(135deg,#dc2626,#991b1b)'
-            : dispatchNotifType === 'searching' || dispatchNotifType === 'processing' ? 'linear-gradient(135deg,#1e40af,#1d4ed8)'
-            : dispatchNotifType === 'listening' ? 'linear-gradient(135deg,#5b21b6,#6d28d9)'
-            : dispatchNotifType === 'found' ? 'linear-gradient(135deg,#065f46,#047857)'
-            : dispatchNotifType === 'notfound' ? 'linear-gradient(135deg,#374151,#1f2937)'
-            : 'linear-gradient(135deg,#92400e,#b45309)',
-        border: `1px solid ${dispatchNotifType === 'warrant' ? '#ef4444' : dispatchNotifType === 'found' ? '#10b981' : dispatchNotifType === 'listening' ? '#a78bfa' : dispatchNotifType === 'searching' || dispatchNotifType === 'processing' ? '#3b82f6' : '#6b7280'}`,
-        borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700',
-        zIndex: 9990, boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-        maxWidth: '520px', textAlign: 'center', letterSpacing: '0.3px',
-        animation: ['searching','processing','listening'].includes(dispatchNotifType) ? 'pulse 2s infinite' : 'none'
-    }}>
-        📻 {dispatchNotif}
-    </div>
-)}
-
 {panicModalOpen && (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
         <div style={{ width: '380px', borderRadius: '0px', overflow: 'hidden', boxShadow: '0 0 0 2px rgba(239,68,68,0.8), 0 32px 80px rgba(0,0,0,0.9), 0 0 60px rgba(239,68,68,0.3)', animation: 'panicPulse 1s ease-in-out infinite' }}>
@@ -10157,8 +9903,7 @@ return (
                         <input
                             type="text"
                             value={licensePlate}
-                            onChange={(e) => { if (dispatchNotifType === 'searching') return; setLicensePlate(e.target.value.toUpperCase()); }}
-                            readOnly={dispatchNotifType === 'searching'}
+                            onChange={(e) => setLicensePlate(e.target.value.toUpperCase())}
                             onKeyPress={(e) => {
                                 if (e.key === 'Enter') {
                                     e.preventDefault();
@@ -10184,7 +9929,7 @@ return (
                         )}
                         <button
                             onClick={lookupUser}
-                            disabled={loading || !tokenSaved || dispatchNotifType === 'searching'}
+                            disabled={loading || !tokenSaved || voiceActive}
                             style={{ flex: 1, padding: '14px', background: loading ? 'rgba(59,130,246,0.3)' : 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '14px', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', boxShadow: loading ? 'none' : '0 4px 16px rgba(59,130,246,0.4)', transition: 'all 0.2s', letterSpacing: '1px', textTransform: 'uppercase' }}
                             onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 6px 24px rgba(59,130,246,0.6)'; }}
                             onMouseLeave={e => { if (!loading) e.currentTarget.style.boxShadow = '0 4px 16px rgba(59,130,246,0.4)'; }}
@@ -10963,10 +10708,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
 )}
                                 <ToggleRow label="Only Fire When App is Focused" desc="Hotkeys won't trigger when you are on a different tab with this setting enabled." on={keybindsRequireFocus} accent="#3b82f6" onToggle={() => setKeybindsRequireFocus(v => !v)} />
 <KeybindRecorder label="Action Bar / Command Palette"desc="Opens the command palette overlay" active={actionBarKeybind} draft={keybindDraft} setDraft={setKeybindDraft} onSave={() => { setActionBarKeybind(keybindDraft); addLog(`✅ Action bar: ${keybindDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#3b82f6" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
-                                <ToggleRow label="AI-Dispatch" desc="Hold RADIO HOTKEY to speak a dispatch command — 'Dispatch run plate [phonetic]'" on={aiDispatchEnabled} accent="#3b82f6" onToggle={() => setAiDispatchEnabled(v => !v)} />
-{aiDispatchEnabled && (
-    <KeybindRecorder label="Radio Hotkey" desc="Hold to record, release to send — say 'Dispatch run plate [phonetic plate]'" active={radioHotkey} draft={radioHotkeyDraft} setDraft={setRadioHotkeyDraft} onSave={() => { setRadioHotkey(radioHotkeyDraft); addLog(`✅ Radio hotkey set to: ${radioHotkeyDraft}`, 'success'); }} setRecording={setIsRecordingMicHotkey} accent="#3b82f6" conflictKey={actionBarKeybind} conflictLabel="Action Bar" />
-)}
+                                <KeybindRecorder label="Mic Toggle (Plate Search)" desc="Toggles voice-to-plate on the plate search page" active={micHotkey} draft={micHotkeyDraft} setDraft={setMicHotkeyDraft} onSave={() => { setMicHotkey(micHotkeyDraft); addLog(`✅ Mic hotkey: ${micHotkeyDraft}`, 'success'); }} setRecording={setIsRecordingMicHotkey} accent="#10b981" conflictKey={actionBarKeybind} conflictLabel="Action Bar" />
 <KeybindRecorder label="Acknowledge Call(s)" desc="Instantly acknowledges all active unacknowledged dispatch calls" active={acknowledgeKeybind} draft={acknowledgeKeybindDraft} setDraft={setAcknowledgeKeybindDraft} onSave={() => { setAcknowledgeKeybind(acknowledgeKeybindDraft); addLog(`✅ Acknowledge hotkey set to: ${acknowledgeKeybindDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#10b981" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
                             </div>
 
@@ -11015,7 +10757,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
 
                                 <div style={S.divider} />
                                 <div style={{ ...S.fieldLabel, marginBottom: '8px' }}>🎙️ Microphone & Voice</div>
-                                {/* Microphone (Voice-to-plate) disabled — replaced by AI-Dispatch */}
+                                <ToggleRow label="Enable Microphone (EXPERIMENTAL)" desc="Voice-to-plate dictation on the plate search page" on={useMicrophone} accent="#a855f7" onToggle={() => { const v = !useMicrophone; setUseMicrophone(v); if (!v) { stopMicTest(); stopVoicePlate(); } }} />
 
                                 {useMicrophone && (
                                     <div style={{ marginTop: '8px' }}>
@@ -11481,15 +11223,10 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                                 🚨
                                             </div>
                                             <div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                                                    <span style={{ color: 'white', fontSize: '17px', fontWeight: '700' }}>CALLER: {call.author}</span>
-                                                    {isAcknowledged && (
-                                                        <span style={{ padding: '2px 8px', background: 'rgba(16,185,129,0.2)', border: '1px solid rgba(16,185,129,0.5)', borderRadius: '4px', fontSize: '10px', color: '#34d399', fontWeight: '700', letterSpacing: '0.5px' }}>
-                                                            ✓ ACKNOWLEDGED
-                                                        </span>
-                                                    )}
+                                                <div style={{ color: 'white', fontSize: '17px', fontWeight: '700', marginBottom: '2px' }}>
+                                                    CALLER: {call.author}
                                                 </div>
-                                                <div style={{ color: isAcknowledged ? '#6ee7b7' : '#93c5fd', fontSize: '11px' }}>
+                                                <div style={{ color: '#93c5fd', fontSize: '11px' }}>
                                                     {call.timestamp}
                                                 </div>
                                             </div>
