@@ -1654,7 +1654,7 @@ const [radioHotkey, setRadioHotkey] = useState('');
 const [radioHotkeyDraft, setRadioHotkeyDraft] = useState('');
 const [radioActive, setRadioActive] = useState(false);
 const [dispatchNotif, setDispatchNotif] = useState('');
-const [dispatchNotifType, setDispatchNotifType] = useState(''); // 'searching'|'found'|'warrant'|'notfound'|'improper'|'multiple'|'listening'|'processing'
+const [dispatchNotifType, setDispatchNotifType] = useState(''); // 'searching'|'found'|'warrant'|'notfound'|'improper'|'multiple'
 const radioStreamRef = React.useRef(null);
 const radioProcessorRef = React.useRef(null);
 const radioAudioCtxRef = React.useRef(null);
@@ -2265,155 +2265,104 @@ const PHONETIC_TO_LETTER = {
 };
 
 const parseDispatchSpeech = (text) => {
-    console.log('[DISPATCH PARSE] Raw input:', text);
+    // Expects "Dispatch run plate Adam Mary James 4 4 6 5"
     const lower = text.toLowerCase().trim();
     const dispatchIdx = lower.indexOf('dispatch');
-    if (dispatchIdx === -1) {
-        console.warn('[DISPATCH PARSE] ⚠️ "dispatch" keyword not found in:', lower);
-        return null;
-    }
+    if (dispatchIdx === -1) return null;
     const after = lower.slice(dispatchIdx + 8).trim();
-    console.log('[DISPATCH PARSE] After "dispatch":', after);
 
+    // Extract plate command
     const plateMatch = after.match(/run\s+plate\s+(.+)/i);
-    if (!plateMatch) {
-        console.warn('[DISPATCH PARSE] ⚠️ "run plate" not found in:', after);
-        return null;
-    }
+    if (!plateMatch) return null;
 
     const plateWords = plateMatch[1].trim().replace(/[.,!?]/g, '').split(/\s+/);
-    console.log('[DISPATCH PARSE] Plate words to map:', plateWords);
     let plate = '';
     for (const w of plateWords) {
         const mapped = PHONETIC_TO_LETTER[w];
-        if (mapped !== undefined) {
-            plate += mapped;
-            console.log('[DISPATCH PARSE]  ', w, '→', mapped);
-        } else if (/^\d+$/.test(w)) {
-            plate += w;
-            console.log('[DISPATCH PARSE]  ', w, '→', w, '(raw digit)');
-        } else {
-            console.log('[DISPATCH PARSE]  ', w, '→ (no mapping, skipped)');
-        }
+        if (mapped !== undefined) plate += mapped;
+        else if (/^\d+$/.test(w)) plate += w; // raw digits
     }
-    const result = plate.toUpperCase() || null;
-    console.log('[DISPATCH PARSE] ✅ Final plate:', result);
-    return result;
+    return plate.toUpperCase() || null;
 };
 
 const startRadioRecording = async () => {
-    console.log('[DISPATCH] 🎙️ startRadioRecording called — aiDispatchEnabled:', aiDispatchEnabledRef.current, '| radioActive:', radioActiveRef.current);
+    console.log('[DISPATCH] 🎙️ startRadioRecording — aiDispatch:', aiDispatchEnabledRef.current, '| radioActive:', radioActiveRef.current);
     if (!aiDispatchEnabledRef.current || radioActiveRef.current) {
-        console.log('[DISPATCH] ⛔ Blocked — conditions not met (dispatch enabled:', aiDispatchEnabledRef.current, '| already active:', radioActiveRef.current, ')');
+        console.log('[DISPATCH] ⛔ Blocked — dispatch enabled:', aiDispatchEnabledRef.current, '| already active:', radioActiveRef.current);
         return;
     }
     try {
         console.log('[DISPATCH] 🎙️ Requesting microphone...');
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         radioStreamRef.current = stream;
-        console.log('[DISPATCH] ✅ Mic granted — setting up MediaRecorder');
-
+        console.log('[DISPATCH] ✅ Mic granted, tracks:', stream.getAudioTracks().length);
         const recorder = new MediaRecorder(stream);
         radioProcessorRef.current = recorder;
         const chunks = [];
-
-        recorder.ondataavailable = (e) => {
-            if (e.data.size > 0) chunks.push(e.data);
-        };
-
+        recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
         recorder.onstop = async () => {
-            console.log('[DISPATCH] ⏹️ Recording stopped — processing audio, chunks:', chunks.length);
+            console.log('[DISPATCH] ⏹️ recorder.onstop — chunks:', chunks.length);
             setDispatchNotif('📡 Dispatch is processing request...');
             setDispatchNotifType('processing');
-
             try {
                 const blob = new Blob(chunks, { type: 'audio/webm' });
-                console.log('[DISPATCH] 🎵 Audio blob size:', blob.size, 'bytes');
-
+                console.log('[DISPATCH] 🎵 Blob size:', blob.size, 'bytes');
                 if (blob.size < 1000) {
-                    console.warn('[DISPATCH] ⚠️ Audio too short, ignoring');
-                    setDispatchNotif('');
-                    setDispatchNotifType('');
-                    return;
+                    console.warn('[DISPATCH] ⚠️ Audio too short (<1000 bytes), ignoring');
+                    setDispatchNotif(''); setDispatchNotifType(''); return;
                 }
-
                 const formData = new FormData();
                 formData.append('file', blob, 'radio.webm');
                 formData.append('model', 'whisper-large-v3-turbo');
                 formData.append('response_format', 'json');
-
                 const apiKey = groqConsoleAPIKey || window.GROQ_CONSOLE_API_KEY || localStorage.getItem('groqConsoleAPIKey');
                 console.log('[DISPATCH] 🔑 API key present:', !!apiKey, '| length:', apiKey?.length);
-
-                console.log('[DISPATCH] 📤 Sending to Whisper API...');
+                if (!apiKey) { console.error('[DISPATCH] ❌ No API key — aborting'); setDispatchNotif(''); setDispatchNotifType(''); return; }
+                console.log('[DISPATCH] 📤 Sending to Whisper...');
                 const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + apiKey },
                     body: formData
                 });
-
-                console.log('[DISPATCH] 📥 Whisper response status:', res.status);
+                console.log('[DISPATCH] 📥 Whisper status:', res.status);
                 const data = await res.json();
-                console.log('[DISPATCH] 📝 Whisper raw response:', JSON.stringify(data));
-
-                if (data?.error) {
-                    console.error('[DISPATCH] ❌ Whisper API error:', data.error);
-                    setDispatchNotif('');
-                    setDispatchNotifType('');
-                    return;
-                }
-
+                console.log('[DISPATCH] 📝 Whisper response:', JSON.stringify(data));
+                if (data?.error) { console.error('[DISPATCH] ❌ Whisper error:', JSON.stringify(data.error)); setDispatchNotif(''); setDispatchNotifType(''); return; }
                 const text = data?.text?.trim();
-                console.log('[DISPATCH] 🗣️ Transcribed text:', text);
-
-                if (!text) {
-                    console.warn('[DISPATCH] ⚠️ No text transcribed');
-                    setDispatchNotif('');
-                    setDispatchNotifType('');
-                    return;
-                }
-
+                console.log('[DISPATCH] 🗣️ Transcribed:', text);
+                if (!text) { console.warn('[DISPATCH] ⚠️ Empty transcript'); setDispatchNotif(''); setDispatchNotifType(''); return; }
                 const plate = parseDispatchSpeech(text);
                 console.log('[DISPATCH] 🚗 Parsed plate:', plate);
-
-                if (!plate) {
-                    console.warn('[DISPATCH] ⚠️ Could not parse plate from:', text);
-                    setDispatchNotif('');
-                    setDispatchNotifType('');
-                    return;
-                }
-
+                if (!plate) { console.warn('[DISPATCH] ⚠️ No plate parsed from: "' + text + '"'); setDispatchNotif(''); setDispatchNotifType(''); return; }
                 triggerDispatchSearch(plate);
             } catch(e) {
-                console.error('[DISPATCH] ❌ Processing error:', e.message);
-                setDispatchNotif('');
-                setDispatchNotifType('');
+                console.error('[DISPATCH] ❌ onstop error:', e.message);
+                setDispatchNotif(''); setDispatchNotifType('');
             }
         };
-
         recorder.start();
         radioActiveRef.current = true;
         setRadioActive(true);
         setDispatchNotif('🎙️ Dispatch is listening...');
         setDispatchNotifType('listening');
-        console.log('[DISPATCH] ✅ Recording started');
+        console.log('[DISPATCH] ✅ Recording started — state:', recorder.state);
     } catch(e) {
-        console.error('[DISPATCH] ❌ Mic error:', e.message);
+        console.error('[DISPATCH] ❌ Mic access error:', e.name, e.message);
+        radioActiveRef.current = false;
         setRadioActive(false);
-        setDispatchNotif('');
-        setDispatchNotifType('');
+        setDispatchNotif(''); setDispatchNotifType('');
     }
 };
 
 const stopRadioRecording = () => {
-    console.log('[DISPATCH] ⏹️ stopRadioRecording called — recorder state:', radioProcessorRef.current?.state);
+    console.log('[DISPATCH] ⏹️ stopRadioRecording — recorder state:', radioProcessorRef.current?.state);
     radioActiveRef.current = false;
     setRadioActive(false);
     if (radioProcessorRef.current?.state === 'recording') {
         radioProcessorRef.current.stop();
         console.log('[DISPATCH] ✅ MediaRecorder.stop() called');
     } else {
-        console.warn('[DISPATCH] ⚠️ No active recorder to stop — startRadioRecording may have been blocked');
+        console.warn('[DISPATCH] ⚠️ Recorder not in recording state — startRadioRecording was likely blocked');
     }
     if (radioStreamRef.current) {
         radioStreamRef.current.getTracks().forEach(t => t.stop());
@@ -2430,25 +2379,24 @@ const triggerDispatchSearch = (plate) => {
     setDispatchNotif('📡 Copy, dispatch is searching vehicle up...');
     setDispatchNotifType('searching');
 
-    // Register result listener BEFORE calling lookupUser
+    // Register result listener BEFORE calling lookupUser to avoid race
     const timeout = setTimeout(() => {
-        console.warn('[DISPATCH] ⏱️ Dispatch search timed out after 30s');
+        console.warn('[DISPATCH] ⏱️ Search timed out after 30s');
         window.removeEventListener('dispatch-result', handler);
-        setDispatchNotif('');
-        setDispatchNotifType('');
+        setDispatchNotif(''); setDispatchNotifType('');
     }, 30000);
 
     const handler = (e) => {
         clearTimeout(timeout);
         window.removeEventListener('dispatch-result', handler);
         const { type } = e.detail;
-        console.log('[DISPATCH] 📻 Received dispatch-result event, type:', type);
+        console.log('[DISPATCH] 📻 dispatch-result received:', type);
         const msgs = {
-            found:    'Return vehicle is registered, no warrants. View your MDT for additional information.',
-            warrant:  'Return vehicle is registered, active warrant(s). View your MDT for additional information.',
-            notfound: 'Return vehicle is not registered. View your MDT for additional information.',
-            improper: 'Return vehicle is improperly registered. View your MDT for additional information.',
-            multiple: 'Return vehicle shows multiple registered vehicles matching. View your MDT for additional information.',
+            found:    '✅ Return vehicle is registered, no warrants. View your MDT.',
+            warrant:  '🚨 Return vehicle is registered — active warrant(s). View your MDT.',
+            notfound: '❌ Return vehicle is not registered. View your MDT.',
+            improper: '⚠️ Return vehicle is improperly registered. View your MDT.',
+            multiple: '📋 Multiple registered vehicles match. View your MDT.',
         };
         setDispatchNotif(msgs[type] || '');
         setDispatchNotifType(type);
@@ -2456,9 +2404,9 @@ const triggerDispatchSearch = (plate) => {
     };
     window.addEventListener('dispatch-result', handler);
 
-    // Small delay so state settles before lookupUser reads licensePlate
+    // Small delay so React state (licensePlate) settles before lookupUser reads it
     setTimeout(() => {
-        console.log('[DISPATCH] 🔍 Calling lookupUser with plate:', plate);
+        console.log('[DISPATCH] 🔍 Calling lookupUser with:', plate);
         lookupUser(plate);
     }, 200);
 };
@@ -4315,27 +4263,34 @@ React.useEffect(() => {
         return parts.join('+');
     };
     const downHandler = (e) => {
-        if (!radioHotkeyRef.current || !aiDispatchEnabledRef.current) return;
+        if (e.repeat) return;
+        const pressed = getPressed(e);
+        const hotkey = radioHotkeyRef.current;
+        const enabled = aiDispatchEnabledRef.current;
+        console.log('[DISPATCH KEY] keydown:', pressed, '| radioHotkey:', hotkey, '| aiDispatch:', enabled, '| recordingKeybind:', isRecordingKeybind, '| focus:', document.hasFocus());
+        if (!hotkey || !enabled) return;
         if (isRecordingKeybind || isRecordingMicHotkey) return;
         if (keybindsRequireFocus && !document.hasFocus()) return;
-        if (e.repeat) return;
-        if (getPressed(e) === radioHotkeyRef.current) {
-            console.log('[DISPATCH] ⌨️ Radio hotkey DOWN detected:', radioHotkeyRef.current);
+        if (pressed === hotkey) {
+            console.log('[DISPATCH KEY] ✅ Match — calling startRadioRecording');
             startRadioRecording();
         }
     };
     const upHandler = (e) => {
-        if (!radioHotkeyRef.current) return;
-        if (getPressed(e) === radioHotkeyRef.current) {
-            console.log('[DISPATCH] ⌨️ Radio hotkey UP detected');
+        const pressed = getPressed(e);
+        const hotkey = radioHotkeyRef.current;
+        if (hotkey && pressed === hotkey) {
+            console.log('[DISPATCH KEY] ⬆️ Hotkey released — calling stopRadioRecording');
             stopRadioRecording();
         }
     };
     window.addEventListener('keydown', downHandler);
     window.addEventListener('keyup', upHandler);
+    console.log('[DISPATCH] 🎧 Radio hotkey listeners registered');
     return () => {
         window.removeEventListener('keydown', downHandler);
         window.removeEventListener('keyup', upHandler);
+        console.log('[DISPATCH] 🧹 Radio hotkey listeners removed');
     };
 }, [keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey]);
 
@@ -5782,6 +5737,8 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
                         setError('AI was unable to parse registration. Registration does exist, however user has not followed format.');
                         setLoading(false);
                         setSearchProgress(0);
+                        console.log('[DISPATCH] 🔴 Firing dispatch-result: improper (all parse failed)');
+                        window.dispatchEvent(new CustomEvent('dispatch-result', { detail: { type: 'improper' } }));
                         return;  // STOP EXECUTION instead of throwing
                     }
                     
@@ -9727,7 +9684,7 @@ return (
 
 {dispatchNotif && (
     <div style={{
-        position: 'fixed', bottom: dispatchNotifType === 'searching' ? '80px' : '60px',
+        position: 'fixed', bottom: ['searching','listening','processing'].includes(dispatchNotifType) ? '80px' : '60px',
         left: '50%', transform: 'translateX(-50%)',
         padding: '12px 22px',
         background: dispatchNotifType === 'warrant' ? 'linear-gradient(135deg,#dc2626,#991b1b)'
