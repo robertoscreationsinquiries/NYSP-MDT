@@ -1648,7 +1648,16 @@ const [hfAPIKey, setHfAPIKey] = useState('');
 const [groqConsoleAPIKey, setGroqConsoleAPIKey] = useState('');
 const [databaseSearchUsername, setDatabaseSearchUsername] = useState('');
 // ── Mic / Voice state ─────────────────────────────────────────────────────
-const [useMicrophone, setUseMicrophone] = useState(true);
+const [useMicrophone, setUseMicrophone] = useState(false); // disabled
+const [aiDispatchEnabled, setAiDispatchEnabled] = useState(false);
+const [radioHotkey, setRadioHotkey] = useState('');
+const [radioHotkeyDraft, setRadioHotkeyDraft] = useState('');
+const [radioActive, setRadioActive] = useState(false);
+const [dispatchNotif, setDispatchNotif] = useState('');
+const [dispatchNotifType, setDispatchNotifType] = useState(''); // 'searching'|'found'|'warrant'|'notfound'|'improper'|'multiple'
+const radioStreamRef = React.useRef(null);
+const radioProcessorRef = React.useRef(null);
+const radioAudioCtxRef = React.useRef(null);
 const [micTestActive, setMicTestActive] = useState(false);
 const [micLevel, setMicLevel] = useState(0);
 const [micTestError, setMicTestError] = useState('');
@@ -1882,10 +1891,14 @@ if (trimmedLine.startsWith('ACKNOWLEDGE_KEYBIND=')) {
     const val = trimmedLine.split('=')[1]?.trim();
     if (val) { setAcknowledgeKeybind(val); setAcknowledgeKeybindDraft(val); }
 }
-if (trimmedLine.startsWith('MIC_HOTKEY=')) {
+if (trimmedLine.startsWith('MIC_HOTKEY=') || trimmedLine.startsWith('RADIO_HOTKEY=')) {
                 const val = trimmedLine.split('=')[1]?.trim();
-                if (val) { setMicHotkey(val); setMicHotkeyDraft(val); }
+                if (val) { setMicHotkey(val); setMicHotkeyDraft(val); setRadioHotkey(val); setRadioHotkeyDraft(val); }
             }
+if (trimmedLine.startsWith('AI_DISPATCH=')) {
+    const val = trimmedLine.split('=')[1]?.trim();
+    setAiDispatchEnabled(val === 'TRUE');
+}
             
            if (trimmedLine.startsWith('GroqConsoleAPIKey=')) {
                 const key = trimmedLine.split('=')[1];
@@ -2215,6 +2228,162 @@ const stopVoicePlate = () => {
     setVoiceNotif('');
     setMicLevel(0);
 };
+
+// ── AI DISPATCH ──────────────────────────────────────────────
+const PHONETIC_TO_LETTER = {
+    adam:'A',alpha:'A',able:'A',
+    boy:'B',bravo:'B',baker:'B',
+    charles:'C',charlie:'C',
+    david:'D',delta:'D',
+    edward:'E',echo:'E',
+    frank:'F',foxtrot:'F',
+    george:'G',golf:'G',
+    henry:'H',hotel:'H',
+    ida:'I',india:'I',
+    john:'J',juliet:'J',
+    king:'K',kilo:'K',
+    lincoln:'L',lima:'L',
+    mary:'M',mike:'M',
+    nora:'N',november:'N',nancy:'N',
+    ocean:'O',oscar:'O',
+    paul:'P',papa:'P',peter:'P',
+    queen:'Q',quebec:'Q',
+    robert:'R',romeo:'R',roger:'R',
+    sam:'S',sierra:'S',sugar:'S',
+    tom:'T',tango:'T',
+    union:'U',uniform:'U',
+    victor:'V',
+    william:'W',whiskey:'W',
+    xray:'X','x-ray':'X',
+    young:'Y',yankee:'Y',
+    zebra:'Z',zulu:'Z',
+    zero:'0',one:'1',two:'2',three:'3',four:'4',
+    five:'5',six:'6',seven:'7',eight:'8',nine:'9',niner:'9'
+};
+
+const parseDispatchSpeech = (text) => {
+    // Expects "Dispatch run plate Adam Mary James 4 4 6 5"
+    const lower = text.toLowerCase().trim();
+    const dispatchIdx = lower.indexOf('dispatch');
+    if (dispatchIdx === -1) return null;
+    const after = lower.slice(dispatchIdx + 8).trim();
+
+    // Extract plate command
+    const plateMatch = after.match(/run\s+plate\s+(.+)/i);
+    if (!plateMatch) return null;
+
+    const plateWords = plateMatch[1].trim().replace(/[.,!?]/g, '').split(/\s+/);
+    let plate = '';
+    for (const w of plateWords) {
+        const mapped = PHONETIC_TO_LETTER[w];
+        if (mapped !== undefined) plate += mapped;
+        else if (/^\d+$/.test(w)) plate += w; // raw digits
+    }
+    return plate.toUpperCase() || null;
+};
+
+const startRadioRecording = async () => {
+    if (!aiDispatchEnabled || radioActive) return;
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        radioStreamRef.current = stream;
+        const recorder = new MediaRecorder(stream);
+        radioProcessorRef.current = recorder;
+        const chunks = [];
+        recorder.ondataavailable = (e) => chunks.push(e.data);
+        recorder.onstop = async () => {
+            try {
+                const blob = new Blob(chunks, { type: 'audio/webm' });
+                const formData = new FormData();
+                formData.append('file', blob, 'radio.webm');
+                formData.append('model', 'whisper-large-v3-turbo');
+                formData.append('response_format', 'json');
+                const apiKey = groqConsoleAPIKey || window.GROQ_CONSOLE_API_KEY || localStorage.getItem('groqConsoleAPIKey');
+                const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + apiKey },
+                    body: formData
+                });
+                const data = await res.json();
+                const text = data?.text?.trim();
+                if (!text) { setDispatchNotif(''); return; }
+                const plate = parseDispatchSpeech(text);
+                if (!plate) { setDispatchNotif(''); return; }
+                triggerDispatchSearch(plate);
+            } catch(e) {
+                setDispatchNotif('');
+            }
+        };
+        recorder.start();
+        setRadioActive(true);
+    } catch(e) {
+        setRadioActive(false);
+    }
+};
+
+const stopRadioRecording = () => {
+    if (radioProcessorRef.current?.state === 'recording') radioProcessorRef.current.stop();
+    if (radioStreamRef.current) { radioStreamRef.current.getTracks().forEach(t => t.stop()); radioStreamRef.current = null; }
+    if (radioAudioCtxRef.current) { radioAudioCtxRef.current.close(); radioAudioCtxRef.current = null; }
+    radioProcessorRef.current = null;
+    setRadioActive(false);
+};
+
+const triggerDispatchSearch = async (plate) => {
+    setActiveView('search');
+    setLicensePlate(plate);
+    setDispatchNotif('📡 Copy, dispatch is searching vehicle up...');
+    setDispatchNotifType('searching');
+
+    // Wait one tick for state to settle, then trigger search
+    await new Promise(r => setTimeout(r, 150));
+    try {
+        await lookupUserForDispatch(plate);
+    } catch(e) {
+        setDispatchNotif('');
+    }
+};
+
+const lookupUserForDispatch = async (plate) => {
+    // Reuse the existing lookupUser but intercept the result via a parallel check
+    // We trigger lookupUser normally and watch result state via a polling check
+    lookupUser(plate);
+
+    // Poll for result — max 30s
+    const start = Date.now();
+    return new Promise((resolve) => {
+        const check = setInterval(() => {
+            if (Date.now() - start > 30000) {
+                clearInterval(check);
+                setDispatchNotif('');
+                resolve();
+                return;
+            }
+            // Check loading state via DOM (indirect — we watch dispatchNotif type)
+            // Result is communicated via dispatchSearchResult ref set in lookupUser
+        }, 500);
+
+        // Listen for dispatch result event
+        const handler = (e) => {
+            clearInterval(check);
+            window.removeEventListener('dispatch-result', handler);
+            const { type } = e.detail;
+            const msgs = {
+                found:     'Return vehicle is registered, no warrants. View your MDT for additional information.',
+                warrant:   'Return vehicle is registered, active warrant(s). View your MDT for additional information.',
+                notfound:  'Return vehicle is not registered. View your MDT for additional information.',
+                improper:  'Return vehicle is improperly registered. View your MDT for additional information.',
+                multiple:  'Return vehicle shows multiple registered vehicles matching. View your MDT for additional information.',
+            };
+            setDispatchNotif(msgs[type] || '');
+            setDispatchNotifType(type);
+            setTimeout(() => { setDispatchNotif(''); setDispatchNotifType(''); }, 9000);
+            resolve();
+        };
+        window.addEventListener('dispatch-result', handler);
+    });
+};
+
 useEffect(() => {
     if (!useMicrophone && micTestActive) {
         stopMicTest();
@@ -3440,7 +3609,8 @@ VisualEffects=${visualEffects ? 'TRUE' : 'FALSE'}
 MiniMode=${compactMode ? 'TRUE' : 'FALSE'}
 ActiveSession=NONE
 USE_MICROPHONE=${useMicrophone ? 'TRUE' : 'FALSE'}
-MIC_HOTKEY=${micHotkey || ''}
+RADIO_HOTKEY=${radioHotkey || ''}
+AI_DISPATCH=${aiDispatchEnabled ? 'TRUE' : 'FALSE'}
 PANIC_ENABLED=${panicEnabled ? 'TRUE' : 'FALSE'}
 PANIC_HOTKEY=${panicHotkey || ''}
 PANIC_TRIGGER_MODE=${panicTriggerMode || 'HOLD'}
@@ -3476,6 +3646,8 @@ if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
                     if (key === 'PANIC_HOTKEY') { setPanicHotkey(val); setPanicHotkeyDraft(val); }
                     if (key === 'PANIC_TRIGGER_MODE') { setPanicTriggerMode(val); setPanicTriggerModeDraft(val); }
                     if (key === 'ACKNOWLEDGE_KEYBIND') { setAcknowledgeKeybind(val); setAcknowledgeKeybindDraft(val); }
+                    if (key === 'RADIO_HOTKEY') { setRadioHotkey(val); setRadioHotkeyDraft(val); }
+                    if (key === 'AI_DISPATCH') setAiDispatchEnabled(val === 'TRUE');
                     if (key === 'AmericanDateFormat') setTrooperSettings(prev => ({ ...prev, AmericanDateFormat: val }));
                     
                 });
@@ -3856,15 +4028,12 @@ React.useEffect(() => {
                 if (currentCallIds !== previousCallIds && validCalls.length > 0) {
                     const newCallIds = validCalls.filter(c => !previousCallIds.includes(c.id));
                     if (newCallIds.length > 0) {
-                        // Check if any unacknowledged calls exist
-                        const hasUnacknowledged = validCalls.some(c => !acknowledgedCalls.includes(c.id));
+                        const hasUnacknowledged = validCalls.some(c => !acknowledgedCallsRef.current.includes(c.id));
                         if (hasUnacknowledged) {
                             playAlertSound();
-                        } else {
-                            stopAlertSound();
+                            setCallButtonFlash(true);
+                            setTimeout(() => setCallButtonFlash(false), 10000);
                         }
-                        setCallButtonFlash(true);
-                        setTimeout(() => setCallButtonFlash(false), 10000);
                         addLog(`🚨 ${newCallIds.length} new call(s) detected`, 'info');
                     }
                 }
@@ -3879,7 +4048,7 @@ React.useEffect(() => {
     checkForNewCalls();
     const interval = setInterval(checkForNewCalls, 7000);
     return () => clearInterval(interval);
-}, [selectedUserSession, tokenSaved, discordToken, dismissedCalls, acknowledgedCalls]);
+}, [selectedUserSession, tokenSaved, discordToken, dismissedCalls]);
 
 // Cleanup alert sound when leaving calls view
 React.useEffect(() => {
@@ -4057,27 +4226,32 @@ React.useEffect(() => {
 }, [calls]);
 
 React.useEffect(() => {
-    if (!micHotkey) return;
-    const handler = (e) => {
-if (isRecordingKeybind || isRecordingMicHotkey) return;
-        if (keybindsRequireFocus && !document.hasFocus()) return;
+    if (!radioHotkey || !aiDispatchEnabled) return;
+    const getPressed = (e) => {
         const parts = [];
         if (e.ctrlKey) parts.push('CTRL');
         if (e.shiftKey) parts.push('SHIFT');
         if (e.altKey) parts.push('ALT');
-        const key = e.key.toUpperCase();
-        if (!['CONTROL','SHIFT','ALT','META'].includes(key)) parts.push(key);
-        const pressed = parts.join('+');
-        if (pressed === micHotkey && activeView === 'search') {
-            e.preventDefault();
-            if (!useMicrophone) return;
-            if (loading || searchCooldown) return;
-            voiceActive ? stopVoicePlate() : startVoicePlate();
-        }
+        const k = e.key.toUpperCase();
+        if (!['CONTROL','SHIFT','ALT','META'].includes(k)) parts.push(k);
+        return parts.join('+');
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-}, [micHotkey, voiceActive, useMicrophone, loading, searchCooldown, activeView, isRecordingKeybind, isRecordingMicHotkey]);
+    const downHandler = (e) => {
+        if (isRecordingKeybind || isRecordingMicHotkey) return;
+        if (keybindsRequireFocus && !document.hasFocus()) return;
+        if (e.repeat) return;
+        if (getPressed(e) === radioHotkey) startRadioRecording();
+    };
+    const upHandler = (e) => {
+        if (getPressed(e) === radioHotkey) stopRadioRecording();
+    };
+    window.addEventListener('keydown', downHandler);
+    window.addEventListener('keyup', upHandler);
+    return () => {
+        window.removeEventListener('keydown', downHandler);
+        window.removeEventListener('keyup', upHandler);
+    };
+}, [radioHotkey, aiDispatchEnabled, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey]);
 
 React.useEffect(() => {
     if (!panicEnabled || !panicHotkey) return;
@@ -5639,6 +5813,7 @@ if (parseFailedButVehicleExists) {
         discordUserId: ownerId,
         rawDiscordMessage: foundMessages?.[0]?.content || null
     });
+    window.dispatchEvent(new CustomEvent('dispatch-result', { detail: { type: 'improper' } }));
     
     // ✅ Set regData to minimal object so code below works
     regData = {
@@ -9452,6 +9627,26 @@ return (
     </div>
 )}
 
+{dispatchNotif && (
+    <div style={{
+        position: 'fixed', bottom: dispatchNotifType === 'searching' ? '80px' : '60px',
+        left: '50%', transform: 'translateX(-50%)',
+        padding: '12px 22px',
+        background: dispatchNotifType === 'warrant' ? 'linear-gradient(135deg,#dc2626,#991b1b)'
+            : dispatchNotifType === 'searching' ? 'linear-gradient(135deg,#1e40af,#1d4ed8)'
+            : dispatchNotifType === 'found' ? 'linear-gradient(135deg,#065f46,#047857)'
+            : dispatchNotifType === 'notfound' ? 'linear-gradient(135deg,#374151,#1f2937)'
+            : 'linear-gradient(135deg,#92400e,#b45309)',
+        border: `1px solid ${dispatchNotifType === 'warrant' ? '#ef4444' : dispatchNotifType === 'found' ? '#10b981' : dispatchNotifType === 'searching' ? '#3b82f6' : '#6b7280'}`,
+        borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700',
+        zIndex: 9990, boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+        maxWidth: '520px', textAlign: 'center', letterSpacing: '0.3px',
+        animation: dispatchNotifType === 'searching' ? 'pulse 2s infinite' : 'none'
+    }}>
+        📻 {dispatchNotif}
+    </div>
+)}
+
 {panicModalOpen && (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
         <div style={{ width: '380px', borderRadius: '0px', overflow: 'hidden', boxShadow: '0 0 0 2px rgba(239,68,68,0.8), 0 32px 80px rgba(0,0,0,0.9), 0 0 60px rgba(239,68,68,0.3)', animation: 'panicPulse 1s ease-in-out infinite' }}>
@@ -9906,7 +10101,8 @@ return (
                         <input
                             type="text"
                             value={licensePlate}
-                            onChange={(e) => setLicensePlate(e.target.value.toUpperCase())}
+                            onChange={(e) => { if (dispatchNotifType === 'searching') return; setLicensePlate(e.target.value.toUpperCase()); }}
+                            readOnly={dispatchNotifType === 'searching'}
                             onKeyPress={(e) => {
                                 if (e.key === 'Enter') {
                                     e.preventDefault();
@@ -9932,7 +10128,7 @@ return (
                         )}
                         <button
                             onClick={lookupUser}
-                            disabled={loading || !tokenSaved || voiceActive}
+                            disabled={loading || !tokenSaved || dispatchNotifType === 'searching'}
                             style={{ flex: 1, padding: '14px', background: loading ? 'rgba(59,130,246,0.3)' : 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '14px', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', boxShadow: loading ? 'none' : '0 4px 16px rgba(59,130,246,0.4)', transition: 'all 0.2s', letterSpacing: '1px', textTransform: 'uppercase' }}
                             onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 6px 24px rgba(59,130,246,0.6)'; }}
                             onMouseLeave={e => { if (!loading) e.currentTarget.style.boxShadow = '0 4px 16px rgba(59,130,246,0.4)'; }}
@@ -10711,7 +10907,10 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
 )}
                                 <ToggleRow label="Only Fire When App is Focused" desc="Hotkeys won't trigger when you are on a different tab with this setting enabled." on={keybindsRequireFocus} accent="#3b82f6" onToggle={() => setKeybindsRequireFocus(v => !v)} />
 <KeybindRecorder label="Action Bar / Command Palette"desc="Opens the command palette overlay" active={actionBarKeybind} draft={keybindDraft} setDraft={setKeybindDraft} onSave={() => { setActionBarKeybind(keybindDraft); addLog(`✅ Action bar: ${keybindDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#3b82f6" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
-                                <KeybindRecorder label="Mic Toggle (Plate Search)" desc="Toggles voice-to-plate on the plate search page" active={micHotkey} draft={micHotkeyDraft} setDraft={setMicHotkeyDraft} onSave={() => { setMicHotkey(micHotkeyDraft); addLog(`✅ Mic hotkey: ${micHotkeyDraft}`, 'success'); }} setRecording={setIsRecordingMicHotkey} accent="#10b981" conflictKey={actionBarKeybind} conflictLabel="Action Bar" />
+                                <ToggleRow label="AI-Dispatch" desc="Hold RADIO HOTKEY to speak a dispatch command — 'Dispatch run plate [phonetic]'" on={aiDispatchEnabled} accent="#3b82f6" onToggle={() => setAiDispatchEnabled(v => !v)} />
+{aiDispatchEnabled && (
+    <KeybindRecorder label="Radio Hotkey" desc="Hold to record, release to send — say 'Dispatch run plate [phonetic plate]'" active={radioHotkey} draft={radioHotkeyDraft} setDraft={setRadioHotkeyDraft} onSave={() => { setRadioHotkey(radioHotkeyDraft); addLog(`✅ Radio hotkey set to: ${radioHotkeyDraft}`, 'success'); }} setRecording={setIsRecordingMicHotkey} accent="#3b82f6" conflictKey={actionBarKeybind} conflictLabel="Action Bar" />
+)}
 <KeybindRecorder label="Acknowledge Call(s)" desc="Instantly acknowledges all active unacknowledged dispatch calls" active={acknowledgeKeybind} draft={acknowledgeKeybindDraft} setDraft={setAcknowledgeKeybindDraft} onSave={() => { setAcknowledgeKeybind(acknowledgeKeybindDraft); addLog(`✅ Acknowledge hotkey set to: ${acknowledgeKeybindDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#10b981" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
                             </div>
 
@@ -10760,7 +10959,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
 
                                 <div style={S.divider} />
                                 <div style={{ ...S.fieldLabel, marginBottom: '8px' }}>🎙️ Microphone & Voice</div>
-                                <ToggleRow label="Enable Microphone (EXPERIMENTAL)" desc="Voice-to-plate dictation on the plate search page" on={useMicrophone} accent="#a855f7" onToggle={() => { const v = !useMicrophone; setUseMicrophone(v); if (!v) { stopMicTest(); stopVoicePlate(); } }} />
+                                {/* Microphone (Voice-to-plate) disabled — replaced by AI-Dispatch */}
 
                                 {useMicrophone && (
                                     <div style={{ marginTop: '8px' }}>
@@ -11164,18 +11363,22 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                 <div 
                                     key={call.id} 
                                     style={{
-                                        background: isOldCall && !isAcknowledged 
-                                            ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.3), rgba(220, 38, 38, 0.2))' 
-                                            : 'linear-gradient(135deg, rgba(30, 58, 138, 0.2), rgba(59, 130, 246, 0.1))',
-                                        border: `2px solid ${isOldCall && !isAcknowledged ? '#ef4444' : 'rgba(59, 130, 246, 0.4)'}`,
+                                        background: isAcknowledged
+                                            ? 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.05))'
+                                            : isOldCall
+                                                ? 'linear-gradient(135deg, rgba(239,68,68,0.3), rgba(220,38,38,0.2))'
+                                                : 'linear-gradient(135deg, rgba(30,58,138,0.2), rgba(59,130,246,0.1))',
+                                        border: `2px solid ${isAcknowledged ? 'rgba(16,185,129,0.5)' : isOldCall ? '#ef4444' : 'rgba(59,130,246,0.4)'}`,
                                         borderRadius: '12px',
                                         padding: '20px',
                                         position: 'relative',
                                         overflow: 'hidden',
-                                        animation: isOldCall && !isAcknowledged ? 'flash-red 1.5s infinite' : 'none',
-                                        boxShadow: isOldCall && !isAcknowledged 
-                                            ? '0 8px 32px rgba(239, 68, 68, 0.5)' 
-                                            : '0 4px 16px rgba(0, 0, 0, 0.3)'
+                                        animation: !isAcknowledged && isOldCall ? 'flash-red 1.5s infinite' : 'none',
+                                        boxShadow: isAcknowledged
+                                            ? '0 4px 16px rgba(16,185,129,0.15)'
+                                            : isOldCall
+                                                ? '0 8px 32px rgba(239,68,68,0.5)'
+                                                : '0 4px 16px rgba(0,0,0,0.3)'
                                     }}
                                 >
                                     {/* URGENT OVERLAY */}
@@ -11197,23 +11400,6 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                         </div>
                                     )}
 
-                                    {/* ACKNOWLEDGED BADGE */}
-                                    {isAcknowledged && (
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: '10px',
-                                            left: '10px',
-                                            padding: '6px 12px',
-                                            background: 'rgba(16, 185, 129, 0.9)',
-                                            color: 'white',
-                                            fontSize: '11px',
-                                            fontWeight: '700',
-                                            borderRadius: '6px',
-                                            zIndex: 2
-                                        }}>
-                                            ✓ ACKNOWLEDGED
-                                        </div>
-                                    )}
 
                                     {/* CALL HEADER */}
                                     <div style={{
@@ -11239,10 +11425,15 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                                 🚨
                                             </div>
                                             <div>
-                                                <div style={{ color: 'white', fontSize: '17px', fontWeight: '700', marginBottom: '2px' }}>
-                                                    CALLER: {call.author}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                                                    <span style={{ color: 'white', fontSize: '17px', fontWeight: '700' }}>CALLER: {call.author}</span>
+                                                    {isAcknowledged && (
+                                                        <span style={{ padding: '2px 8px', background: 'rgba(16,185,129,0.2)', border: '1px solid rgba(16,185,129,0.5)', borderRadius: '4px', fontSize: '10px', color: '#34d399', fontWeight: '700', letterSpacing: '0.5px' }}>
+                                                            ✓ ACKNOWLEDGED
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <div style={{ color: '#93c5fd', fontSize: '11px' }}>
+                                                <div style={{ color: isAcknowledged ? '#6ee7b7' : '#93c5fd', fontSize: '11px' }}>
                                                     {call.timestamp}
                                                 </div>
                                             </div>
