@@ -1654,10 +1654,13 @@ const [radioHotkey, setRadioHotkey] = useState('');
 const [radioHotkeyDraft, setRadioHotkeyDraft] = useState('');
 const [radioActive, setRadioActive] = useState(false);
 const [dispatchNotif, setDispatchNotif] = useState('');
-const [dispatchNotifType, setDispatchNotifType] = useState(''); // 'searching'|'found'|'warrant'|'notfound'|'improper'|'multiple'
+const [dispatchNotifType, setDispatchNotifType] = useState(''); // 'searching'|'found'|'warrant'|'notfound'|'improper'|'multiple'|'listening'|'processing'
 const radioStreamRef = React.useRef(null);
 const radioProcessorRef = React.useRef(null);
 const radioAudioCtxRef = React.useRef(null);
+const aiDispatchEnabledRef = React.useRef(false);
+const radioActiveRef = React.useRef(false);
+const radioHotkeyRef = React.useRef('');
 const [micTestActive, setMicTestActive] = useState(false);
 const [micLevel, setMicLevel] = useState(0);
 const [micTestError, setMicTestError] = useState('');
@@ -2299,9 +2302,9 @@ const parseDispatchSpeech = (text) => {
 };
 
 const startRadioRecording = async () => {
-    console.log('[DISPATCH] 🎙️ startRadioRecording called — aiDispatchEnabled:', aiDispatchEnabled, '| radioActive:', radioActive);
-    if (!aiDispatchEnabled || radioActive) {
-        console.log('[DISPATCH] ⛔ Blocked — conditions not met');
+    console.log('[DISPATCH] 🎙️ startRadioRecording called — aiDispatchEnabled:', aiDispatchEnabledRef.current, '| radioActive:', radioActiveRef.current);
+    if (!aiDispatchEnabledRef.current || radioActiveRef.current) {
+        console.log('[DISPATCH] ⛔ Blocked — conditions not met (dispatch enabled:', aiDispatchEnabledRef.current, '| already active:', radioActiveRef.current, ')');
         return;
     }
     try {
@@ -2389,6 +2392,7 @@ const startRadioRecording = async () => {
         };
 
         recorder.start();
+        radioActiveRef.current = true;
         setRadioActive(true);
         setDispatchNotif('🎙️ Dispatch is listening...');
         setDispatchNotifType('listening');
@@ -2403,9 +2407,13 @@ const startRadioRecording = async () => {
 
 const stopRadioRecording = () => {
     console.log('[DISPATCH] ⏹️ stopRadioRecording called — recorder state:', radioProcessorRef.current?.state);
+    radioActiveRef.current = false;
+    setRadioActive(false);
     if (radioProcessorRef.current?.state === 'recording') {
         radioProcessorRef.current.stop();
         console.log('[DISPATCH] ✅ MediaRecorder.stop() called');
+    } else {
+        console.warn('[DISPATCH] ⚠️ No active recorder to stop — startRadioRecording may have been blocked');
     }
     if (radioStreamRef.current) {
         radioStreamRef.current.getTracks().forEach(t => t.stop());
@@ -2413,7 +2421,6 @@ const stopRadioRecording = () => {
         console.log('[DISPATCH] ✅ Stream tracks stopped');
     }
     radioProcessorRef.current = null;
-    setRadioActive(false);
 };
 
 const triggerDispatchSearch = (plate) => {
@@ -4298,7 +4305,6 @@ React.useEffect(() => {
 }, [calls]);
 
 React.useEffect(() => {
-    if (!radioHotkey || !aiDispatchEnabled) return;
     const getPressed = (e) => {
         const parts = [];
         if (e.ctrlKey) parts.push('CTRL');
@@ -4309,13 +4315,21 @@ React.useEffect(() => {
         return parts.join('+');
     };
     const downHandler = (e) => {
+        if (!radioHotkeyRef.current || !aiDispatchEnabledRef.current) return;
         if (isRecordingKeybind || isRecordingMicHotkey) return;
         if (keybindsRequireFocus && !document.hasFocus()) return;
         if (e.repeat) return;
-        if (getPressed(e) === radioHotkey) startRadioRecording();
+        if (getPressed(e) === radioHotkeyRef.current) {
+            console.log('[DISPATCH] ⌨️ Radio hotkey DOWN detected:', radioHotkeyRef.current);
+            startRadioRecording();
+        }
     };
     const upHandler = (e) => {
-        if (getPressed(e) === radioHotkey) stopRadioRecording();
+        if (!radioHotkeyRef.current) return;
+        if (getPressed(e) === radioHotkeyRef.current) {
+            console.log('[DISPATCH] ⌨️ Radio hotkey UP detected');
+            stopRadioRecording();
+        }
     };
     window.addEventListener('keydown', downHandler);
     window.addEventListener('keyup', upHandler);
@@ -4323,7 +4337,7 @@ React.useEffect(() => {
         window.removeEventListener('keydown', downHandler);
         window.removeEventListener('keyup', upHandler);
     };
-}, [radioHotkey, aiDispatchEnabled, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey]);
+}, [keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey]);
 
 React.useEffect(() => {
     if (!panicEnabled || !panicHotkey) return;
@@ -4390,6 +4404,10 @@ React.useEffect(() => {
 React.useEffect(() => {
     acknowledgedCallsRef.current = acknowledgedCalls;
 }, [acknowledgedCalls]);
+
+React.useEffect(() => { aiDispatchEnabledRef.current = aiDispatchEnabled; }, [aiDispatchEnabled]);
+React.useEffect(() => { radioActiveRef.current = radioActive; }, [radioActive]);
+React.useEffect(() => { radioHotkeyRef.current = radioHotkey; }, [radioHotkey]);
 
 React.useEffect(() => {
     if (!acknowledgeKeybind) return;
