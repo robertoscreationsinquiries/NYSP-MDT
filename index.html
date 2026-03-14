@@ -11691,14 +11691,13 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
 {showUpdateLog && (
     <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-        background: 'rgba(0,0,0,0.75)',
-        zIndex: 2000, backdropFilter: 'blur(6px)', animation: 'fadeIn 0.2s ease-out'
+        background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 2000, backdropFilter: 'blur(6px)', padding: '20px', animation: 'fadeIn 0.2s ease-out'
     }} onClick={e => { if (e.target === e.currentTarget) { if (selectedUpdateEntry) setSelectedUpdateEntry(null); else setShowUpdateLog(false); } }}>
         <div style={{
             background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
             border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px',
-            position: 'absolute', top: '20px', bottom: '20px', left: '50%', transform: 'translateX(-50%)',
-            width: 'calc(100% - 40px)', maxWidth: '860px',
+            width: '100%', maxWidth: '860px', height: '75vh',
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
             boxShadow: '0 4px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)'
         }}>
@@ -11740,7 +11739,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
 
             {/* LIST VIEW — all updates summary */}
             {!selectedUpdateEntry && (
-                <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {updateLogsData.map((update, idx) => (
                         <div key={idx} style={{
                             background: 'linear-gradient(135deg, rgba(30,58,138,0.15), rgba(59,130,246,0.05))',
@@ -11751,7 +11750,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                             onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(59,130,246,0.15)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(30,58,138,0.15), rgba(59,130,246,0.05))'; }}
                         >
                             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(59,130,246,0.4), transparent)' }} />
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
                                 <div style={{ flex: 1 }}>
                                     <div style={{ color: '#93c5fd', fontSize: '13px', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '5px' }}>{update.title}</div>
                                     <div style={{ color: '#6b7280', fontSize: '12px', lineHeight: '1.5' }}>{update.description}</div>
@@ -11786,7 +11785,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
 
             {/* DETAIL VIEW — single update full changelog */}
             {selectedUpdateEntry && (
-                <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {selectedUpdateEntry.new?.length > 0 && (
                         <div style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)', borderLeft: '3px solid #10b981', borderRadius: '8px', padding: '14px 18px' }}>
                             <div style={{ color: '#34d399', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '12px', textTransform: 'uppercase' }}>✦ New Features</div>
@@ -12155,14 +12154,13 @@ if (window.electronAPI?.quit) {
 {showFAQ && (
     <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-        background: 'rgba(0,0,0,0.75)',
-        zIndex: 2000, backdropFilter: 'blur(6px)', animation: 'fadeIn 0.2s ease-out'
+        background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 2000, backdropFilter: 'blur(6px)', padding: '20px', animation: 'fadeIn 0.2s ease-out'
     }} onClick={e => { if (e.target === e.currentTarget) setShowFAQ(false); }}>
         <div style={{
             background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
             border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px',
-            position: 'absolute', top: '20px', bottom: '20px', left: '50%', transform: 'translateX(-50%)',
-            width: 'calc(100% - 40px)', maxWidth: '860px',
+            width: '100%', maxWidth: '860px', height: '75vh',
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
             boxShadow: '0 4px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)'
         }}>
@@ -12191,7 +12189,7 @@ if (window.electronAPI?.quit) {
             </div>
 
             {/* Content */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {FAQ_DATA.map((faq, index) => (
                     <div key={index} style={{
                         background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(59,130,246,0.08)',
@@ -12214,14 +12212,13 @@ if (window.electronAPI?.quit) {
 {showCredits && (
     <div key={`credits-${creditsKey}`} style={{
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-        background: 'rgba(0,0,0,0.75)',
-        zIndex: 2000, backdropFilter: 'blur(6px)', animation: 'fadeIn 0.2s ease-out'
+        background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 2000, backdropFilter: 'blur(6px)', padding: '20px', animation: 'fadeIn 0.2s ease-out'
     }} onClick={e => { if (e.target === e.currentTarget) setShowCredits(false); }}>
         <div style={{
             background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
             border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px',
-            position: 'absolute', top: '20px', bottom: '20px', left: '50%', transform: 'translateX(-50%)',
-            width: 'calc(100% - 40px)', maxWidth: '860px',
+            width: '100%', maxWidth: '860px', height: '75vh',
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
             boxShadow: '0 4px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)'
         }}>
@@ -12250,7 +12247,7 @@ if (window.electronAPI?.quit) {
             </div>
 
             {/* Content */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {/* Developers section */}
                 <div style={{ background: 'linear-gradient(135deg, rgba(30,58,138,0.2), rgba(59,130,246,0.06))', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '12px', overflow: 'hidden', position: 'relative' }}>
                     <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(59,130,246,0.5), transparent)' }} />
@@ -13132,14 +13129,13 @@ if (window.electronAPI?.quit) {
 {showUsefulLinks && (
     <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-        background: 'rgba(0,0,0,0.75)',
-        zIndex: 2000, backdropFilter: 'blur(6px)', animation: 'fadeIn 0.2s ease-out'
+        background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 2000, backdropFilter: 'blur(6px)', padding: '20px', animation: 'fadeIn 0.2s ease-out'
     }} onClick={e => { if (e.target === e.currentTarget) setShowUsefulLinks(false); }}>
         <div style={{
             background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
             border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px',
-            position: 'absolute', top: '20px', bottom: '20px', left: '50%', transform: 'translateX(-50%)',
-            width: 'calc(100% - 40px)', maxWidth: '860px',
+            width: '100%', maxWidth: '860px', height: '75vh',
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
             boxShadow: '0 4px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)'
         }}>
@@ -13173,7 +13169,7 @@ if (window.electronAPI?.quit) {
             </div>
 
             {/* Links grid */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '20px 24px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '10px' }}>
                     {USEFUL_LINKS[selectedDepartment || 'NYSP'].map((link, index) => (
                         <a key={index} href="#" rel="noopener noreferrer"
