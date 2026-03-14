@@ -11697,7 +11697,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
         <div style={{
             background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
             border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px',
-            width: '100%', maxWidth: '860px', maxHeight: '88vh',
+            width: '100%', maxWidth: '860px', height: '88vh',
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
             boxShadow: '0 4px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)'
         }}>
@@ -11858,7 +11858,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
     <>
         {/* LEFT SIDETAB — slim icon rail */}
         <div style={{
-            position: 'fixed', top: 0, left: 0, width: '72px', height: '100vh',
+            position: 'fixed', top: 0, left: 0, width: '48px', height: '100vh',
             background: 'rgba(6,10,18,0.97)',
             borderRight: '1px solid rgba(59,130,246,0.12)',
             zIndex: 99999, display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -11914,7 +11914,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
             overflowY: 'auto', padding: '20px 14px',
             boxShadow: '4px 0 24px rgba(0,0,0,0.7)'
         }}
-            onMouseEnter={e => { e.currentTarget.style.left = '72px'; }}
+            onMouseEnter={e => { e.currentTarget.style.left = '36px'; }}
             onMouseLeave={e => { e.currentTarget.style.left = '-260px'; }}
         >
             {/* Header */}
@@ -12160,7 +12160,7 @@ if (window.electronAPI?.quit) {
         <div style={{
             background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
             border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px',
-            width: '100%', maxWidth: '860px', maxHeight: '88vh',
+            width: '100%', maxWidth: '860px', height: '88vh',
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
             boxShadow: '0 4px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)'
         }}>
@@ -12218,7 +12218,7 @@ if (window.electronAPI?.quit) {
         <div style={{
             background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
             border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px',
-            width: '100%', maxWidth: '860px', maxHeight: '88vh',
+            width: '100%', maxWidth: '860px', height: '88vh',
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
             boxShadow: '0 4px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)'
         }}>
@@ -13135,7 +13135,7 @@ if (window.electronAPI?.quit) {
         <div style={{
             background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
             border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px',
-            width: '100%', maxWidth: '860px', maxHeight: '88vh',
+            width: '100%', maxWidth: '860px', height: '88vh',
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
             boxShadow: '0 4px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)'
         }}>
@@ -13158,13 +13158,14 @@ if (window.electronAPI?.quit) {
                     <Shield size={12} style={{ color: selectedDepartment === 'NYSP' ? '#60a5fa' : '#34d399' }} />
                     <span style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '1px', color: selectedDepartment === 'NYSP' ? '#60a5fa' : '#34d399' }}>{selectedDepartment === 'NYSP' ? 'NYSP' : 'EGPD'}</span>
                 </div>
-                <button onClick={() => setShowUsefulLinks(false)}
-                    style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0, position: 'relative', zIndex: 1 }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'; }}
-                >
-                    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
+<button
+    onClick={() => setShowUsefulLinks(false)}
+    style={{ width: '32px', height: '32px', minWidth: '32px', minHeight: '32px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0, padding: 0 }}
+    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)'; }}
+    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'; }}
+>
+    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+</button>
             </div>
 
             {/* Links grid */}
