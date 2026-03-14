@@ -11691,14 +11691,14 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
 {showUpdateLog && (
     <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-background: 'rgba(0,0,0,0.75)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-zIndex: 2000, backdropFilter: 'blur(6px)', padding: '20px', animation: 'fadeIn 0.2s ease-out'
-    }} onClick={e => { if (e.target === e.currentTarget) { if (selectedUpdateEntry) setSelectedUpdateEntry(null); else setShowUpdateLog(false); } }}>
+        background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 2000, backdropFilter: 'blur(6px)', padding: '20px', animation: 'fadeIn 0.2s ease-out'
+    }} onClick={e => { if (e.target === e.currentTarget) setShowFAQ(false); }}>
         <div style={{
             background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
             border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px',
-width: '100%', maxWidth: '860px', height: '88vh', maxHeight: '88vh',
-display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            width: '100%', maxWidth: '860px', height: '88vh',
+            display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0,
             boxShadow: '0 4px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)'
         }}>
             {/* Header */}
@@ -12212,14 +12212,14 @@ display: 'flex', flexDirection: 'column', overflow: 'hidden',
 {showCredits && (
     <div key={`credits-${creditsKey}`} style={{
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-background: 'rgba(0,0,0,0.75)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-zIndex: 2000, backdropFilter: 'blur(6px)', padding: '20px', animation: 'fadeIn 0.2s ease-out'
+        background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 2000, backdropFilter: 'blur(6px)', padding: '20px', animation: 'fadeIn 0.2s ease-out'
     }} onClick={e => { if (e.target === e.currentTarget) setShowCredits(false); }}>
         <div style={{
             background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
             border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px',
-width: '100%', maxWidth: '860px', height: '88vh', maxHeight: '88vh',
-display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            width: '100%', maxWidth: '860px', height: '88vh',
+            display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0,
             boxShadow: '0 4px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)'
         }}>
             {/* Header */}
