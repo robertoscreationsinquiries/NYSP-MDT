@@ -1620,6 +1620,7 @@ const [keybindsRequireFocus, setKeybindsRequireFocus] = useState(true);
 
 const [keybindDraft, setKeybindDraft] = useState('CTRL+K');
 const [showUpdateLog, setShowUpdateLog] = useState(false);
+const [selectedUpdateEntry, setSelectedUpdateEntry] = useState(null);
 const [recentRegistrationFlash, setRecentRegistrationFlash] = useState(false);
 const [savingSettings, setSavingSettings] = useState(false);
 const [editableTrooperSettings, setEditableTrooperSettings] = useState(null);
@@ -11692,7 +11693,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
         background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center',
         zIndex: 2000, backdropFilter: 'blur(6px)', padding: '20px', animation: 'fadeIn 0.2s ease-out'
-    }} onClick={e => { if (e.target === e.currentTarget) setShowUpdateLog(false); }}>
+    }} onClick={e => { if (e.target === e.currentTarget) { if (selectedUpdateEntry) setSelectedUpdateEntry(null); else setShowUpdateLog(false); } }}>
         <div style={{
             background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
             border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px',
@@ -11700,24 +11701,35 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
             boxShadow: '0 4px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)'
         }}>
-            {/* Header bar — matches home dashboard header */}
+            {/* Header */}
             <div style={{
-                display: 'flex', alignItems: 'center', gap: '16px',
-                padding: '20px 24px', flexShrink: 0,
+                display: 'flex', alignItems: 'center', gap: '16px', padding: '20px 24px', flexShrink: 0,
                 background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,58,138,0.4))',
-                borderBottom: '1px solid rgba(59,130,246,0.2)',
-                position: 'relative', overflow: 'hidden'
+                borderBottom: '1px solid rgba(59,130,246,0.2)', position: 'relative', overflow: 'hidden'
             }}>
                 <div style={{ position: 'absolute', top: '-60%', right: '-5%', width: '40%', height: '220%', background: 'radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 70%)', pointerEvents: 'none' }} />
+                {selectedUpdateEntry && (
+                    <button onClick={() => setSelectedUpdateEntry(null)}
+                        style={{ width: '32px', height: '32px', minWidth: '32px', minHeight: '32px', borderRadius: '8px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', color: '#60a5fa', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0, padding: 0, position: 'relative', zIndex: 1 }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.2)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.08)'; }}
+                    >
+                        <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                    </button>
+                )}
                 <div style={{ width: '44px', height: '44px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(59,130,246,0.4)', flexShrink: 0 }}>
                     <Database size={22} style={{ color: 'white' }} />
                 </div>
                 <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
-                    <div style={{ color: 'white', fontSize: '16px', fontWeight: '800', letterSpacing: '1px' }}>UPDATE LOG</div>
-                    <div style={{ color: '#60a5fa', fontSize: '11px', marginTop: '2px', fontWeight: '500' }}>Changelog & version history</div>
+                    <div style={{ color: 'white', fontSize: '16px', fontWeight: '800', letterSpacing: '1px' }}>
+                        {selectedUpdateEntry ? selectedUpdateEntry.title : 'UPDATE LOG'}
+                    </div>
+                    <div style={{ color: '#60a5fa', fontSize: '11px', marginTop: '2px', fontWeight: '500' }}>
+                        {selectedUpdateEntry ? `Version ${selectedUpdateEntry.version} — Full changelog` : 'Changelog & version history'}
+                    </div>
                 </div>
-                <button onClick={() => setShowUpdateLog(false)}
-                    style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0, position: 'relative', zIndex: 1 }}
+                <button onClick={() => { setSelectedUpdateEntry(null); setShowUpdateLog(false); }}
+                    style={{ width: '32px', height: '32px', minWidth: '32px', minHeight: '32px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0, padding: 0, position: 'relative', zIndex: 1 }}
                     onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)'; }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'; }}
                 >
@@ -11725,89 +11737,120 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                 </button>
             </div>
 
-            {/* Scrollable content */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {updateLogsData.map((update, idx) => (
-                    <div key={idx} style={{
-                        background: 'linear-gradient(135deg, rgba(30,58,138,0.2), rgba(59,130,246,0.06))',
-                        border: '1px solid rgba(59,130,246,0.2)', borderRadius: '12px',
-                        overflow: 'hidden', position: 'relative'
-                    }}>
-                        {/* Top accent line */}
-                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(59,130,246,0.5), transparent)' }} />
-
-                        {/* Card header */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid rgba(59,130,246,0.1)' }}>
-                            <div>
-                                <div style={{ color: '#93c5fd', fontSize: '13px', fontWeight: '800', letterSpacing: '1.5px', textTransform: 'uppercase' }}>{update.title}</div>
-                                <div style={{ color: '#6b7280', fontSize: '11px', marginTop: '3px' }}>{update.description}</div>
-                            </div>
-                            <div style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', padding: '6px 14px', flexShrink: 0, marginLeft: '12px', textAlign: 'center' }}>
-                                <div style={{ color: '#93c5fd', fontSize: '9px', fontWeight: '700', letterSpacing: '2px', marginBottom: '2px' }}>VERSION</div>
-                                <div style={{ color: 'white', fontSize: '14px', fontWeight: '800', fontFamily: 'monospace' }}>{update.version}</div>
+            {/* LIST VIEW — all updates summary */}
+            {!selectedUpdateEntry && (
+                <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {updateLogsData.map((update, idx) => (
+                        <div key={idx} style={{
+                            background: 'linear-gradient(135deg, rgba(30,58,138,0.15), rgba(59,130,246,0.05))',
+                            border: '1px solid rgba(59,130,246,0.15)', borderRadius: '12px',
+                            padding: '16px 20px', position: 'relative', overflow: 'hidden', transition: 'all 0.15s'
+                        }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(59,130,246,0.35)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(30,58,138,0.25), rgba(59,130,246,0.1))'; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(59,130,246,0.15)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(30,58,138,0.15), rgba(59,130,246,0.05))'; }}
+                        >
+                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(59,130,246,0.4), transparent)' }} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ color: '#93c5fd', fontSize: '13px', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '5px' }}>{update.title}</div>
+                                    <div style={{ color: '#6b7280', fontSize: '12px', lineHeight: '1.5' }}>{update.description}</div>
+                                    {/* change count pills */}
+                                    <div style={{ display: 'flex', gap: '6px', marginTop: '10px', flexWrap: 'wrap' }}>
+                                        {update.new?.length > 0 && <span style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '5px', padding: '2px 8px', color: '#34d399', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>+{update.new.length} NEW</span>}
+                                        {update.bugs?.length > 0 && <span style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '5px', padding: '2px 8px', color: '#f87171', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>{update.bugs.length} FIXES</span>}
+                                        {update.modifications?.length > 0 && <span style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '5px', padding: '2px 8px', color: '#fbbf24', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>{update.modifications.length} CHANGES</span>}
+                                        {update.removed?.length > 0 && <span style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '5px', padding: '2px 8px', color: '#fca5a5', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>{update.removed.length} REMOVED</span>}
+                                        {update.planned?.length > 0 && <span style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: '5px', padding: '2px 8px', color: '#a78bfa', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>{update.planned.length} PLANNED</span>}
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px', flexShrink: 0 }}>
+                                    <div style={{ background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '8px', padding: '6px 14px', textAlign: 'center' }}>
+                                        <div style={{ color: '#6b7280', fontSize: '9px', fontWeight: '700', letterSpacing: '2px', marginBottom: '2px' }}>VERSION</div>
+                                        <div style={{ color: 'white', fontSize: '14px', fontWeight: '800', fontFamily: 'monospace' }}>{update.version}</div>
+                                    </div>
+                                    <button onClick={() => setSelectedUpdateEntry(update)}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '7px', color: '#60a5fa', fontSize: '11px', fontWeight: '700', cursor: 'pointer', letterSpacing: '0.5px', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
+                                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.2)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)'; e.currentTarget.style.color = '#93c5fd'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; e.currentTarget.style.color = '#60a5fa'; }}
+                                    >
+                                        View Full Log
+                                        <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
+                                    </button>
+                                </div>
                             </div>
                         </div>
+                    ))}
+                </div>
+            )}
 
-                        {/* Sections */}
-                        <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {update.new && update.new.length > 0 && (
-                                <div style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)', borderLeft: '3px solid #10b981', borderRadius: '8px', padding: '12px 16px' }}>
-                                    <div style={{ color: '#34d399', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '10px', textTransform: 'uppercase' }}>✦ New Features</div>
-                                    {update.new.map((item, i) => (
-                                        <div key={i} style={{ color: '#6ee7b7', fontSize: '12px', lineHeight: '1.7', paddingLeft: '12px', position: 'relative', marginBottom: '4px' }}>
-                                            <span style={{ position: 'absolute', left: 0, color: '#10b981' }}>—</span>{item}
-                                        </div>
-                                    ))}
+            {/* DETAIL VIEW — single update full changelog */}
+            {selectedUpdateEntry && (
+                <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {selectedUpdateEntry.new?.length > 0 && (
+                        <div style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)', borderLeft: '3px solid #10b981', borderRadius: '8px', padding: '14px 18px' }}>
+                            <div style={{ color: '#34d399', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '12px', textTransform: 'uppercase' }}>✦ New Features</div>
+                            {selectedUpdateEntry.new.map((item, i) => (
+                                <div key={i} style={{ color: '#6ee7b7', fontSize: '12px', lineHeight: '1.7', paddingLeft: '14px', position: 'relative', marginBottom: '5px' }}>
+                                    <span style={{ position: 'absolute', left: 0, color: '#10b981', fontWeight: '700' }}>—</span>{item}
                                 </div>
-                            )}
-                            {update.bugs && update.bugs.length > 0 && (
-                                <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', borderLeft: '3px solid #ef4444', borderRadius: '8px', padding: '12px 16px' }}>
-                                    <div style={{ color: '#f87171', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '10px', textTransform: 'uppercase' }}>! Bug Fixes</div>
-                                    {update.bugs.map((item, i) => (
-                                        <div key={i} style={{ color: '#fca5a5', fontSize: '12px', lineHeight: '1.7', paddingLeft: '12px', position: 'relative', marginBottom: '4px' }}>
-                                            <span style={{ position: 'absolute', left: 0, color: '#ef4444' }}>—</span>{item}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                            {update.modifications && update.modifications.length > 0 && (
-                                <div style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)', borderLeft: '3px solid #f59e0b', borderRadius: '8px', padding: '12px 16px' }}>
-                                    <div style={{ color: '#fbbf24', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '10px', textTransform: 'uppercase' }}>◈ Modifications</div>
-                                    {update.modifications.map((item, i) => (
-                                        <div key={i} style={{ color: '#fde68a', fontSize: '12px', lineHeight: '1.7', paddingLeft: '12px', position: 'relative', marginBottom: '4px' }}>
-                                            <span style={{ position: 'absolute', left: 0, color: '#f59e0b' }}>—</span>{item}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                            {update.removed && update.removed.length > 0 && (
-                                <div style={{ background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.12)', borderLeft: '3px solid #dc2626', borderRadius: '8px', padding: '12px 16px' }}>
-                                    <div style={{ color: '#f87171', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '10px', textTransform: 'uppercase' }}>✕ Removed</div>
-                                    {update.removed.map((item, i) => (
-                                        <div key={i} style={{ color: '#fca5a5', fontSize: '12px', lineHeight: '1.7', paddingLeft: '12px', position: 'relative', marginBottom: '4px' }}>
-                                            <span style={{ position: 'absolute', left: 0, color: '#dc2626' }}>—</span>{item}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                            {update.planned && update.planned.length > 0 && (
-                                <div style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)', borderLeft: '3px solid #8b5cf6', borderRadius: '8px', padding: '12px 16px' }}>
-                                    <div style={{ color: '#a78bfa', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '10px', textTransform: 'uppercase' }}>◎ Planned</div>
-                                    {update.planned.map((item, i) => (
-                                        <div key={i} style={{ color: '#c4b5fd', fontSize: '12px', lineHeight: '1.7', paddingLeft: '12px', position: 'relative', marginBottom: '4px' }}>
-                                            <span style={{ position: 'absolute', left: 0, color: '#8b5cf6' }}>—</span>{item}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                            ))}
                         </div>
-                    </div>
-                ))}
-            </div>
+                    )}
+                    {selectedUpdateEntry.bugs?.length > 0 && (
+                        <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', borderLeft: '3px solid #ef4444', borderRadius: '8px', padding: '14px 18px' }}>
+                            <div style={{ color: '#f87171', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '12px', textTransform: 'uppercase' }}>! Bug Fixes</div>
+                            {selectedUpdateEntry.bugs.map((item, i) => (
+                                <div key={i} style={{ color: '#fca5a5', fontSize: '12px', lineHeight: '1.7', paddingLeft: '14px', position: 'relative', marginBottom: '5px' }}>
+                                    <span style={{ position: 'absolute', left: 0, color: '#ef4444', fontWeight: '700' }}>—</span>{item}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {selectedUpdateEntry.modifications?.length > 0 && (
+                        <div style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)', borderLeft: '3px solid #f59e0b', borderRadius: '8px', padding: '14px 18px' }}>
+                            <div style={{ color: '#fbbf24', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '12px', textTransform: 'uppercase' }}>◈ Modifications</div>
+                            {selectedUpdateEntry.modifications.map((item, i) => (
+                                <div key={i} style={{ color: '#fde68a', fontSize: '12px', lineHeight: '1.7', paddingLeft: '14px', position: 'relative', marginBottom: '5px' }}>
+                                    <span style={{ position: 'absolute', left: 0, color: '#f59e0b', fontWeight: '700' }}>—</span>{item}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {selectedUpdateEntry.removed?.length > 0 && (
+                        <div style={{ background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.12)', borderLeft: '3px solid #dc2626', borderRadius: '8px', padding: '14px 18px' }}>
+                            <div style={{ color: '#f87171', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '12px', textTransform: 'uppercase' }}>✕ Removed</div>
+                            {selectedUpdateEntry.removed.map((item, i) => (
+                                <div key={i} style={{ color: '#fca5a5', fontSize: '12px', lineHeight: '1.7', paddingLeft: '14px', position: 'relative', marginBottom: '5px' }}>
+                                    <span style={{ position: 'absolute', left: 0, color: '#dc2626', fontWeight: '700' }}>—</span>{item}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {selectedUpdateEntry.planned?.length > 0 && (
+                        <div style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)', borderLeft: '3px solid #8b5cf6', borderRadius: '8px', padding: '14px 18px' }}>
+                            <div style={{ color: '#a78bfa', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '12px', textTransform: 'uppercase' }}>◎ Planned</div>
+                            {selectedUpdateEntry.planned.map((item, i) => (
+                                <div key={i} style={{ color: '#c4b5fd', fontSize: '12px', lineHeight: '1.7', paddingLeft: '14px', position: 'relative', marginBottom: '5px' }}>
+                                    <span style={{ position: 'absolute', left: 0, color: '#8b5cf6', fontWeight: '700' }}>—</span>{item}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {/* Back button at bottom */}
+                    <button onClick={() => setSelectedUpdateEntry(null)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '8px', color: '#60a5fa', fontSize: '12px', fontWeight: '700', cursor: 'pointer', letterSpacing: '1px', transition: 'all 0.15s', alignSelf: 'flex-start', marginTop: '4px' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.18)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.08)'; }}
+                    >
+                        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                        Back to all updates
+                    </button>
+                </div>
+            )}
         </div>
     </div>
 )}
-                {/* ═══════════════════════════════════════════════════════════ */}
+{/* ═══════════════════════════════════════════════════════════ */}
                 {/* MINI-MODE UI - SIDETAB + HOVER PANEL */}
                 {/* ═══════════════════════════════════════════════════════════ */}
                 
@@ -12135,13 +12178,14 @@ if (window.electronAPI?.quit) {
                     <div style={{ color: 'white', fontSize: '16px', fontWeight: '800', letterSpacing: '1px' }}>FAQ</div>
                     <div style={{ color: '#60a5fa', fontSize: '11px', marginTop: '2px', fontWeight: '500' }}>Frequently asked questions</div>
                 </div>
-                <button onClick={() => setShowFAQ(false)}
-                    style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0, position: 'relative', zIndex: 1 }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'; }}
-                >
-                    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
+<button
+    onClick={() => setShowFAQ(false)}
+    style={{ width: '32px', height: '32px', minWidth: '32px', minHeight: '32px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0, padding: 0 }}
+    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)'; }}
+    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'; }}
+>
+    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+</button>
             </div>
 
             {/* Content */}
@@ -12192,13 +12236,14 @@ if (window.electronAPI?.quit) {
                     <div style={{ color: 'white', fontSize: '16px', fontWeight: '800', letterSpacing: '1px' }}>CREDITS</div>
                     <div style={{ color: '#60a5fa', fontSize: '11px', marginTop: '2px', fontWeight: '500' }}>Development team & contributors</div>
                 </div>
-                <button onClick={() => setShowCredits(false)}
-                    style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0, position: 'relative', zIndex: 1 }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'; }}
-                >
-                    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
+<button
+    onClick={() => setShowCredits(false)}
+    style={{ width: '32px', height: '32px', minWidth: '32px', minHeight: '32px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0, padding: 0 }}
+    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)'; }}
+    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'; }}
+>
+    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+</button>
             </div>
 
             {/* Content */}
@@ -13126,7 +13171,18 @@ if (window.electronAPI?.quit) {
             <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '10px' }}>
                     {USEFUL_LINKS[selectedDepartment || 'NYSP'].map((link, index) => (
-                        <a key={index} href={link.url} target="_blank" rel="noopener noreferrer"
+                        <a key={index} href="#" rel="noopener noreferrer"
+    onClick={(e) => {
+        e.preventDefault();
+        if (window.require) {
+            try {
+                const { shell } = window.require('electron');
+                shell.openExternal(link.url);
+            } catch(_) { window.open(link.url, '_blank'); }
+        } else {
+            window.open(link.url, '_blank');
+        }
+    }}
                             style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(59,130,246,0.08)', borderLeft: '3px solid rgba(59,130,246,0.2)', borderRadius: '10px', padding: '14px 16px', textDecoration: 'none', display: 'flex', gap: '12px', alignItems: 'flex-start', transition: 'all 0.15s' }}
                             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.05)'; e.currentTarget.style.borderLeftColor = '#3b82f6'; e.currentTarget.style.transform = 'translateX(3px)'; }}
                             onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.borderLeftColor = 'rgba(59,130,246,0.2)'; e.currentTarget.style.transform = 'translateX(0)'; }}
