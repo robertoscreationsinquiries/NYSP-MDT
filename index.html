@@ -11744,7 +11744,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                         <div key={idx} style={{
                             background: 'linear-gradient(135deg, rgba(30,58,138,0.15), rgba(59,130,246,0.05))',
                             border: '1px solid rgba(59,130,246,0.15)', borderRadius: '12px',
-                            padding: '16px 20px', position: 'relative', overflow: 'hidden', transition: 'all 0.15s'
+                            padding: '16px 20px', position: 'relative', transition: 'all 0.15s'
                         }}
                             onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(59,130,246,0.35)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(30,58,138,0.25), rgba(59,130,246,0.1))'; }}
                             onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(59,130,246,0.15)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(30,58,138,0.15), rgba(59,130,246,0.05))'; }}
@@ -11850,6 +11850,8 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
         </div>
     </div>
 )}
+
+
 {/* ═══════════════════════════════════════════════════════════ */}
                 {/* MINI-MODE UI - SIDETAB + HOVER PANEL */}
                 {/* ═══════════════════════════════════════════════════════════ */}
@@ -12249,7 +12251,7 @@ if (window.electronAPI?.quit) {
             {/* Content */}
             <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {/* Developers section */}
-                <div style={{ background: 'linear-gradient(135deg, rgba(30,58,138,0.2), rgba(59,130,246,0.06))', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '12px', overflow: 'hidden', position: 'relative' }}>
+                <div style={{ background: 'linear-gradient(135deg, rgba(30,58,138,0.2), rgba(59,130,246,0.06))', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '12px', position: 'relative' }}>
                     <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(59,130,246,0.5), transparent)' }} />
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid rgba(59,130,246,0.1)' }}>
                         <div>
@@ -12274,7 +12276,7 @@ if (window.electronAPI?.quit) {
                 </div>
 
                 {/* Testers section */}
-                <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.04))', border: '1px solid rgba(16,185,129,0.15)', borderRadius: '12px', overflow: 'hidden', position: 'relative' }}>
+                <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.04))', border: '1px solid rgba(16,185,129,0.15)', borderRadius: '12px', position: 'relative' }}>
                     <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(16,185,129,0.4), transparent)' }} />
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid rgba(16,185,129,0.1)' }}>
                         <div>
