@@ -9374,10 +9374,11 @@ return (
         </div>
 
         {/* Main content — two column layout */}
-        <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 40px', gap: '32px' }}>
+        <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 40px' }}>
+        <div style={{ display: 'flex', gap: '0', width: '100%', maxWidth: '780px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(59,130,246,0.1)', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 0 0 1px rgba(0,0,0,0.4), 0 32px 80px rgba(0,0,0,0.5)' }}>
 
             {/* LEFT — branding column */}
-            <div style={{ flex: '0 0 260px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '24px' }}>
+            <div style={{ flex: '0 0 260px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '24px', padding: '36px 32px', background: 'rgba(30,58,138,0.08)', borderRight: '1px solid rgba(59,130,246,0.1)' }}>
                 <div style={{ width: '96px', height: '96px', background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #3b82f6 100%)', borderRadius: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 0 1px rgba(59,130,246,0.3), 0 16px 48px rgba(30,58,138,0.6)', position: 'relative' }}>
                     <Shield size={52} style={{ color: 'white' }} />
                     <div style={{ position: 'absolute', inset: '-1px', borderRadius: '25px', background: 'linear-gradient(135deg, rgba(255,255,255,0.1), transparent)', pointerEvents: 'none' }} />
@@ -9411,7 +9412,7 @@ return (
             </div>
 
             {/* RIGHT — diagnostics column */}
-            <div style={{ flex: '0 0 420px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', padding: '36px 32px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
                     <div style={{ width: '3px', height: '16px', background: 'linear-gradient(180deg, #3b82f6, #1e3a8a)', borderRadius: '2px' }} />
                     <span style={{ color: '#475569', fontSize: '10px', fontWeight: '700', letterSpacing: '3px', textTransform: 'uppercase' }}>System Diagnostics</span>
@@ -9443,6 +9444,7 @@ return (
                     </div>
                 </div>
             </div>
+        </div>
         </div>
 
         {/* Bottom bar */}
