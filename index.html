@@ -10566,13 +10566,12 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                         )}
 
 {/* ── REGISTERED VEHICLES ── */}
-<div style={{ display: 'grid', gridTemplateColumns: searchResults.vehicles?.length > 0 && searchResults.failedVehicleRaw?.length > 0 ? '1fr 1fr' : '1fr', gap: '16px', alignItems: 'start' }}>
-{searchResults.vehicles && searchResults.vehicles.length > 0 && (
+{(searchResults.vehicles?.length > 0 || searchResults.failedVehicleRaw?.length > 0) && (
                             <div>
                                 <div style={{ color: '#60a5fa', fontSize: '11px', fontWeight: '700', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                     <span style={{ width: '3px', height: '14px', background: 'linear-gradient(180deg, #60a5fa, #3b82f6)', borderRadius: '2px', flexShrink: 0 }}></span>
-                                    REGISTERED VEHICLES ({searchResults.vehicles.length})
-                                    {searchResults.failedVehicleRaw?.length > 0 && <span style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: '5px', padding: '2px 8px', color: '#fbbf24', fontSize: '10px', fontWeight: '700', letterSpacing: '1px', textTransform: 'uppercase' }}>⚠ {searchResults.failedVehicleRaw.length} IMPROPER ↓</span>}
+                                    REGISTERED VEHICLES ({(searchResults.vehicles?.length || 0) + (searchResults.failedVehicleRaw?.length || 0)})
+                                    {searchResults.failedVehicleRaw?.length > 0 && <span style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: '5px', padding: '2px 8px', color: '#fbbf24', fontSize: '10px', fontWeight: '700', letterSpacing: '1px', textTransform: 'uppercase' }}>⚠ {searchResults.failedVehicleRaw.length} IMPROPER</span>}
                                     <span style={{ color: '#4b5563', fontSize: '10px', fontWeight: '500', letterSpacing: '0.5px' }}>— Click a vehicle to select for citation</span>
                                 </div>
 
@@ -10623,6 +10622,38 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                             </div>
                                         </div>
                                     ))}
+                                    {searchResults.failedVehicleRaw?.map((raw, idx) => (
+                                        <div key={`improper-${idx}`} style={{ padding: '0', background: 'linear-gradient(135deg, rgba(15,23,42,0.8), rgba(120,53,15,0.08))', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '14px', overflow: 'hidden' }}>
+                                            <div style={{ background: 'linear-gradient(135deg, #451a03, #78350f)', borderBottom: '1px solid rgba(245,158,11,0.25)', borderRadius: '13px 13px 0 0', padding: '16px', textAlign: 'center' }}>
+                                                <div style={{ fontSize: '11px', color: '#fde68a', fontWeight: '700', marginBottom: '4px', letterSpacing: '3px' }}>IMPROPER REGISTRATION</div>
+                                                <div style={{ fontSize: '26px', fontWeight: '900', color: 'white', letterSpacing: '5px', fontFamily: 'monospace', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>ENTRY {idx + 1}</div>
+                                                <div style={{ fontSize: '12px', color: '#fcd34d', fontWeight: '600', marginTop: '4px' }}>⚠ Manual Search Required</div>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '12px' }}>
+                                                <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px' }}>
+                                                    <div style={{ fontSize: '9px', color: '#fde68a', fontWeight: '700', marginBottom: '4px', letterSpacing: '1px' }}>STATUS</div>
+                                                    <div style={{ fontSize: '13px', color: 'white', fontWeight: '700' }}>Improper Format</div>
+                                                </div>
+                                                <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px' }}>
+                                                    <div style={{ fontSize: '9px', color: '#fde68a', fontWeight: '700', marginBottom: '4px', letterSpacing: '1px' }}>ACTION</div>
+                                                    <div style={{ fontSize: '13px', color: 'white', fontWeight: '700' }}>Manual Search</div>
+                                                </div>
+                                                <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px', gridColumn: '1 / -1' }}>
+                                                    <div style={{ fontSize: '9px', color: '#fde68a', fontWeight: '700', marginBottom: '4px', letterSpacing: '1px' }}>RAW DISCORD MESSAGE</div>
+                                                    <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#fde68a', lineHeight: '1.7', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                                                        {raw.split('\n').map((line, i) => (
+                                                            <div key={i}><span style={{ color: '#6b7280', userSelect: 'none', marginRight: '8px' }}>{String(i + 1).padStart(2, '0')}</span>{line}</div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div style={{ margin: '0 12px 12px', background: 'rgba(245,158,11,0.06)', borderRadius: '8px', padding: '8px 12px' }}>
+                                                <div style={{ fontSize: '11px', color: '#fde68a', fontWeight: '600' }}>
+                                                    Status: <span style={{ color: 'white', fontWeight: '700' }}>Could not be parsed — verify manually</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
 
                                 {/* Citation with selected vehicle */}
@@ -10642,46 +10673,6 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                 )}
                             </div>
                         )}
-
-                        {searchResults.failedVehicleRaw && searchResults.failedVehicleRaw.length > 0 && (
-                            <div>
-                                <div style={{ color: '#f59e0b', fontSize: '11px', fontWeight: '700', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ width: '3px', height: '14px', background: 'linear-gradient(180deg, #f59e0b, #d97706)', borderRadius: '2px' }}></span>
-                                    IMPROPERLY REGISTERED ({searchResults.failedVehicleRaw.length})
-                                    <span style={{ color: '#4b5563', fontSize: '10px', fontWeight: '500', letterSpacing: '0.5px' }}>— Manual search required</span>
-                                </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '12px', maxHeight: '600px', overflowY: 'auto' }}>
-                                {searchResults.failedVehicleRaw.map((raw, idx) => (
-                                    <div key={idx} style={{ padding: '0', background: 'linear-gradient(135deg, rgba(15,23,42,0.8), rgba(120,53,15,0.08))', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '14px', overflow: 'hidden' }}>
-                                        {/* Header — same structure as plate display */}
-                                        <div style={{ background: 'linear-gradient(135deg, #451a03, #78350f)', borderBottom: '1px solid rgba(245,158,11,0.25)', borderRadius: '13px 13px 0 0', padding: '16px', textAlign: 'center' }}>
-                                            <div style={{ fontSize: '11px', color: '#fde68a', fontWeight: '700', marginBottom: '4px', letterSpacing: '3px' }}>IMPROPER REGISTRATION</div>
-                                            <div style={{ fontSize: '22px', fontWeight: '900', color: 'white', letterSpacing: '3px', fontFamily: 'monospace', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>ENTRY {idx + 1}</div>
-                                            <div style={{ fontSize: '12px', color: '#fcd34d', fontWeight: '600', marginTop: '4px' }}>⚠ Manual Search Required</div>
-                                        </div>
-                                        {/* Info — same grid structure as vehicle info */}
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px', padding: '12px' }}>
-                                            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(245,158,11,0.1)', borderRadius: '8px', padding: '10px' }}>
-                                                <div style={{ fontSize: '9px', color: '#fde68a', fontWeight: '700', marginBottom: '6px', letterSpacing: '1px' }}>RAW DISCORD MESSAGE</div>
-                                                <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#fde68a', lineHeight: '1.7', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                                                    {raw.split('\n').map((line, i) => (
-                                                        <div key={i}><span style={{ color: '#6b7280', userSelect: 'none', marginRight: '8px' }}>{String(i + 1).padStart(2, '0')}</span>{line}</div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        {/* Footer — same structure as timestamp bar */}
-                                        <div style={{ margin: '0 12px 12px', background: 'rgba(245,158,11,0.06)', borderRadius: '8px', padding: '8px 12px' }}>
-                                            <div style={{ fontSize: '11px', color: '#fde68a', fontWeight: '600' }}>
-                                                Status: <span style={{ color: 'white', fontWeight: '700' }}>Could not be parsed — verify manually</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                                </div>
-                            </div>
-                        )}
-</div>
                     </div>
                 )}
 
