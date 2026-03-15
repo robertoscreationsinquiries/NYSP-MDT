@@ -6544,6 +6544,14 @@ console.log('📦 [VEHICLES] Processing', vMessages.length, 'messages...!');
                 
                 console.log('🔄 [PARSE] Found', carBlocks.length, 'vehicle blocks in message');
                 
+                // If message had enough content but no blocks detected → improper registration
+                const cleanLines = lines.filter(l => l && !l.includes('<@') && !l.startsWith('@'));
+                if (carBlocks.length === 0 && cleanLines.length >= 3) {
+                    console.log('⚠️ [PARSE] Message has content but no parseable blocks — flagging as improper');
+                    allVehicleBlocks._failedRaw = allVehicleBlocks._failedRaw || [];
+                    allVehicleBlocks._failedRaw.push(msg.content);
+                }
+                
                 // Add all blocks from this message to the master list
                 carBlocks.forEach(block => {
                     allVehicleBlocks.push({
