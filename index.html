@@ -6430,6 +6430,7 @@ discordUserId = inputUserId;
         setSearchProgress(80);
         
         const allVehicles = [];
+        const allVehicleBlocks = [];
         let parseFailCount = 0;  // Track parse failures across ALL messages
         let vMessages = [];  // DECLARE OUTSIDE THE IF BLOCK
         
@@ -6491,7 +6492,6 @@ console.log('📦 [VEHICLES] Processing', vMessages.length, 'messages...');
             console.log('═══════════════════════════════════════════════════');
             
             // ✅ NEW: Collect ALL vehicle blocks from ALL messages first
-            const allVehicleBlocks = [];
             
             for (const msg of vMessages) {
                 console.log('📨 [MSG] Processing message ID:', msg.id);
