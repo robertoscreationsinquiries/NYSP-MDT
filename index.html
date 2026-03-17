@@ -1895,7 +1895,7 @@ if (trimmedLine.startsWith('SIDETAB_NAVIGATION=') || trimmedLine.startsWith('Min
     const val = trimmedLine.split('=')[1]?.trim();
     const enabled = val === 'TRUE';
     setCompactMode(enabled);
-    // IPC activation deferred until after login
+    // IPC activation deferred until after loader completes
 }
 if (trimmedLine.startsWith('MIC_HOTKEY=')) {
                 const val = trimmedLine.split('=')[1]?.trim();
@@ -8203,14 +8203,26 @@ const tzAbbr = fiveMinutesAgo.toLocaleTimeString('en-US', { timeZoneName: 'short
         if (!affirmSet) addLog(`❌ FAILED to set Date AFFIRMED`, 'error');
         
 const dept = trooperSettings?.Department || selectedDepartment || 'NYSP';
+        console.log('=== [CITATION] AGENCY DEBUG ===');
+        console.log('[CITATION] trooperSettings?.Department:', trooperSettings?.Department);
+        console.log('[CITATION] selectedDepartment:', selectedDepartment);
+        console.log('[CITATION] resolved dept:', dept);
+        console.log('[CITATION] Available dropdown fields:', form.getFields().filter(f => { try { form.getDropdown(f.getName()); return true; } catch(e) { return false; } }).map(f => f.getName()));
+        const agencyField = form.getFields().find(f => f.getName().toLowerCase().includes('agency'));
+        if (agencyField) {
+            try { console.log('[CITATION] Agency field options:', form.getDropdown(agencyField.getName()).getOptions()); } catch(e) { console.log('[CITATION] Agency field options error:', e.message); }
+        }
         if (dept === 'EGPD') {
-            setDropdown('Agency', 'EAST GREENBUSH POLICE DEPARTMENT');
+            const agencyResult = setDropdown('Agency Dropdown', 'EAST GREENBUSH POLICE DEPARTMENT') || setDropdown('Agency', 'EAST GREENBUSH POLICE DEPARTMENT');
+            console.log('[CITATION] EGPD agency set result:', agencyResult);
             setField('Police Code', '4252');
             addLog('Agency: EAST GREENBUSH POLICE DEPARTMENT, Police Code: 4252', 'info');
         } else {
-            setDropdown('Agency', 'NEW YORK STATE POLICE');
+            const agencyResult = setDropdown('Agency Dropdown', 'NEW YORK STATE POLICE') || setDropdown('Agency', 'NEW YORK STATE POLICE');
+            console.log('[CITATION] NYSP agency set result:', agencyResult);
             addLog('Agency: NEW YORK STATE POLICE', 'info');
         }
+        console.log('=== [CITATION] AGENCY DEBUG END ===');
 addLog('All available fields filled', 'success');
 
         // Strip rich text flags before flattening (pdf-lib can't handle them)
@@ -8479,13 +8491,25 @@ const getCurrentTime = () => {
         
         // Set Agency dropdown based on department
         const dept = trooperSettings?.Department || selectedDepartment || 'NYSP';
+        console.log('=== [ARREST] AGENCY DEBUG ===');
+        console.log('[ARREST] trooperSettings?.Department:', trooperSettings?.Department);
+        console.log('[ARREST] selectedDepartment:', selectedDepartment);
+        console.log('[ARREST] resolved dept:', dept);
+        console.log('[ARREST] Available dropdown fields:', form.getFields().filter(f => { try { form.getDropdown(f.getName()); return true; } catch(e) { return false; } }).map(f => f.getName()));
+        const agencyFieldA = form.getFields().find(f => f.getName().toLowerCase().includes('agency'));
+        if (agencyFieldA) {
+            try { console.log('[ARREST] Agency field options:', form.getDropdown(agencyFieldA.getName()).getOptions()); } catch(e) { console.log('[ARREST] Agency field options error:', e.message); }
+        }
         if (dept === 'EGPD') {
-            setDropdown('Agency', 'EAST GREENBUSH POLICE DEPARTMENT');
+            const agencyResult = setDropdown('Agency Dropdown', 'EAST GREENBUSH POLICE DEPARTMENT') || setDropdown('Agency', 'EAST GREENBUSH POLICE DEPARTMENT');
+            console.log('[ARREST] EGPD agency set result:', agencyResult);
             addLog(`  Agency: EAST GREENBUSH POLICE DEPARTMENT`, 'info');
         } else {
-            setDropdown('Agency', 'NEW YORK STATE POLICE');
+            const agencyResult = setDropdown('Agency Dropdown', 'NEW YORK STATE POLICE') || setDropdown('Agency', 'NEW YORK STATE POLICE');
+            console.log('[ARREST] NYSP agency set result:', agencyResult);
             addLog(`  Agency: NEW YORK STATE POLICE`, 'info');
         }
+        console.log('=== [ARREST] AGENCY DEBUG END ===');
         
         addLog('✔ All fields filled successfully', 'success');
         
@@ -9533,6 +9557,9 @@ return (
                 onClick={() => {
                     setShowLoader(false);
                     setLoaderProgress(100);
+                    if (compactMode && window.require) {
+                        try { window.require('electron').ipcRenderer.send('toggle-compact-mode', true); } catch(_) {}
+                    }
                     const alreadyAccepted = localStorage.getItem('mdtWelcomeAccepted');
                     if (!alreadyAccepted) setShowWelcomePopup(true);
                     if (soundSettings?.StartupSFX && SOUNDS.StartupSFX) {
