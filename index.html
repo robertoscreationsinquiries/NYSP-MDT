@@ -1648,6 +1648,7 @@ const [soundSettings, setSoundSettings] = useState({
 });
 const [isRecordingKeybind, setIsRecordingKeybind] = useState(false);
 const [showWelcomePopup, setShowWelcomePopup] = React.useState(false);
+const [privacyAgeConfirmed, setPrivacyAgeConfirmed] = React.useState(false);
 const [hfAPIKey, setHfAPIKey] = useState('');
 const [groqConsoleAPIKey, setGroqConsoleAPIKey] = useState('');
 const [databaseSearchUsername, setDatabaseSearchUsername] = useState('');
@@ -10953,6 +10954,18 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                 )}
 
                                 <div style={S.divider} />
+                                <button onClick={() => {
+                                    if (window.confirm('Clear all locally stored data?\n\nThis will remove your saved credentials, settings, session history, and privacy consent. You will need to reconfigure the application.\n\nThis action cannot be undone.')) {
+                                        localStorage.clear();
+                                        setLoginUsername('');
+                                        setLoginPassword('');
+                                        window.location.reload();
+                                    }
+                                }} style={{ ...S.btn('#f59e0b', false), marginBottom: '6px' }}>
+                                    🗑 Clear Local Data
+                                </button>
+                                <div style={{ color: '#6b7280', fontSize: '10px', marginBottom: '8px', paddingLeft: '2px' }}>Removes all saved credentials, settings & privacy consent</div>
+                                <div style={S.divider} />
                                 <button onClick={handleLogout} style={S.btn('#ef4444', false)}>
                                     <XCircle size={14} /> Logout
                                 </button>
@@ -11857,15 +11870,47 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                         <strong>DISCLAIMER:</strong> Use of this software is at your own risk. The developer assumes no liability for any violations, or consequences arising from its use.
                     </p>
                 </div>
+
+                {/* Privacy & Data Notice */}
+                <div style={{ borderTop: '1px solid rgba(59,130,246,0.15)', marginTop: '16px', paddingTop: '16px' }}>
+                    <h3 style={{ color: '#60a5fa', fontSize: '13px', fontWeight: '700', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                        🔒 Privacy & Data Notice
+                    </h3>
+                    <div style={{ color: '#94a3b8', fontSize: '12px', lineHeight: '1.7', marginBottom: '12px' }}>
+                        This application stores the following data <strong style={{ color: '#bfdbfe' }}>locally on your device only</strong> — nothing is sent to third parties:
+                        <ul style={{ marginLeft: '16px', marginTop: '6px' }}>
+                            <li>Your login credentials (only if you choose to save them)</li>
+                            <li>Application settings and preferences</li>
+                            <li>Session history and shift logs</li>
+                        </ul>
+                        <p style={{ marginTop: '8px' }}>
+                            Your Discord token and Groq API key are read from <strong>CADSystemSettings.txt</strong> on your device and are never transmitted beyond the services they authenticate with (Discord and Groq). You may delete all locally stored data at any time via <strong>Settings → Clear Local Data</strong>.
+                        </p>
+                    </div>
+                    {/* COPPA age gate */}
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer', padding: '10px', background: 'rgba(59,130,246,0.05)', border: `1px solid ${privacyAgeConfirmed ? 'rgba(59,130,246,0.4)' : 'rgba(59,130,246,0.15)'}`, borderRadius: '8px', transition: 'all 0.2s' }}>
+                        <input
+                            type="checkbox"
+                            checked={privacyAgeConfirmed}
+                            onChange={e => setPrivacyAgeConfirmed(e.target.checked)}
+                            style={{ marginTop: '2px', flexShrink: 0, accentColor: '#3b82f6', width: '14px', height: '14px' }}
+                        />
+                        <span style={{ color: '#bfdbfe', fontSize: '12px', lineHeight: '1.6' }}>
+                            I confirm that I am <strong>13 years of age or older</strong>, and I have read and understood the privacy notice above. I consent to the local storage of the data described.
+                        </span>
+                    </label>
+                </div>
             </div>
             
             {/* Accept Button */}
             <button
                 onClick={() => {
+                    if (!privacyAgeConfirmed) return;
                     setShowWelcomePopup(false);
-                    // Mark as accepted for future sessions
                     localStorage.setItem('mdtWelcomeAccepted', 'true');
+                    localStorage.setItem('mdtPrivacyAccepted', 'true');
                 }}
+                disabled={!privacyAgeConfirmed}
                 style={{
                     width: '100%',
                     padding: '16px 48px',
