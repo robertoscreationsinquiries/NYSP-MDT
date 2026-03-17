@@ -1753,9 +1753,11 @@ const [isRecordingMicHotkey, setIsRecordingMicHotkey] = useState(false);
 // LOGIN SYSTEM STATE
 // ══════════════════════════════════════════════════════════════════════════
 const [showLoginScreen, setShowLoginScreen] = useState(true);
-const [loginUsername, setLoginUsername] = useState('');
-const [loginPassword, setLoginPassword] = useState('');
+const [loginUsername, setLoginUsername] = useState(() => localStorage.getItem('nysp_saved_username') || '');
+const [loginPassword, setLoginPassword] = useState(() => localStorage.getItem('nysp_saved_password') || '');
 const [loginError, setLoginError] = useState('');
+const [showSavePasswordPrompt, setShowSavePasswordPrompt] = useState(false);
+const [pendingSaveCredentials, setPendingSaveCredentials] = useState(null);
 const [isLoggingIn, setIsLoggingIn] = useState(false);
 const [authenticatedUser, setAuthenticatedUser] = useState(null);
 const [showBanScreen, setShowBanScreen] = useState(false);
@@ -8645,6 +8647,14 @@ const handleLogin = async () => {
 
         localStorage.setItem('nysp_authenticated_user', JSON.stringify(user));
         localStorage.setItem('nysp_username', user.robloxUsername);
+
+        // Offer to save credentials if not already saved or if they changed
+        const savedUser = localStorage.getItem('nysp_saved_username');
+        const savedPass = localStorage.getItem('nysp_saved_password');
+        if (savedUser !== loginUsername.trim() || savedPass !== loginPassword) {
+            setPendingSaveCredentials({ username: loginUsername.trim(), password: loginPassword });
+            setShowSavePasswordPrompt(true);
+        }
         localStorage.setItem('nysp_zone', user.patrolZone);
         localStorage.setItem('nysp_firstname', user.firstName);
         localStorage.setItem('nysp_lastname', user.lastName);
@@ -9657,6 +9667,62 @@ return (
                     onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.5)'; }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.3)'; }}>
                     Acknowledged
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
+{showSavePasswordPrompt && (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999998, display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', padding: '60px 24px 0 0', pointerEvents: 'none' }}>
+        <div style={{ width: '340px', background: 'linear-gradient(135deg, #0a0f1e, #111827)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '12px', boxShadow: '0 8px 32px rgba(0,0,0,0.6)', overflow: 'hidden', pointerEvents: 'all', animation: 'fadeIn 0.2s ease-out' }}>
+            <div style={{ padding: '16px 18px', borderBottom: '1px solid rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="18" height="18" fill="none" stroke="white" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+                </div>
+                <div>
+                    <div style={{ color: 'white', fontSize: '13px', fontWeight: '700' }}>Save login details?</div>
+                    <div style={{ color: '#6b7280', fontSize: '11px', marginTop: '1px' }}>Your credentials will be stored locally on this device.</div>
+                </div>
+            </div>
+            <div style={{ padding: '12px 18px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span style={{ color: '#6b7280', fontSize: '11px' }}>Username</span>
+                    <span style={{ color: '#e2e8f0', fontSize: '11px', fontWeight: '600', fontFamily: 'monospace' }}>{pendingSaveCredentials?.username}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#6b7280', fontSize: '11px' }}>Password</span>
+                    <span style={{ color: '#e2e8f0', fontSize: '11px', fontFamily: 'monospace' }}>{'•'.repeat(Math.min(pendingSaveCredentials?.password?.length || 0, 16))}</span>
+                </div>
+            </div>
+            <div style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                <button onClick={() => {
+                    localStorage.removeItem('nysp_saved_username');
+                    localStorage.removeItem('nysp_saved_password');
+                    setShowSavePasswordPrompt(false);
+                    setPendingSaveCredentials(null);
+                }} style={{ flex: 1, padding: '12px', background: 'transparent', border: 'none', borderRight: '1px solid rgba(255,255,255,0.05)', color: '#6b7280', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    Never
+                </button>
+                <button onClick={() => {
+                    setShowSavePasswordPrompt(false);
+                    setPendingSaveCredentials(null);
+                }} style={{ flex: 1, padding: '12px', background: 'transparent', border: 'none', borderRight: '1px solid rgba(255,255,255,0.05)', color: '#94a3b8', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    Not now
+                </button>
+                <button onClick={() => {
+                    localStorage.setItem('nysp_saved_username', pendingSaveCredentials.username);
+                    localStorage.setItem('nysp_saved_password', pendingSaveCredentials.password);
+                    setShowSavePasswordPrompt(false);
+                    setPendingSaveCredentials(null);
+                }} style={{ flex: 1, padding: '12px', background: 'transparent', border: 'none', color: '#60a5fa', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.08)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    Save
                 </button>
             </div>
         </div>
