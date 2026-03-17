@@ -11765,9 +11765,11 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
         <div style={{
             position: 'relative',
             background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)',
-            borderRadius: '20px',
-            padding: '48px 40px',
-            maxWidth: '680px',
+            borderRadius: '16px',
+            padding: '28px 28px 24px',
+            maxWidth: '560px',
+            maxHeight: '88vh',
+            overflowY: 'auto',
             width: '90%',
             border: '2px solid rgba(59, 130, 246, 0.5)',
             boxShadow: '0 25px 80px rgba(59, 130, 246, 0.4), 0 0 120px rgba(59, 130, 246, 0.2)',
@@ -11787,14 +11789,14 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                 boxShadow: '0 10px 40px rgba(59, 130, 246, 0.6)',
                 animation: 'float 3s ease-in-out infinite'
             }}>
-                <Shield size={56} style={{ color: 'white' }} />
+                <Shield size={32} style={{ color: 'white' }} />
             </div>
             
             {/* Title */}
             <h2 style={{ 
                 color: 'white', 
-                fontSize: '32px', 
-                marginBottom: '12px',
+                fontSize: '22px', 
+                marginBottom: '10px',
                 fontWeight: '800',
                 textTransform: 'uppercase',
                 letterSpacing: '2px',
@@ -11809,7 +11811,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                 border: '2px solid rgba(251, 191, 36, 0.4)',
                 borderRadius: '8px',
                 padding: '8px 16px',
-                marginBottom: '28px'
+                marginBottom: '16px'
             }}>
                 <span style={{
                     color: '#fde047',
@@ -11833,16 +11835,16 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
             }}>
                 <h3 style={{
                     color: '#60a5fa',
-                    fontSize: '16px',
+                    fontSize: '12px',
                     fontWeight: '700',
-                    marginBottom: '16px',
+                    marginBottom: '10px',
                     textTransform: 'uppercase',
                     letterSpacing: '1px'
                 }}>
                     Terms of Use & Safety Notice
                 </h3>
 
-                <div style={{ color: '#bfdbfe', fontSize: '14px', lineHeight: '1.7' }}>
+                <div style={{ color: '#bfdbfe', fontSize: '12px', lineHeight: '1.6' }}>
                     <p style={{ marginBottom: '12px' }}>
                         <strong style={{ color: '#ef4444' }}>⚠ CRITICAL SAFETY WARNING:</strong> Use of this application while operating a motor vehicle as it is in motion is <strong>STRONGLY DISCOURAGED</strong> and you may be found guilty under ORCR Law, §1915, Use of portable electronic devices.
                     </p>
