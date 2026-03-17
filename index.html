@@ -9615,17 +9615,15 @@ return (
 {showPanicTriggeredPopup && (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
         <div style={{ width: '380px', borderRadius: '0px', overflow: 'hidden', boxShadow: '0 0 0 2px rgba(239,68,68,0.8), 0 32px 80px rgba(0,0,0,0.9), 0 0 60px rgba(239,68,68,0.3)', animation: 'panicPulse 1s ease-in-out infinite' }}>
-            {/* Header */}
             <div style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)', padding: '32px 24px 28px', textAlign: 'center' }}>
                 <div style={{ fontSize: '52px', marginBottom: '12px', animation: 'panicSpin 1s ease-in-out infinite' }}>🚨</div>
                 <div style={{ color: 'white', fontSize: '24px', fontWeight: '900', letterSpacing: '1px', marginBottom: '8px', lineHeight: '1.3' }}>Emergency Alert Activated</div>
                 <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: '13px', letterSpacing: '0.5px', lineHeight: '1.6' }}>Your panic signal has been broadcast to all active units. Stay on the line and update your location as soon as it is safe to do so.</div>
             </div>
-            {/* Body */}
             <div style={{ background: '#f8f5f0', padding: '24px 28px', textAlign: 'center' }}>
                 <div style={{ color: '#1c1c1e', fontSize: '13px', lineHeight: '1.7', marginBottom: '20px' }}>
                     <strong>Activated at {new Date().toLocaleTimeString()}</strong><br/>
-                    Responding units have been notified. If this was false, alert all units.
+                    Responding units have been notified. Do not cancel unless the threat has been resolved.
                 </div>
                 <button onClick={() => setShowPanicTriggeredPopup(false)}
                     style={{ width: '100%', padding: '14px', background: 'linear-gradient(135deg, #dc2626, #b91c1c)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '14px', fontWeight: '800', cursor: 'pointer', letterSpacing: '1px', textTransform: 'uppercase', boxShadow: '0 4px 16px rgba(239,68,68,0.4)' }}>
@@ -10910,13 +10908,13 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                 ))}
             </div>
         </div>
-        <KeybindRecorder label="Panic Button Hotkey" desc="Hold this key for 2 seconds to trigger the panic alert" active={panicHotkey} draft={panicHotkeyDraft} setDraft={setPanicHotkeyDraft} onSave={() => { setPanicHotkey(panicHotkeyDraft); addLog(`✅ Panic hotkey set to: ${panicHotkeyDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#ef4444" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
+        <KeybindRecorder label="Panic Button Hotkey" desc="Hold this key for 2 seconds to trigger the panic alert 🖥️" active={panicHotkey} draft={panicHotkeyDraft} setDraft={setPanicHotkeyDraft} onSave={() => { setPanicHotkey(panicHotkeyDraft); addLog(`✅ Panic hotkey set to: ${panicHotkeyDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#ef4444" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
     </React.Fragment>
 )}
-                                <ToggleRow label="Only Fire When App is Focused" desc="Hotkeys won't trigger when you are on a different tab with this setting enabled." on={keybindsRequireFocus} accent="#3b82f6" onToggle={() => setKeybindsRequireFocus(v => !v)} />
+                                <ToggleRow label="Only Fire When App is Focused" desc="Hotkeys won't trigger when you are on a different tab with this setting enabled. This only applies to settings with the 🖥️ emoji present." on={keybindsRequireFocus} accent="#3b82f6" onToggle={() => setKeybindsRequireFocus(v => !v)} />
 <KeybindRecorder label="Action Bar / Command Palette"desc="Opens the command palette overlay" active={actionBarKeybind} draft={keybindDraft} setDraft={setKeybindDraft} onSave={() => { setActionBarKeybind(keybindDraft); addLog(`✅ Action bar: ${keybindDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#3b82f6" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
-                                <KeybindRecorder label="Mic Toggle (Plate Search)" desc="Toggles voice-to-plate on the plate search page" active={micHotkey} draft={micHotkeyDraft} setDraft={setMicHotkeyDraft} onSave={() => { setMicHotkey(micHotkeyDraft); addLog(`✅ Mic hotkey: ${micHotkeyDraft}`, 'success'); }} setRecording={setIsRecordingMicHotkey} accent="#10b981" conflictKey={actionBarKeybind} conflictLabel="Action Bar" />
-<KeybindRecorder label="Acknowledge Call(s)" desc="Instantly acknowledges all active unacknowledged dispatch calls" active={acknowledgeKeybind} draft={acknowledgeKeybindDraft} setDraft={setAcknowledgeKeybindDraft} onSave={() => { setAcknowledgeKeybind(acknowledgeKeybindDraft); addLog(`✅ Acknowledge hotkey set to: ${acknowledgeKeybindDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#10b981" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
+                                <KeybindRecorder label="Mic Toggle (Plate Search)" desc="Toggles voice-to-plate on the plate search page 🖥️" active={micHotkey} draft={micHotkeyDraft} setDraft={setMicHotkeyDraft} onSave={() => { setMicHotkey(micHotkeyDraft); addLog(`✅ Mic hotkey: ${micHotkeyDraft}`, 'success'); }} setRecording={setIsRecordingMicHotkey} accent="#10b981" conflictKey={actionBarKeybind} conflictLabel="Action Bar" />
+<KeybindRecorder label="Acknowledge Call(s)" desc="Instantly acknowledges all active unacknowledged dispatch calls 🖥️" active={acknowledgeKeybind} draft={acknowledgeKeybindDraft} setDraft={setAcknowledgeKeybindDraft} onSave={() => { setAcknowledgeKeybind(acknowledgeKeybindDraft); addLog(`✅ Acknowledge hotkey set to: ${acknowledgeKeybindDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#10b981" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
                             </div>
 
                             {/* ── DATA SOURCES ── */}
