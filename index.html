@@ -1676,6 +1676,7 @@ const [panicTriggerModeDraft, setPanicTriggerModeDraft] = useState('HOLD');
 const [panicTapCount, setPanicTapCount] = useState(0);
 const panicTapTimerRef = React.useRef(null);
 const [panicModalOpen, setPanicModalOpen] = useState(false);
+const [showPanicTriggeredPopup, setShowPanicTriggeredPopup] = useState(false);
 const panicAlarmRef = React.useRef(null);
 
 const startPanicAlarm = React.useCallback(() => {
@@ -1894,9 +1895,7 @@ if (trimmedLine.startsWith('SIDETAB_NAVIGATION=') || trimmedLine.startsWith('Min
     const val = trimmedLine.split('=')[1]?.trim();
     const enabled = val === 'TRUE';
     setCompactMode(enabled);
-    if (enabled && window.require) {
-        try { window.require('electron').ipcRenderer.send('toggle-compact-mode', true); } catch(_) {}
-    }
+    // IPC activation deferred until after login
 }
 if (trimmedLine.startsWith('MIC_HOTKEY=')) {
                 const val = trimmedLine.split('=')[1]?.trim();
@@ -4148,6 +4147,7 @@ React.useEffect(() => {
                     setPanicNotifType('activated');
                     addLog('🚨 PANIC BUTTON ACTIVATED (Rapid Tap)', 'error');
                     setTimeout(() => setPanicNotif(''), 8000);
+                    setShowPanicTriggeredPopup(true);
                     return 0;
                 }
                 panicTapTimerRef.current = setTimeout(() => setPanicTapCount(0), 1500);
@@ -8202,6 +8202,15 @@ const tzAbbr = fiveMinutesAgo.toLocaleTimeString('en-US', { timeZoneName: 'short
         const affirmSet = setField('AffDate_af_date', affirmDate) || setField('DateOff_af_date', affirmDate);
         if (!affirmSet) addLog(`❌ FAILED to set Date AFFIRMED`, 'error');
         
+const dept = trooperSettings?.Department || selectedDepartment || 'NYSP';
+        if (dept === 'EGPD') {
+            setDropdown('Agency', 'EAST GREENBUSH POLICE DEPARTMENT');
+            setField('Police Code', '4252');
+            addLog('Agency: EAST GREENBUSH POLICE DEPARTMENT, Police Code: 4252', 'info');
+        } else {
+            setDropdown('Agency', 'NEW YORK STATE POLICE');
+            addLog('Agency: NEW YORK STATE POLICE', 'info');
+        }
 addLog('All available fields filled', 'success');
 
         // Strip rich text flags before flattening (pdf-lib can't handle them)
@@ -8468,9 +8477,15 @@ const getCurrentTime = () => {
         setField('Narrative', 'ENTER TROOPER\'S NARRATIVE HERE');
         addLog(`  Narrative: Pre-filled with placeholder`, 'info');
         
-        // Set Agency dropdown
-        setDropdown('Agency', 'NEW YORK STATE POLICE');
-        addLog(`  Agency: NEW YORK STATE POLICE`, 'info');
+        // Set Agency dropdown based on department
+        const dept = trooperSettings?.Department || selectedDepartment || 'NYSP';
+        if (dept === 'EGPD') {
+            setDropdown('Agency', 'EAST GREENBUSH POLICE DEPARTMENT');
+            addLog(`  Agency: EAST GREENBUSH POLICE DEPARTMENT`, 'info');
+        } else {
+            setDropdown('Agency', 'NEW YORK STATE POLICE');
+            addLog(`  Agency: NEW YORK STATE POLICE`, 'info');
+        }
         
         addLog('✔ All fields filled successfully', 'success');
         
@@ -8629,6 +8644,9 @@ const handleLogin = async () => {
         setShowLoginScreen(false);
         setShowLoader(true);
         setIsLoggingIn(false);
+        if (compactMode && window.require) {
+            try { window.require('electron').ipcRenderer.send('toggle-compact-mode', true); } catch(_) {}
+        }
 
     } catch (error) {
         console.error('[AUTH] Login error:', error);
@@ -9563,6 +9581,22 @@ return (
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
+)}
+
+{showPanicTriggeredPopup && (
+    <div style={{ position: 'fixed', bottom: '40px', left: '50%', transform: 'translateX(-50%)', zIndex: 9999999, width: '340px', borderRadius: '22px', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1)', animation: 'fadeIn 0.3s ease-out' }}>
+        <div style={{ background: 'linear-gradient(180deg, #1a0808 0%, #0d0d0d 100%)', padding: '36px 28px 24px', textAlign: 'center' }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>🚨</div>
+            <div style={{ color: 'white', fontSize: '22px', fontWeight: '800', lineHeight: '1.3', marginBottom: '10px' }}>It looks like you are in danger</div>
+            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px', lineHeight: '1.6' }}>CAD has triggered the panic button.</div>
+        </div>
+        <div style={{ background: '#1c1c1e', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            <button onClick={() => setShowPanicTriggeredPopup(false)}
+                style={{ width: '100%', padding: '18px', background: 'transparent', border: 'none', color: '#ef4444', fontSize: '17px', fontWeight: '600', cursor: 'pointer' }}>
+                Understood
+            </button>
         </div>
     </div>
 )}
@@ -11051,7 +11085,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                         margin: '0 0 10px', 
                         whiteSpace: 'nowrap' 
                     }}>
-                        Session {selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'} · Live emergency dispatch monitoring
+                        {selectedUserSession ? `Session ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'} · Live emergency dispatch monitoring` : 'No session has been selected for monitoring.'}
                     </p>
                     <button
                         onClick={() => { 
