@@ -1675,6 +1675,7 @@ const [panicCooldownUntil, setPanicCooldownUntil] = useState(0);
 const [panicTriggerMode, setPanicTriggerMode] = useState('HOLD'); // 'HOLD' or 'TRIPLE'
 const [panicTriggerModeDraft, setPanicTriggerModeDraft] = useState('HOLD');
 const [phoneticMode, setPhoneticMode] = useState('POLICE'); // 'POLICE' or 'NATO'
+const [showPhoneticCompare, setShowPhoneticCompare] = useState(false);
 const [panicTapCount, setPanicTapCount] = useState(0);
 const panicTapCountRef = React.useRef(0);
 const panicTapTimerRef = React.useRef(null);
@@ -9778,6 +9779,55 @@ return (
     </div>
 )}
 
+{showPhoneticCompare && (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, backdropFilter: 'blur(6px)', padding: '20px', animation: 'fadeIn 0.2s ease-out' }}
+        onClick={e => { if (e.target === e.currentTarget) setShowPhoneticCompare(false); }}>
+        <div style={{ background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '14px', width: '100%', maxWidth: '700px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 4px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '20px 24px', flexShrink: 0, background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(120,53,15,0.3))', borderBottom: '1px solid rgba(245,158,11,0.2)', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: '-60%', right: '-5%', width: '40%', height: '220%', background: 'radial-gradient(circle, rgba(245,158,11,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
+                <div style={{ width: '44px', height: '44px', background: 'linear-gradient(135deg, #92400e, #f59e0b)', borderRadius: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(245,158,11,0.4)', flexShrink: 0 }}>
+                    <svg width="22" height="22" fill="none" stroke="white" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/></svg>
+                </div>
+                <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
+                    <div style={{ color: 'white', fontSize: '16px', fontWeight: '800', letterSpacing: '1px' }}>Phonetic Alphabet Comparison</div>
+                    <div style={{ color: '#fcd34d', fontSize: '11px', marginTop: '2px', fontWeight: '500' }}>Police vs NATO — currently active: <strong>{phoneticMode}</strong></div>
+                </div>
+                <button onClick={() => setShowPhoneticCompare(false)}
+                    style={{ width: '32px', height: '32px', minWidth: '32px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0, padding: 0 }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'; }}>
+                    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            {/* Content — two columns */}
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '20px 24px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    {[
+                        { label: '🚔 Police Phonetic', accent: '#3b82f6', mode: 'POLICE', map: {A:'Adam',B:'Boy',C:'Charles',D:'David',E:'Edward',F:'Frank',G:'George',H:'Henry',I:'Ida',J:'John',K:'King',L:'Lincoln',M:'Mary',N:'Nora',O:'Ocean',P:'Paul',Q:'Queen',R:'Robert',S:'Sam',T:'Tom',U:'Union',V:'Victor',W:'William',X:'X-Ray',Y:'Young',Z:'Zebra'} },
+                        { label: '🌐 NATO Phonetic', accent: '#f59e0b', mode: 'NATO', map: {A:'Alpha',B:'Bravo',C:'Charlie',D:'Delta',E:'Echo',F:'Foxtrot',G:'Golf',H:'Hotel',I:'India',J:'Juliett',K:'Kilo',L:'Lima',M:'Mike',N:'November',O:'Oscar',P:'Papa',Q:'Quebec',R:'Romeo',S:'Sierra',T:'Tango',U:'Uniform',V:'Victor',W:'Whiskey',X:'X-Ray',Y:'Yankee',Z:'Zulu'} }
+                    ].map(({ label, accent, mode, map }) => (
+                        <div key={mode} style={{ background: phoneticMode === mode ? `${accent}10` : 'rgba(255,255,255,0.02)', border: `1px solid ${phoneticMode === mode ? `${accent}40` : 'rgba(255,255,255,0.06)'}`, borderRadius: '10px', overflow: 'hidden', transition: 'all 0.15s' }}>
+                            <div style={{ padding: '12px 16px', borderBottom: `1px solid ${phoneticMode === mode ? `${accent}30` : 'rgba(255,255,255,0.05)'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: phoneticMode === mode ? `${accent}15` : 'rgba(255,255,255,0.02)' }}>
+                                <span style={{ color: phoneticMode === mode ? accent : '#6b7280', fontSize: '12px', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase' }}>{label}</span>
+                                {phoneticMode === mode && <span style={{ background: `${accent}20`, border: `1px solid ${accent}50`, borderRadius: '4px', padding: '2px 8px', color: accent, fontSize: '9px', fontWeight: '800', letterSpacing: '1.5px' }}>ACTIVE</span>}
+                            </div>
+                            <div style={{ padding: '10px 16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 12px' }}>
+                                {Object.entries(map).map(([letter, word]) => (
+                                    <div key={letter} style={{ display: 'flex', gap: '8px', padding: '3px 0', borderBottom: '1px solid rgba(255,255,255,0.03)', alignItems: 'baseline' }}>
+                                        <span style={{ color: accent, fontWeight: '800', fontSize: '12px', fontFamily: 'monospace', minWidth: '14px' }}>{letter}</span>
+                                        <span style={{ color: '#94a3b8', fontSize: '11px' }}>{word}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    </div>
+)}
+
 {commandBarOpen && (
     <div style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
         onClick={(e) => { if (e.target === e.currentTarget) { setCommandBarOpen(false); setCommandBarInput('/'); } }}>
@@ -11064,22 +11114,6 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                 ))}
             </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-            <div>
-                <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '600' }}>Phonetic Alphabet</div>
-                <div style={{ color: '#6b7280', fontSize: '11px', marginTop: '2px' }}>Used for plate readout and voice recognition (e.g. Adam/Alpha)</div>
-            </div>
-            <div style={{ display: 'flex', background: 'rgba(15,23,42,0.6)', borderRadius: '8px', border: '1px solid rgba(59,130,246,0.25)', overflow: 'hidden', flexShrink: 0, marginLeft: '14px' }}>
-                {['POLICE', 'NATO'].map(mode => (
-                    <button key={mode} onClick={() => setPhoneticMode(mode)}
-                        style={{ padding: '9px 18px', fontSize: '11px', fontWeight: '700', letterSpacing: '0.5px', border: 'none', cursor: 'pointer', transition: 'all 0.2s',
-                            background: phoneticMode === mode ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent',
-                            color: phoneticMode === mode ? 'white' : '#4b5563' }}>
-                        {mode === 'POLICE' ? '🚔 POLICE' : '🌐 NATO'}
-                    </button>
-                ))}
-            </div>
-        </div>
         <KeybindRecorder label="Panic Button Hotkey" desc="Hold this key for 2 seconds to trigger the panic alert 🖥️" active={panicHotkey} draft={panicHotkeyDraft} setDraft={setPanicHotkeyDraft} onSave={() => { setPanicHotkey(panicHotkeyDraft); addLog(`✅ Panic hotkey set to: ${panicHotkeyDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#ef4444" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
     </React.Fragment>
 )}
@@ -11087,6 +11121,36 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
 <KeybindRecorder label="Action Bar / Command Palette"desc="Opens the command palette overlay" active={actionBarKeybind} draft={keybindDraft} setDraft={setKeybindDraft} onSave={() => { setActionBarKeybind(keybindDraft); addLog(`✅ Action bar: ${keybindDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#3b82f6" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
                                 <KeybindRecorder label="Mic Toggle (Plate Search)" desc="Toggles voice-to-plate on the plate search page 🖥️" active={micHotkey} draft={micHotkeyDraft} setDraft={setMicHotkeyDraft} onSave={() => { setMicHotkey(micHotkeyDraft); addLog(`✅ Mic hotkey: ${micHotkeyDraft}`, 'success'); }} setRecording={setIsRecordingMicHotkey} accent="#10b981" conflictKey={actionBarKeybind} conflictLabel="Action Bar" />
 <KeybindRecorder label="Acknowledge Call(s)" desc="Instantly acknowledges all active unacknowledged dispatch calls 🖥️" active={acknowledgeKeybind} draft={acknowledgeKeybindDraft} setDraft={setAcknowledgeKeybindDraft} onSave={() => { setAcknowledgeKeybind(acknowledgeKeybindDraft); addLog(`✅ Acknowledge hotkey set to: ${acknowledgeKeybindDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#10b981" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
+                            </div>
+
+                            {/* ── PERSONAL PREFERENCES ── */}
+                            <div style={S.section('#f59e0b', 'rgba(245,158,11,0.06)')}>
+                                <div style={S.sectionHead('#fcd34d')}>⚙️ Personal Preferences</div>
+                                <div style={S.sectionSub}>Personalise how the application behaves for you</div>
+
+                                {/* Phonetic Alphabet */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '9px', marginBottom: '7px' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '600' }}>Phonetic Alphabet</div>
+                                        <div style={{ color: '#6b7280', fontSize: '11px', marginTop: '2px' }}>
+                                            Used for plate readout and voice recognition (e.g. Adam/Alpha) —{' '}
+                                            <span
+                                                onClick={() => setShowPhoneticCompare(true)}
+                                                style={{ color: '#60a5fa', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+                                            >Click here to view the differences.</span>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', background: 'rgba(15,23,42,0.6)', borderRadius: '8px', border: '1px solid rgba(245,158,11,0.25)', overflow: 'hidden', flexShrink: 0, marginLeft: '14px' }}>
+                                        {['POLICE', 'NATO'].map(mode => (
+                                            <button key={mode} onClick={() => setPhoneticMode(mode)}
+                                                style={{ padding: '9px 18px', fontSize: '11px', fontWeight: '700', letterSpacing: '0.5px', border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                                                    background: phoneticMode === mode ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
+                                                    color: phoneticMode === mode ? 'white' : '#4b5563' }}>
+                                                {mode === 'POLICE' ? '🚔 POLICE' : '🌐 NATO'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
 
                             {/* ── DATA SOURCES ── */}
