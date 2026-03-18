@@ -1674,7 +1674,9 @@ const [panicHotkeyDraft, setPanicHotkeyDraft] = useState('');
 const [panicCooldownUntil, setPanicCooldownUntil] = useState(0);
 const [panicTriggerMode, setPanicTriggerMode] = useState('HOLD'); // 'HOLD' or 'TRIPLE'
 const [panicTriggerModeDraft, setPanicTriggerModeDraft] = useState('HOLD');
+const [phoneticMode, setPhoneticMode] = useState('POLICE'); // 'POLICE' or 'NATO'
 const [panicTapCount, setPanicTapCount] = useState(0);
+const panicTapCountRef = React.useRef(0);
 const panicTapTimerRef = React.useRef(null);
 const [panicModalOpen, setPanicModalOpen] = useState(false);
 const [showPanicTriggeredPopup, setShowPanicTriggeredPopup] = useState(false);
@@ -1887,6 +1889,10 @@ if (trimmedLine.startsWith('PANIC_TRIGGER_MODE=')) {
     const val = trimmedLine.split('=')[1]?.trim();
     if (val) { setPanicTriggerMode(val); setPanicTriggerModeDraft(val); }
 }
+if (trimmedLine.startsWith('PHONETIC_MODE=')) {
+    const val = trimmedLine.split('=')[1]?.trim();
+    if (val) setPhoneticMode(val);
+}
 if (trimmedLine.startsWith('ACKNOWLEDGE_KEYBIND=')) {
     const val = trimmedLine.split('=')[1]?.trim();
     if (val) { setAcknowledgeKeybind(val); setAcknowledgeKeybindDraft(val); }
@@ -1965,6 +1971,27 @@ React.useEffect(() => {
     const checkAnnouncements = async () => {
         try {
             console.log('[ANNOUNCEMENTS] 🔄 Checking for updates...');
+            // Check if currently logged-in user is banned
+            const storedUser = localStorage.getItem('nysp_authenticated_user');
+            if (storedUser && authenticatedUser) {
+                try {
+                    const banResp = await fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: authenticatedUser.robloxUsername, checkBanOnly: true })
+                    });
+                    if (banResp.ok) {
+                        const banResult = await banResp.json();
+                        if (banResult.reason === 'banned') {
+                            localStorage.removeItem('nysp_authenticated_user');
+                            setBanReason(banResult.bannedReason || 'No reason provided.');
+                            setShowBanScreen(true);
+                            setShowLoginScreen(false);
+                            return;
+                        }
+                    }
+                } catch (_) {}
+            }
             
             // Fetch from GitHub
 const response = await fetch(
@@ -2010,7 +2037,7 @@ const response = await fetch(
     const interval = setInterval(checkAnnouncements, 15000);
     
     return () => clearInterval(interval);
-}, []);
+}, [authenticatedUser]);
 
 
 React.useEffect(() => {
@@ -3058,6 +3085,7 @@ const updateLogsData = [
         {
         title: "MDT SYSTEM - APP OVERHAUL",
         version: "0.1.0",
+        release_date: "03/20/2026",
         description: "Thank you to all testers for reporting all the bugs to me. This hotfix should cover all the bugs reported so far. In addition to this new update, we have new testers to minimize the bugs in this app.",
         new: [
             'NEW - Added a Login screen upon launch.',
@@ -3476,6 +3504,7 @@ MIC_HOTKEY=${micHotkey || ''}
 PANIC_ENABLED=${panicEnabled ? 'TRUE' : 'FALSE'}
 PANIC_HOTKEY=${panicHotkey || ''}
 PANIC_TRIGGER_MODE=${panicTriggerMode || 'HOLD'}
+PHONETIC_MODE=${phoneticMode || 'POLICE'}
 ACKNOWLEDGE_KEYBIND=${acknowledgeKeybind || ''}
 ESC_TO_HOME=${escToHome ? 'TRUE' : 'FALSE'}
 DevConsoleEnabled=${showDevConsole ? 'TRUE' : 'FALSE'}
@@ -3509,6 +3538,7 @@ if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
                     if (key === 'PANIC_ENABLED') setPanicEnabled(val === 'TRUE');
                     if (key === 'PANIC_HOTKEY') { setPanicHotkey(val); setPanicHotkeyDraft(val); }
                     if (key === 'PANIC_TRIGGER_MODE') { setPanicTriggerMode(val); setPanicTriggerModeDraft(val); }
+                    if (key === 'PHONETIC_MODE') setPhoneticMode(val);
                     if (key === 'ACKNOWLEDGE_KEYBIND') { setAcknowledgeKeybind(val); setAcknowledgeKeybindDraft(val); }
                     if (key === 'AmericanDateFormat') setTrooperSettings(prev => ({ ...prev, AmericanDateFormat: val }));
                     
@@ -3891,6 +3921,14 @@ React.useEffect(() => {
                 const currentCallIds = validCalls.map(c => c.id).sort().join(',');
                 const previousCallIds = (lastCallCount[selectedUserSession] || '');
                 
+                // Always keep currentCallsRef in sync with latest valid calls
+                const mappedCalls = validCalls.map(m => ({
+                    id: m.id,
+                    content: m.content
+                }));
+                currentCallsRef.current = mappedCalls;
+                window._currentCalls = mappedCalls;
+
                 if (currentCallIds !== previousCallIds && validCalls.length > 0) {
                     const newCallIds = validCalls.filter(c => !previousCallIds.includes(c.id));
                     if (newCallIds.length > 0) {
@@ -3902,8 +3940,8 @@ React.useEffect(() => {
                         }
                         addLog(`🚨 ${newCallIds.length} new call(s) detected`, 'info');
                     }
-                } 
-                
+                }
+
                 setLastCallCount(prev => ({ ...prev, [selectedUserSession]: currentCallIds }));
             }
         } catch (e) {
@@ -3968,18 +4006,25 @@ const generatePlateVariants = (plate) => {
     return Array.from(variants);
 };
 
-            const phoneticAlphabet = {
-
-    'A': 'Adam', 'B': 'Boy', 'C': 'Charles', 'D': 'David', 'E': 'Edward',
-    'F': 'Frank', 'G': 'George', 'H': 'Henry', 'I': 'Ida', 'J': 'John',
-    'K': 'King', 'L': 'Lincoln', 'M': 'Mary', 'N': 'Nora', 'O': 'Ocean',
-    'P': 'Paul', 'Q': 'Queen', 'R': 'Robert', 'S': 'Sam', 'T': 'Tom',
-    'U': 'Union', 'V': 'Victor', 'W': 'William', 'X': 'X-Ray', 'Y': 'Young', 'Z': 'Zebra'
+            const POLICE_PHONETIC = {
+    'A':'Adam','B':'Boy','C':'Charles','D':'David','E':'Edward','F':'Frank',
+    'G':'George','H':'Henry','I':'Ida','J':'John','K':'King','L':'Lincoln',
+    'M':'Mary','N':'Nora','O':'Ocean','P':'Paul','Q':'Queen','R':'Robert',
+    'S':'Sam','T':'Tom','U':'Union','V':'Victor','W':'William','X':'X-Ray',
+    'Y':'Young','Z':'Zebra'
 };
+const NATO_PHONETIC = {
+    'A':'Alpha','B':'Bravo','C':'Charlie','D':'Delta','E':'Echo','F':'Foxtrot',
+    'G':'Golf','H':'Hotel','I':'India','J':'Juliett','K':'Kilo','L':'Lima',
+    'M':'Mike','N':'November','O':'Oscar','P':'Papa','Q':'Quebec','R':'Romeo',
+    'S':'Sierra','T':'Tango','U':'Uniform','V':'Victor','W':'Whiskey',
+    'X':'X-Ray','Y':'Yankee','Z':'Zulu'
+};
+const activePhonetic = phoneticMode === 'NATO' ? NATO_PHONETIC : POLICE_PHONETIC;
 
 const convertToPhonetic = (plate) => {
     return plate.split('').map(char => {
-        if (/[A-Z]/.test(char)) return phoneticAlphabet[char] || char;
+        if (/[A-Z]/.test(char)) return activePhonetic[char] || char;
         if (char === '-' || char === ' ') return '-';
         return char;
     }).join(' ');
@@ -4141,23 +4186,26 @@ React.useEffect(() => {
         } else {
             // Triple tap mode — ignore key repeat events (held down)
             if (e.repeat) return;
-            setPanicTapCount(prev => {
-                const next = prev + 1;
-                if (panicTapTimerRef.current) clearTimeout(panicTapTimerRef.current);
-                if (next >= 3) {
-                    setPanicCooldownUntil(Date.now() + 15000);
-                    window.electron?.ipcRenderer?.invoke('trigger-panic-roblox').catch(() => {});
-                    setPanicNotif('🚨 Panic button activated. All units have been notified. Update responding units with your location.');
-                    setPanicNotifType('activated');
-                    addLog('🚨 PANIC BUTTON ACTIVATED (Rapid Tap)', 'error');
-                    setTimeout(() => setPanicNotif(''), 8000);
-                    setPanicTriggeredTime(new Date().toLocaleTimeString());
-                    setShowPanicTriggeredPopup(true);
-                    return 0;
-                }
-                panicTapTimerRef.current = setTimeout(() => setPanicTapCount(0), 1500);
-                return next;
-            });
+            panicTapCountRef.current += 1;
+            setPanicTapCount(panicTapCountRef.current);
+            if (panicTapTimerRef.current) clearTimeout(panicTapTimerRef.current);
+            if (panicTapCountRef.current >= 3) {
+                panicTapCountRef.current = 0;
+                setPanicTapCount(0);
+                setPanicCooldownUntil(Date.now() + 15000);
+                window.electron?.ipcRenderer?.invoke('trigger-panic-roblox').catch(() => {});
+                setPanicNotif('🚨 Panic button activated. All units have been notified. Update responding units with your location.');
+                setPanicNotifType('activated');
+                addLog('🚨 PANIC BUTTON ACTIVATED (Rapid Tap)', 'error');
+                setTimeout(() => setPanicNotif(''), 8000);
+                setPanicTriggeredTime(new Date().toLocaleTimeString());
+                setShowPanicTriggeredPopup(true);
+            } else {
+                panicTapTimerRef.current = setTimeout(() => {
+                    panicTapCountRef.current = 0;
+                    setPanicTapCount(0);
+                }, 1500);
+            }
         }
     };
     const cancelHandler = () => {
@@ -4173,8 +4221,8 @@ React.useEffect(() => {
 }, [panicEnabled, panicHotkey, panicTriggerMode, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey, panicCooldownUntil]);
 
 React.useEffect(() => {
-    if (!window._currentCalls || window._currentCalls.length === 0) return;
-    const allAcked = window._currentCalls.every(c => acknowledgedCalls.includes(c.id));
+    if (!currentCallsRef.current || currentCallsRef.current.length === 0) return;
+    const allAcked = currentCallsRef.current.every(c => acknowledgedCalls.includes(c.id));
     if (allAcked) stopAlertSound();
 }, [acknowledgedCalls]);
 
@@ -11016,6 +11064,22 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                 ))}
             </div>
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            <div>
+                <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '600' }}>Phonetic Alphabet</div>
+                <div style={{ color: '#6b7280', fontSize: '11px', marginTop: '2px' }}>Used for plate readout and voice recognition (e.g. Adam/Alpha)</div>
+            </div>
+            <div style={{ display: 'flex', background: 'rgba(15,23,42,0.6)', borderRadius: '8px', border: '1px solid rgba(59,130,246,0.25)', overflow: 'hidden', flexShrink: 0, marginLeft: '14px' }}>
+                {['POLICE', 'NATO'].map(mode => (
+                    <button key={mode} onClick={() => setPhoneticMode(mode)}
+                        style={{ padding: '9px 18px', fontSize: '11px', fontWeight: '700', letterSpacing: '0.5px', border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                            background: phoneticMode === mode ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent',
+                            color: phoneticMode === mode ? 'white' : '#4b5563' }}>
+                        {mode === 'POLICE' ? '🚔 POLICE' : '🌐 NATO'}
+                    </button>
+                ))}
+            </div>
+        </div>
         <KeybindRecorder label="Panic Button Hotkey" desc="Hold this key for 2 seconds to trigger the panic alert 🖥️" active={panicHotkey} draft={panicHotkeyDraft} setDraft={setPanicHotkeyDraft} onSave={() => { setPanicHotkey(panicHotkeyDraft); addLog(`✅ Panic hotkey set to: ${panicHotkeyDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#ef4444" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
     </React.Fragment>
 )}
@@ -12038,6 +12102,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                     <div style={{ background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '8px', padding: '6px 14px', textAlign: 'center' }}>
                                         <div style={{ color: '#6b7280', fontSize: '9px', fontWeight: '700', letterSpacing: '2px', marginBottom: '2px' }}>VERSION</div>
                                         <div style={{ color: 'white', fontSize: '14px', fontWeight: '800', fontFamily: 'monospace' }}>{update.version}</div>
+                                        <div style={{ color: '#6b7280', fontSize: '9px', marginTop: '3px', fontFamily: 'monospace' }}>{update.release_date || 'N/A'}</div>
                                     </div>
                                     <button onClick={() => setSelectedUpdateEntry(update)}
                                         style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '7px', color: '#60a5fa', fontSize: '11px', fontWeight: '700', cursor: 'pointer', letterSpacing: '0.5px', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
