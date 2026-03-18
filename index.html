@@ -23,7 +23,7 @@ body {
     background-repeat: no-repeat;
 }
 
-/* BETA watermark — rendered by JS below */
+/* BETA watermark - rendered by JS below */
 body::before {
     content: '';
     display: none;
@@ -797,7 +797,7 @@ html, body {
 }
 
 /* ═══════════════════════════════════════════════
-   NYSP MDT — LOADER  (UpdateLog-matched style)
+   NYSP MDT - LOADER  (UpdateLog-matched style)
    ═══════════════════════════════════════════════ */
 
 .mdt-loader-overlay {
@@ -1291,7 +1291,7 @@ html, body {
     .results-grid { grid-template-columns: 1fr 1.5fr; }
 }
 
-/* Grid overlay — separate element, behind everything */
+/* Grid overlay - separate element, behind everything */
 body::after {
     content: '';
     position: fixed;
@@ -1488,7 +1488,7 @@ const PanicCountdown = ({ onExpire }) => {
                         style={{ ...S_input, fontFamily: 'monospace', letterSpacing: '2px', fontSize: '13px', minHeight: '40px', display: 'flex', alignItems: 'center', userSelect: 'none', cursor: 'text', marginBottom: '8px', color: draft ? '#e2e8f0' : '#374151' }}>
                         {draft || <span style={{ color: '#2d3748' }}>Click here, then press a key combination...</span>}
                     </div>
-                    {hasConflict && <div style={{ color: '#fca5a5', fontSize: '11px', marginBottom: '8px', padding: '6px 10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px' }}>⚠ Conflicts with "{conflictLabel}" — choose a different combination</div>}
+                    {hasConflict && <div style={{ color: '#fca5a5', fontSize: '11px', marginBottom: '8px', padding: '6px 10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px' }}>⚠ Conflicts with "{conflictLabel}" - choose a different combination</div>}
                     <button onClick={() => { if (canSave) onSave(); }} disabled={!canSave} style={S_btn(accent, !canSave)}>Save Keybind</button>
                 </div>
             );
@@ -1499,13 +1499,13 @@ const PanicCountdown = ({ onExpire }) => {
         (function() {
             const badge = document.createElement('div');
             const sha = window.APP_COMMIT_SHA || 'dev';
-            badge.textContent = `BETA BUILD — APP V. 0.0.8  •  ${sha}`;
+            badge.textContent = `BETA BUILD - APP V. 0.0.8  •  ${sha}`;
             badge.style.cssText = 'position:fixed;bottom:16px;left:16px;font-size:10px;font-weight:700;color:rgba(251,191,36,0.55);letter-spacing:1.5px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;';
             document.body.appendChild(badge);
         })();
 
         function NYSPLookupTool() {
-            const APP_VERSION = '0.0.8';
+            const APP_VERSION = '0.1.0';
             const [licensePlate, setLicensePlate] = useState('');
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
@@ -1577,12 +1577,12 @@ const [currentTime, setCurrentTime] = useState(new Date());
 const [loaderStatus, setLoaderStatus] = useState('INITIALIZING SYSTEM...');
 const [loaderProgress, setLoaderProgress] = useState(0);
 const [loaderChecks, setLoaderChecks] = React.useState([
-    { label: 'LIBRARIES',      status: 'pending', result: '—' },
-    { label: 'SETTINGS',       status: 'pending', result: '—' },
-    { label: 'CREDENTIALS',    status: 'pending', result: '—' },
-    { label: 'TROOPER DATA',   status: 'pending', result: '—' },
-    { label: 'DISCORD',        status: 'pending', result: '—' },
-    { label: 'ROBLOX API',     status: 'pending', result: '—' }
+    { label: 'LIBRARIES',      status: 'pending', result: '-' },
+    { label: 'SETTINGS',       status: 'pending', result: '-' },
+    { label: 'CREDENTIALS',    status: 'pending', result: '-' },
+    { label: 'TROOPER DATA',   status: 'pending', result: '-' },
+    { label: 'DISCORD',        status: 'pending', result: '-' },
+    { label: 'ROBLOX API',     status: 'pending', result: '-' }
 ]);
 
 const [showWelcome, setShowWelcome] = useState(false);
@@ -1738,13 +1738,13 @@ const triggerPanicActivate = React.useCallback(async () => {
     setPanicModalOpen(false);
     setPanicNotifType('activated');
     addLog('🚨 PANIC BUTTON ACTIVATED', 'error');
-    setPanicNotif('🚨 Panic activated — sending command to Roblox...');
+    setPanicNotif('🚨 Panic activated - sending command to Roblox...');
     try {
         const result = await window.electron?.invoke('trigger-panic-roblox');
         if (result?.success) {
             setPanicNotif('🚨 Panic button activated. All units have been notified. /panic sent to Roblox. Update responding units with your location.');
         } else {
-            setPanicNotif('🚨 Panic button activated. All units have been notified. Roblox not found — manually type /panic in chat!');
+            setPanicNotif('🚨 Panic button activated. All units have been notified. Roblox not found - manually type /panic in chat!');
         }
     } catch(e) {
         setPanicNotif('🚨 Panic button activated. All units have been notified. Manually type /panic in Roblox chat!');
@@ -2186,7 +2186,7 @@ setVoiceNotif('Phonetic alphabet was not used during translation.');
     const final = built.toUpperCase();
     console.log('[PHONETIC] Mapped result:', final);
     setLicensePlate(final);
-setVoiceNotif('✅ Heard: "' + text + '" → Plate set to: ' + final + ' — searching...');
+setVoiceNotif('✅ Heard: "' + text + '" → Plate set to: ' + final + ' - searching...');
     setVoiceActive(false);
     setTimeout(() => setVoiceNotif(''), 3000);
     setTimeout(() => lookupUser(final), 300);
@@ -2705,7 +2705,7 @@ useEffect(() => {
             allLibs ? 'ok' : 'warn',
             allLibs
                 ? `${libOk}/${libTotal} loaded`
-                : `${libOk}/${libTotal} — missing: ${Object.entries(libChecks).filter(([,v])=>!v).map(([k])=>k).join(', ')}`
+                : `${libOk}/${libTotal} - missing: ${Object.entries(libChecks).filter(([,v])=>!v).map(([k])=>k).join(', ')}`
         );
         setLoaderProgress(14);
         await new Promise(r => setTimeout(r, 100));
@@ -2739,10 +2739,10 @@ useEffect(() => {
                 const n = Object.keys(rawSettings).length;
                 setCheck(1, 'ok', `${n} keys loaded`);
             } else {
-                setCheck(1, 'warn', 'File not found — using defaults');
+                setCheck(1, 'warn', 'File not found - using defaults');
             }
         } catch (e) {
-            setCheck(1, 'warn', 'Unavailable — using defaults');
+            setCheck(1, 'warn', 'Unavailable - using defaults');
         }
         setLoaderProgress(28);
         await new Promise(r => setTimeout(r, 100));
@@ -2794,7 +2794,7 @@ useEffect(() => {
                 setCheck(3, 'warn', 'Unreachable');
             }
         } else {
-            setCheck(3, 'warn', 'No token — configure in settings');
+            setCheck(3, 'warn', 'No token - configure in settings');
         }
         setLoaderProgress(58);
         await new Promise(r => setTimeout(r, 100));
@@ -2849,9 +2849,9 @@ useEffect(() => {
                 setCheck(5, 'ok', 'Key present (Groq unreachable)');
             }
         } else if (groqKeySource) {
-            setCheck(5, 'warn', 'Key format invalid — must start with gsk_');
+            setCheck(5, 'warn', 'Key format invalid - must start with gsk_');
         } else {
-            setCheck(5, 'warn', 'No key — vehicle parsing disabled');
+            setCheck(5, 'warn', 'No key - vehicle parsing disabled');
         }
         setLoaderProgress(92);
         await new Promise(r => setTimeout(r, 100));
@@ -2871,7 +2871,7 @@ useEffect(() => {
         setLoaderProgress(100);
         setLoaderStatus('System ready');
         
-        // Loader stays open — user must click ENTER APP
+        // Loader stays open - user must click ENTER APP
         setLoaderStatus('SYSTEM READY');
     };
 
@@ -2879,7 +2879,7 @@ useEffect(() => {
 
     // Failsafe only updates progress/status, never closes the loader
     const failsafe = setTimeout(() => {
-        console.warn('[LOADER] Failsafe — forcing 100% after 25s');
+        console.warn('[LOADER] Failsafe - forcing 100% after 25s');
         setLoaderProgress(100);
         setLoaderStatus('SYSTEM READY');
     }, 25000);
@@ -3087,47 +3087,58 @@ const updateLogsData = [
         title: "MDT SYSTEM - APP OVERHAUL",
         version: "0.1.0",
         release_date: "03/20/2026",
-        description: "Thank you to all testers for reporting all the bugs to me. This hotfix should cover all the bugs reported so far. In addition to this new update, we have new testers to minimize the bugs in this app.",
+        description: "The CAD-revamp is here! It includes a bunch of new content for you to discover, enjoy.",
         new: [
-            'NEW - Added a Login screen upon launch.',
-            'NEW - Added a backend that handles all officer-related data. In addition to this, all data is now encrypted meaning no one will be able to access your personal data as it is connected to a private cloudflare workplace.',
-            'NEW - The main file that makes the app function now automatically updates upon launch (if update is available). (NOTE: If there are any changes to other files, manual download will be required.)',
-            'NEW - Introduction for the following frames: "System under maintenance", "System no longer under maintenance", "Application updated while you were away.',
-            'NEW - Added a "Scroll up" which scrolls all the way up with a singular click.',
-            'NEW - Added a command bar allowing users to quickly search up license plates and such. Default keybind is CTRL+K, can be changed in the settings tab.'
+            'ADDED a secure backend handling all officer related data',
+            'ADDED a new way to launch the application via. "LaunchWithoutTerminal" launcher',
+            'ADDED a login screen',
+            'ADDED a maintenance screen',
+            'ADDED a live announcements feature',
+            'ADDED a "Clear Local Data" button',
+            'ADDED a background for the CAD application',
+            'ADDED ESC Returns to Home setting',
+            'ADDED PANIC button feature with the option to customize hotkeys',
+
+            'ADDED Command bar with features such as searching up license plates',
+            'ADDED Acknowledge Calls hotkey which stops the Call Incoming sounds and auto-acknowledges all calls',
+            'ADDED Personal Preferences category with the option to choose between two phonetic alphabets',
+            'ADDED Enable Microphone feature with the option to check your input volume',
+            'ADDED Export Logs button which exports all of the developer logs to simplify the troubleshooting process and automatically censors all sensitive details',
+            'ADDED Export to Local File which automatically exports all settings to simplify your start up process',
+            'ADDED Experimental Voice to Plate feature to automatically translate what is said by the selected phonetic alphabet',
         ],
         bugs: [
-            'Fixed a bug where it failed to show the correct user Roblox profile after searching an individal up. (Also includes a fix for the citation fields)',
-            'Fixed a bug where the loading screen did not disappear upon reaching 100%.',
-            'Fixed a bug where the UI did not stretch all the way to the right.',
+            'FIXED UI offset'
         ],
         modifications: [
-            'CHANGE - New home dashboard layout & visual style',
-            'CHANGE - New License plate search tab has received visual upgrades.',
-            'CHANGE - Loading screen has been overhauled including loading backend data.',
-            'CHANGE - New FAQ layout & visual style.',
-            'CHANGE - Added new "useful links" due to the new warrant-request system.',
-            'CHANGE - The Frequently Asked Questions tab has been overhauled.',
-            'CHANGE - Useful links tab has received visual upgrades along with new a new feature: now show links depending on what department the logged in user is registered as.',
-            'CHANGE - Less files are now required to be installed.',
-            'CHANGE - Removed the "Wait X seconds to continue" feature on the configuration page after tester feedback. Warning page popup still appears.',
-            'CHANGE - The app now aims to become more personalized to the user; depending on what department you are in, it will either say "NYSP" or "EGPD" across the application.',
-            'CHANGE - Changed Minimode setting title to Sidetab.',
-            'CHANGE - Changed "NYSP_SETTINGSTOOL" file to "CADSystemSettings".',
-            'CHANGE - The "Export settings" title text has been changed in the settings and now saves all data.',
-            'CHANGE - Changed and simplified the process of exporting developer logs.',
+            'CHANGED home dashboard visuals',
+            'CHANGED license plate tab visuals',
+            'CHANGED search by citizenID tab visuals',
+            'CHANGED pending calls tab visuals',
+            'CHANGED settings tab visuals',
+            'CHANGED update log tab visuals',
+            'CHANGED FAQ tab visuals',
+            'CHANGED credits tab visuals',
+            'CHANGED useful links tab to include links based on your respective department',
+            'CHANGED app build tag bottom left to include build number',
+            'CHANGED the sidetab navigation visuals',
+            'CHANGED improperly registered vehicles logic to show the discord message instead of having to search it up manually',
+            'CHANGED "Welcome Beta Tester" screen',
+
+            'CHANGED how citations are issued - EGPD officers now get Local Police Code prefilled'
         ],
         removed: [
             'REMOVED the "Mini-mode" button. This may be brought back in the future.',
-            'REMOVED "Save Settings to file" button under the Configuration tab as nearly all data is handled on a backend.'
+            'REMOVED "Wait 3 seconds to enter settings"'
         ],
         planned: [
-            'PLANNED - A hotfix is planned in the near future to fix all bugs reported by testers, this includes optimization of the app.'
+            'PLANNED - A hotfix is planned in the future to provide LIVE data when searching up license plates & citizens.'
         ]
     },
             {
         title: "NYSP MDT SYSTEM - HOTFIX",
         version: "0.0.8.3",
+        release_date: "03/10/2026",
         description: "Thank you to Kilonova for making me aware of this bug and helping me troubleshoot the issue..",
         new: [],
         bugs: [
@@ -3140,6 +3151,7 @@ const updateLogsData = [
     {
         title: "NYSP MDT SYSTEM - HOTFIX",
         version: "0.0.8.2",
+        release_date: "03/20/2026",
         description: "Thank you to all testers for reporting all the bugs to me. This hotfix should cover all the bugs reported so far.",
         new: [],
         bugs: [
@@ -3157,6 +3169,7 @@ const updateLogsData = [
     {
         title: "NYSP MDT SYSTEM - LATE-BETA STAGE UPDATE, SEARCH ENGINE, NEW FEATURES, AND UI CHANGES!",
         version: "0.0.8",
+        release_date: "02/15/2026",
         description: " Thank you to all testers for the feedback provided to help improve this system. All feedback has been reviewed and addressed where possible in this update, or will be resolved in this next one. The AI registration system is now functional, but it must be configured correctly. If you have not done so yet, review the 'Configuration' tab.",
         new: [
             'NEW - Uppdated scroll bar visuals. The old Google scrollbar has been removed and replaced with a new design that matches the overall UI.',
@@ -3213,6 +3226,7 @@ const updateLogsData = [
     {
         title: "NYSP MDT SYSTEM - SEARCH ENGINE V2.0, HOTFIXES, AND MORE!",
         version: "0.0.7",
+        release_date: "01/31/2026",
         description: "As requested by the current Alpha Testers, the registration system has been made more consistent with the registration formats and format-detection. Additionally, a lot of behind the scenes bugs were fixed..",
         new: [],
         bugs: [
@@ -3231,6 +3245,7 @@ const updateLogsData = [
     {
         title: "NYSP MDT SYSTEM - INITIAL PRE-ALPHA RELEASE",
         version: "0.0.5",
+        release_date: "01/24/2026",
         description: "The New York State Police Mobile Data Terminal has officially launched! This comprehensive law enforcement tool provides troopers with instant access to vehicle registration databases, citizen records, warrant information, and real-time emergency call monitoring. Built with a focus on speed, reliability, and officer safety, this system integrates seamlessly with Discord's infrastructure to deliver critical information when it matters most. The MDT features an intuitive interface designed for rapid data retrieval during traffic stops and patrol operations, ensuring troopers have the intelligence they need to make informed decisions in the field.",
         new: [
             "License Plate Search Engine - Query vehicle registrations by plate number with support for all US states and Canadian provinces. Automatically detects plates in various formats (ABC-123, ABC123, ABC 123) and handles state prefixes on the same line (e.g., 'Massachusetts XXXX-XX' or 'CA | XXXXX')",
@@ -3545,7 +3560,7 @@ if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
                     
                 });
 
-                showCustomError('Settings Exported', `CADSystemSettings.txt updated successfully. All settings are now live — no restart required.`, true);
+                showCustomError('Settings Exported', `CADSystemSettings.txt updated successfully. All settings are now live - no restart required.`, true);
             } else {
                 throw new Error(result.error || 'Write failed');
             }
@@ -3565,7 +3580,7 @@ if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
         showCustomError('Export Failed', err.message);
     }
 
-// Update live settings — only merge non-officer fields to avoid overwriting auth backend data
+// Update live settings - only merge non-officer fields to avoid overwriting auth backend data
     setTrooperSettings(prev => ({
         ...prev,
         RegistrationChannelID: editableTrooperSettings?.RegistrationChannelID || prev.RegistrationChannelID,
@@ -4185,7 +4200,7 @@ React.useEffect(() => {
                 }, 2000);
             }
         } else {
-            // Triple tap mode — ignore key repeat events (held down)
+            // Triple tap mode - ignore key repeat events (held down)
             if (e.repeat) return;
             panicTapCountRef.current += 1;
             setPanicTapCount(panicTapCountRef.current);
@@ -4252,7 +4267,7 @@ React.useEffect(() => {
         const allIds = currentCallsRef.current.map(c => c.id);
         const currentAcked = acknowledgedCallsRef.current;
         const unacked = allIds.filter(id => !currentAcked.includes(id));
-        console.log('[ACK KEY] ✅ Match — total calls:', allIds.length, '| unacked:', unacked.length);
+        console.log('[ACK KEY] ✅ Match - total calls:', allIds.length, '| unacked:', unacked.length);
         if (unacked.length === 0) { console.log('[ACK KEY] Nothing to acknowledge'); return; }
         setAcknowledgedCalls([...currentAcked, ...unacked]);
         addLog(`✅ ${unacked.length} call(s) acknowledged via hotkey`, 'success');
@@ -6601,7 +6616,7 @@ console.log('📦 [VEHICLES] Processing', vMessages.length, 'messages...!');
                 // If message had enough content but no blocks detected → improper registration
                 const cleanLines = lines.filter(l => l && !l.includes('<@') && !l.startsWith('@'));
                 if (carBlocks.length === 0 && cleanLines.length >= 3) {
-                    console.log('⚠️ [PARSE] Message has content but no parseable blocks — flagging as improper');
+                    console.log('⚠️ [PARSE] Message has content but no parseable blocks - flagging as improper');
                     allVehicleBlocks._failedRaw = allVehicleBlocks._failedRaw || [];
                     allVehicleBlocks._failedRaw.push(msg.content);
                 }
@@ -7539,7 +7554,7 @@ const guildId = trooperSettings?.GuildID || editableTrooperSettings?.GuildID || 
             setDatabaseSearchUsername('Unknown');
         }
         
-        // STEP 2: Get Database Channel ID — check all sources
+        // STEP 2: Get Database Channel ID - check all sources
         let databaseChannelId = trooperSettings?.DatabaseChannelID;
         if (!databaseChannelId || databaseChannelId === 'N/A' || databaseChannelId.trim() === '') {
             // Fall back to parsing SETTINGS_FILE_CONTENT directly
@@ -7859,7 +7874,7 @@ const channelId = trooperSettings?.DatabaseChannelID || editableTrooperSettings?
         
         messages.forEach(msg => {
             const content = msg.content.toLowerCase();
-            // Skip actual arrest records — they contain "points:" which warrants don't
+            // Skip actual arrest records - they contain "points:" which warrants don't
             if (content.includes('points:')) return;
             if (content.includes('bench warrant')) {
                 benchWarrants++;
@@ -9539,11 +9554,11 @@ return (
             </div>
         </div>
 
-        {/* Main content — two column layout */}
+        {/* Main content - two column layout */}
         <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'center', padding: '32px 40px' }}>
         <div style={{ display: 'flex', gap: '0', width: '100%', maxWidth: '780px', background: 'linear-gradient(135deg, rgba(15,23,42,0.95) 0%, rgba(10,15,30,0.98) 100%)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 0 0 1px rgba(0,0,0,0.5), 0 40px 100px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)' }}>
 
-            {/* LEFT — branding column */}
+            {/* LEFT - branding column */}
             <div style={{ flex: '0 0 260px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '24px', padding: '36px 32px', background: 'rgba(30,58,138,0.06)', borderRight: '1px solid rgba(59,130,246,0.1)', justifyContent: 'center' }}>
                 <div style={{ width: '96px', height: '96px', background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #3b82f6 100%)', borderRadius: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 0 1px rgba(59,130,246,0.3), 0 16px 48px rgba(30,58,138,0.6)', position: 'relative' }}>
                     <Shield size={52} style={{ color: 'white' }} />
@@ -9551,7 +9566,7 @@ return (
                 </div>
                 <div>
                     <h1 style={{ color: '#f1f5f9', fontSize: '26px', fontWeight: '900', margin: '0 0 6px', letterSpacing: '-0.5px', lineHeight: 1.1 }}>MOBILE DATA<br />TERMINAL</h1>
-                    <p style={{ color: '#3b82f6', fontSize: '11px', fontWeight: '700', margin: 0, letterSpacing: '3px', textTransform: 'uppercase' }}>CAD SYSTEM — BETA</p>
+                    <p style={{ color: '#3b82f6', fontSize: '11px', fontWeight: '700', margin: 0, letterSpacing: '3px', textTransform: 'uppercase' }}>CAD SYSTEM - BETA</p>
                 </div>
                 <div style={{ width: '100%', height: '1px', background: 'linear-gradient(90deg, rgba(59,130,246,0.4), transparent)' }} />
                 {showWelcome && trooperData ? (
@@ -9573,11 +9588,11 @@ return (
                     </div>
                 )}
                 <p style={{ color: '#1f2937', fontSize: '10px', fontWeight: '600', margin: 0, letterSpacing: '2px', fontFamily: 'monospace' }}>
-                    v{typeof APP_VERSION !== 'undefined' ? APP_VERSION : '—'} · {typeof window !== 'undefined' && window.APP_COMMIT_SHA ? window.APP_COMMIT_SHA.slice(0,7) : '-------'}
+                    v{typeof APP_VERSION !== 'undefined' ? APP_VERSION : '-'} · {typeof window !== 'undefined' && window.APP_COMMIT_SHA ? window.APP_COMMIT_SHA.slice(0,7) : '-------'}
                 </p>
             </div>
 
-            {/* RIGHT — diagnostics column */}
+            {/* RIGHT - diagnostics column */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', padding: '36px 32px', justifyContent: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
                     <div style={{ width: '3px', height: '16px', background: 'linear-gradient(180deg, #3b82f6, #1e3a8a)', borderRadius: '2px' }} />
@@ -9656,7 +9671,7 @@ return (
             <div style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)', padding: '32px 24px 28px', textAlign: 'center' }}>
                 <div style={{ fontSize: '52px', marginBottom: '12px', animation: 'panicSpin 1s ease-in-out infinite' }}>📡</div>
                 <div style={{ color: 'white', fontSize: '24px', fontWeight: '900', letterSpacing: '3px', textTransform: 'uppercase', marginBottom: '6px' }}>PANIC BUTTON</div>
-                <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: '13px', letterSpacing: '1px' }}>ALERT REGISTERED — {new Date().toLocaleTimeString()}</div>
+                <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: '13px', letterSpacing: '1px' }}>ALERT REGISTERED - {new Date().toLocaleTimeString()}</div>
             </div>
             {/* Body */}
             <div style={{ background: '#f8f5f0', padding: '28px 28px 24px', textAlign: 'center' }}>
@@ -9687,7 +9702,7 @@ return (
                         <svg width="24" height="24" fill="none" stroke="white" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
                     </div>
                     <div>
-                        <div style={{ color: '#fca5a5', fontSize: '10px', fontWeight: '700', letterSpacing: '2.5px', textTransform: 'uppercase', marginBottom: '3px' }}>— EMERGENCY ALERT —</div>
+                        <div style={{ color: '#fca5a5', fontSize: '10px', fontWeight: '700', letterSpacing: '2.5px', textTransform: 'uppercase', marginBottom: '3px' }}>- EMERGENCY ALERT -</div>
                         <div style={{ color: 'white', fontSize: '18px', fontWeight: '800', letterSpacing: '0.5px' }}>Panic Signal Activated</div>
                     </div>
                 </div>
@@ -9791,7 +9806,7 @@ return (
                 </div>
                 <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
                     <div style={{ color: 'white', fontSize: '16px', fontWeight: '800', letterSpacing: '1px' }}>Phonetic Alphabet Comparison</div>
-                    <div style={{ color: '#fcd34d', fontSize: '11px', marginTop: '2px', fontWeight: '500' }}>Police vs NATO — currently active: <strong>{phoneticMode}</strong></div>
+                    <div style={{ color: '#fcd34d', fontSize: '11px', marginTop: '2px', fontWeight: '500' }}>Police vs NATO - currently active: <strong>{phoneticMode}</strong></div>
                 </div>
                 <button onClick={() => setShowPhoneticCompare(false)}
                     style={{ width: '32px', height: '32px', minWidth: '32px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0, padding: 0 }}
@@ -9800,7 +9815,7 @@ return (
                     <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-            {/* Content — two columns */}
+            {/* Content - two columns */}
             <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '20px 24px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                     {[
@@ -9955,7 +9970,7 @@ return (
                         </span>
                     </div>
                     <p style={{ color: '#60a5fa', fontSize: '13px', margin: '4px 0 0', fontWeight: '500' }}>
-                        {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} — {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
+                        {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} - {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
                     </p>
                 </div>
 
@@ -10006,9 +10021,9 @@ return (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                         {[
                             { label: 'BADGE ID', value: `#${trooperSettings?.BadgeID || '00000'}`, mono: true },
-                            { label: 'ZONE', value: `ZONE ${trooperSettings?.Zone || '—'}` },
+                            { label: 'ZONE', value: `ZONE ${trooperSettings?.Zone || '-'}` },
                             { label: 'USERNAME', value: trooperSettings?.Username || 'UNKNOWN' },
-                            { label: 'REG. EXPIRY', value: editableTrooperSettings?.expDate || '—' },
+                            { label: 'REG. EXPIRY', value: editableTrooperSettings?.expDate || '-' },
                         ].map(({ label, value, mono }) => (
                             <div key={label} style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)' }}>
                                 <div style={{ color: '#93c5fd', fontSize: '9px', letterSpacing: '1.5px', fontWeight: '700', marginBottom: '4px' }}>{label}</div>
@@ -10340,7 +10355,7 @@ return (
                 {registration && registration.multipleMatches && (
                     <div style={{ marginTop: '4px', background: 'linear-gradient(135deg, rgba(59,130,246,0.1), rgba(37,99,235,0.06))', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px', padding: '20px', boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }} className={visualEffects ? 'pulse-animation' : ''}>
                         <div style={{ color: '#93c5fd', fontSize: '16px', fontWeight: '800', marginBottom: '6px' }}>
-                            Multiple Matches — Select Vehicle ({registration.registrations.length})
+                            Multiple Matches - Select Vehicle ({registration.registrations.length})
                         </div>
                         <p style={{ color: '#bfdbfe', fontSize: '13px', marginBottom: '16px', opacity: 0.8 }}>Click on a registration to view full details</p>
                         <div style={{ maxHeight: '600px', overflowY: 'auto', display: 'grid', gap: '10px' }}>
@@ -10401,7 +10416,7 @@ return (
                                 <div style={{ marginBottom: '14px', padding: '14px 18px', background: 'linear-gradient(135deg, #ff6b00, #ff4500)', border: '1px solid #ff0000', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 0 20px rgba(255,0,0,0.4)' }}>
                                     <span style={{ fontSize: '24px' }}>⚠️</span>
                                     <div>
-                                        <div style={{ color: '#fff', fontSize: '11px', fontWeight: '700', marginBottom: '4px', letterSpacing: '0.5px' }}>⚠️ WARNING — INCOMPLETE REGISTRATIONS</div>
+                                        <div style={{ color: '#fff', fontSize: '11px', fontWeight: '700', marginBottom: '4px', letterSpacing: '0.5px' }}>⚠️ WARNING - INCOMPLETE REGISTRATIONS</div>
                                         <div style={{ color: '#fff', fontSize: '13px', lineHeight: '1.5' }}>{registration.parseWarning.message}</div>
                                     </div>
                                 </div>
@@ -10502,7 +10517,7 @@ return (
                                     </div>
                                 </div>
 
-                                {/* Plate display — same style as normal vehicle box */}
+                                {/* Plate display - same style as normal vehicle box */}
                                 {registration.plate && (
                                     <div style={{ background: 'linear-gradient(135deg, #064e3b, #065f46)', border: '2px solid #10b981', borderRadius: '12px', padding: '16px', textAlign: 'center', margin: '14px', boxShadow: '0 4px 16px rgba(16,185,129,0.15)' }}>
                                         <div style={{ fontSize: '11px', color: '#6ee7b7', fontWeight: '700', marginBottom: '6px', letterSpacing: '3px' }}>LICENSE PLATE</div>
@@ -10697,7 +10712,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                 <div style={{ height: '100%', width: `${searchProgress}%`, background: 'linear-gradient(90deg, #3b82f6, #60a5fa)', transition: 'width 0.3s ease', borderRadius: '6px' }}></div>
                             </div>
                             <div style={{ textAlign: 'center', color: '#93c5fd', fontSize: '12px', marginTop: '8px', fontWeight: '600' }}>
-                                {searchProgress}% — {
+                                {searchProgress}% - {
                                     searchProgress < 15 ? 'Initializing search...' :
                                     searchProgress < 35 ? 'Fetching Discord member info...' :
                                     searchProgress < 55 ? 'Looking up Roblox profile...' :
@@ -10833,7 +10848,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                     <span style={{ width: '3px', height: '14px', background: 'linear-gradient(180deg, #60a5fa, #3b82f6)', borderRadius: '2px', flexShrink: 0 }}></span>
                                     REGISTERED VEHICLES ({(searchResults.vehicles?.length || 0) + (searchResults.failedVehicleRaw?.length || 0)})
                                     {searchResults.failedVehicleRaw?.length > 0 && <span style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: '5px', padding: '2px 8px', color: '#fbbf24', fontSize: '10px', fontWeight: '700', letterSpacing: '1px', textTransform: 'uppercase' }}>⚠ {searchResults.failedVehicleRaw.length} IMPROPER REGISTRATIONS</span>}
-                                    <span style={{ color: '#4b5563', fontSize: '10px', fontWeight: '500', letterSpacing: '0.5px' }}>— Click a vehicle to select for citation</span>
+                                    <span style={{ color: '#4b5563', fontSize: '10px', fontWeight: '500', letterSpacing: '0.5px' }}>- Click a vehicle to select for citation</span>
                                 </div>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '12px', maxHeight: '600px', overflowY: 'auto' }}>
@@ -10871,7 +10886,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                                 ))}
                                                 <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px' }}>
                                                     <div style={{ fontSize: '9px', color: '#6ee7b7', fontWeight: '700', marginBottom: '4px', letterSpacing: '1px' }}>PHONETIC</div>
-                                                    <div style={{ fontSize: '11px', color: 'white', fontWeight: '700', fontFamily: 'monospace' }}>{vehicle.phoneticPlate || '—'}</div>
+                                                    <div style={{ fontSize: '11px', color: 'white', fontWeight: '700', fontFamily: 'monospace' }}>{vehicle.phoneticPlate || '-'}</div>
                                                 </div>
                                             </div>
 
@@ -10910,7 +10925,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                             </div>
                                             <div style={{ margin: '0 12px 12px', background: 'rgba(245,158,11,0.06)', borderRadius: '8px', padding: '8px 12px' }}>
                                                 <div style={{ fontSize: '11px', color: '#fde68a', fontWeight: '600' }}>
-                                                    Status: <span style={{ color: 'white', fontWeight: '700' }}>Could not be parsed — verify manually</span>
+                                                    Status: <span style={{ color: 'white', fontWeight: '700' }}>Could not be parsed - verify manually</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -11079,7 +11094,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: escToHome ? 'rgba(139,92,246,0.07)' : 'rgba(255,255,255,0.02)', border: `1px solid ${escToHome ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.05)'}`, borderRadius: '9px', marginBottom: '7px' }}>
     <div>
         <div style={{ color: escToHome ? '#e2e8f0' : '#6b7280', fontSize: '13px', fontWeight: '600' }}>ESC Returns to Home</div>
-        <div style={{ color: '#6b7280', fontSize: '11px', marginTop: '2px' }}>Press Escape from any tab to return to the home screen — key cannot be changed</div>
+        <div style={{ color: '#6b7280', fontSize: '11px', marginTop: '2px' }}>Press Escape from any tab to return to the home screen - key cannot be changed</div>
         <div style={{ marginTop: '6px', display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: '5px', padding: '2px 8px' }}>
             <span style={{ fontFamily: 'monospace', fontSize: '10px', fontWeight: '700', color: '#a78bfa', letterSpacing: '1px' }}>ESC</span>
             <span style={{ color: '#6b7280', fontSize: '10px' }}>fixed key</span>
@@ -11094,7 +11109,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                             {/* ── HOTKEYS ── */}
 <div style={S.section('#10b981', 'rgba(16,185,129,0.06)')}>
                                 <div style={S.sectionHead('#6ee7b7')}>🗄️ Hotkeys & Keybinds</div>
-                                <div style={S.sectionSub}>Configure keyboard shortcuts — conflicts are blocked automatically</div>
+                                <div style={S.sectionSub}>Configure keyboard shortcuts - conflicts are blocked automatically</div>
                                 <ToggleRow label="Panic Button" desc="Enables the panic button hotkey system. AUTOHOTKEY APPLICATION REQUIRED!" on={panicEnabled} accent="#ef4444" onToggle={() => setPanicEnabled(v => !v)} />
 {panicEnabled && (
     <React.Fragment>
@@ -11133,7 +11148,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                     <div style={{ flex: 1 }}>
                                         <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '600' }}>Phonetic Alphabet</div>
                                         <div style={{ color: '#6b7280', fontSize: '11px', marginTop: '2px' }}>
-                                            Used for plate readout and voice recognition (e.g. Adam/Alpha) —{' '}
+                                            Used for plate readout and voice recognition (e.g. Adam/Alpha) -{' '}
                                             <span
                                                 onClick={() => setShowPhoneticCompare(true)}
                                                 style={{ color: '#60a5fa', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '2px' }}
@@ -11188,8 +11203,8 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                 <div style={S.divider} />
                                 <div style={{ ...S.fieldLabel, marginBottom: '8px' }}>🔔 Sound Effects</div>
                                 {[
-                                    { label: 'Plate Search — Success', key: 'platePass' },
-                                    { label: 'Plate Search — Not Found', key: 'plateFail' },
+                                    { label: 'Plate Search - Success', key: 'platePass' },
+                                    { label: 'Plate Search - Not Found', key: 'plateFail' },
                                     { label: 'New Call Alert', key: 'callAlert' },
                                     { label: 'Warrant Alert', key: 'warrantAlert' },
                                 ].map(({ label, key }) => (
@@ -11204,7 +11219,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                     <div style={{ marginTop: '8px' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
                                             <span style={S.fieldLabel}>Input Level</span>
-                                            <span style={{ color: micTestActive ? '#d8b4fe' : '#2d3748', fontSize: '10px', fontWeight: '700' }}>{micTestActive ? micLevel + '%' : '—'}</span>
+                                            <span style={{ color: micTestActive ? '#d8b4fe' : '#2d3748', fontSize: '10px', fontWeight: '700' }}>{micTestActive ? micLevel + '%' : '-'}</span>
                                         </div>
                                         <div style={{ height: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.04)', overflow: 'hidden', marginBottom: '10px', border: '1px solid rgba(255,255,255,0.04)' }}>
                                             <div style={{ height: '100%', width: micLevel + '%', background: micLevel > 85 ? '#ef4444' : micLevel > 55 ? '#a855f7' : '#6366f1', transition: micTestActive ? 'width 0.05s' : 'width 0.3s', borderRadius: '4px' }} />
@@ -11230,7 +11245,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                         const patterns = [/DiscordAccountToken=.+/gi,/discord.*token[^\n]*/gi,/NjE[A-Za-z0-9+/=]{20,}/g,/GroqConsoleAPIKey=.+/gi,/gsk_[A-Za-z0-9]{20,}/g];
                                         let txt = consoleLogs.map(l => `[${l.timestamp}] [${l.type.toUpperCase()}] ${l.message}`).join('\n');
                                         patterns.forEach(p => { txt = txt.replace(p, '[REDACTED]'); });
-                                        const blob = new Blob([`NYSP MDT — Exported Logs\n${now.toLocaleString()}\n${'═'.repeat(60)}\n\n` + txt], { type: 'text/plain' });
+                                        const blob = new Blob([`NYSP MDT - Exported Logs\n${now.toLocaleString()}\n${'═'.repeat(60)}\n\n` + txt], { type: 'text/plain' });
                                         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
                                         addLog(`📥 ${filename}`, 'success');
                                     }} style={S.btn('#3b82f6', false)}>📄 Export Logs</button>
@@ -11242,12 +11257,12 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                 <div style={S.sectionHead('#4ade80')}>💾 Export Settings</div>
                                 <div style={S.sectionSub}>Write all current settings to your CADSystemSettings.txt file</div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '12px' }}>
-                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE','PANIC_ENABLED','PANIC_HOTKEY','PANIC_TRIGGER_MODE','ACKNOWLEDGE_KEYBIND'].map(k => (
+                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE','PANIC_ENABLED','PANIC_HOTKEY','PANIC_TRIGGER_MODE','ACKNOWLEDGE_KEYBIND', 'PHONETIC_MODE'].map(k => (
                                         <span key={k} style={{ padding: '2px 7px', background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.18)', borderRadius: '4px', color: '#4ade80', fontSize: '10px', fontFamily: 'monospace' }}>{k}</span>
                                     ))}
                                     <span style={{ padding: '2px 7px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '4px', color: '#f87171', fontSize: '10px', fontFamily: 'monospace' }}>ActiveSession*</span>
                                 </div>
-                                <div style={{ color: '#374151', fontSize: '11px', marginBottom: '12px' }}>* ActiveSession is not saved — it requires manual activation each launch.</div>
+                                <div style={{ color: '#374151', fontSize: '11px', marginBottom: '12px' }}>* ActiveSession is not saved - it requires manual activation each launch.</div>
                                 <button onClick={saveSettingsToFile} disabled={savingSettings} style={{ ...S.btn('#22c55e', savingSettings), padding: '13px' }}>
                                     {savingSettings ? '⏳ Saving...' : '💾 Export to Local File'}
                                 </button>
@@ -12007,7 +12022,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                         🔒 Privacy & Data Notice
                     </h3>
                     <div style={{ color: '#94a3b8', fontSize: '12px', lineHeight: '1.7', marginBottom: '12px' }}>
-                        This application stores the following data <strong style={{ color: '#bfdbfe' }}>locally on your device only</strong> — nothing is sent to third parties:
+                        This application stores the following data <strong style={{ color: '#bfdbfe' }}>locally on your device only</strong> - nothing is sent to third parties:
                         <ul style={{ marginLeft: '16px', marginTop: '6px' }}>
                             <li>Your login credentials (only if you choose to save them)</li>
                             <li>Application settings and preferences</li>
@@ -12124,7 +12139,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                         {selectedUpdateEntry ? selectedUpdateEntry.title : 'UPDATE LOG'}
                     </div>
                     <div style={{ color: '#60a5fa', fontSize: '11px', marginTop: '2px', fontWeight: '500' }}>
-                        {selectedUpdateEntry ? `Version ${selectedUpdateEntry.version} — Full changelog` : 'Changelog & version history'}
+                        {selectedUpdateEntry ? `Version ${selectedUpdateEntry.version} - Full changelog` : 'Changelog & version history'}
                     </div>
                 </div>
                 <button onClick={() => { setSelectedUpdateEntry(null); setShowUpdateLog(false); }}
@@ -12136,7 +12151,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                 </button>
             </div>
 
-            {/* LIST VIEW — all updates summary */}
+            {/* LIST VIEW - all updates summary */}
             {!selectedUpdateEntry && (
                 <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {updateLogsData.map((update, idx) => (
@@ -12183,7 +12198,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                 </div>
             )}
 
-            {/* DETAIL VIEW — single update full changelog */}
+            {/* DETAIL VIEW - single update full changelog */}
             {selectedUpdateEntry && (
                 <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {selectedUpdateEntry.new?.length > 0 && (
@@ -12191,7 +12206,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                             <div style={{ color: '#34d399', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '12px', textTransform: 'uppercase' }}>✦ New Features</div>
                             {selectedUpdateEntry.new.map((item, i) => (
                                 <div key={i} style={{ color: '#6ee7b7', fontSize: '12px', lineHeight: '1.7', paddingLeft: '14px', position: 'relative', marginBottom: '5px' }}>
-                                    <span style={{ position: 'absolute', left: 0, color: '#10b981', fontWeight: '700' }}>—</span>{item}
+                                    <span style={{ position: 'absolute', left: 0, color: '#10b981', fontWeight: '700' }}>-</span>{item}
                                 </div>
                             ))}
                         </div>
@@ -12201,7 +12216,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                             <div style={{ color: '#f87171', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '12px', textTransform: 'uppercase' }}>! Bug Fixes</div>
                             {selectedUpdateEntry.bugs.map((item, i) => (
                                 <div key={i} style={{ color: '#fca5a5', fontSize: '12px', lineHeight: '1.7', paddingLeft: '14px', position: 'relative', marginBottom: '5px' }}>
-                                    <span style={{ position: 'absolute', left: 0, color: '#ef4444', fontWeight: '700' }}>—</span>{item}
+                                    <span style={{ position: 'absolute', left: 0, color: '#ef4444', fontWeight: '700' }}>-</span>{item}
                                 </div>
                             ))}
                         </div>
@@ -12211,7 +12226,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                             <div style={{ color: '#fbbf24', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '12px', textTransform: 'uppercase' }}>◈ Modifications</div>
                             {selectedUpdateEntry.modifications.map((item, i) => (
                                 <div key={i} style={{ color: '#fde68a', fontSize: '12px', lineHeight: '1.7', paddingLeft: '14px', position: 'relative', marginBottom: '5px' }}>
-                                    <span style={{ position: 'absolute', left: 0, color: '#f59e0b', fontWeight: '700' }}>—</span>{item}
+                                    <span style={{ position: 'absolute', left: 0, color: '#f59e0b', fontWeight: '700' }}>-</span>{item}
                                 </div>
                             ))}
                         </div>
@@ -12221,7 +12236,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                             <div style={{ color: '#f87171', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '12px', textTransform: 'uppercase' }}>✕ Removed</div>
                             {selectedUpdateEntry.removed.map((item, i) => (
                                 <div key={i} style={{ color: '#fca5a5', fontSize: '12px', lineHeight: '1.7', paddingLeft: '14px', position: 'relative', marginBottom: '5px' }}>
-                                    <span style={{ position: 'absolute', left: 0, color: '#dc2626', fontWeight: '700' }}>—</span>{item}
+                                    <span style={{ position: 'absolute', left: 0, color: '#dc2626', fontWeight: '700' }}>-</span>{item}
                                 </div>
                             ))}
                         </div>
@@ -12231,7 +12246,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                             <div style={{ color: '#a78bfa', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '12px', textTransform: 'uppercase' }}>◎ Planned</div>
                             {selectedUpdateEntry.planned.map((item, i) => (
                                 <div key={i} style={{ color: '#c4b5fd', fontSize: '12px', lineHeight: '1.7', paddingLeft: '14px', position: 'relative', marginBottom: '5px' }}>
-                                    <span style={{ position: 'absolute', left: 0, color: '#8b5cf6', fontWeight: '700' }}>—</span>{item}
+                                    <span style={{ position: 'absolute', left: 0, color: '#8b5cf6', fontWeight: '700' }}>-</span>{item}
                                 </div>
                             ))}
                         </div>
@@ -12258,7 +12273,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                 
 {compactMode && (
     <>
-        {/* LEFT SIDETAB — slim icon rail */}
+        {/* LEFT SIDETAB - slim icon rail */}
         <div style={{
             position: 'fixed', top: 0, left: 0, width: '48px', height: '100vh',
             background: 'rgba(6,10,18,0.97)',
@@ -12307,7 +12322,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
             </div>
         </div>
 
-        {/* HOVER PANEL — slides out from sidetab */}
+        {/* HOVER PANEL - slides out from sidetab */}
         <div style={{
             position: 'fixed', top: 0, left: '-260px', width: '260px', height: '100vh',
             background: 'rgba(8,12,22,0.98)',
