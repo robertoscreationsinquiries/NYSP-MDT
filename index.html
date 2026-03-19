@@ -1505,7 +1505,7 @@ const PanicCountdown = ({ onExpire }) => {
         })();
 
         function NYSPLookupTool() {
-            const APP_VERSION = '0.1.0';
+            const APP_VERSION = '0.1.0.1';
             const [licensePlate, setLicensePlate] = useState('');
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
@@ -2173,6 +2173,13 @@ const processVoskText = (text) => {
         if (mapped) {
             built += mapped;
             anyMapped = true;
+        } else {
+            // Fuzzy match — try prefix matching for partial words (e.g. "alphas" → "alpha")
+            const fuzzy = Object.keys(PHONETIC_MAP).find(k => w.startsWith(k) || k.startsWith(w));
+            if (fuzzy) {
+                built += PHONETIC_MAP[fuzzy];
+                anyMapped = true;
+            }
         }
     }
 
@@ -2233,6 +2240,9 @@ const blob = new Blob(chunks, { type: 'audio/wav' });
                 formData.append('file', blob, 'audio.wav');
                 formData.append('model', 'whisper-large-v3-turbo');
                 formData.append('response_format', 'json');
+                formData.append('language', 'en');
+                formData.append('temperature', '0');
+                formData.append('prompt', 'Police phonetic alphabet or NATO phonetic alphabet plate dictation. Words: Adam, Boy, Charles, David, Edward, Frank, George, Henry, Ida, John, King, Lincoln, Mary, Nora, Ocean, Paul, Queen, Robert, Sam, Tom, Union, Victor, William, X-Ray, Young, Zebra, Alpha, Bravo, Charlie, Delta, Echo, Foxtrot, Golf, Hotel, India, Juliett, Kilo, Lima, Mike, November, Oscar, Papa, Quebec, Romeo, Sierra, Tango, Uniform, Whiskey, Yankee, Zulu.');
                 const apiKey = groqConsoleAPIKey || window.GROQ_CONSOLE_API_KEY || localStorage.getItem('groqConsoleAPIKey');
                 const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
                     method: 'POST',
@@ -3083,10 +3093,25 @@ const FAQ_DATA = [
 
 
 const updateLogsData = [
+
+    {
+        title: "CAD SYSTEM - HOTFIX",
+        version: "0.1.0.1",
+        release_date: "03/19/2026",
+        description: "Issues with some voice detection should be fixed.",
+        new: [],
+        bugs: [
+            'Attempted a fix for the Voice to Plate feature.',
+            'Fixed some textlabels across the application.'
+        ],
+        modifications: [],
+        removed: [],
+        planned: []
+    },
         {
-        title: "MDT SYSTEM - APP OVERHAUL",
+        title: "CAD SYSTEM - APP OVERHAUL",
         version: "0.1.0",
-        release_date: "03/20/2026",
+        release_date: "03/19/2026",
         description: "The CAD-revamp is here! It includes a bunch of new content for you to discover, enjoy.",
         new: [
             'ADDED a secure backend handling all officer related data',
@@ -3098,7 +3123,6 @@ const updateLogsData = [
             'ADDED a background for the CAD application',
             'ADDED ESC Returns to Home setting',
             'ADDED PANIC button feature with the option to customize hotkeys',
-
             'ADDED Command bar with features such as searching up license plates',
             'ADDED Acknowledge Calls hotkey which stops the Call Incoming sounds and auto-acknowledges all calls',
             'ADDED Personal Preferences category with the option to choose between two phonetic alphabets',
@@ -3124,8 +3148,10 @@ const updateLogsData = [
             'CHANGED the sidetab navigation visuals',
             'CHANGED improperly registered vehicles logic to show the discord message instead of having to search it up manually',
             'CHANGED "Welcome Beta Tester" screen',
-
-            'CHANGED how citations are issued - EGPD officers now get Local Police Code prefilled'
+            'CHANGED how citations are issued - EGPD officers now get Local Police Code prefilled',
+            'CHANGED how sounds are extracted. They are now extracted from the github for quicker response time',
+            'CHANGED "NYSP_SettingsTool" file name to "CADSystemSettings"',
+            'CHANGED launcher file (with Terminal) to be more informative'
         ],
         removed: [
             'REMOVED the "Mini-mode" button. This may be brought back in the future.',
@@ -3135,7 +3161,7 @@ const updateLogsData = [
             'PLANNED - A hotfix is planned in the future to provide LIVE data when searching up license plates & citizens.'
         ]
     },
-            {
+    {
         title: "NYSP MDT SYSTEM - HOTFIX",
         version: "0.0.8.3",
         release_date: "03/10/2026",
@@ -8791,7 +8817,7 @@ return (
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 99999,
+        zIndex: 199999,
         padding: '40px'
     }}>
         <div style={{ textAlign: 'center', maxWidth: '600px' }}>
@@ -8895,7 +8921,7 @@ return (
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 99999,
+        zIndex: 199999,
         padding: '40px'
     }}>
         <div style={{ textAlign: 'center', maxWidth: '700px' }}>
