@@ -1470,8 +1470,10 @@ const PanicCountdown = ({ onExpire }) => {
         );
 
         const KeybindRecorder = ({ label, desc, active, draft, setDraft, onSave, setRecording, accent, conflictKey, conflictLabel }) => {
+            const MODIFIERS_ONLY = ['CTRL', 'SHIFT', 'ALT', 'META'];
+            const isSingleModifier = draft && draft.split('+').every(k => MODIFIERS_ONLY.includes(k));
             const hasConflict = draft && draft === conflictKey;
-            const canSave = draft && draft !== active && !hasConflict;
+            const canSave = draft && draft !== active && !hasConflict && !isSingleModifier;
             const S_input = { width: '100%', padding: '10px 12px', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', color: '#e2e8f0', fontSize: '13px', boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.2s' };
             const S_btn = (color, disabled) => ({ width: '100%', padding: '11px', background: disabled ? 'rgba(255,255,255,0.03)' : `${color}18`, border: `1px solid ${disabled ? 'rgba(255,255,255,0.05)' : `${color}30`}`, borderRadius: '8px', color: disabled ? '#374151' : color, fontSize: '12px', fontWeight: '700', cursor: disabled ? 'not-allowed' : 'pointer', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' });
             return (
@@ -1489,7 +1491,14 @@ const PanicCountdown = ({ onExpire }) => {
                         {draft || <span style={{ color: '#2d3748' }}>Click here, then press a key combination...</span>}
                     </div>
                     {hasConflict && <div style={{ color: '#fca5a5', fontSize: '11px', marginBottom: '8px', padding: '6px 10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px' }}>⚠ Conflicts with "{conflictLabel}" - choose a different combination</div>}
-                    <button onClick={() => { if (canSave) onSave(); }} disabled={!canSave} style={S_btn(accent, !canSave)}>Save Keybind</button>
+                    <button onClick={() => {
+                        if (isSingleModifier) {
+                            showCustomError('Invalid Keybind', 'A single modifier key (e.g. CTRL, SHIFT) cannot be registered as a hotkey. Please use a combination such as CTRL+M.');
+                            setDraft(active);
+                            return;
+                        }
+                        if (canSave) onSave();
+                    }} disabled={!canSave} style={S_btn(accent, !canSave)}>Save Keybind</button>
                 </div>
             );
         };
@@ -1499,13 +1508,13 @@ const PanicCountdown = ({ onExpire }) => {
         (function() {
             const badge = document.createElement('div');
             const sha = window.APP_COMMIT_SHA || 'dev';
-            badge.textContent = `BETA BUILD - APP V. 0.0.8  •  ${sha}`;
+            badge.textContent = `BETA BUILD - APP V. 0.1.0.2  •  ${sha}`;
             badge.style.cssText = 'position:fixed;bottom:16px;left:16px;font-size:10px;font-weight:700;color:rgba(251,191,36,0.55);letter-spacing:1.5px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;';
             document.body.appendChild(badge);
         })();
 
         function NYSPLookupTool() {
-            const APP_VERSION = '0.1.0.1';
+            const APP_VERSION = '0.1.0.2';
             const [licensePlate, setLicensePlate] = useState('');
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
@@ -2184,7 +2193,7 @@ const processVoskText = (text) => {
     }
 
     if (!anyMapped || built.trim() === '') {
-setVoiceNotif('Phonetic alphabet was not used during translation.');
+setVoiceNotif('Phonetic alphabet was not detected during translation. Make sure you have enabled the correct phonetic alphabet in the settings tab.');
         setVoiceActive(false);
         setTimeout(() => setVoiceNotif(''), 4000);
         return;
@@ -2193,7 +2202,7 @@ setVoiceNotif('Phonetic alphabet was not used during translation.');
     const final = built.toUpperCase();
     console.log('[PHONETIC] Mapped result:', final);
     setLicensePlate(final);
-setVoiceNotif('✅ Heard: "' + text + '" → Plate set to: ' + final + ' - searching...');
+setVoiceNotif('Heard: "' + text + '" → Plate set to: ' + final + ' - searching...');
     setVoiceActive(false);
     setTimeout(() => setVoiceNotif(''), 3000);
     setTimeout(() => lookupUser(final), 300);
@@ -3094,6 +3103,20 @@ const FAQ_DATA = [
 
 const updateLogsData = [
 
+    {
+        title: "CAD SYSTEM - HOTFIX",
+        version: "0.1.0.2",
+        release_date: "03/20/2026",
+        description: "Minor changes to text across the application and changes to hotkey logic.",
+        new: [],
+        bugs: [],
+        modifications: [
+         'Changed some textlabels across the application.',
+        'Fixed some hotkey registry logic behind the scenes.',
+        ],
+        removed: [],
+        planned: []
+    },
     {
         title: "CAD SYSTEM - HOTFIX",
         version: "0.1.0.1",
