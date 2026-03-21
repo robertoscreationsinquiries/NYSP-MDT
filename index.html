@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+   <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -1508,13 +1508,13 @@ const PanicCountdown = ({ onExpire }) => {
         (function() {
             const badge = document.createElement('div');
             const sha = window.APP_COMMIT_SHA || 'dev';
-            badge.textContent = `BETA BUILD - APP V. 0.1.0.2  •  ${sha}`;
+            badge.textContent = `BETA BUILD - APP V. 0.1.0.3  •  ${sha}`;
             badge.style.cssText = 'position:fixed;bottom:16px;left:16px;font-size:10px;font-weight:700;color:rgba(251,191,36,0.55);letter-spacing:1.5px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;';
             document.body.appendChild(badge);
         })();
 
         function NYSPLookupTool() {
-            const APP_VERSION = '0.1.0.2';
+            const APP_VERSION = '0.1.0.3';
             const [licensePlate, setLicensePlate] = useState('');
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
@@ -2544,17 +2544,21 @@ const startMicTest = async () => {
 };
 
 // ── Voice-to-Plate ────────────────────────────────────────────────────────
-const PHONETIC_MAP = {
+const POLICE_PHONETIC_MAP = {
     adam:'A',boy:'B',charles:'C',david:'D',edward:'E',frank:'F',george:'G',
     henry:'H',ida:'I',john:'J',king:'K',lincoln:'L',mary:'M',nora:'N',
-    ocean:'O',paul:'P',queen:'Q',robert:'R',sam:'S',thomas:'T',union:'U',
-    victor:'V',william:'W',xray:'X',yellow:'Y',zebra:'Z',
-    alpha:'A',bravo:'B',charlie:'C',delta:'D',echo:'E',foxtrot:'F',golf:'G',
-    hotel:'H',india:'I',juliet:'J',kilo:'K',lima:'L',mike:'M',november:'N',
-    oscar:'O',papa:'P',quebec:'Q',romeo:'R',sierra:'S',tango:'T',uniform:'U',
-    whiskey:'W',yankee:'Y',
+    ocean:'O',paul:'P',queen:'Q',robert:'R',sam:'S',tom:'T',union:'U',
+    victor:'V',william:'W','x-ray':'X',xray:'X',young:'Y',zebra:'Z',
     zero:'0',one:'1',two:'2',three:'3',four:'4',five:'5',six:'6',seven:'7',eight:'8',nine:'9'
 };
+const NATO_PHONETIC_MAP = {
+    alpha:'A',bravo:'B',charlie:'C',delta:'D',echo:'E',foxtrot:'F',golf:'G',
+    hotel:'H',india:'I',juliett:'J',juliet:'J',kilo:'K',lima:'L',mike:'M',november:'N',
+    oscar:'O',papa:'P',quebec:'Q',romeo:'R',sierra:'S',tango:'T',uniform:'U',
+    victor:'V',whiskey:'W','x-ray':'X',xray:'X',yankee:'Y',zulu:'Z',
+    zero:'0',one:'1',two:'2',three:'3',four:'4',five:'5',six:'6',seven:'7',eight:'8',nine:'9'
+};
+const PHONETIC_MAP = phoneticMode === 'NATO' ? NATO_PHONETIC_MAP : POLICE_PHONETIC_MAP;
 
 const checkDatabaseConnection = async () => {
     if (!tokenSaved || !discordToken || !trooperSettings) {
@@ -3102,7 +3106,20 @@ const FAQ_DATA = [
 
 
 const updateLogsData = [
-
+    {
+        title: "CAD SYSTEM - HOTFIX",
+        version: "0.1.0.3",
+        release_date: "03/21/2026",
+        description: "Fixes to phonetic detection and showing registered date & time for improperly registered vehicles.",
+        new: [],
+        bugs: [],
+        modifications: [
+         'Revamped logic behind phonetic detection for VtP feature.',
+        'Fixed time & date of registration not showing for improperly registered vehicles.',
+        ],
+        removed: [],
+        planned: []
+    },
     {
         title: "CAD SYSTEM - HOTFIX",
         version: "0.1.0.2",
@@ -6667,7 +6684,7 @@ console.log('📦 [VEHICLES] Processing', vMessages.length, 'messages...!');
                 if (carBlocks.length === 0 && cleanLines.length >= 3) {
                     console.log('⚠️ [PARSE] Message has content but no parseable blocks - flagging as improper');
                     allVehicleBlocks._failedRaw = allVehicleBlocks._failedRaw || [];
-                    allVehicleBlocks._failedRaw.push(msg.content);
+                    allVehicleBlocks._failedRaw.push({ content: msg.content, timestamp: msg.timestamp });
                 }
                 
                 // Add all blocks from this message to the master list
@@ -10543,7 +10560,7 @@ return (
                                         style={{ width: '100%', marginTop: '10px', padding: '12px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', boxShadow: '0 4px 12px rgba(239,68,68,0.3)', transition: 'all 0.2s' }}
                                         onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(239,68,68,0.5)'; }}
                                         onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(239,68,68,0.3)'; }}>
-                                        FILE ARREST/SUMMONS REPORT
+                                        FILE ARREST REPORT
                                     </button>
                                 </>
                             )}
@@ -10573,6 +10590,14 @@ return (
                                         <div style={{ fontSize: '28px', fontWeight: '900', color: 'white', letterSpacing: '6px', fontFamily: 'monospace', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>{registration.plate}</div>
                                         <div style={{ fontSize: '11px', color: '#6ee7b7', fontWeight: '700', marginTop: '8px', marginBottom: '4px', letterSpacing: '2px' }}>PHONETIC SPELLING</div>
                                         <div style={{ fontSize: '13px', fontWeight: '700', color: '#a7f3d0', letterSpacing: '2px' }}>{registration.phoneticPlate || 'N/A'}</div>
+                                    </div>
+                                )}
+
+                                {/* Registered date/time */}
+                                {registration.registeredAt && (
+                                    <div style={{ margin: '10px 14px 0', padding: '8px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ fontSize: '10px', color: '#fde68a', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase' }}>Registered:</span>
+                                        <span style={{ fontSize: '12px', color: '#e2e8f0', fontFamily: 'monospace', fontWeight: '600' }}>{registration.registeredAt}</span>
                                     </div>
                                 )}
 
@@ -10873,7 +10898,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                 style={{ width: '100%', marginTop: '10px', padding: '12px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', boxShadow: '0 4px 12px rgba(239,68,68,0.3)', transition: 'all 0.2s' }}
                                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(239,68,68,0.5)'; }}
                                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(239,68,68,0.3)'; }}>
-                                FILE ARREST/SUMMONS REPORT
+                                FILE ARREST REPORT
                             </button>
                         </div>
 
@@ -10947,7 +10972,10 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                             </div>
                                         </div>
                                     ))}
-                                    {searchResults.failedVehicleRaw?.map((raw, idx) => (
+                                    {searchResults.failedVehicleRaw?.map((raw, idx) => {
+                                        const rawContent = typeof raw === 'object' ? raw.content : raw;
+                                        const rawTimestamp = typeof raw === 'object' && raw.timestamp ? new Date(raw.timestamp).toLocaleString() : null;
+                                        return (
                                         <div key={`improper-${idx}`} style={{ padding: '0', background: 'linear-gradient(135deg, rgba(15,23,42,0.8), rgba(120,53,15,0.08))', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '14px', overflow: 'hidden' }}>
                                             <div style={{ background: 'linear-gradient(135deg, #451a03, #78350f)', borderBottom: '1px solid rgba(245,158,11,0.25)', borderRadius: '13px 13px 0 0', padding: '16px', textAlign: 'center' }}>
                                                 <div style={{ fontSize: '11px', color: '#fde68a', fontWeight: '700', marginBottom: '4px', letterSpacing: '3px' }}>IMPROPER REGISTRATION</div>
@@ -10963,23 +10991,30 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                                     <div style={{ fontSize: '9px', color: '#fde68a', fontWeight: '700', marginBottom: '4px', letterSpacing: '1px' }}>ACTION</div>
                                                     <div style={{ fontSize: '13px', color: 'white', fontWeight: '700' }}>Manual Search</div>
                                                 </div>
+                                                {rawTimestamp && (
+                                                    <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px', gridColumn: '1 / -1' }}>
+                                                        <div style={{ fontSize: '9px', color: '#fde68a', fontWeight: '700', marginBottom: '4px', letterSpacing: '1px' }}>REGISTERED AT</div>
+                                                        <div style={{ fontSize: '12px', color: 'white', fontWeight: '700', fontFamily: 'monospace' }}>{rawTimestamp}</div>
+                                                    </div>
+                                                )}
                                                 <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px', gridColumn: '1 / -1' }}>
                                                     <div style={{ fontSize: '9px', color: '#fde68a', fontWeight: '700', marginBottom: '4px', letterSpacing: '1px' }}>RAW DISCORD MESSAGE</div>
                                                     <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#fde68a', lineHeight: '1.7', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                                                        {raw.split('\n').map((line, i) => (
+                                                        {rawContent.split('\n').map((line, i) => (
                                                             <div key={i}><span style={{ color: '#6b7280', userSelect: 'none', marginRight: '8px' }}>{String(i + 1).padStart(2, '0')}</span>{line}</div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div style={{ margin: '0 12px 12px', background: 'rgba(245,158,11,0.06)', borderRadius: '8px', padding: '8px 12px' }}>
-                                                <div style={{ fontSize: '11px', color: '#fde68a', fontWeight: '600' }}>
-                                                    Status: <span style={{ color: 'white', fontWeight: '700' }}>Could not be parsed - verify manually</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
+      ))}
+                                    </div>
                                 </div>
+                            </div>
+                            <div style={{ margin: '0 12px 12px', background: 'rgba(245,158,11,0.06)', borderRadius: '8px', padding: '8px 12px' }}>
+                                <div style={{ fontSize: '11px', color: '#fde68a', fontWeight: '600' }}>
+                                    Status: <span style={{ color: 'white', fontWeight: '700' }}>Could not be parsed - verify manually</span>
+                                </div>
+                            </div>
+                        </div>
+                        );
+                    })}
+                </div>
 
                                 {/* Citation with selected vehicle */}
                                 {selectedVehicleForCitation && (
