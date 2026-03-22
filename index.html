@@ -6657,7 +6657,19 @@ console.log('📦 [VEHICLES] Processing', vMessages.length, 'messages...!');
             for (const msg of vMessages) {
                 console.log('📨 [MSG] Processing message ID:', msg.id);
                 const fullText = msg.content;
-                const lines = fullText.split('\n').map(l => l.trim());
+                let lines = fullText.split('\n').map(l => l.trim());
+
+                // Handle single-line format: "<@id>  2022 Make Model Color State Plate"
+                if (lines.length === 1) {
+                    const stripped = fullText.replace(/<@\d+>\s*/, '').trim();
+                    const parts = stripped.split(/\s+/);
+                    // If stripped content starts with a year, treat each space-separated token as a line
+                    if (parts.length >= 2 && /^(19|20)\d{2}$/.test(parts[0])) {
+                        lines = parts;
+                        console.log('📝 [MSG] Converted single-line to', lines.length, 'tokens');
+                    }
+                }
+
                 console.log('📝 [MSG] Message has', lines.length, 'lines');
                 
                 const carBlocks = [];
@@ -6707,7 +6719,7 @@ console.log('📦 [VEHICLES] Processing', vMessages.length, 'messages...!');
                 
                 // If message had enough content but no blocks detected → improper registration
                 const cleanLines = lines.filter(l => l && !l.includes('<@') && !l.startsWith('@'));
-                if (carBlocks.length === 0 && cleanLines.length >= 3) {
+                if (carBlocks.length === 0 && (cleanLines.length >= 1)) {
                     console.log('⚠️ [PARSE] Message has content but no parseable blocks - flagging as improper');
                     allVehicleBlocks._failedRaw = allVehicleBlocks._failedRaw || [];
                     allVehicleBlocks._failedRaw.push({ content: msg.content, timestamp: msg.timestamp });
@@ -10562,7 +10574,12 @@ return (
                                         VIEW GOVERNMENT RECORDS
                                     </button>
 
-                                    <button onClick={() => { generateCitation(result, registration); }}
+                                    <button onClick={() => {
+                                        const citationReg = registration?.parseFailed
+                                            ? { ...registration, timestamp: registration.registeredAt || '' }
+                                            : registration;
+                                        generateCitation(result, citationReg);
+                                    }}
                                         style={{ width: '100%', marginTop: '10px', padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', boxShadow: '0 4px 12px rgba(16,185,129,0.3)', transition: 'all 0.2s' }}
                                         onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(16,185,129,0.5)'; }}
                                         onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(16,185,129,0.3)'; }}>
