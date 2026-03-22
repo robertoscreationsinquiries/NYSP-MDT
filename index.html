@@ -1511,6 +1511,12 @@ const PanicCountdown = ({ onExpire }) => {
             badge.textContent = `BETA BUILD - APP V. 0.1.0.3  •  ${sha}`;
             badge.style.cssText = 'position:fixed;bottom:16px;left:16px;font-size:10px;font-weight:700;color:rgba(251,191,36,0.55);letter-spacing:1.5px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;';
             document.body.appendChild(badge);
+            if (window.APP_GITHUB_BRANCH && window.APP_GITHUB_BRANCH !== 'main') {
+                const testingBadge = document.createElement('div');
+                testingBadge.textContent = `⚠ TESTING BRANCH: ${window.APP_GITHUB_BRANCH}`;
+                testingBadge.style.cssText = 'position:fixed;bottom:30px;left:16px;font-size:10px;font-weight:700;color:rgba(239,68,68,0.85);letter-spacing:1.5px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;';
+                document.body.appendChild(testingBadge);
+            }
         })();
 
         function NYSPLookupTool() {
@@ -5223,7 +5229,16 @@ const parseRegistration = async (message) => {
     addLog('Parsing registration (AI-powered, multi-vehicle support)...', 'info');
     
     const fullText = message.content;
-    const lines = fullText.split('\n').map(l => l.trim());
+    let lines = fullText.split('\n').map(l => l.trim());
+
+    // Handle single-line inline format: "<@id> 2022 Make Model Color State Plate"
+    if (lines.length === 1) {
+        const inlineMatch = fullText.replace(/<@\d+>\s*/, '').trim();
+        const parts = inlineMatch.split(/\s+/);
+        if (parts.length >= 2) {
+            lines = inlineMatch.split(/\s+/);
+        }
+    }
     
     const userIdMatch = fullText.match(/<@(\d+)>/);
     const discordUserId = userIdMatch ? userIdMatch[1] : 'Unknown';
@@ -5693,18 +5708,28 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
                     // Count how many failed to parse
                     const failedCount = foundMessages.length - allRegistrations.length;
                     
-                    // CASE 1: NO vehicles could be parsed
+                    // CASE 1: NO vehicles could be parsed — show as improper registrations
                     if (allRegistrations.length === 0) {
                         console.error('❌ [SEARCH] No vehicles could be parsed');
-                        console.log(`🔍 [DEBUG] Found ${foundMessages.length} registration(s) but all failed to parse`);
-                        addLog(`❌ Unable to parse ${foundMessages.length} registration(s)`, 'error');
+                        addLog(`❌ Unable to parse ${foundMessages.length} registration(s) — flagging as improper`, 'error');
                         playSound('fail');
-                        
-                        setRegistration(null);
-                        setError('AI was unable to parse registration. Registration does exist, however user has not followed format.');
+                        const failedRaw = foundMessages.map(m => ({
+                            content: m.content,
+                            timestamp: m.edited_timestamp || m.timestamp
+                        }));
+                        setSearchResults({
+                            vehicles: [],
+                            failedVehicleRaw: failedRaw,
+                            robloxUser: robloxUserData,
+                            discordUserId: discordUserId,
+                            warrants: null,
+                            parseFailCount: foundMessages.length,
+                            vehicleErrorMessage: null,
+                            noRegistrationFound: false
+                        });
                         setLoading(false);
                         setSearchProgress(0);
-                        return;  // STOP EXECUTION instead of throwing
+                        return;
                     }
                     
                     // CASE 2: SOME parsed, SOME failed
@@ -5825,7 +5850,8 @@ if (parseFailedButVehicleExists) {
         plate: searchedPlate,
         phoneticPlate: convertToPhonetic(searchedPlate),
         discordUserId: ownerId,
-        rawDiscordMessage: foundMessages?.[0]?.content || null
+        rawDiscordMessage: foundMessages?.[0]?.content || null,
+        registeredAt: foundMessages?.[0] ? new Date(foundMessages[0].edited_timestamp || foundMessages[0].timestamp).toLocaleString() : null
     });
     
     // ✅ Set regData to minimal object so code below works
@@ -10875,8 +10901,8 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
 
                             <button onClick={async () => {
                                 if (!searchResults) { showCustomError('Error', 'No search results available.'); return; }
-                                const robloxData = searchResults.robloxUser || {};
-                                const tempResult = { username: robloxData.username || 'UNKNOWN', userId: robloxData.userId || 'UNKNOWN', displayName: robloxData.displayName || 'UNKNOWN', joinDate: robloxData.joinDate || 'UNKNOWN', avatarUrl: robloxData.avatarUrl || null };
+                                const robloxData = searchResults.robloxUser || result || {};
+                                const tempResult = { username: robloxData.username || result?.username || 'UNKNOWN', userId: robloxData.userId || result?.userId || 'UNKNOWN', displayName: robloxData.displayName || result?.displayName || 'UNKNOWN', joinDate: robloxData.joinDate || result?.joinDate || 'UNKNOWN', avatarUrl: robloxData.avatarUrl || result?.avatarUrl || null };
                                 const tempRegistration = { discordUserId: searchResults.discordUserId || 'UNKNOWN', year: '', make: '', model: '', plate: '', state: '', color: '', vehicleType: '', timestamp: '', phoneticPlate: '', hasHandicapPermit: false, isEdited: false };
                                 addLog('Exporting citation WITHOUT vehicle registration', 'info');
                                 await generateCitation(tempResult, tempRegistration);
