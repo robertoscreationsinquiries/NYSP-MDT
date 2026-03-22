@@ -1668,6 +1668,7 @@ const [selectedMicDevice, setSelectedMicDevice] = useState('');
 const [availableMicDevices, setAvailableMicDevices] = useState([]);
 const [isRecordingKeybind, setIsRecordingKeybind] = useState(false);
 const [showWelcomePopup, setShowWelcomePopup] = React.useState(false);
+const [soundsOutOfDate, setSoundsOutOfDate] = React.useState(false);
 const [privacyAgeConfirmed, setPrivacyAgeConfirmed] = React.useState(false);
 const [hfAPIKey, setHfAPIKey] = useState('');
 const [groqConsoleAPIKey, setGroqConsoleAPIKey] = useState('');
@@ -1679,6 +1680,7 @@ const [micLevel, setMicLevel] = useState(0);
 const [micTestError, setMicTestError] = useState('');
 const [voiceActive, setVoiceActive] = useState(false);
 const [voiceNotif, setVoiceNotif] = useState('');
+const [voiceCooldown, setVoiceCooldown] = useState(false);
 const micStreamRef = React.useRef(null);
 const micAnimFrameRef = React.useRef(null);
 const micAnalyserRef = React.useRef(null);
@@ -2237,6 +2239,15 @@ setVoiceNotif('Heard: "' + text + '" → Plate set to: ' + final + ' - searching
 const startVoicePlate = async () => {
     if (!useMicrophone) return;
     if (voiceActive) { stopVoicePlate(); return; }
+    if (voiceCooldown) {
+        showCustomError('Voice Cooldown', 'Voice to plate is on cooldown. Please wait a moment before trying again.');
+        if (soundSettings.MicNotAvailable && window.SOUNDS?.MIC_NOTAVAILABLESFX) {
+            try { const a = new Audio(window.SOUNDS.MIC_NOTAVAILABLESFX); a.volume = 0.5; a.play().catch(() => {}); } catch(_) {}
+        }
+        return;
+    }
+    setVoiceCooldown(true);
+    setTimeout(() => setVoiceCooldown(false), 1000);
     setVoiceNotif('Starting...');
     try {
         const audioConstraints = selectedMicDevice
@@ -3023,12 +3034,12 @@ React.useEffect(() => {
         window.electron?.invoke('register-global-shortcut', { key: micHotkey, id: 'mic-toggle', requireFocus: keybindsRequireFocus });
     }
     window.electron?.on('global-shortcut-fired', (id) => {
-        if (id === 'mic-toggle' && activeView === 'search' && useMicrophone && !loading && !searchCooldown) {
+        if (id === 'mic-toggle' && activeView === 'search' && useMicrophone && !loading && !searchCooldown && !voiceCooldown) {
             voiceActive ? stopVoicePlate() : startVoicePlate();
         }
     });
     return () => window.electron?.removeAllListeners?.('global-shortcut-fired');
-}, [micHotkey, voiceActive, useMicrophone, loading, searchCooldown, activeView, keybindsRequireFocus]);
+}, [micHotkey, voiceActive, useMicrophone, loading, searchCooldown, voiceCooldown, activeView, keybindsRequireFocus]);
 
 
 React.useEffect(() => {
@@ -9808,6 +9819,8 @@ return (
                     }
                     const alreadyAccepted = localStorage.getItem('mdtWelcomeAccepted');
                     if (!alreadyAccepted) setShowWelcomePopup(true);
+                    const loadedSoundCount = window.SOUNDS ? Object.keys(window.SOUNDS).length : 0;
+                    if (loadedSoundCount < 12) setSoundsOutOfDate(true);
                     if (soundSettings?.StartupSFX && SOUNDS.StartupSFX) {
                         try { const audio = new Audio(SOUNDS.StartupSFX); audio.volume = 0.5; audio.play().catch(() => {}); } catch (e) {}
                     }
@@ -11401,7 +11414,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                 </div>
 
                                 <div style={S.divider} />
-                                <div style={{ ...S.fieldLabel, marginBottom: '8px' }}>🔔 Sound Effects</div>
+                                <div style={{ ...S.fieldLabel, marginBottom: '8px' }}>🔔 Search Sound Effects</div>
                                 {[
                                     { label: 'Plate Search - Success', key: 'platePass' },
                                     { label: 'Plate Search - Not Found', key: 'plateFail' },
@@ -11452,11 +11465,11 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                 )}
 
                                 <div style={S.divider} />
-                                <div style={{ ...S.fieldLabel, marginBottom: '8px' }}>🎙️ Voice to Plate Sounds</div>
+                                <div style={{ ...S.fieldLabel, marginBottom: '8px' }}>🎙️ Voice Monitoring Sound Effects</div>
                                 {[
                                     { label: 'Mic Activated', key: 'MicActive' },
                                     { label: 'Mic Deactivated', key: 'MicInactive' },
-                                    { label: 'Unavailable (on cooldown)', key: 'MicNotAvailable' },
+                                    { label: 'Mic Cooldown (on cooldown)', key: 'MicNotAvailable' },
                                 ].map(({ label, key }) => (
                                     <ToggleRow key={key} label={label} on={soundSettings[key]} accent="#a855f7" onToggle={() => setSoundSettings({...soundSettings, [key]: !soundSettings[key]})} />
                                 ))}
@@ -12107,6 +12120,27 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
 
                 {/* USEFUL LINKS MODAL */}
 
+
+{soundsOutOfDate && (
+    <div style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        background: '#000000',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        zIndex: 999999,
+        padding: '40px'
+    }}>
+        <svg viewBox="0 0 24 24" fill="#1d9bf0" style={{ width: '48px', height: '48px', marginBottom: '48px' }}>
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.736l7.737-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+        </svg>
+        <div style={{ fontSize: '38px', fontWeight: '900', color: '#ffffff', letterSpacing: '-1px', lineHeight: '1.1', marginBottom: '20px', maxWidth: '480px' }}>
+            This app is out of date.
+        </div>
+        <div style={{ fontSize: '17px', color: 'rgba(255,255,255,0.55)', lineHeight: '1.6', maxWidth: '480px', marginBottom: '0px' }}>
+            Your current app version is unsupported and will be deprecated soon. To update, view the following channel for v0.1.0.4 installation guide:
+            <span style={{ color: '#ffffff', fontWeight: '700' }}> #installation-guide</span>
+        </div>
+    </div>
+)}
 
 {showWelcomePopup && (
     <div style={{
