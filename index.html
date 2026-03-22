@@ -12129,9 +12129,14 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
         zIndex: 999999,
         padding: '40px'
     }}>
-        <svg viewBox="0 0 24 24" fill="#1d9bf0" style={{ width: '48px', height: '48px', marginBottom: '48px' }}>
-            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.736l7.737-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-        </svg>
+        <div style={{
+            width: '72px', height: '72px', borderRadius: '50%',
+            border: '4px solid rgba(255,255,255,0.15)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: '48px'
+        }}>
+            <span style={{ fontSize: '42px', fontWeight: '900', color: '#ffffff', lineHeight: 1, userSelect: 'none' }}>!</span>
+        </div>
         <div style={{ fontSize: '38px', fontWeight: '900', color: '#ffffff', letterSpacing: '-1px', lineHeight: '1.1', marginBottom: '20px', maxWidth: '480px' }}>
             This app is out of date.
         </div>
