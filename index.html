@@ -1508,19 +1508,19 @@ const PanicCountdown = ({ onExpire }) => {
         (function() {
             const badge = document.createElement('div');
             const sha = window.APP_COMMIT_SHA || 'dev';
-            badge.textContent = `BETA BUILD - APP V. 0.1.0.3  •  ${sha}`;
+            badge.textContent = `BETA BUILD - APP V. 0.1.0.4  •  ${sha}`;
             badge.style.cssText = 'position:fixed;bottom:16px;left:16px;font-size:10px;font-weight:700;color:rgba(251,191,36,0.55);letter-spacing:1.5px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;';
             document.body.appendChild(badge);
             if (window.APP_GITHUB_BRANCH && window.APP_GITHUB_BRANCH !== 'main') {
                 const testingBadge = document.createElement('div');
-                testingBadge.textContent = `⚠ TESTING BRANCH: ${window.APP_GITHUB_BRANCH}`;
+                testingBadge.textContent = `⚠ TESTING BRANCH: ⚠`;
                 testingBadge.style.cssText = 'position:fixed;bottom:30px;left:16px;font-size:10px;font-weight:700;color:rgba(239,68,68,0.85);letter-spacing:1.5px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;';
                 document.body.appendChild(testingBadge);
             }
         })();
 
         function NYSPLookupTool() {
-            const APP_VERSION = '0.1.0.3';
+            const APP_VERSION = '0.1.0.4';
             const [licensePlate, setLicensePlate] = useState('');
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
@@ -1659,8 +1659,13 @@ const [soundSettings, setSoundSettings] = useState({
     StartupSFX: true,
     LoginAccessDenied: true,
     LoginIncorrect: true,
-    LoginPageCorrect: true
+    LoginPageCorrect: true,
+    MicActive: true,
+    MicInactive: true,
+    MicNotAvailable: true
 });
+const [selectedMicDevice, setSelectedMicDevice] = useState('');
+const [availableMicDevices, setAvailableMicDevices] = useState([]);
 const [isRecordingKeybind, setIsRecordingKeybind] = useState(false);
 const [showWelcomePopup, setShowWelcomePopup] = React.useState(false);
 const [privacyAgeConfirmed, setPrivacyAgeConfirmed] = React.useState(false);
@@ -1927,6 +1932,19 @@ if (trimmedLine.startsWith('MIC_HOTKEY=')) {
                 const val = trimmedLine.split('=')[1]?.trim();
                 if (val) { setMicHotkey(val); setMicHotkeyDraft(val); }
             }
+if (trimmedLine.startsWith('MIC_DEVICE=')) {
+    const val = trimmedLine.split('=')[1]?.trim();
+    if (val) setSelectedMicDevice(val);
+}
+if (trimmedLine.startsWith('SFX_MIC_ACTIVE=')) {
+    setSoundSettings(prev => ({ ...prev, MicActive: trimmedLine.split('=')[1]?.trim() !== 'FALSE' }));
+}
+if (trimmedLine.startsWith('SFX_MIC_INACTIVE=')) {
+    setSoundSettings(prev => ({ ...prev, MicInactive: trimmedLine.split('=')[1]?.trim() !== 'FALSE' }));
+}
+if (trimmedLine.startsWith('SFX_MIC_NOTAVAILABLE=')) {
+    setSoundSettings(prev => ({ ...prev, MicNotAvailable: trimmedLine.split('=')[1]?.trim() !== 'FALSE' }));
+}
             
            if (trimmedLine.startsWith('GroqConsoleAPIKey=')) {
                 const key = trimmedLine.split('=')[1];
@@ -2221,7 +2239,10 @@ const startVoicePlate = async () => {
     if (voiceActive) { stopVoicePlate(); return; }
     setVoiceNotif('Starting...');
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioConstraints = selectedMicDevice
+            ? { audio: { deviceId: { exact: selectedMicDevice } } }
+            : { audio: true };
+        const stream = await navigator.mediaDevices.getUserMedia(audioConstraints);
         voiceStreamRef.current = stream;
 
         // Live volume meter
@@ -2282,6 +2303,9 @@ const blob = new Blob(chunks, { type: 'audio/wav' });
         recorder.start();
         setVoiceActive(true);
         setVoiceNotif('Recording - click 🎙️ again when done to search');
+        if (soundSettings.MicActive && SOUNDS.MIC_ACTIVESFX) {
+            try { const a = new Audio(SOUNDS.MIC_ACTIVESFX); a.volume = 0.5; a.play().catch(() => {}); } catch(_) {}
+        }
     } catch(e) {
         setVoiceNotif('Error: ' + (e.message || 'Mic denied'));
         setVoiceActive(false);
@@ -2298,11 +2322,23 @@ const stopVoicePlate = () => {
     setVoiceActive(false);
     setVoiceNotif('');
     setMicLevel(0);
+    if (soundSettings.MicInactive && SOUNDS.MIC_INACTIVESFX) {
+        try { const a = new Audio(SOUNDS.MIC_INACTIVESFX); a.volume = 0.5; a.play().catch(() => {}); } catch(_) {}
+    }
 };
 useEffect(() => {
     if (!useMicrophone && micTestActive) {
         stopMicTest();
     }
+}, [useMicrophone]);
+
+// Enumerate mic devices when microphone is enabled
+useEffect(() => {
+    if (!useMicrophone) return;
+    navigator.mediaDevices.enumerateDevices().then(devices => {
+        const mics = devices.filter(d => d.kind === 'audioinput');
+        setAvailableMicDevices(mics);
+    }).catch(() => {});
 }, [useMicrophone]);
 
 useEffect(() => {
@@ -2527,7 +2563,10 @@ const stopMicTest = () => {
 const startMicTest = async () => {
     setMicTestError('');
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioConstraints = selectedMicDevice
+            ? { audio: { deviceId: { exact: selectedMicDevice } } }
+            : { audio: true };
+        const stream = await navigator.mediaDevices.getUserMedia(audioConstraints);
         micStreamRef.current = stream;
         const ctx = new AudioContext();
         micAudioCtxRef.current = ctx;
@@ -3112,6 +3151,24 @@ const FAQ_DATA = [
 
 
 const updateLogsData = [
+        {
+        title: "CAD SYSTEM - HOTFIX",
+        version: "0.1.0.4",
+        release_date: "03/22/2026",
+        description: "Fixes to registered vehicle timestamps and citations not filling out Roblox profile data properly.",
+        new: [
+            'ADDED support for testing branch to minimize maintenance time during updates.',
+            'ADDED a drop-down setting to select your input device (microphone).',
+            'ADDED 3 new sounds for Voice to Plate feature.'
+        ],
+        bugs: [],
+        modifications: [
+         'FIXED vehicle-registered timestamps not showing correctly under "ID LOOKUP" tab.',
+         'FIXED vehicle-registered timestamps not showing for improperly registered vehicles.',
+        ],
+        removed: [],
+        planned: []
+    },
     {
         title: "CAD SYSTEM - HOTFIX",
         version: "0.1.0.3",
@@ -3600,7 +3657,11 @@ DiscordAccountToken=${discordToken || ''}
 GroqConsoleAPIKey=${groqConsoleAPIKey || ''}
 AmericanDateFormat=${trooperSettings?.AmericanDateFormat || 'FALSE'}
 ACTIONBAR_KEYBIND=${actionBarKeybind || 'CTRL+K'}
-KEYBINDS_REQUIRE_FOCUS=${keybindsRequireFocus ? 'TRUE' : 'FALSE'}`;
+KEYBINDS_REQUIRE_FOCUS=${keybindsRequireFocus ? 'TRUE' : 'FALSE'}
+MIC_DEVICE=${selectedMicDevice || ''}
+SFX_MIC_ACTIVE=${soundSettings.MicActive ? 'TRUE' : 'FALSE'}
+SFX_MIC_INACTIVE=${soundSettings.MicInactive ? 'TRUE' : 'FALSE'}
+SFX_MIC_NOTAVAILABLE=${soundSettings.MicNotAvailable ? 'TRUE' : 'FALSE'}`;
 
     try {
         if (window.require) {
@@ -3627,6 +3688,10 @@ if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
                     if (key === 'PANIC_HOTKEY') { setPanicHotkey(val); setPanicHotkeyDraft(val); }
                     if (key === 'PANIC_TRIGGER_MODE') { setPanicTriggerMode(val); setPanicTriggerModeDraft(val); }
                     if (key === 'PHONETIC_MODE') setPhoneticMode(val);
+                    if (key === 'MIC_DEVICE') setSelectedMicDevice(val);
+                    if (key === 'SFX_MIC_ACTIVE') setSoundSettings(prev => ({ ...prev, MicActive: val === 'TRUE' }));
+                    if (key === 'SFX_MIC_INACTIVE') setSoundSettings(prev => ({ ...prev, MicInactive: val === 'TRUE' }));
+                    if (key === 'SFX_MIC_NOTAVAILABLE') setSoundSettings(prev => ({ ...prev, MicNotAvailable: val === 'TRUE' }));
                     if (key === 'ACKNOWLEDGE_KEYBIND') { setAcknowledgeKeybind(val); setAcknowledgeKeybindDraft(val); }
                     if (key === 'AmericanDateFormat') setTrooperSettings(prev => ({ ...prev, AmericanDateFormat: val }));
                     
@@ -10394,7 +10459,15 @@ return (
 <div style={{ display: 'flex', gap: '8px' }}>
                         {useMicrophone && (
                             <button
-                                onClick={() => { if (loading || searchCooldown) return; voiceActive ? stopVoicePlate() : startVoicePlate(); }}
+                                onClick={() => {
+                                    if (loading || searchCooldown) {
+                                        if (soundSettings.MicNotAvailable && SOUNDS.MIC_NOTAVAILABLESFX) {
+                                            try { const a = new Audio(SOUNDS.MIC_NOTAVAILABLESFX); a.volume = 0.5; a.play().catch(() => {}); } catch(_) {}
+                                        }
+                                        return;
+                                    }
+                                    voiceActive ? stopVoicePlate() : startVoicePlate();
+                                }}
                                 title="Voice to Text"
                                 disabled={loading || searchCooldown}
                                 style={{ width: '52px', flexShrink: 0, padding: '14px', background: voiceActive ? 'linear-gradient(135deg,#dc2626,#991b1b)' : 'rgba(59,130,246,0.15)', border: '1px solid ' + (voiceActive ? '#dc2626' : 'rgba(59,130,246,0.3)'), borderRadius: '10px', color: (loading || searchCooldown) ? '#4b5563' : voiceActive ? 'white' : '#93c5fd', fontSize: '18px', cursor: (loading || searchCooldown) ? 'not-allowed' : 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🎙️</button>
@@ -11355,8 +11428,38 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                         <button onClick={() => micTestActive ? stopMicTest() : startMicTest()} style={S.btn(micTestActive ? '#ef4444' : '#a855f7', false)}>
                                             {micTestActive ? 'Stop Test' : '🎙️ Test Microphone'}
                                         </button>
+
+                                        <div style={{ marginTop: '10px' }}>
+                                            <div style={{ ...S.fieldLabel, marginBottom: '5px' }}>Input Device</div>
+                                            <select
+                                                value={selectedMicDevice}
+                                                onChange={e => setSelectedMicDevice(e.target.value)}
+                                                onClick={() => {
+                                                    navigator.mediaDevices.enumerateDevices().then(devices => {
+                                                        setAvailableMicDevices(devices.filter(d => d.kind === 'audioinput'));
+                                                    }).catch(() => {});
+                                                }}
+                                                style={{ ...S.input, color: '#e2e8f0', cursor: 'pointer' }}>
+                                                <option value=''>System Default</option>
+                                                {availableMicDevices.map(d => (
+                                                    <option key={d.deviceId} value={d.deviceId} style={{ background: '#0f172a' }}>
+                                                        {d.label || `Microphone (${d.deviceId.slice(0, 8)}...)`}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
                                     </div>
                                 )}
+
+                                <div style={S.divider} />
+                                <div style={{ ...S.fieldLabel, marginBottom: '8px' }}>🎙️ Voice to Plate Sounds</div>
+                                {[
+                                    { label: 'Mic Activated', key: 'MicActive' },
+                                    { label: 'Mic Deactivated', key: 'MicInactive' },
+                                    { label: 'Unavailable (on cooldown)', key: 'MicNotAvailable' },
+                                ].map(({ label, key }) => (
+                                    <ToggleRow key={key} label={label} on={soundSettings[key]} accent="#a855f7" onToggle={() => setSoundSettings({...soundSettings, [key]: !soundSettings[key]})} />
+                                ))}
                             </div>
 
                             {/* ── DEVELOPER TOOLS ── */}
@@ -11384,7 +11487,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                 <div style={S.sectionHead('#4ade80')}>💾 Export Settings</div>
                                 <div style={S.sectionSub}>Write all current settings to your CADSystemSettings.txt file</div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '12px' }}>
-                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE','PANIC_ENABLED','PANIC_HOTKEY','PANIC_TRIGGER_MODE','ACKNOWLEDGE_KEYBIND', 'PHONETIC_MODE'].map(k => (
+                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE','PANIC_ENABLED','PANIC_HOTKEY','PANIC_TRIGGER_MODE','ACKNOWLEDGE_KEYBIND','PHONETIC_MODE','MIC_DEVICE','SFX_MIC_ACTIVE','SFX_MIC_INACTIVE','SFX_MIC_NOTAVAILABLE'].map(k => (
                                         <span key={k} style={{ padding: '2px 7px', background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.18)', borderRadius: '4px', color: '#4ade80', fontSize: '10px', fontFamily: 'monospace' }}>{k}</span>
                                     ))}
                                     <span style={{ padding: '2px 7px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '4px', color: '#f87171', fontSize: '10px', fontFamily: 'monospace' }}>ActiveSession*</span>
