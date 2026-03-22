@@ -1508,13 +1508,19 @@ const PanicCountdown = ({ onExpire }) => {
         (function() {
             const badge = document.createElement('div');
             const sha = window.APP_COMMIT_SHA || 'dev';
-            badge.textContent = `BETA BUILD - APP V. 0.1.0.3  •  ${sha}`;
+            badge.textContent = `BETA BUILD - APP V. 0.1.0.4  •  ${sha}`;
             badge.style.cssText = 'position:fixed;bottom:16px;left:16px;font-size:10px;font-weight:700;color:rgba(251,191,36,0.55);letter-spacing:1.5px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;';
             document.body.appendChild(badge);
+            if (window.APP_GITHUB_BRANCH && window.APP_GITHUB_BRANCH !== 'main') {
+                const testingBadge = document.createElement('div');
+                testingBadge.textContent = `⚠ TESTING BRANCH: ⚠`;
+                testingBadge.style.cssText = 'position:fixed;bottom:30px;left:16px;font-size:10px;font-weight:700;color:rgba(239,68,68,0.85);letter-spacing:1.5px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;';
+                document.body.appendChild(testingBadge);
+            }
         })();
 
         function NYSPLookupTool() {
-            const APP_VERSION = '0.1.0.3';
+            const APP_VERSION = '0.1.0.4';
             const [licensePlate, setLicensePlate] = useState('');
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
@@ -1653,10 +1659,16 @@ const [soundSettings, setSoundSettings] = useState({
     StartupSFX: true,
     LoginAccessDenied: true,
     LoginIncorrect: true,
-    LoginPageCorrect: true
+    LoginPageCorrect: true,
+    MicActive: true,
+    MicInactive: true,
+    MicNotAvailable: true
 });
+const [selectedMicDevice, setSelectedMicDevice] = useState('');
+const [availableMicDevices, setAvailableMicDevices] = useState([]);
 const [isRecordingKeybind, setIsRecordingKeybind] = useState(false);
 const [showWelcomePopup, setShowWelcomePopup] = React.useState(false);
+const [soundsOutOfDate, setSoundsOutOfDate] = React.useState(false);
 const [privacyAgeConfirmed, setPrivacyAgeConfirmed] = React.useState(false);
 const [hfAPIKey, setHfAPIKey] = useState('');
 const [groqConsoleAPIKey, setGroqConsoleAPIKey] = useState('');
@@ -1668,6 +1680,7 @@ const [micLevel, setMicLevel] = useState(0);
 const [micTestError, setMicTestError] = useState('');
 const [voiceActive, setVoiceActive] = useState(false);
 const [voiceNotif, setVoiceNotif] = useState('');
+const [voiceCooldown, setVoiceCooldown] = useState(false);
 const micStreamRef = React.useRef(null);
 const micAnimFrameRef = React.useRef(null);
 const micAnalyserRef = React.useRef(null);
@@ -1921,6 +1934,19 @@ if (trimmedLine.startsWith('MIC_HOTKEY=')) {
                 const val = trimmedLine.split('=')[1]?.trim();
                 if (val) { setMicHotkey(val); setMicHotkeyDraft(val); }
             }
+if (trimmedLine.startsWith('MIC_DEVICE=')) {
+    const val = trimmedLine.split('=')[1]?.trim();
+    if (val) setSelectedMicDevice(val);
+}
+if (trimmedLine.startsWith('SFX_MIC_ACTIVE=')) {
+    setSoundSettings(prev => ({ ...prev, MicActive: trimmedLine.split('=')[1]?.trim() !== 'FALSE' }));
+}
+if (trimmedLine.startsWith('SFX_MIC_INACTIVE=')) {
+    setSoundSettings(prev => ({ ...prev, MicInactive: trimmedLine.split('=')[1]?.trim() !== 'FALSE' }));
+}
+if (trimmedLine.startsWith('SFX_MIC_NOTAVAILABLE=')) {
+    setSoundSettings(prev => ({ ...prev, MicNotAvailable: trimmedLine.split('=')[1]?.trim() !== 'FALSE' }));
+}
             
            if (trimmedLine.startsWith('GroqConsoleAPIKey=')) {
                 const key = trimmedLine.split('=')[1];
@@ -2213,9 +2239,21 @@ setVoiceNotif('Heard: "' + text + '" → Plate set to: ' + final + ' - searching
 const startVoicePlate = async () => {
     if (!useMicrophone) return;
     if (voiceActive) { stopVoicePlate(); return; }
+    if (voiceCooldown) {
+        showCustomError('Voice Cooldown', 'Voice to plate is on cooldown. Please wait a moment before trying again.');
+        if (soundSettings.MicNotAvailable && window.SOUNDS?.MIC_NOTAVAILABLESFX) {
+            try { const a = new Audio(window.SOUNDS.MIC_NOTAVAILABLESFX); a.volume = 0.5; a.play().catch(() => {}); } catch(_) {}
+        }
+        return;
+    }
+    setVoiceCooldown(true);
+    setTimeout(() => setVoiceCooldown(false), 1000);
     setVoiceNotif('Starting...');
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioConstraints = selectedMicDevice
+            ? { audio: { deviceId: { exact: selectedMicDevice } } }
+            : { audio: true };
+        const stream = await navigator.mediaDevices.getUserMedia(audioConstraints);
         voiceStreamRef.current = stream;
 
         // Live volume meter
@@ -2276,6 +2314,9 @@ const blob = new Blob(chunks, { type: 'audio/wav' });
         recorder.start();
         setVoiceActive(true);
         setVoiceNotif('Recording - click 🎙️ again when done to search');
+        if (soundSettings.MicActive && SOUNDS.MIC_ACTIVESFX) {
+            try { const a = new Audio(SOUNDS.MIC_ACTIVESFX); a.volume = 0.5; a.play().catch(() => {}); } catch(_) {}
+        }
     } catch(e) {
         setVoiceNotif('Error: ' + (e.message || 'Mic denied'));
         setVoiceActive(false);
@@ -2292,11 +2333,23 @@ const stopVoicePlate = () => {
     setVoiceActive(false);
     setVoiceNotif('');
     setMicLevel(0);
+    if (soundSettings.MicInactive && SOUNDS.MIC_INACTIVESFX) {
+        try { const a = new Audio(SOUNDS.MIC_INACTIVESFX); a.volume = 0.5; a.play().catch(() => {}); } catch(_) {}
+    }
 };
 useEffect(() => {
     if (!useMicrophone && micTestActive) {
         stopMicTest();
     }
+}, [useMicrophone]);
+
+// Enumerate mic devices when microphone is enabled
+useEffect(() => {
+    if (!useMicrophone) return;
+    navigator.mediaDevices.enumerateDevices().then(devices => {
+        const mics = devices.filter(d => d.kind === 'audioinput');
+        setAvailableMicDevices(mics);
+    }).catch(() => {});
 }, [useMicrophone]);
 
 useEffect(() => {
@@ -2521,7 +2574,10 @@ const stopMicTest = () => {
 const startMicTest = async () => {
     setMicTestError('');
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioConstraints = selectedMicDevice
+            ? { audio: { deviceId: { exact: selectedMicDevice } } }
+            : { audio: true };
+        const stream = await navigator.mediaDevices.getUserMedia(audioConstraints);
         micStreamRef.current = stream;
         const ctx = new AudioContext();
         micAudioCtxRef.current = ctx;
@@ -2978,12 +3034,12 @@ React.useEffect(() => {
         window.electron?.invoke('register-global-shortcut', { key: micHotkey, id: 'mic-toggle', requireFocus: keybindsRequireFocus });
     }
     window.electron?.on('global-shortcut-fired', (id) => {
-        if (id === 'mic-toggle' && activeView === 'search' && useMicrophone && !loading && !searchCooldown) {
+        if (id === 'mic-toggle' && activeView === 'search' && useMicrophone && !loading && !searchCooldown && !voiceCooldown) {
             voiceActive ? stopVoicePlate() : startVoicePlate();
         }
     });
     return () => window.electron?.removeAllListeners?.('global-shortcut-fired');
-}, [micHotkey, voiceActive, useMicrophone, loading, searchCooldown, activeView, keybindsRequireFocus]);
+}, [micHotkey, voiceActive, useMicrophone, loading, searchCooldown, voiceCooldown, activeView, keybindsRequireFocus]);
 
 
 React.useEffect(() => {
@@ -3106,6 +3162,24 @@ const FAQ_DATA = [
 
 
 const updateLogsData = [
+        {
+        title: "CAD SYSTEM - HOTFIX",
+        version: "0.1.0.4",
+        release_date: "03/22/2026",
+        description: "Fixes to registered vehicle timestamps and citations not filling out Roblox profile data properly.",
+        new: [
+            'ADDED support for testing branch to minimize maintenance time during updates.',
+            'ADDED a drop-down setting to select your input device (microphone).',
+            'ADDED 3 new sounds for Voice to Plate feature.'
+        ],
+        bugs: [],
+        modifications: [
+         'FIXED vehicle-registered timestamps not showing correctly under "ID LOOKUP" tab.',
+         'FIXED vehicle-registered timestamps not showing for improperly registered vehicles.',
+        ],
+        removed: [],
+        planned: []
+    },
     {
         title: "CAD SYSTEM - HOTFIX",
         version: "0.1.0.3",
@@ -3594,7 +3668,11 @@ DiscordAccountToken=${discordToken || ''}
 GroqConsoleAPIKey=${groqConsoleAPIKey || ''}
 AmericanDateFormat=${trooperSettings?.AmericanDateFormat || 'FALSE'}
 ACTIONBAR_KEYBIND=${actionBarKeybind || 'CTRL+K'}
-KEYBINDS_REQUIRE_FOCUS=${keybindsRequireFocus ? 'TRUE' : 'FALSE'}`;
+KEYBINDS_REQUIRE_FOCUS=${keybindsRequireFocus ? 'TRUE' : 'FALSE'}
+MIC_DEVICE=${selectedMicDevice || ''}
+SFX_MIC_ACTIVE=${soundSettings.MicActive ? 'TRUE' : 'FALSE'}
+SFX_MIC_INACTIVE=${soundSettings.MicInactive ? 'TRUE' : 'FALSE'}
+SFX_MIC_NOTAVAILABLE=${soundSettings.MicNotAvailable ? 'TRUE' : 'FALSE'}`;
 
     try {
         if (window.require) {
@@ -3621,6 +3699,10 @@ if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
                     if (key === 'PANIC_HOTKEY') { setPanicHotkey(val); setPanicHotkeyDraft(val); }
                     if (key === 'PANIC_TRIGGER_MODE') { setPanicTriggerMode(val); setPanicTriggerModeDraft(val); }
                     if (key === 'PHONETIC_MODE') setPhoneticMode(val);
+                    if (key === 'MIC_DEVICE') setSelectedMicDevice(val);
+                    if (key === 'SFX_MIC_ACTIVE') setSoundSettings(prev => ({ ...prev, MicActive: val === 'TRUE' }));
+                    if (key === 'SFX_MIC_INACTIVE') setSoundSettings(prev => ({ ...prev, MicInactive: val === 'TRUE' }));
+                    if (key === 'SFX_MIC_NOTAVAILABLE') setSoundSettings(prev => ({ ...prev, MicNotAvailable: val === 'TRUE' }));
                     if (key === 'ACKNOWLEDGE_KEYBIND') { setAcknowledgeKeybind(val); setAcknowledgeKeybindDraft(val); }
                     if (key === 'AmericanDateFormat') setTrooperSettings(prev => ({ ...prev, AmericanDateFormat: val }));
                     
@@ -5223,7 +5305,16 @@ const parseRegistration = async (message) => {
     addLog('Parsing registration (AI-powered, multi-vehicle support)...', 'info');
     
     const fullText = message.content;
-    const lines = fullText.split('\n').map(l => l.trim());
+    let lines = fullText.split('\n').map(l => l.trim());
+
+    // Handle single-line inline format: "<@id> 2022 Make Model Color State Plate"
+    if (lines.length === 1) {
+        const inlineMatch = fullText.replace(/<@\d+>\s*/, '').trim();
+        const parts = inlineMatch.split(/\s+/);
+        if (parts.length >= 2) {
+            lines = inlineMatch.split(/\s+/);
+        }
+    }
     
     const userIdMatch = fullText.match(/<@(\d+)>/);
     const discordUserId = userIdMatch ? userIdMatch[1] : 'Unknown';
@@ -5693,18 +5784,28 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
                     // Count how many failed to parse
                     const failedCount = foundMessages.length - allRegistrations.length;
                     
-                    // CASE 1: NO vehicles could be parsed
+                    // CASE 1: NO vehicles could be parsed — show as improper registrations
                     if (allRegistrations.length === 0) {
                         console.error('❌ [SEARCH] No vehicles could be parsed');
-                        console.log(`🔍 [DEBUG] Found ${foundMessages.length} registration(s) but all failed to parse`);
-                        addLog(`❌ Unable to parse ${foundMessages.length} registration(s)`, 'error');
+                        addLog(`❌ Unable to parse ${foundMessages.length} registration(s) — flagging as improper`, 'error');
                         playSound('fail');
-                        
-                        setRegistration(null);
-                        setError('AI was unable to parse registration. Registration does exist, however user has not followed format.');
+                        const failedRaw = foundMessages.map(m => ({
+                            content: m.content,
+                            timestamp: m.edited_timestamp || m.timestamp
+                        }));
+                        setSearchResults({
+                            vehicles: [],
+                            failedVehicleRaw: failedRaw,
+                            robloxUser: robloxUserData,
+                            discordUserId: discordUserId,
+                            warrants: null,
+                            parseFailCount: foundMessages.length,
+                            vehicleErrorMessage: null,
+                            noRegistrationFound: false
+                        });
                         setLoading(false);
                         setSearchProgress(0);
-                        return;  // STOP EXECUTION instead of throwing
+                        return;
                     }
                     
                     // CASE 2: SOME parsed, SOME failed
@@ -5825,7 +5926,8 @@ if (parseFailedButVehicleExists) {
         plate: searchedPlate,
         phoneticPlate: convertToPhonetic(searchedPlate),
         discordUserId: ownerId,
-        rawDiscordMessage: foundMessages?.[0]?.content || null
+        rawDiscordMessage: foundMessages?.[0]?.content || null,
+        registeredAt: foundMessages?.[0] ? new Date(foundMessages[0].edited_timestamp || foundMessages[0].timestamp).toLocaleString() : null
     });
     
     // ✅ Set regData to minimal object so code below works
@@ -6631,7 +6733,19 @@ console.log('📦 [VEHICLES] Processing', vMessages.length, 'messages...!');
             for (const msg of vMessages) {
                 console.log('📨 [MSG] Processing message ID:', msg.id);
                 const fullText = msg.content;
-                const lines = fullText.split('\n').map(l => l.trim());
+                let lines = fullText.split('\n').map(l => l.trim());
+
+                // Handle single-line format: "<@id>  2022 Make Model Color State Plate"
+                if (lines.length === 1) {
+                    const stripped = fullText.replace(/<@\d+>\s*/, '').trim();
+                    const parts = stripped.split(/\s+/);
+                    // If stripped content starts with a year, treat each space-separated token as a line
+                    if (parts.length >= 2 && /^(19|20)\d{2}$/.test(parts[0])) {
+                        lines = parts;
+                        console.log('📝 [MSG] Converted single-line to', lines.length, 'tokens');
+                    }
+                }
+
                 console.log('📝 [MSG] Message has', lines.length, 'lines');
                 
                 const carBlocks = [];
@@ -6681,7 +6795,7 @@ console.log('📦 [VEHICLES] Processing', vMessages.length, 'messages...!');
                 
                 // If message had enough content but no blocks detected → improper registration
                 const cleanLines = lines.filter(l => l && !l.includes('<@') && !l.startsWith('@'));
-                if (carBlocks.length === 0 && cleanLines.length >= 3) {
+                if (carBlocks.length === 0 && (cleanLines.length >= 1)) {
                     console.log('⚠️ [PARSE] Message has content but no parseable blocks - flagging as improper');
                     allVehicleBlocks._failedRaw = allVehicleBlocks._failedRaw || [];
                     allVehicleBlocks._failedRaw.push({ content: msg.content, timestamp: msg.timestamp });
@@ -9705,6 +9819,8 @@ return (
                     }
                     const alreadyAccepted = localStorage.getItem('mdtWelcomeAccepted');
                     if (!alreadyAccepted) setShowWelcomePopup(true);
+                    const loadedSoundCount = window.SOUNDS ? Object.keys(window.SOUNDS).length : 0;
+                    if (loadedSoundCount < 12) setSoundsOutOfDate(true);
                     if (soundSettings?.StartupSFX && SOUNDS.StartupSFX) {
                         try { const audio = new Audio(SOUNDS.StartupSFX); audio.volume = 0.5; audio.play().catch(() => {}); } catch (e) {}
                     }
@@ -10356,7 +10472,15 @@ return (
 <div style={{ display: 'flex', gap: '8px' }}>
                         {useMicrophone && (
                             <button
-                                onClick={() => { if (loading || searchCooldown) return; voiceActive ? stopVoicePlate() : startVoicePlate(); }}
+                                onClick={() => {
+                                    if (loading || searchCooldown) {
+                                        if (soundSettings.MicNotAvailable && SOUNDS.MIC_NOTAVAILABLESFX) {
+                                            try { const a = new Audio(SOUNDS.MIC_NOTAVAILABLESFX); a.volume = 0.5; a.play().catch(() => {}); } catch(_) {}
+                                        }
+                                        return;
+                                    }
+                                    voiceActive ? stopVoicePlate() : startVoicePlate();
+                                }}
                                 title="Voice to Text"
                                 disabled={loading || searchCooldown}
                                 style={{ width: '52px', flexShrink: 0, padding: '14px', background: voiceActive ? 'linear-gradient(135deg,#dc2626,#991b1b)' : 'rgba(59,130,246,0.15)', border: '1px solid ' + (voiceActive ? '#dc2626' : 'rgba(59,130,246,0.3)'), borderRadius: '10px', color: (loading || searchCooldown) ? '#4b5563' : voiceActive ? 'white' : '#93c5fd', fontSize: '18px', cursor: (loading || searchCooldown) ? 'not-allowed' : 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🎙️</button>
@@ -10457,7 +10581,7 @@ return (
                                         </div>
                                     </div>
                                     <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(59,130,246,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div style={{ color: '#64748b', fontSize: '11px' }}>{reg.timestamp}</div>
+                                        <div style={{ color: '#64748b', fontSize: '11px' }}>{reg.timestamp ? new Date(reg.timestamp).toLocaleString() : ''}</div>
                                         <div style={{ color: '#3b82f6', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>→ View Full Details</div>
                                     </div>
                                 </div>
@@ -10536,7 +10660,12 @@ return (
                                         VIEW GOVERNMENT RECORDS
                                     </button>
 
-                                    <button onClick={() => { generateCitation(result, registration); }}
+                                    <button onClick={() => {
+                                        const citationReg = registration?.parseFailed
+                                            ? { ...registration, timestamp: registration.registeredAt || '' }
+                                            : registration;
+                                        generateCitation(result, citationReg);
+                                    }}
                                         style={{ width: '100%', marginTop: '10px', padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', boxShadow: '0 4px 12px rgba(16,185,129,0.3)', transition: 'all 0.2s' }}
                                         onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(16,185,129,0.5)'; }}
                                         onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(16,185,129,0.3)'; }}>
@@ -10875,8 +11004,8 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
 
                             <button onClick={async () => {
                                 if (!searchResults) { showCustomError('Error', 'No search results available.'); return; }
-                                const robloxData = searchResults.robloxUser || {};
-                                const tempResult = { username: robloxData.username || 'UNKNOWN', userId: robloxData.userId || 'UNKNOWN', displayName: robloxData.displayName || 'UNKNOWN', joinDate: robloxData.joinDate || 'UNKNOWN', avatarUrl: robloxData.avatarUrl || null };
+                                const robloxData = searchResults.robloxUser || result || {};
+                                const tempResult = { username: robloxData.username || result?.username || 'UNKNOWN', userId: robloxData.userId || result?.userId || 'UNKNOWN', displayName: robloxData.displayName || result?.displayName || 'UNKNOWN', joinDate: robloxData.joinDate || result?.joinDate || 'UNKNOWN', avatarUrl: robloxData.avatarUrl || result?.avatarUrl || null };
                                 const tempRegistration = { discordUserId: searchResults.discordUserId || 'UNKNOWN', year: '', make: '', model: '', plate: '', state: '', color: '', vehicleType: '', timestamp: '', phoneticPlate: '', hasHandicapPermit: false, isEdited: false };
                                 addLog('Exporting citation WITHOUT vehicle registration', 'info');
                                 await generateCitation(tempResult, tempRegistration);
@@ -10967,7 +11096,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                             <div style={{ margin: '0 12px 12px', background: 'rgba(16,185,129,0.06)', borderRadius: '8px', padding: '8px 12px' }}>
                                                 <div style={{ fontSize: '11px', color: '#6ee7b7', fontWeight: '600' }}>
                                                     {vehicle.isEdited ? 'Last Edited: ' : 'Registered: '}
-                                                    <span style={{ color: 'white', fontWeight: '700' }}>{vehicle.timestamp}</span>
+                                                    <span style={{ color: 'white', fontWeight: '700' }}>{vehicle.timestamp ? new Date(vehicle.timestamp).toLocaleString() : 'N/A'}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -11285,7 +11414,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                 </div>
 
                                 <div style={S.divider} />
-                                <div style={{ ...S.fieldLabel, marginBottom: '8px' }}>🔔 Sound Effects</div>
+                                <div style={{ ...S.fieldLabel, marginBottom: '8px' }}>🔔 Search Sound Effects</div>
                                 {[
                                     { label: 'Plate Search - Success', key: 'platePass' },
                                     { label: 'Plate Search - Not Found', key: 'plateFail' },
@@ -11312,8 +11441,38 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                         <button onClick={() => micTestActive ? stopMicTest() : startMicTest()} style={S.btn(micTestActive ? '#ef4444' : '#a855f7', false)}>
                                             {micTestActive ? 'Stop Test' : '🎙️ Test Microphone'}
                                         </button>
+
+                                        <div style={{ marginTop: '10px' }}>
+                                            <div style={{ ...S.fieldLabel, marginBottom: '5px' }}>Input Device</div>
+                                            <select
+                                                value={selectedMicDevice}
+                                                onChange={e => setSelectedMicDevice(e.target.value)}
+                                                onClick={() => {
+                                                    navigator.mediaDevices.enumerateDevices().then(devices => {
+                                                        setAvailableMicDevices(devices.filter(d => d.kind === 'audioinput'));
+                                                    }).catch(() => {});
+                                                }}
+                                                style={{ ...S.input, color: '#e2e8f0', cursor: 'pointer' }}>
+                                                <option value=''>System Default</option>
+                                                {availableMicDevices.map(d => (
+                                                    <option key={d.deviceId} value={d.deviceId} style={{ background: '#0f172a' }}>
+                                                        {d.label || `Microphone (${d.deviceId.slice(0, 8)}...)`}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
                                     </div>
                                 )}
+
+                                <div style={S.divider} />
+                                <div style={{ ...S.fieldLabel, marginBottom: '8px' }}>🎙️ Voice Monitoring Sound Effects</div>
+                                {[
+                                    { label: 'Mic Activated', key: 'MicActive' },
+                                    { label: 'Mic Deactivated', key: 'MicInactive' },
+                                    { label: 'Mic Cooldown (on cooldown)', key: 'MicNotAvailable' },
+                                ].map(({ label, key }) => (
+                                    <ToggleRow key={key} label={label} on={soundSettings[key]} accent="#a855f7" onToggle={() => setSoundSettings({...soundSettings, [key]: !soundSettings[key]})} />
+                                ))}
                             </div>
 
                             {/* ── DEVELOPER TOOLS ── */}
@@ -11341,7 +11500,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                 <div style={S.sectionHead('#4ade80')}>💾 Export Settings</div>
                                 <div style={S.sectionSub}>Write all current settings to your CADSystemSettings.txt file</div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '12px' }}>
-                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE','PANIC_ENABLED','PANIC_HOTKEY','PANIC_TRIGGER_MODE','ACKNOWLEDGE_KEYBIND', 'PHONETIC_MODE'].map(k => (
+                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE','PANIC_ENABLED','PANIC_HOTKEY','PANIC_TRIGGER_MODE','ACKNOWLEDGE_KEYBIND','PHONETIC_MODE','MIC_DEVICE','SFX_MIC_ACTIVE','SFX_MIC_INACTIVE','SFX_MIC_NOTAVAILABLE'].map(k => (
                                         <span key={k} style={{ padding: '2px 7px', background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.18)', borderRadius: '4px', color: '#4ade80', fontSize: '10px', fontFamily: 'monospace' }}>{k}</span>
                                     ))}
                                     <span style={{ padding: '2px 7px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '4px', color: '#f87171', fontSize: '10px', fontFamily: 'monospace' }}>ActiveSession*</span>
@@ -11961,6 +12120,32 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
 
                 {/* USEFUL LINKS MODAL */}
 
+
+{soundsOutOfDate && (
+    <div style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        background: '#000000',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        zIndex: 999999,
+        padding: '40px'
+    }}>
+        <div style={{
+            width: '72px', height: '72px', borderRadius: '50%',
+            border: '4px solid rgba(255,255,255,0.15)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: '48px'
+        }}>
+            <span style={{ fontSize: '42px', fontWeight: '900', color: '#ffffff', lineHeight: 1, userSelect: 'none' }}>!</span>
+        </div>
+        <div style={{ fontSize: '38px', fontWeight: '900', color: '#ffffff', letterSpacing: '-1px', lineHeight: '1.1', marginBottom: '20px', maxWidth: '480px' }}>
+            This app is out of date.
+        </div>
+        <div style={{ fontSize: '17px', color: 'rgba(255,255,255,0.55)', lineHeight: '1.6', maxWidth: '480px', marginBottom: '0px' }}>
+            Your current app version is unsupported and will be deprecated soon. To update, view the following channel for v0.1.0.4 installation guide:
+            <span style={{ color: '#ffffff', fontWeight: '700' }}> #installation-guide</span>
+        </div>
+    </div>
+)}
 
 {showWelcomePopup && (
     <div style={{
