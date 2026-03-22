@@ -10495,7 +10495,7 @@ return (
                                         </div>
                                     </div>
                                     <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(59,130,246,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div style={{ color: '#64748b', fontSize: '11px' }}>{reg.timestamp}</div>
+                                        <div style={{ color: '#64748b', fontSize: '11px' }}>{reg.timestamp ? new Date(reg.timestamp).toLocaleString() : ''}</div>
                                         <div style={{ color: '#3b82f6', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>→ View Full Details</div>
                                     </div>
                                 </div>
@@ -11010,7 +11010,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                             <div style={{ margin: '0 12px 12px', background: 'rgba(16,185,129,0.06)', borderRadius: '8px', padding: '8px 12px' }}>
                                                 <div style={{ fontSize: '11px', color: '#6ee7b7', fontWeight: '600' }}>
                                                     {vehicle.isEdited ? 'Last Edited: ' : 'Registered: '}
-                                                    <span style={{ color: 'white', fontWeight: '700' }}>{vehicle.timestamp}</span>
+                                                    <span style={{ color: 'white', fontWeight: '700' }}>{vehicle.timestamp ? new Date(vehicle.timestamp).toLocaleString() : 'N/A'}</span>
                                                 </div>
                                             </div>
                                         </div>
