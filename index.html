@@ -1227,6 +1227,12 @@ html, body {
     }
 }
 
+@keyframes warrant-dots {
+    0%   { content: '.';   }
+    33%  { content: '..';  }
+    66%  { content: '...'; }
+    100% { content: 'Finalizing';   }
+}
 @keyframes pulse-border-warrant {
     0%, 100% { 
         border-color: #991b1b;
@@ -1460,7 +1466,25 @@ const PanicCountdown = ({ onExpire }) => {
             );
         };
 
-        const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
+const raceProxies = (promises) => new Promise((resolve) => {
+    let remaining = promises.length;
+    promises.forEach(p => Promise.resolve(p).then(r => {
+        remaining--;
+        if (r && r.success) resolve(r);
+        else if (remaining === 0) resolve(null);
+    }).catch(() => { remaining--; if (remaining === 0) resolve(null); }));
+});
+
+const WarrantDots = () => {
+    const [dots, setDots] = React.useState(1);
+    React.useEffect(() => {
+        const t = setInterval(() => setDots(d => d >= 3 ? 1 : d + 1), 500);
+        return () => clearInterval(t);
+    }, []);
+    return <span>WARRANT: {'.'.repeat(dots)}</span>;
+};
+
+const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
             <div onClick={onToggle} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: on ? `${accent}12` : 'rgba(255,255,255,0.02)', border: `1px solid ${on ? `${accent}30` : 'rgba(255,255,255,0.05)'}`, borderRadius: '9px', cursor: 'pointer', transition: 'all 0.15s', marginBottom: '7px' }}>
                 <div><div style={{ color: on ? '#e2e8f0' : '#6b7280', fontSize: '13px', fontWeight: '600' }}>{label}</div>{desc && <div style={{ color: '#6b7280', fontSize: '11px', marginTop: '2px' }}>{desc}</div>}</div>
                 <div style={{ width: '38px', height: '21px', borderRadius: '11px', background: on ? accent : 'rgba(255,255,255,0.08)', position: 'relative', transition: 'all 0.2s', flexShrink: 0, marginLeft: '14px' }}>
@@ -1508,7 +1532,7 @@ const PanicCountdown = ({ onExpire }) => {
         (function() {
             const badge = document.createElement('div');
             const sha = window.APP_COMMIT_SHA || 'dev';
-            badge.textContent = `BETA BUILD - APP V. 0.1.0.4  •  ${sha}`;
+            badge.textContent = `BETA BUILD - APP V. 0.1.0.5  •  ${sha}`;
             badge.style.cssText = 'position:fixed;bottom:16px;left:16px;font-size:10px;font-weight:700;color:rgba(251,191,36,0.55);letter-spacing:1.5px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;';
             document.body.appendChild(badge);
             if (window.APP_GITHUB_BRANCH && window.APP_GITHUB_BRANCH !== 'main') {
@@ -1520,7 +1544,7 @@ const PanicCountdown = ({ onExpire }) => {
         })();
 
         function NYSPLookupTool() {
-            const APP_VERSION = '0.1.0.4';
+            const APP_VERSION = '0.1.0.5';
             const [licensePlate, setLicensePlate] = useState('');
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
@@ -1580,6 +1604,7 @@ const [robloxError, setRobloxError] = useState(null);
 const [robloxLoadingStage, setRobloxLoadingStage] = useState('');
 const [warrantInfo, setWarrantInfo] = useState(null);
 const [warrantFlash, setWarrantFlash] = useState(false);
+const [warrantChecking, setWarrantChecking] = useState(false);
 const [callButtonFlash, setCallButtonFlash] = useState(false);
 const [showLoader, setShowLoader] = useState(true);
 const [searchUsername, setSearchUsername] = useState('');
@@ -3162,6 +3187,22 @@ const FAQ_DATA = [
 
 
 const updateLogsData = [
+    {
+        title: "CAD SYSTEM - HOTFIX",
+        version: "0.1.0.5",
+        release_date: "03/23/2026",
+        description: "Boost in Roblox Profile searching and warrant details.",
+        new: [
+            'ADDED a dropdown setting in "pending calls" tab to select your session if it has not been selected already.',
+        ],
+        bugs: [],
+        modifications: [
+         'FIXED a bug where the Roblox Profile search delay was higher than necessary.',
+        'FIXED a bug where the warrant search delay was higher than necessary for "Search by License plate" tab.',
+        ],
+        removed: [],
+        planned: []
+    },
         {
         title: "CAD SYSTEM - HOTFIX",
         version: "0.1.0.4",
@@ -5483,7 +5524,7 @@ const lookupRobloxUser = async (username, retryCount = 0) => {
             try {
                 const resp = await Promise.race([
                     fetch(proxy.url(searchUrl)),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500))
                 ]);
                 
                 if (resp.ok) {
@@ -5498,8 +5539,7 @@ const lookupRobloxUser = async (username, retryCount = 0) => {
             }
         });
         
-        const results = await Promise.all(searchPromises);
-        const successResult = results.find(r => r.success);
+        const successResult = await raceProxies(searchPromises);
         
         if (successResult) {
             addLog(`✅ Success with ${successResult.proxy}!`, 'success');
@@ -5521,7 +5561,7 @@ const lookupRobloxUser = async (username, retryCount = 0) => {
                     try {
                         const avatarResp = await Promise.race([
                             fetch(proxy.url(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png`)),
-                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500))
                         ]);
                         
                         if (avatarResp.ok) {
@@ -5538,7 +5578,7 @@ const lookupRobloxUser = async (username, retryCount = 0) => {
                     try {
                         const detailsResp = await Promise.race([
                             fetch(proxy.url(`https://users.roblox.com/v1/users/${userId}`)),
-                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500))
                         ]);
                         
                         if (detailsResp.ok) {
@@ -6154,14 +6194,15 @@ console.log('   - Username:', memberData.user.username);
                             } : search
                         ));
                         
+                        setWarrantChecking(true);
+                        setWarrantInfo(null);
                         checkWarrants(regData.discordUserId).then(warrants => {
+                            setWarrantChecking(false);
                             if (warrants) {
-                                setTimeout(() => {
-                                    setWarrantInfo(warrants);
-                                    setWarrantFlash(true);
-                                    playWarrantAlert();
-                                    setTimeout(() => setWarrantFlash(false), 3000);
-                                }, 1000);
+                                setWarrantInfo(warrants);
+                                setWarrantFlash(true);
+                                playWarrantAlert();
+                                setTimeout(() => setWarrantFlash(false), 3000);
                             } else {
                                 setWarrantInfo(null);
                             }
@@ -6276,6 +6317,7 @@ const channelId = trooperSettings?.RegistrationChannelID || editableTrooperSetti
         let discordUserId = null;
         let serverName = null;
         let robloxUserData = null;
+        let robloxLookupPromise = Promise.resolve(null);
         
         // Check if input is Discord ID (17-19 digits)
         if (/^\d{17,19}$/.test(actualSearchValue.trim())) {
@@ -6360,7 +6402,9 @@ discordUserId = inputUserId;
             
             addLog(`🎮 Looking up Roblox profile for: ${serverName}`, 'info');
             setSearchProgress(55);
-            
+
+            // Start Roblox lookup in parallel — doesn't block vehicle search
+            robloxLookupPromise = (async () => {
             try {
                 const proxies = [
                     { name: 'Direct API', url: (endpoint) => endpoint },
@@ -6378,7 +6422,7 @@ discordUserId = inputUserId;
                     try {
                         const resp = await Promise.race([
                             fetch(proxy.url(searchUrl)),
-                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500))
                         ]);
                         
                         if (resp.ok) {
@@ -6396,13 +6440,11 @@ discordUserId = inputUserId;
                     }
                 });
                 
-                const results = await Promise.all(searchPromises);
-                const successResult = results.find(r => r.success);
+                const successResult = await raceProxies(searchPromises);
                 
                 if (successResult) {
                     console.log('✅ [SUCCESS] Proxy succeeded:', successResult.proxy);
                     addLog(`✓ Success with ${successResult.proxy}!`, 'success');
-                    setSearchProgress(65);
                     
                     const exactMatch = successResult.data.data.find(u => 
                         u.name.toLowerCase() === serverName.toLowerCase()
@@ -6411,7 +6453,6 @@ discordUserId = inputUserId;
                     
                     console.log('👤 [ROBLOX] User:', userData.name);
                     addLog(`✓ Found Roblox: ${userData.name}`, 'success');
-                    setSearchProgress(70);
                     
                     // Get avatar and details
                     let avatarUrl = null;
@@ -6426,7 +6467,7 @@ discordUserId = inputUserId;
                             try {
                                 const detailsResp = await Promise.race([
                                     fetch(proxy.url(`https://users.roblox.com/v1/users/${userData.id}`)),
-                                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+                                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1200))
                                 ]);
                                 
                                 if (detailsResp.ok) {
@@ -6451,13 +6492,11 @@ discordUserId = inputUserId;
                             joinDate = detailsData.created ? new Date(detailsData.created).toLocaleDateString() : 'Unknown';
                             displayName = detailsData.displayName || userData.displayName || userData.name;
                         }
-                        
-                        setSearchProgress(75);
                     } catch (e) {
                         console.error('❌ [AVATAR] Error:', e.message);
                     }
                     
-                    robloxUserData = {
+                    const resolved = {
                         username: userData.name,
                         userId: userData.id,
                         displayName: displayName,
@@ -6467,11 +6506,17 @@ discordUserId = inputUserId;
                     
                     console.log('✅ [SUCCESS] Roblox profile loaded');
                     addLog(`✓ Roblox profile loaded successfully`, 'success');
+                    // Show profile on screen immediately without waiting for vehicles
+                    setSearchResults(prev => ({ ...(prev || {}), robloxUser: resolved }));
+                    return resolved;
                 }
+                return null;
             } catch (e) {
                 console.error('❌ [ERROR] Roblox lookup failed:', e.message);
+                return null;
             }
-            
+            })();
+
 } else {
             // USERNAME SEARCH - Search entire server using member search API (like old system)
             console.log('📝 [SEARCH] Searching by username:', actualSearchValue);
@@ -6562,7 +6607,7 @@ discordUserId = inputUserId;
                     try {
                         const resp = await Promise.race([
                             fetch(proxy.url(searchUrl)),
-                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500))
                         ]);
                         
                         if (resp.ok) {
@@ -6577,8 +6622,7 @@ discordUserId = inputUserId;
                     }
                 });
                 
-                const results = await Promise.all(searchPromises);
-                const successResult = results.find(r => r.success);
+                const successResult = await raceProxies(searchPromises);
                 
                 if (successResult) {
                     addLog(`✓ Success with ${successResult.proxy}!`, 'success');
@@ -6597,7 +6641,7 @@ discordUserId = inputUserId;
                             try {
                                 const avatarResp = await Promise.race([
                                     fetch(proxy.url(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userData.id}&size=150x150&format=Png`)),
-                                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+                                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1200))
                                 ]);
                                 
                                 if (avatarResp.ok) {
@@ -6614,7 +6658,7 @@ discordUserId = inputUserId;
                             try {
                                 const detailsResp = await Promise.race([
                                     fetch(proxy.url(`https://users.roblox.com/v1/users/${userData.id}`)),
-                                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+                                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1200))
                                 ]);
                                 
                                 if (detailsResp.ok) {
@@ -6658,13 +6702,19 @@ discordUserId = inputUserId;
             }
         }
         
-        // Search for vehicles
+        // Search for vehicles — runs in parallel with Roblox lookup above
         console.log('═══════════════════════════════════════════════════');
-        console.log('🚗 [STEP 4] Searching for vehicles...');
+        console.log('🚗 [STEP 4] Searching for vehicles (parallel with Roblox)...');
         console.log('═══════════════════════════════════════════════════');
         
         addLog('Searching for registered vehicles...', 'info');
         setSearchProgress(80);
+
+        // Collect Roblox result now (may already be done, or finish during vehicle fetch)
+        if (typeof robloxLookupPromise !== 'undefined') {
+            const resolvedRoblox = await robloxLookupPromise;
+            if (resolvedRoblox) robloxUserData = resolvedRoblox;
+        }
         
         const allVehicles = [];
         const allVehicleBlocks = [];
@@ -8037,13 +8087,16 @@ const channelId = trooperSettings?.DatabaseChannelID || editableTrooperSettings?
         
         const searchUrl = `https://discord.com/api/v9/guilds/${guildId}/messages/search?channel_id=${channelId}&mentions=${discordUserId}`;
         
-        const resp = await fetch(searchUrl, {
-            headers: { 
-                'Authorization': discordToken,
-                'Content-Type': 'application/json'
-            }
-        });
-        
+        const resp = await Promise.race([
+            fetch(searchUrl, {
+                headers: {
+                    'Authorization': discordToken,
+                    'Content-Type': 'application/json'
+                }
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('warrant timeout')), 5000))
+        ]);
+
         if (!resp.ok) return null;
         
         const data = await resp.json();
@@ -10111,7 +10164,9 @@ return (
         animation: 'fadeIn 0.4s ease-out',
         boxSizing: 'border-box',
         background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
-        minHeight: '100vh'
+        minHeight: '100vh',
+        WebkitMaskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)',
+        maskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)'
     }}>
         <div className="card" style={{ 
             height: 'calc(100vh - 60px)',
@@ -10387,7 +10442,7 @@ return (
 }}>
 
 {activeView === 'search' && (
-<div style={{ minHeight: 'calc(100vh - 40px)', background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)', padding: '20px', boxSizing: 'border-box' }}>
+<div style={{ minHeight: 'calc(100vh - 40px)', background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)', padding: '20px', boxSizing: 'border-box', WebkitMaskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)', maskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)' }}>
 {/* ── HEADER ── */}
 <div style={{ marginBottom: '20px', padding: '20px 28px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,58,138,0.35))', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 4px 32px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', position: 'relative', overflow: 'hidden' }}>
 
@@ -10636,8 +10691,12 @@ return (
                                     {result?.joinDate && (<div className="info-item"><span className="info-label">Join Date:</span><span className="info-value">{result.joinDate}</span></div>)}
                                     <div className="info-item"><span className="info-label">Discord ID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{registration?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={() => copyToClipboard(registration?.discordUserId, 'discord-owner')}>{copiedField === 'discord-owner' ? 'Copied!' : 'Copy'}</button></div></div>
                                     <div style={{ marginTop: '14px', padding: '12px 16px', background: warrantFlash ? '#dc2626' : (warrantInfo ? '#ef4444' : 'rgba(255,255,255,0.05)'), border: `1px solid ${warrantInfo ? '#991b1b' : 'rgba(255,255,255,0.1)'}`, borderRadius: '10px', transition: 'all 0.3s', animation: warrantInfo ? 'pulse-border-warrant 2s infinite' : 'none', boxShadow: warrantInfo ? '0 0 20px rgba(239,68,68,0.5)' : 'none' }}>
-                                        <div style={{ color: warrantInfo ? '#fff' : '#86efac', fontSize: '13px', fontWeight: '700' }}>
-                                            {warrantInfo ? (<>WARRANT: ACTIVE {warrantInfo.bench > 0 && `BENCH WARRANT${warrantInfo.bench > 1 ? ` (${warrantInfo.bench})` : ''}`}{warrantInfo.bench > 0 && warrantInfo.arrest > 0 && ', '}{warrantInfo.arrest > 0 && `ARREST WARRANT${warrantInfo.arrest > 1 ? ` (${warrantInfo.arrest})` : ''}`}</>) : ('WARRANT: NO ACTIVE WARRANTS')}
+                                        <div style={{ color: warrantInfo ? '#fff' : (warrantChecking ? '#fbbf24' : '#86efac'), fontSize: '13px', fontWeight: '700' }}>
+                                            {warrantChecking ? (
+                                                <WarrantDots />
+                                            ) : warrantInfo ? (
+                                                <>WARRANT: ACTIVE {warrantInfo.bench > 0 && `BENCH WARRANT${warrantInfo.bench > 1 ? ` (${warrantInfo.bench})` : ''}`}{warrantInfo.bench > 0 && warrantInfo.arrest > 0 && ', '}{warrantInfo.arrest > 0 && `ARREST WARRANT${warrantInfo.arrest > 1 ? ` (${warrantInfo.arrest})` : ''}`}</>
+                                            ) : ('WARRANT: NO ACTIVE WARRANTS')}
                                         </div>
                                     </div>
                                 </>
@@ -10816,7 +10875,7 @@ return (
     </div>
 )}
 {activeView === 'database-search' && (
-    <div style={{ minHeight: 'calc(100vh - 40px)', background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)', padding: '20px', boxSizing: 'border-box' }}>
+    <div style={{ minHeight: 'calc(100vh - 40px)', background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)', padding: '20px', boxSizing: 'border-box', WebkitMaskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)', maskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)' }}>
 
         {/* ── HEADER ── */}
         <div style={{ marginBottom: '20px', padding: '20px 28px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,58,138,0.35))', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 4px 32px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', position: 'relative', overflow: 'hidden' }}>
@@ -11524,7 +11583,9 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
         padding: '20px',
         background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
         minHeight: '100vh',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        WebkitMaskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)',
+        maskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)'
     }}>
         {/* ── HEADER ── */}
         <div style={{ 
@@ -11762,31 +11823,45 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                     fontSize: '14px', 
                     lineHeight: '1.8',
                     maxWidth: '600px',
-                    marginBottom: '32px'
+                    marginBottom: '24px'
                 }}>
-                    You must select an active session in Settings before viewing emergency calls.
+                    Select a session below to start monitoring emergency calls.
                 </p>
-                
-                <button 
-                    onClick={() => {
-                        setActiveView('settings');
-                        setSettingsWarningDismissed(true);
-                    }}
-                    style={{
-                        padding: '14px 48px',
-                        background: 'linear-gradient(135deg, #eab308, #ca8a04)',
-                        color: 'white',
-                        border: '1px solid #a16207',
-                        borderRadius: '10px',
-                        fontSize: '16px',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        transition: 'all 0.3s',
-                        boxShadow: '0 4px 16px rgba(245, 158, 11, 0.3)'
-                    }}
-                >
-                    GO TO SETTINGS
-                </button>
+
+                <div style={{ width: '100%', maxWidth: '360px', marginBottom: '16px' }}>
+                    <div style={{ fontSize: '11px', color: '#fcd34d', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '8px' }}>📡 Active Session</div>
+                    <select
+                        value={selectedUserSession}
+                        onChange={e => { setSelectedUserSession(e.target.value); addLog('✅ Session updated', 'success'); }}
+                        style={{ width: '100%', padding: '12px 14px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: '10px', color: '#fef3c7', fontSize: '14px', fontWeight: '600', cursor: 'pointer', outline: 'none' }}>
+                        <option value="" style={{ background: '#0f172a' }}>None (No Alerts)</option>
+                        <option value="1011898104670330920" style={{ background: '#0f172a' }}>Session 1</option>
+                        <option value="1390212294478397471" style={{ background: '#0f172a' }}>Session 2</option>
+                        <option value="1390212341005680650" style={{ background: '#0f172a' }}>Session 3</option>
+                    </select>
+                </div>
+
+                {selectedUserSession && (
+                    <button
+                        onClick={() => { setActiveView('calls'); }}
+                        style={{
+                            padding: '14px 48px',
+                            background: 'linear-gradient(135deg, #eab308, #ca8a04)',
+                            color: 'white',
+                            border: '1px solid #a16207',
+                            borderRadius: '10px',
+                            fontSize: '16px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s',
+                            boxShadow: '0 4px 16px rgba(245, 158, 11, 0.3)'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 6px 24px rgba(245,158,11,0.5)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(245,158,11,0.3)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                    >
+                        ✓ Confirm Session Selection
+                    </button>
+                )}
             </div>
         ) : (
             <div>
