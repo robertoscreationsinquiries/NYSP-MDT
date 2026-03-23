@@ -1532,7 +1532,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
         (function() {
             const badge = document.createElement('div');
             const sha = window.APP_COMMIT_SHA || 'dev';
-            badge.textContent = `BETA BUILD - APP V. 0.1.0.4  •  ${sha}`;
+            badge.textContent = `BETA BUILD - APP V. 0.1.0.5  •  ${sha}`;
             badge.style.cssText = 'position:fixed;bottom:16px;left:16px;font-size:10px;font-weight:700;color:rgba(251,191,36,0.55);letter-spacing:1.5px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;';
             document.body.appendChild(badge);
             if (window.APP_GITHUB_BRANCH && window.APP_GITHUB_BRANCH !== 'main') {
@@ -1544,7 +1544,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
         })();
 
         function NYSPLookupTool() {
-            const APP_VERSION = '0.1.0.4';
+            const APP_VERSION = '0.1.0.5';
             const [licensePlate, setLicensePlate] = useState('');
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
@@ -3187,6 +3187,22 @@ const FAQ_DATA = [
 
 
 const updateLogsData = [
+    {
+        title: "CAD SYSTEM - HOTFIX",
+        version: "0.1.0.5",
+        release_date: "03/23/2026",
+        description: "Boost in Roblox Profile searching and warrant details.",
+        new: [
+            'ADDED a dropdown setting in "pending calls" tab to select your session if it has not been selected already.',
+        ],
+        bugs: [],
+        modifications: [
+         'FIXED a bug where the Roblox Profile search delay was higher than necessary.',
+        'FIXED a bug where the warrant search delay was higher than necessary for "Search by License plate" tab.',
+        ],
+        removed: [],
+        planned: []
+    },
         {
         title: "CAD SYSTEM - HOTFIX",
         version: "0.1.0.4",
