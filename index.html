@@ -1466,7 +1466,16 @@ const PanicCountdown = ({ onExpire }) => {
             );
         };
 
-        const WarrantDots = () => {
+const raceProxies = (promises) => new Promise((resolve) => {
+    let remaining = promises.length;
+    promises.forEach(p => Promise.resolve(p).then(r => {
+        remaining--;
+        if (r && r.success) resolve(r);
+        else if (remaining === 0) resolve(null);
+    }).catch(() => { remaining--; if (remaining === 0) resolve(null); }));
+});
+
+const WarrantDots = () => {
     const [dots, setDots] = React.useState(1);
     React.useEffect(() => {
         const t = setInterval(() => setDots(d => d >= 3 ? 1 : d + 1), 500);
@@ -5499,7 +5508,7 @@ const lookupRobloxUser = async (username, retryCount = 0) => {
             try {
                 const resp = await Promise.race([
                     fetch(proxy.url(searchUrl)),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500))
                 ]);
                 
                 if (resp.ok) {
@@ -5514,8 +5523,7 @@ const lookupRobloxUser = async (username, retryCount = 0) => {
             }
         });
         
-        const results = await Promise.all(searchPromises);
-        const successResult = results.find(r => r.success);
+        const successResult = await raceProxies(searchPromises);
         
         if (successResult) {
             addLog(`✅ Success with ${successResult.proxy}!`, 'success');
@@ -5537,7 +5545,7 @@ const lookupRobloxUser = async (username, retryCount = 0) => {
                     try {
                         const avatarResp = await Promise.race([
                             fetch(proxy.url(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png`)),
-                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500))
                         ]);
                         
                         if (avatarResp.ok) {
@@ -5554,7 +5562,7 @@ const lookupRobloxUser = async (username, retryCount = 0) => {
                     try {
                         const detailsResp = await Promise.race([
                             fetch(proxy.url(`https://users.roblox.com/v1/users/${userId}`)),
-                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500))
                         ]);
                         
                         if (detailsResp.ok) {
@@ -6398,7 +6406,7 @@ discordUserId = inputUserId;
                     try {
                         const resp = await Promise.race([
                             fetch(proxy.url(searchUrl)),
-                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500))
                         ]);
                         
                         if (resp.ok) {
@@ -6416,8 +6424,7 @@ discordUserId = inputUserId;
                     }
                 });
                 
-                const results = await Promise.all(searchPromises);
-                const successResult = results.find(r => r.success);
+                const successResult = await raceProxies(searchPromises);
                 
                 if (successResult) {
                     console.log('✅ [SUCCESS] Proxy succeeded:', successResult.proxy);
@@ -6444,7 +6451,7 @@ discordUserId = inputUserId;
                             try {
                                 const detailsResp = await Promise.race([
                                     fetch(proxy.url(`https://users.roblox.com/v1/users/${userData.id}`)),
-                                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+                                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1200))
                                 ]);
                                 
                                 if (detailsResp.ok) {
@@ -6584,7 +6591,7 @@ discordUserId = inputUserId;
                     try {
                         const resp = await Promise.race([
                             fetch(proxy.url(searchUrl)),
-                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500))
                         ]);
                         
                         if (resp.ok) {
@@ -6599,8 +6606,7 @@ discordUserId = inputUserId;
                     }
                 });
                 
-                const results = await Promise.all(searchPromises);
-                const successResult = results.find(r => r.success);
+                const successResult = await raceProxies(searchPromises);
                 
                 if (successResult) {
                     addLog(`✓ Success with ${successResult.proxy}!`, 'success');
@@ -6619,7 +6625,7 @@ discordUserId = inputUserId;
                             try {
                                 const avatarResp = await Promise.race([
                                     fetch(proxy.url(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userData.id}&size=150x150&format=Png`)),
-                                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+                                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1200))
                                 ]);
                                 
                                 if (avatarResp.ok) {
@@ -6636,7 +6642,7 @@ discordUserId = inputUserId;
                             try {
                                 const detailsResp = await Promise.race([
                                     fetch(proxy.url(`https://users.roblox.com/v1/users/${userData.id}`)),
-                                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+                                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1200))
                                 ]);
                                 
                                 if (detailsResp.ok) {
@@ -8065,13 +8071,16 @@ const channelId = trooperSettings?.DatabaseChannelID || editableTrooperSettings?
         
         const searchUrl = `https://discord.com/api/v9/guilds/${guildId}/messages/search?channel_id=${channelId}&mentions=${discordUserId}`;
         
-        const resp = await fetch(searchUrl, {
-            headers: { 
-                'Authorization': discordToken,
-                'Content-Type': 'application/json'
-            }
-        });
-        
+        const resp = await Promise.race([
+            fetch(searchUrl, {
+                headers: {
+                    'Authorization': discordToken,
+                    'Content-Type': 'application/json'
+                }
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('warrant timeout')), 5000))
+        ]);
+
         if (!resp.ok) return null;
         
         const data = await resp.json();
