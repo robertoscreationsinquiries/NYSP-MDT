@@ -1227,6 +1227,12 @@ html, body {
     }
 }
 
+@keyframes warrant-dots {
+    0%   { content: '.';   }
+    33%  { content: '..';  }
+    66%  { content: '...'; }
+    100% { content: 'Finalizing';   }
+}
 @keyframes pulse-border-warrant {
     0%, 100% { 
         border-color: #991b1b;
@@ -1460,7 +1466,16 @@ const PanicCountdown = ({ onExpire }) => {
             );
         };
 
-        const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
+        const WarrantDots = () => {
+    const [dots, setDots] = React.useState(1);
+    React.useEffect(() => {
+        const t = setInterval(() => setDots(d => d >= 3 ? 1 : d + 1), 500);
+        return () => clearInterval(t);
+    }, []);
+    return <span>WARRANT: {'.'.repeat(dots)}</span>;
+};
+
+const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
             <div onClick={onToggle} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: on ? `${accent}12` : 'rgba(255,255,255,0.02)', border: `1px solid ${on ? `${accent}30` : 'rgba(255,255,255,0.05)'}`, borderRadius: '9px', cursor: 'pointer', transition: 'all 0.15s', marginBottom: '7px' }}>
                 <div><div style={{ color: on ? '#e2e8f0' : '#6b7280', fontSize: '13px', fontWeight: '600' }}>{label}</div>{desc && <div style={{ color: '#6b7280', fontSize: '11px', marginTop: '2px' }}>{desc}</div>}</div>
                 <div style={{ width: '38px', height: '21px', borderRadius: '11px', background: on ? accent : 'rgba(255,255,255,0.08)', position: 'relative', transition: 'all 0.2s', flexShrink: 0, marginLeft: '14px' }}>
@@ -1580,6 +1595,7 @@ const [robloxError, setRobloxError] = useState(null);
 const [robloxLoadingStage, setRobloxLoadingStage] = useState('');
 const [warrantInfo, setWarrantInfo] = useState(null);
 const [warrantFlash, setWarrantFlash] = useState(false);
+const [warrantChecking, setWarrantChecking] = useState(false);
 const [callButtonFlash, setCallButtonFlash] = useState(false);
 const [showLoader, setShowLoader] = useState(true);
 const [searchUsername, setSearchUsername] = useState('');
@@ -6154,14 +6170,15 @@ console.log('   - Username:', memberData.user.username);
                             } : search
                         ));
                         
+                        setWarrantChecking(true);
+                        setWarrantInfo(null);
                         checkWarrants(regData.discordUserId).then(warrants => {
+                            setWarrantChecking(false);
                             if (warrants) {
-                                setTimeout(() => {
-                                    setWarrantInfo(warrants);
-                                    setWarrantFlash(true);
-                                    playWarrantAlert();
-                                    setTimeout(() => setWarrantFlash(false), 3000);
-                                }, 1000);
+                                setWarrantInfo(warrants);
+                                setWarrantFlash(true);
+                                playWarrantAlert();
+                                setTimeout(() => setWarrantFlash(false), 3000);
                             } else {
                                 setWarrantInfo(null);
                             }
@@ -6276,6 +6293,7 @@ const channelId = trooperSettings?.RegistrationChannelID || editableTrooperSetti
         let discordUserId = null;
         let serverName = null;
         let robloxUserData = null;
+        let robloxLookupPromise = Promise.resolve(null);
         
         // Check if input is Discord ID (17-19 digits)
         if (/^\d{17,19}$/.test(actualSearchValue.trim())) {
@@ -6362,7 +6380,7 @@ discordUserId = inputUserId;
             setSearchProgress(55);
 
             // Start Roblox lookup in parallel — doesn't block vehicle search
-            const robloxLookupPromise = (async () => {
+            robloxLookupPromise = (async () => {
             try {
                 const proxies = [
                     { name: 'Direct API', url: (endpoint) => endpoint },
@@ -10648,8 +10666,12 @@ return (
                                     {result?.joinDate && (<div className="info-item"><span className="info-label">Join Date:</span><span className="info-value">{result.joinDate}</span></div>)}
                                     <div className="info-item"><span className="info-label">Discord ID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{registration?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={() => copyToClipboard(registration?.discordUserId, 'discord-owner')}>{copiedField === 'discord-owner' ? 'Copied!' : 'Copy'}</button></div></div>
                                     <div style={{ marginTop: '14px', padding: '12px 16px', background: warrantFlash ? '#dc2626' : (warrantInfo ? '#ef4444' : 'rgba(255,255,255,0.05)'), border: `1px solid ${warrantInfo ? '#991b1b' : 'rgba(255,255,255,0.1)'}`, borderRadius: '10px', transition: 'all 0.3s', animation: warrantInfo ? 'pulse-border-warrant 2s infinite' : 'none', boxShadow: warrantInfo ? '0 0 20px rgba(239,68,68,0.5)' : 'none' }}>
-                                        <div style={{ color: warrantInfo ? '#fff' : '#86efac', fontSize: '13px', fontWeight: '700' }}>
-                                            {warrantInfo ? (<>WARRANT: ACTIVE {warrantInfo.bench > 0 && `BENCH WARRANT${warrantInfo.bench > 1 ? ` (${warrantInfo.bench})` : ''}`}{warrantInfo.bench > 0 && warrantInfo.arrest > 0 && ', '}{warrantInfo.arrest > 0 && `ARREST WARRANT${warrantInfo.arrest > 1 ? ` (${warrantInfo.arrest})` : ''}`}</>) : ('WARRANT: NO ACTIVE WARRANTS')}
+                                        <div style={{ color: warrantInfo ? '#fff' : (warrantChecking ? '#fbbf24' : '#86efac'), fontSize: '13px', fontWeight: '700' }}>
+                                            {warrantChecking ? (
+                                                <WarrantDots />
+                                            ) : warrantInfo ? (
+                                                <>WARRANT: ACTIVE {warrantInfo.bench > 0 && `BENCH WARRANT${warrantInfo.bench > 1 ? ` (${warrantInfo.bench})` : ''}`}{warrantInfo.bench > 0 && warrantInfo.arrest > 0 && ', '}{warrantInfo.arrest > 0 && `ARREST WARRANT${warrantInfo.arrest > 1 ? ` (${warrantInfo.arrest})` : ''}`}</>
+                                            ) : ('WARRANT: NO ACTIVE WARRANTS')}
                                         </div>
                                     </div>
                                 </>
@@ -11776,31 +11798,45 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                     fontSize: '14px', 
                     lineHeight: '1.8',
                     maxWidth: '600px',
-                    marginBottom: '32px'
+                    marginBottom: '24px'
                 }}>
-                    You must select an active session in Settings before viewing emergency calls.
+                    Select a session below to start monitoring emergency calls.
                 </p>
-                
-                <button 
-                    onClick={() => {
-                        setActiveView('settings');
-                        setSettingsWarningDismissed(true);
-                    }}
-                    style={{
-                        padding: '14px 48px',
-                        background: 'linear-gradient(135deg, #eab308, #ca8a04)',
-                        color: 'white',
-                        border: '1px solid #a16207',
-                        borderRadius: '10px',
-                        fontSize: '16px',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        transition: 'all 0.3s',
-                        boxShadow: '0 4px 16px rgba(245, 158, 11, 0.3)'
-                    }}
-                >
-                    GO TO SETTINGS
-                </button>
+
+                <div style={{ width: '100%', maxWidth: '360px', marginBottom: '16px' }}>
+                    <div style={{ fontSize: '11px', color: '#fcd34d', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '8px' }}>📡 Active Session</div>
+                    <select
+                        value={selectedUserSession}
+                        onChange={e => { setSelectedUserSession(e.target.value); addLog('✅ Session updated', 'success'); }}
+                        style={{ width: '100%', padding: '12px 14px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: '10px', color: '#fef3c7', fontSize: '14px', fontWeight: '600', cursor: 'pointer', outline: 'none' }}>
+                        <option value="" style={{ background: '#0f172a' }}>None (No Alerts)</option>
+                        <option value="1011898104670330920" style={{ background: '#0f172a' }}>Session 1</option>
+                        <option value="1390212294478397471" style={{ background: '#0f172a' }}>Session 2</option>
+                        <option value="1390212341005680650" style={{ background: '#0f172a' }}>Session 3</option>
+                    </select>
+                </div>
+
+                {selectedUserSession && (
+                    <button
+                        onClick={() => { setActiveView('calls'); }}
+                        style={{
+                            padding: '14px 48px',
+                            background: 'linear-gradient(135deg, #eab308, #ca8a04)',
+                            color: 'white',
+                            border: '1px solid #a16207',
+                            borderRadius: '10px',
+                            fontSize: '16px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s',
+                            boxShadow: '0 4px 16px rgba(245, 158, 11, 0.3)'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 6px 24px rgba(245,158,11,0.5)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(245,158,11,0.3)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                    >
+                        ✓ Confirm Session Selection
+                    </button>
+                )}
             </div>
         ) : (
             <div>
