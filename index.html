@@ -6360,7 +6360,9 @@ discordUserId = inputUserId;
             
             addLog(`🎮 Looking up Roblox profile for: ${serverName}`, 'info');
             setSearchProgress(55);
-            
+
+            // Start Roblox lookup in parallel — doesn't block vehicle search
+            const robloxLookupPromise = (async () => {
             try {
                 const proxies = [
                     { name: 'Direct API', url: (endpoint) => endpoint },
@@ -6402,7 +6404,6 @@ discordUserId = inputUserId;
                 if (successResult) {
                     console.log('✅ [SUCCESS] Proxy succeeded:', successResult.proxy);
                     addLog(`✓ Success with ${successResult.proxy}!`, 'success');
-                    setSearchProgress(65);
                     
                     const exactMatch = successResult.data.data.find(u => 
                         u.name.toLowerCase() === serverName.toLowerCase()
@@ -6411,7 +6412,6 @@ discordUserId = inputUserId;
                     
                     console.log('👤 [ROBLOX] User:', userData.name);
                     addLog(`✓ Found Roblox: ${userData.name}`, 'success');
-                    setSearchProgress(70);
                     
                     // Get avatar and details
                     let avatarUrl = null;
@@ -6451,13 +6451,11 @@ discordUserId = inputUserId;
                             joinDate = detailsData.created ? new Date(detailsData.created).toLocaleDateString() : 'Unknown';
                             displayName = detailsData.displayName || userData.displayName || userData.name;
                         }
-                        
-                        setSearchProgress(75);
                     } catch (e) {
                         console.error('❌ [AVATAR] Error:', e.message);
                     }
                     
-                    robloxUserData = {
+                    const resolved = {
                         username: userData.name,
                         userId: userData.id,
                         displayName: displayName,
@@ -6467,11 +6465,17 @@ discordUserId = inputUserId;
                     
                     console.log('✅ [SUCCESS] Roblox profile loaded');
                     addLog(`✓ Roblox profile loaded successfully`, 'success');
+                    // Show profile on screen immediately without waiting for vehicles
+                    setSearchResults(prev => ({ ...(prev || {}), robloxUser: resolved }));
+                    return resolved;
                 }
+                return null;
             } catch (e) {
                 console.error('❌ [ERROR] Roblox lookup failed:', e.message);
+                return null;
             }
-            
+            })();
+
 } else {
             // USERNAME SEARCH - Search entire server using member search API (like old system)
             console.log('📝 [SEARCH] Searching by username:', actualSearchValue);
@@ -6658,13 +6662,19 @@ discordUserId = inputUserId;
             }
         }
         
-        // Search for vehicles
+        // Search for vehicles — runs in parallel with Roblox lookup above
         console.log('═══════════════════════════════════════════════════');
-        console.log('🚗 [STEP 4] Searching for vehicles...');
+        console.log('🚗 [STEP 4] Searching for vehicles (parallel with Roblox)...');
         console.log('═══════════════════════════════════════════════════');
         
         addLog('Searching for registered vehicles...', 'info');
         setSearchProgress(80);
+
+        // Collect Roblox result now (may already be done, or finish during vehicle fetch)
+        if (typeof robloxLookupPromise !== 'undefined') {
+            const resolvedRoblox = await robloxLookupPromise;
+            if (resolvedRoblox) robloxUserData = resolvedRoblox;
+        }
         
         const allVehicles = [];
         const allVehicleBlocks = [];
@@ -10111,7 +10121,9 @@ return (
         animation: 'fadeIn 0.4s ease-out',
         boxSizing: 'border-box',
         background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
-        minHeight: '100vh'
+        minHeight: '100vh',
+        WebkitMaskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)',
+        maskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)'
     }}>
         <div className="card" style={{ 
             height: 'calc(100vh - 60px)',
@@ -10387,7 +10399,7 @@ return (
 }}>
 
 {activeView === 'search' && (
-<div style={{ minHeight: 'calc(100vh - 40px)', background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)', padding: '20px', boxSizing: 'border-box' }}>
+<div style={{ minHeight: 'calc(100vh - 40px)', background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)', padding: '20px', boxSizing: 'border-box', WebkitMaskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)', maskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)' }}>
 {/* ── HEADER ── */}
 <div style={{ marginBottom: '20px', padding: '20px 28px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,58,138,0.35))', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 4px 32px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', position: 'relative', overflow: 'hidden' }}>
 
@@ -10816,7 +10828,7 @@ return (
     </div>
 )}
 {activeView === 'database-search' && (
-    <div style={{ minHeight: 'calc(100vh - 40px)', background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)', padding: '20px', boxSizing: 'border-box' }}>
+    <div style={{ minHeight: 'calc(100vh - 40px)', background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)', padding: '20px', boxSizing: 'border-box', WebkitMaskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)', maskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)' }}>
 
         {/* ── HEADER ── */}
         <div style={{ marginBottom: '20px', padding: '20px 28px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,58,138,0.35))', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 4px 32px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', position: 'relative', overflow: 'hidden' }}>
@@ -11524,7 +11536,9 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
         padding: '20px',
         background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
         minHeight: '100vh',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        WebkitMaskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)',
+        maskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)'
     }}>
         {/* ── HEADER ── */}
         <div style={{ 
