@@ -1672,6 +1672,7 @@ const [headerShadow, setHeaderShadow] = useState(false);
 const [nightMode, setNightMode] = useState(false);
 const [showUsefulLinks, setShowUsefulLinks] = useState(false);
 const [selectedDepartment, setSelectedDepartment] = useState(null);
+const isDispatcher = (trooperSettings?.Department || selectedDepartment) === 'DISPATCHER';
 const [maintenanceActive, setMaintenanceActive] = React.useState(false);
 const [lastMaintenanceCheck, setLastMaintenanceCheck] = React.useState(Date.now());
 const [showUpdateScreen, setShowUpdateScreen] = React.useState(false);
@@ -1888,8 +1889,13 @@ async function checkMaintenanceStatus() {
         }
         // If maintenance is currently active
         else if (currentStatus) {
-            console.log('[MAINTENANCE] 🚧 Maintenance active');
-            setMaintenanceActive(true);
+            if (window.APP_GITHUB_BRANCH && window.APP_GITHUB_BRANCH !== 'main') {
+                console.log('[MAINTENANCE] 🚧 Maintenance active but bypassed — testing branch');
+                setMaintenanceActive(false);
+            } else {
+                console.log('[MAINTENANCE] 🚧 Maintenance active');
+                setMaintenanceActive(true);
+            }
         } 
         // Normal operation (no maintenance)
         else {
@@ -4365,7 +4371,7 @@ if (isRecordingKeybind || isRecordingMicHotkey) return;
 }, [micHotkey, voiceActive, useMicrophone, loading, searchCooldown, activeView, isRecordingKeybind, isRecordingMicHotkey]);
 
 React.useEffect(() => {
-    if (!panicEnabled || !panicHotkey) return;
+    if (!panicEnabled || !panicHotkey || isDispatcher) return;
     let holdTimer = null;
     const handler = (e) => {
         if (isRecordingKeybind || isRecordingMicHotkey) return;
@@ -8874,10 +8880,10 @@ const getCurrentTime = () => {
 const tokenInstructions = `(webpackChunkdiscord_app.push([[''],{},e=>{m=[];for(let c in e.c)m.push(e.c[c])}]),m).find(m=>m?.exports?.default?.getToken!==void 0).exports.default.getToken()`;
 
 const handleLogin = async () => {
-    if (window.MAINTENANCE === true) {
+if (window.MAINTENANCE === true && !(window.APP_GITHUB_BRANCH && window.APP_GITHUB_BRANCH !== 'main')) {
         console.log('[LOGIN] Blocked - Maintenance active');
         setMaintenanceActive(true);
-        return; // Stops login
+        return;
     }
 
     setLoginError('');
@@ -9342,151 +9348,56 @@ return (
 {/* BAN SCREEN - Professional lock icon design like uploaded image */}
 {/* ═══════════════════════════════════════════════════════════════════ */}
 {!maintenanceActive && !showUpdateScreen && showBanScreen && (
-    <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 100000,
-        padding: '20px'
-    }}>
-        <div style={{
-            maxWidth: '480px',
-            width: '100%',
-            textAlign: 'center',
-            position: 'relative'
-        }}>
-            {/* Background cards effect */}
-            <div style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%) rotate(-5deg)',
-                width: '100%',
-                height: '280px',
-                background: 'rgba(40, 40, 40, 0.4)',
-                borderRadius: '24px',
-                zIndex: 1
-            }}></div>
-            <div style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%) rotate(3deg)',
-                width: '100%',
-                height: '280px',
-                background: 'rgba(50, 50, 50, 0.5)',
-                borderRadius: '24px',
-                zIndex: 2
-            }}></div>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#060a12', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100000, padding: '20px' }}>
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(239,68,68,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(239,68,68,0.03) 1px, transparent 1px)', backgroundSize: '40px 40px', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '-200px', left: '-200px', width: '600px', height: '600px', background: 'radial-gradient(circle, rgba(127,29,29,0.15) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
-            {/* Main lock card */}
-            <div style={{
-                position: 'relative',
-                zIndex: 3,
-                background: 'linear-gradient(135deg, #2a2a2a 0%, #1f1f1f 100%)',
-                borderRadius: '24px',
-                padding: '48px 40px',
-                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)'
-            }}>
-                {/* Lock icon */}
-                <div style={{
-                    width: '120px',
-                    height: '120px',
-                    margin: '0 auto 32px',
-                    background: 'linear-gradient(135deg, #e0e0e0 0%, #c0c0c0 100%)',
-                    borderRadius: '20px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)'
-                }}>
-                    <svg width="70" height="70" viewBox="0 0 24 24" fill="none">
-                        {/* Lock body */}
-                        <rect x="5" y="11" width="14" height="10" rx="2" fill="#3a3a3a" />
-                        {/* Lock shackle */}
-                        <path d="M8 11V7a4 4 0 0 1 8 0v4" stroke="#3a3a3a" strokeWidth="2.5" strokeLinecap="round" />
-                        {/* Keyhole */}
-                        <circle cx="12" cy="16" r="1.5" fill="#666" />
+        <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: '520px', background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(10,15,30,0.99))', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '20px', overflow: 'hidden', boxShadow: '0 0 0 1px rgba(0,0,0,0.5), 0 40px 100px rgba(0,0,0,0.7)' }}>
+            {/* Red top bar */}
+            <div style={{ height: '4px', background: 'linear-gradient(90deg, #7f1d1d, #dc2626, #ef4444, #dc2626, #7f1d1d)' }} />
+
+            <div style={{ padding: '48px 44px' }}>
+                {/* Icon */}
+                <div style={{ width: '72px', height: '72px', background: 'linear-gradient(135deg, #7f1d1d, #dc2626)', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '28px', boxShadow: '0 8px 32px rgba(220,38,38,0.4)' }}>
+                    <svg width="38" height="38" viewBox="0 0 24 24" fill="none">
+                        <rect x="5" y="11" width="14" height="10" rx="2" fill="white" opacity="0.9" />
+                        <path d="M8 11V7a4 4 0 0 1 8 0v4" stroke="white" strokeWidth="2.5" strokeLinecap="round" opacity="0.9" />
+                        <circle cx="12" cy="16" r="1.5" fill="rgba(220,38,38,0.8)" />
                     </svg>
                 </div>
 
-                {/* Title */}
-                <h1 style={{
-                    fontSize: '26px',
-                    fontWeight: '600',
-                    color: '#ffffff',
-                    marginBottom: '16px',
-                    letterSpacing: '-0.5px'
-                }}>
-                    Your permission to view this content has been restricted.
-                </h1>
-
-                {/* Description */}
-                <p style={{
-                    fontSize: '14px',
-                    color: '#a0a0a0',
-                    lineHeight: '1.6',
-                    marginBottom: '24px'
-                }}>
-                    Your access to the application has been restricted:
-                </p>
-
-                {/* Reason box */}
-                <div style={{
-                    background: 'rgba(0, 0, 0, 0.3)',
-                    borderRadius: '12px',
-                    padding: '16px',
-                    marginBottom: '24px',
-                    border: '1px solid rgba(255, 255, 255, 0.1)'
-                }}>
-                    <p style={{
-                        fontSize: '13px',
-                        color: '#d0d0d0',
-                        margin: 0,
-                        fontFamily: "'Courier New', monospace",
-                        wordBreak: 'break-word'
-                    }}>
-                        {banReason}
-                    </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                    <div style={{ width: '3px', height: '16px', background: 'linear-gradient(180deg, #ef4444, #7f1d1d)', borderRadius: '2px' }} />
+                    <span style={{ color: '#ef4444', fontSize: '10px', fontWeight: '700', letterSpacing: '3px', textTransform: 'uppercase' }}>Access Restricted</span>
                 </div>
 
-                {/* Contact message */}
-                <p style={{
-                    fontSize: '13px',
-                    color: '#808080',
-                    marginBottom: '24px'
-                }}>
-                    If you believe this is false, please contact the owner.
-                </p>
+                <div style={{ fontSize: '24px', fontWeight: '900', color: '#f1f5f9', letterSpacing: '-0.5px', marginBottom: '12px' }}>
+                    Your permission to view this content has been restricted.
+                </div>
 
-                {/* Report button (styled like image) */}
+                <div style={{ fontSize: '13px', color: '#475569', marginBottom: '20px', lineHeight: '1.6' }}>
+                    Your access to this application has been restricted by an administrator.
+                </div>
+
+                {/* Reason box */}
+                <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '12px', padding: '16px 18px', marginBottom: '20px' }}>
+                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#ef4444', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '8px' }}>Reason</div>
+                    <p style={{ fontSize: '13px', color: '#cbd5e1', margin: 0, fontFamily: "'Courier New', monospace", wordBreak: 'break-word', lineHeight: '1.6' }}>{banReason}</p>
+                </div>
+
+                <div style={{ fontSize: '12px', color: '#334155', marginBottom: '28px' }}>
+                    If you believe this is an error, please contact the server administrator.
+                </div>
+
+                <div style={{ height: '1px', background: 'rgba(239,68,68,0.1)', marginBottom: '24px' }} />
+
                 <button
-                    onClick={() => {
-                        setShowBanScreen(false);
-                        setShowLoginScreen(true);
-                        setLoginUsername('');
-                        setLoginPassword('');
-                    }}
-                    style={{
-                        padding: '12px 32px',
-                        background: 'transparent',
-                        border: 'none',
-                        color: '#4a9eff',
-                        fontSize: '14px',
-                        fontWeight: '500',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-                    onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                    onClick={() => { setShowBanScreen(false); setShowLoginScreen(true); setLoginUsername(''); setLoginPassword(''); }}
+                    style={{ padding: '12px 28px', background: 'transparent', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '10px', color: '#f87171', fontSize: '12px', fontWeight: '700', cursor: 'pointer', letterSpacing: '1.5px', textTransform: 'uppercase', transition: 'all 0.2s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.5)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.25)'; }}
                 >
-                    Back to Login
+                    ← Back to Login
                 </button>
             </div>
         </div>
@@ -9495,275 +9406,104 @@ return (
 
 
 
-
         {/* ═══════════════════════════════════════════════════════════════════ */}
 {/* LOGIN SCREEN */}
 {/* ═══════════════════════════════════════════════════════════════════ */}
 {!maintenanceActive && !showUpdateScreen && showLoginScreen && (
-    <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 100002,
-        padding: '20px'
-    }}>
-        <div style={{
-            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95), rgba(51, 65, 85, 0.95))',
-            border: '2px solid rgba(59, 130, 246, 0.5)',
-            borderRadius: '16px',
-            padding: '48px 40px',
-            maxWidth: '480px',
-            width: '100%',
-            boxShadow: '0 0 60px rgba(59, 130, 246, 0.4), inset 0 0 40px rgba(59, 130, 246, 0.1)',
-            position: 'relative',
-            overflow: 'hidden'
-        }}>
-            {/* Animated background effect */}
-            <div style={{
-                position: 'absolute',
-                top: '-50%',
-                left: '-50%',
-                right: '-50%',
-                bottom: '-50%',
-                background: 'radial-gradient(circle at center, rgba(59, 130, 246, 0.15) 0%, transparent 70%)',
-                animation: 'pulse 4s ease-in-out infinite',
-                pointerEvents: 'none'
-            }}></div>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#060a12', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100002, padding: '20px' }}>
+        {/* Background grid */}
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px)', backgroundSize: '40px 40px', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '-200px', left: '-200px', width: '600px', height: '600px', background: 'radial-gradient(circle, rgba(30,58,138,0.2) 0%, transparent 70%)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: '-200px', right: '-200px', width: '500px', height: '500px', background: 'radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
-            {/* Shield icon header */}
-            <div style={{
-                width: '80px',
-                height: '80px',
-                margin: '0 auto 24px',
-                background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-                borderRadius: '20px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 8px 32px rgba(59, 130, 246, 0.6)',
-                position: 'relative',
-                zIndex: 1
-            }}>
-                <Shield size={48} />
-            </div>
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: '0', width: '100%', maxWidth: '820px', background: 'linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(10,15,30,0.99) 100%)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '20px', overflow: 'hidden', boxShadow: '0 0 0 1px rgba(0,0,0,0.5), 0 40px 100px rgba(0,0,0,0.7)' }}>
 
-            {/* Title */}
-            <h1 style={{
-                fontSize: '28px',
-                fontWeight: '700',
-                color: '#f8fafc',
-                textAlign: 'center',
-                marginBottom: '8px',
-                textShadow: '0 2px 8px rgba(59, 130, 246, 0.5)',
-                position: 'relative',
-                zIndex: 1
-            }}>
-                Law Enforcements CAD APP
-            </h1>
-            
-            <p style={{
-                fontSize: '14px',
-                color: 'rgba(248, 250, 252, 0.6)',
-                textAlign: 'center',
-                marginBottom: '32px',
-                letterSpacing: '0.5px',
-                position: 'relative',
-                zIndex: 1
-            }}>
-                CAD APP - Authentication is required to access the application.
-            </p>
-
-            {/* Error message */}
-            {loginError && (
-                <div style={{
-                    background: 'rgba(239, 68, 68, 0.15)',
-                    border: '1px solid rgba(239, 68, 68, 0.4)',
-                    borderRadius: '8px',
-                    padding: '12px 16px',
-                    marginBottom: '24px',
-                    color: '#fca5a5',
-                    fontSize: '13px',
-                    lineHeight: '1.5',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '10px',
-                    position: 'relative',
-                    zIndex: 1
-                }}>
-                    <XCircle size={18} style={{ flexShrink: 0, marginTop: '1px' }} />
-                    <span>{loginError}</span>
+            {/* LEFT — branding panel */}
+            <div style={{ flex: '0 0 280px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: '20px', padding: '48px 36px', background: 'rgba(30,58,138,0.06)', borderRight: '1px solid rgba(59,130,246,0.1)' }}>
+                <div style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #3b82f6 100%)', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 0 1px rgba(59,130,246,0.3), 0 12px 40px rgba(30,58,138,0.6)' }}>
+                    <Shield size={44} style={{ color: 'white' }} />
                 </div>
-            )}
-
-            {/* Username input */}
-            <div style={{ marginBottom: '20px', position: 'relative', zIndex: 1 }}>
-                <label style={{
-                    display: 'block',
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    color: 'rgba(248, 250, 252, 0.8)',
-                    marginBottom: '8px',
-                    letterSpacing: '0.5px',
-                    textTransform: 'uppercase'
-                }}>
-                    ROBLOX USERNAME
-                </label>
-                <input
-                    type="text"
-                    value={loginUsername}
-                    onChange={(e) => setLoginUsername(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-                    disabled={isLoggingIn}
-                    placeholder="Enter your username"
-                    style={{
-                        width: '100%',
-                        padding: '14px 16px',
-                        background: 'rgba(15, 23, 42, 0.8)',
-                        border: '2px solid rgba(59, 130, 246, 0.3)',
-                        borderRadius: '8px',
-                        color: '#f8fafc',
-                        fontSize: '15px',
-                        outline: 'none',
-                        transition: 'all 0.2s ease',
-                        fontFamily: "'Courier New', monospace"
-                    }}
-                    onFocus={(e) => {
-                        e.target.style.borderColor = 'rgba(59, 130, 246, 0.6)';
-                        e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
-                    }}
-                    onBlur={(e) => {
-                        e.target.style.borderColor = 'rgba(59, 130, 246, 0.3)';
-                        e.target.style.boxShadow = 'none';
-                    }}
-                />
+                <div>
+                    <div style={{ color: '#f1f5f9', fontSize: '22px', fontWeight: '900', letterSpacing: '-0.5px', lineHeight: 1.1, marginBottom: '6px' }}>MOBILE DATA<br />TERMINAL</div>
+                    <div style={{ color: '#3b82f6', fontSize: '10px', fontWeight: '700', letterSpacing: '3px', textTransform: 'uppercase' }}>CAD SYSTEM · BETA</div>
+                </div>
+                <div style={{ width: '100%', height: '1px', background: 'linear-gradient(90deg, rgba(59,130,246,0.4), transparent)' }} />
+                <div style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', width: '100%' }}>
+                    <div style={{ color: '#1e3a5f', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '6px' }}>SYSTEM STATUS</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981', animation: 'pulse-dot 2s ease-in-out infinite' }} />
+                        <span style={{ color: '#374151', fontSize: '11px', fontWeight: '600', letterSpacing: '1px' }}>ONLINE · SECURE</span>
+                    </div>
+                </div>
+                <div style={{ color: '#1f2937', fontSize: '10px', fontWeight: '600', letterSpacing: '2px', fontFamily: 'monospace' }}>
+                    v{typeof APP_VERSION !== 'undefined' ? APP_VERSION : '-'} · {typeof window !== 'undefined' && window.APP_COMMIT_SHA ? window.APP_COMMIT_SHA.slice(0,7) : '-------'}
+                </div>
             </div>
 
-            {/* Password input */}
-            <div style={{ marginBottom: '28px', position: 'relative', zIndex: 1 }}>
-                <label style={{
-                    display: 'block',
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    color: 'rgba(248, 250, 252, 0.8)',
-                    marginBottom: '8px',
-                    letterSpacing: '0.5px',
-                    textTransform: 'uppercase'
-                }}>
-                    PASSWORD
-                </label>
-                <input
-                    type="password"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-                    disabled={isLoggingIn}
-                    placeholder="Enter your password"
-                    style={{
-                        width: '100%',
-                        padding: '14px 16px',
-                        background: 'rgba(15, 23, 42, 0.8)',
-                        border: '2px solid rgba(59, 130, 246, 0.3)',
-                        borderRadius: '8px',
-                        color: '#f8fafc',
-                        fontSize: '15px',
-                        outline: 'none',
-                        transition: 'all 0.2s ease',
-                        fontFamily: "'Courier New', monospace"
-                    }}
-                    onFocus={(e) => {
-                        e.target.style.borderColor = 'rgba(59, 130, 246, 0.6)';
-                        e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
-                    }}
-                    onBlur={(e) => {
-                        e.target.style.borderColor = 'rgba(59, 130, 246, 0.3)';
-                        e.target.style.boxShadow = 'none';
-                    }}
-                />
-            </div>
+            {/* RIGHT — login form */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '48px 44px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '28px' }}>
+                    <div style={{ width: '3px', height: '18px', background: 'linear-gradient(180deg, #3b82f6, #1e3a8a)', borderRadius: '2px' }} />
+                    <span style={{ color: '#475569', fontSize: '10px', fontWeight: '700', letterSpacing: '3px', textTransform: 'uppercase' }}>Authentication Required</span>
+                </div>
 
-            {/* Login button */}
-            <button
-                onClick={handleLogin}
-                disabled={isLoggingIn || !loginUsername.trim() || !loginPassword}
-                style={{
-                    width: '100%',
-                    padding: '16px',
-                    background: isLoggingIn || !loginUsername.trim() || !loginPassword
-                        ? 'rgba(59, 130, 246, 0.3)'
-                        : 'linear-gradient(135deg, #3b82f6, #2563eb)',
-                    border: 'none',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '15px',
-                    fontWeight: '700',
-                    cursor: isLoggingIn || !loginUsername.trim() || !loginPassword ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.2s ease',
-                    textTransform: 'uppercase',
-                    letterSpacing: '1px',
-                    boxShadow: isLoggingIn || !loginUsername.trim() || !loginPassword
-                        ? 'none'
-                        : '0 4px 16px rgba(59, 130, 246, 0.4)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    position: 'relative',
-                    zIndex: 1
-                }}
-                onMouseEnter={(e) => {
-                    if (!isLoggingIn && loginUsername.trim() && loginPassword) {
-                        e.target.style.transform = 'translateY(-2px)';
-                        e.target.style.boxShadow = '0 6px 24px rgba(59, 130, 246, 0.6)';
-                    }
-                }}
-                onMouseLeave={(e) => {
-                    e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = isLoggingIn || !loginUsername.trim() || !loginPassword
-                        ? 'none'
-                        : '0 4px 16px rgba(59, 130, 246, 0.4)';
-                }}
-            >
-                {isLoggingIn ? (
-                    <>
-                        <Loader2 size={20} />
-                        <span>AUTHENTICATING...</span>
-                    </>
-                ) : (
-                    <>
-                        <Shield size={20} />
-                        <span>LOGIN</span>
-                    </>
+                <div style={{ fontSize: '26px', fontWeight: '900', color: '#f1f5f9', letterSpacing: '-0.5px', marginBottom: '6px' }}>Sign In</div>
+                <div style={{ fontSize: '13px', color: '#334155', marginBottom: '28px' }}>Enter your credentials to access the CAD system.</div>
+
+                {loginError && (
+                    <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '10px', padding: '12px 16px', marginBottom: '20px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                        <XCircle size={16} style={{ color: '#f87171', flexShrink: 0, marginTop: '1px' }} />
+                        <span style={{ color: '#fca5a5', fontSize: '12px', lineHeight: '1.5' }}>{loginError}</span>
+                    </div>
                 )}
-            </button>
 
-            {/* Footer */}
-            <div style={{
-                marginTop: '32px',
-                paddingTop: '24px',
-                borderTop: '1px solid rgba(59, 130, 246, 0.2)',
-                textAlign: 'center',
-                position: 'relative',
-                zIndex: 1
-            }}>
-                <p style={{
-                    fontSize: '12px',
-                    color: 'rgba(248, 250, 252, 0.4)',
-                    lineHeight: '1.6'
-                }}>
-                    Authorized personnel only.<br />
-                    Unauthorized access is prohibited.
-                </p>
+                <div style={{ marginBottom: '16px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#475569', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '8px' }}>ROBLOX USERNAME</div>
+                    <input
+                        type="text"
+                        value={loginUsername}
+                        onChange={(e) => setLoginUsername(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                        disabled={isLoggingIn}
+                        placeholder="Enter your username"
+                        style={{ width: '100%', padding: '13px 16px', background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '10px', color: '#f1f5f9', fontSize: '14px', outline: 'none', fontFamily: "'Courier New', monospace", boxSizing: 'border-box', transition: 'border-color 0.2s' }}
+                        onFocus={e => e.target.style.borderColor = 'rgba(59,130,246,0.6)'}
+                        onBlur={e => e.target.style.borderColor = 'rgba(59,130,246,0.2)'}
+                    />
+                </div>
+
+                <div style={{ marginBottom: '24px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#475569', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '8px' }}>PASSWORD</div>
+                    <input
+                        type="password"
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                        disabled={isLoggingIn}
+                        placeholder="Enter your password"
+                        style={{ width: '100%', padding: '13px 16px', background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '10px', color: '#f1f5f9', fontSize: '14px', outline: 'none', fontFamily: "'Courier New', monospace", boxSizing: 'border-box', transition: 'border-color 0.2s' }}
+                        onFocus={e => e.target.style.borderColor = 'rgba(59,130,246,0.6)'}
+                        onBlur={e => e.target.style.borderColor = 'rgba(59,130,246,0.2)'}
+                    />
+                </div>
+
+                <button
+                    onClick={handleLogin}
+                    disabled={isLoggingIn || !loginUsername.trim() || !loginPassword}
+                    style={{ width: '100%', padding: '14px', background: isLoggingIn || !loginUsername.trim() || !loginPassword ? 'rgba(59,130,246,0.2)' : 'linear-gradient(135deg, #1e3a8a, #2563eb)', border: 'none', borderRadius: '10px', color: isLoggingIn || !loginUsername.trim() || !loginPassword ? '#334155' : '#fff', fontSize: '13px', fontWeight: '700', cursor: isLoggingIn || !loginUsername.trim() || !loginPassword ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s', boxShadow: isLoggingIn || !loginUsername.trim() || !loginPassword ? 'none' : '0 4px 20px rgba(30,58,138,0.5)' }}
+                    onMouseEnter={e => { if (!isLoggingIn && loginUsername.trim() && loginPassword) { e.currentTarget.style.boxShadow = '0 6px 28px rgba(59,130,246,0.5)'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = isLoggingIn || !loginUsername.trim() || !loginPassword ? 'none' : '0 4px 20px rgba(30,58,138,0.5)'; }}
+                >
+                    {isLoggingIn ? <><Loader2 size={16} /><span>AUTHENTICATING...</span></> : <><Shield size={16} /><span>AUTHENTICATE</span></>}
+                </button>
+
+                <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid rgba(59,130,246,0.08)', textAlign: 'center' }}>
+                    <p style={{ fontSize: '11px', color: '#1e293b', lineHeight: '1.6' }}>Authorized personnel only. Unauthorized access is prohibited.</p>
+                </div>
             </div>
         </div>
     </div>
 )}
-
 
 {!maintenanceActive && !showUpdateScreen && showLoader && (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100001, background: '#060a12', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -9809,7 +9549,7 @@ return (
                             <span style={{ color: '#34d399', fontSize: '10px', fontWeight: '700', letterSpacing: '2px' }}>IDENTITY VERIFIED</span>
                         </div>
                         <p style={{ color: '#86efac', fontSize: '14px', fontWeight: '800', margin: '0 0 3px', letterSpacing: '0.3px' }}>
-                            TROOPER {trooperData.firstName?.toUpperCase()} {trooperData.lastName?.toUpperCase()}
+                            {trooperData.department === 'DISPATCHER' ? 'DISPATCHER' : 'TROOPER'} {trooperData.firstName?.toUpperCase()} {trooperData.lastName?.toUpperCase()}
                         </p>
                         <p style={{ color: '#6ee7b7', fontSize: '11px', margin: 0, opacity: 0.8 }}>
                             Badge #{trooperData.badgeId} · Zone {trooperData.patrolZone}
@@ -10200,7 +9940,7 @@ return (
                 <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', flexWrap: 'wrap' }}>
                         <h1 style={{ color: 'white', fontSize: '22px', fontWeight: '800', margin: 0, letterSpacing: '1px', textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
-                            {selectedDepartment === 'NYSP' ? 'New York State Police' : 'East Greenbush Police Department'}
+                            {selectedDepartment === 'NYSP' ? 'New York State Police' : selectedDepartment === 'DISPATCHER' ? 'Dispatcher' : 'East Greenbush Police Department'}
                         </h1>
                         <span style={{ color: '#3b82f6', fontSize: '11px', fontWeight: '700', letterSpacing: '2px', background: 'rgba(59,130,246,0.15)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(59,130,246,0.3)' }}>
                             EST. 2025
@@ -10719,7 +10459,7 @@ return (
                                         VIEW GOVERNMENT RECORDS
                                     </button>
 
-                                    <button onClick={() => {
+                                    {!isDispatcher && <button onClick={() => {
                                         const citationReg = registration?.parseFailed
                                             ? { ...registration, timestamp: registration.registeredAt || '' }
                                             : registration;
@@ -10729,9 +10469,9 @@ return (
                                         onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(16,185,129,0.5)'; }}
                                         onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(16,185,129,0.3)'; }}>
                                         EXPORT PRE-FILLED CITATION
-                                    </button>
+                                    </button>}
 
-                                    <button onClick={async () => {
+                                    {!isDispatcher && <button onClick={async () => {
                                         console.log('🚨 [ARREST] FILE ARREST/SUMMONS REPORT clicked');
                                         let ownerData = null, dataSource = null;
                                         if (searchResults?.robloxUser?.username) { ownerData = searchResults.robloxUser; dataSource = 'searchResults.robloxUser'; }
@@ -10749,7 +10489,7 @@ return (
                                         onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(239,68,68,0.5)'; }}
                                         onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(239,68,68,0.3)'; }}>
                                         FILE ARREST REPORT
-                                    </button>
+                                    </button>}
                                 </>
                             )}
                         </div>
@@ -11205,7 +10945,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                 </div>
 
                                 {/* Citation with selected vehicle */}
-                                {selectedVehicleForCitation && (
+                                {selectedVehicleForCitation && !isDispatcher && (
                                     <button onClick={async () => {
                                         if (!searchResults || !selectedVehicleForCitation) { showCustomError('Error', 'Please select a vehicle first.'); return; }
                                         const tempResult = searchResults.robloxUser || { username: 'UNKNOWN', userId: 'UNKNOWN', displayName: 'UNKNOWN', joinDate: 'UNKNOWN' };
@@ -13912,12 +13652,12 @@ if (window.electronAPI?.quit) {
                 </div>
                 <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
                     <div style={{ color: 'white', fontSize: '16px', fontWeight: '800', letterSpacing: '1px' }}>USEFUL LINKS</div>
-                    <div style={{ color: '#60a5fa', fontSize: '11px', marginTop: '2px', fontWeight: '500' }}>{selectedDepartment === 'NYSP' ? 'New York State Police' : 'East Greenbush Police Department'}</div>
+                    <div style={{ color: '#60a5fa', fontSize: '11px', marginTop: '2px', fontWeight: '500' }}>{selectedDepartment === 'NYSP' ? 'New York State Police' : selectedDepartment === 'DISPATCHER' ? 'Dispatcher' : 'East Greenbush Police Department'}</div>
                 </div>
                 {/* Department pill */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: selectedDepartment === 'NYSP' ? 'rgba(59,130,246,0.1)' : 'rgba(16,185,129,0.1)', border: `1px solid ${selectedDepartment === 'NYSP' ? 'rgba(59,130,246,0.25)' : 'rgba(16,185,129,0.25)'}`, borderRadius: '20px', padding: '5px 12px', marginRight: '8px', position: 'relative', zIndex: 1 }}>
                     <Shield size={12} style={{ color: selectedDepartment === 'NYSP' ? '#60a5fa' : '#34d399' }} />
-                    <span style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '1px', color: selectedDepartment === 'NYSP' ? '#60a5fa' : '#34d399' }}>{selectedDepartment === 'NYSP' ? 'NYSP' : 'EGPD'}</span>
+                    <span style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '1px', color: selectedDepartment === 'NYSP' ? '#60a5fa' : selectedDepartment === 'DISPATCHER' ? '#f59e0b' : '#34d399' }}>{selectedDepartment === 'NYSP' ? 'NYSP' : selectedDepartment === 'DISPATCHER' ? 'DISPATCH' : 'EGPD'}</span>
                 </div>
 <button
     onClick={() => setShowUsefulLinks(false)}
