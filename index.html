@@ -2082,7 +2082,17 @@ const response = await fetch(
                 eval(content);
                 
                 if (window.LIVEANNOUNCEMENTS) {
-                    const announcements = window.LIVEANNOUNCEMENTS;
+                    // Preserve active service alert announcements across Worker fetches
+                    const workerAnnouncements = window.LIVEANNOUNCEMENTS || {};
+                    const preserved = {};
+                    Object.entries(activeServiceAlertsRef.current).forEach(([key, active]) => {
+                        const aKey = `__service_${key}`;
+                        if (active && window[`__serviceMsg_${key}`]) {
+                            preserved[aKey] = window[`__serviceMsg_${key}`];
+                        }
+                    });
+                    const announcements = { ...workerAnnouncements, ...preserved };
+                    window.LIVEANNOUNCEMENTS = announcements;
                     const count = Object.keys(announcements).length;
                     
                     console.log('[ANNOUNCEMENTS] ✅ Found', count, 'announcement(s)');
@@ -2424,6 +2434,7 @@ useEffect(() => {
                     ? 'is currently experiencing a service outage'
                     : 'is currently experiencing degraded performance';
                 const msg = `⚠ SERVICE ALERT: ${name} ${severity}. Some CAD features may be unavailable or unstable. Please stand by.`;
+                window[`__serviceMsg_${key}`] = msg;
                 window.LIVEANNOUNCEMENTS = { ...(window.LIVEANNOUNCEMENTS || {}), [announcementKey]: msg };
                 setLiveAnnouncements(prev => ({ ...prev, [announcementKey]: msg }));
                 activeServiceAlertsRef.current[key] = true;
@@ -2434,6 +2445,7 @@ useEffect(() => {
                 window.LIVEANNOUNCEMENTS = updated;
                 setLiveAnnouncements(prev => { const n = { ...prev }; delete n[announcementKey]; return n; });
                 activeServiceAlertsRef.current[key] = false;
+                delete window[`__serviceMsg_${key}`];
             }
             // If status unchanged — do nothing, no duplicate
         });
