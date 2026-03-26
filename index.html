@@ -1533,12 +1533,12 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
             const badge = document.createElement('div');
             const sha = window.APP_COMMIT_SHA || 'dev';
             badge.textContent = `BETA BUILD - APP V. 0.1.0.5  •  ${sha}`;
-            badge.style.cssText = 'position:fixed;bottom:16px;left:16px;font-size:10px;font-weight:700;color:rgba(251,191,36,0.55);letter-spacing:1.5px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;';
+            badge.style.cssText = 'position:fixed;bottom:16px;left:296px;font-size:10px;font-weight:700;color:rgba(251,191,36,0.55);letter-spacing:1.5px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;';
             document.body.appendChild(badge);
             if (window.APP_GITHUB_BRANCH && window.APP_GITHUB_BRANCH !== 'main') {
                 const testingBadge = document.createElement('div');
                 testingBadge.textContent = `⚠ TESTING BRANCH: ⚠`;
-                testingBadge.style.cssText = 'position:fixed;bottom:30px;left:16px;font-size:10px;font-weight:700;color:rgba(239,68,68,0.85);letter-spacing:1.5px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;';
+                testingBadge.style.cssText = 'position:fixed;bottom:30px;left:296px;font-size:10px;font-weight:700;color:rgba(239,68,68,0.85);letter-spacing:1.5px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;';
                 document.body.appendChild(testingBadge);
             }
         })();
@@ -1667,6 +1667,9 @@ const [editableTrooperSettings, setEditableTrooperSettings] = useState(null);
 const [hasVisitedSettingsBefore, setHasVisitedSettingsBefore] = useState(true);
 const [pageTransitioning, setPageTransitioning] = useState(false);
 const [shiftBreaks, setShiftBreaks] = useState([]);
+const [shiftAcknowledgedCount, setShiftAcknowledgedCount] = useState(0);
+const [shiftDismissedCount, setShiftDismissedCount] = useState(0);
+const [showEndShiftConfirm, setShowEndShiftConfirm] = useState(false);
 const [currentBreakStart, setCurrentBreakStart] = useState(null);
 const [headerShadow, setHeaderShadow] = useState(false);
 const [nightMode, setNightMode] = useState(false);
@@ -4297,11 +4300,34 @@ const formatTimestampMilitary = (timestamp) => {
 // Shift timer functions
 const startShift = () => {
     setShiftStartTime(new Date());
-    addLog('Shift started', 'success');
+    setShiftEndTime(null);
+    setShiftPaused(false);
+    setPausedTime(0);
+    setPauseStartTime(null);
+    setShiftBreaks([]);
+    setShiftSearchHistory([]);
+    setShiftPlateSearches([]);
+    setShiftAcknowledgedCount(0);
+    setShiftDismissedCount(0);
+    setShowShiftSummary(false);
+    addLog('✅ Shift started', 'success');
 };
 
 const endShift = () => {
-    setShiftEndTime(new Date());
+    setShowEndShiftConfirm(true);
+};
+
+const confirmEndShift = () => {
+    const endTime = new Date();
+    if (shiftPaused && pauseStartTime) {
+        const pauseDuration = endTime - pauseStartTime;
+        setPausedTime(prev => prev + pauseDuration);
+        setShiftBreaks(prev => [...prev, { start: pauseStartTime, end: endTime, duration: pauseDuration }]);
+        setPauseStartTime(null);
+        setShiftPaused(false);
+    }
+    setShiftEndTime(endTime);
+    setShowEndShiftConfirm(false);
     setShowShiftSummary(true);
     addLog('Shift ended', 'info');
 };
@@ -9637,6 +9663,63 @@ return (
 {!maintenanceActive && !showUpdateScreen && !showLoginScreen && !showLoader && (
         <div className="app-container">
 
+{/* ── SHIFT HUD BAR ── */}
+{shiftStartTime && !shiftEndTime && (
+    <div style={{ position: 'fixed', top: 0, left: '280px', right: 0, height: '36px', background: shiftPaused ? 'linear-gradient(90deg, rgba(245,158,11,0.15), rgba(217,119,6,0.08))' : 'linear-gradient(90deg, rgba(16,185,129,0.12), rgba(5,150,105,0.06))', borderBottom: `1px solid ${shiftPaused ? 'rgba(245,158,11,0.25)' : 'rgba(16,185,129,0.2)'}`, display: 'flex', alignItems: 'center', paddingLeft: '20px', paddingRight: '20px', gap: '24px', zIndex: 9990, backdropFilter: 'blur(8px)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: shiftPaused ? '#f59e0b' : '#10b981', boxShadow: shiftPaused ? '0 0 6px #f59e0b' : '0 0 6px #10b981', animation: shiftPaused ? 'none' : 'pulse-dot 2s infinite' }} />
+            <span style={{ color: shiftPaused ? '#fbbf24' : '#34d399', fontSize: '10px', fontWeight: '700', letterSpacing: '2px' }}>{shiftPaused ? 'PAUSED' : 'ON DUTY'}</span>
+        </div>
+        <div style={{ color: shiftPaused ? '#fbbf24' : '#6ee7b7', fontSize: '12px', fontWeight: '800', fontFamily: 'monospace', letterSpacing: '1px' }}>
+            {(() => {
+                const now = currentTime;
+                const elapsed = shiftPaused
+                    ? (pauseStartTime - shiftStartTime) - pausedTime
+                    : (now - shiftStartTime) - pausedTime;
+                const h = Math.floor(elapsed / 3600000);
+                const m = Math.floor((elapsed % 3600000) / 60000);
+                const s = Math.floor((elapsed % 60000) / 1000);
+                return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            })()}
+        </div>
+        <div style={{ width: '1px', height: '18px', background: 'rgba(255,255,255,0.08)' }} />
+        <div style={{ display: 'flex', gap: '16px' }}>
+            {[
+                { label: 'PLATES', value: shiftPlateSearches.length, color: '#60a5fa' },
+                { label: 'CITIZENS', value: shiftSearchHistory.length, color: '#a78bfa' },
+                { label: 'ACK', value: shiftAcknowledgedCount, color: '#34d399' },
+                { label: 'DISMISSED', value: shiftDismissedCount, color: '#f87171' },
+            ].map(({ label, value, color }) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ color: '#475569', fontSize: '9px', fontWeight: '700', letterSpacing: '1px' }}>{label}</span>
+                    <span style={{ color, fontSize: '12px', fontWeight: '800', fontFamily: 'monospace' }}>{value}</span>
+                </div>
+            ))}
+        </div>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+            <button onClick={() => {
+                if (shiftPaused) {
+                    const pauseDuration = new Date() - pauseStartTime;
+                    setShiftBreaks(prev => [...prev, { start: pauseStartTime, end: new Date(), duration: pauseDuration }]);
+                    setPausedTime(prev => prev + pauseDuration);
+                    setPauseStartTime(null);
+                    setShiftPaused(false);
+                    addLog('▶️ Shift resumed', 'success');
+                } else {
+                    setPauseStartTime(new Date());
+                    setShiftPaused(true);
+                    addLog('⏸️ Shift paused', 'info');
+                }
+            }} style={{ padding: '4px 12px', background: shiftPaused ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)', border: `1px solid ${shiftPaused ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}`, borderRadius: '6px', color: shiftPaused ? '#34d399' : '#fbbf24', fontSize: '10px', fontWeight: '700', cursor: 'pointer', letterSpacing: '1px' }}>
+                {shiftPaused ? '▶ RESUME' : '⏸ PAUSE'}
+            </button>
+            <button onClick={() => setShowEndShiftConfirm(true)} style={{ padding: '4px 12px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', color: '#f87171', fontSize: '10px', fontWeight: '700', cursor: 'pointer', letterSpacing: '1px' }}>
+                ■ END SHIFT
+            </button>
+        </div>
+    </div>
+)}
+
 {panicNotif && (
     <div style={{ position: 'fixed', bottom: '32px', left: '50%', transform: 'translateX(-50%)', zIndex: 99998, padding: '14px 28px', background: panicNotifType === 'activated' ? 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.1))' : 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.1))', border: `1px solid ${panicNotifType === 'activated' ? 'rgba(239,68,68,0.4)' : 'rgba(16,185,129,0.4)'}`, borderRadius: '12px', color: panicNotifType === 'activated' ? '#fca5a5' : '#6ee7b7', fontSize: '13px', fontWeight: '700', backdropFilter: 'blur(10px)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', maxWidth: '500px', textAlign: 'center', letterSpacing: '0.5px' }}>
         {panicNotif}
@@ -10109,12 +10192,12 @@ return (
                         SHIFT MANAGEMENT
                     </div>
 
-                    {!shiftStartTime ? (
-                        <Tooltip text="Shift management is currently disabled">
-                            <button disabled style={{ width: '100%', padding: '16px', background: 'rgba(75,85,99,0.2)', border: '1px solid rgba(107,114,128,0.3)', borderRadius: '12px', color: '#6b7280', fontSize: '13px', fontWeight: '700', cursor: 'not-allowed', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.6 }}>
-                                START SHIFT (DISABLED)
-                            </button>
-                        </Tooltip>
+                    {!shiftStartTime || shiftEndTime ? (
+                        <button onClick={startShift} style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '12px', color: 'white', fontSize: '14px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 4px 16px rgba(16,185,129,0.4)', transition: 'all 0.25s' }}
+                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(16,185,129,0.6)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(16,185,129,0.4)'; }}>
+                            {shiftEndTime ? '▶ START NEW SHIFT' : '▶ START SHIFT'}
+                        </button>
                     ) : !shiftEndTime ? (
                         <>
                             <div style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '12px', padding: '16px', marginBottom: '12px', textAlign: 'center' }}>
@@ -10146,7 +10229,7 @@ return (
                                     </button>
                                 </Tooltip>
                                 <Tooltip text="End your shift">
-                                    <button onClick={() => { if (confirm('Are you sure you want to end your shift?')) { if (shiftPaused) { const pauseDuration = new Date() - pauseStartTime; setPausedTime(prev => prev + pauseDuration); } endShift(); } }}
+                                    <button onClick={() => setShowEndShiftConfirm(true)}
                                         style={{ padding: '14px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', boxShadow: '0 4px 14px rgba(239,68,68,0.4)', transition: 'all 0.25s', width: '100%' }}
                                         onMouseEnter={e => { e.target.style.transform = 'translateY(-2px)'; }}
                                         onMouseLeave={e => { e.target.style.transform = 'translateY(0)'; }}>
@@ -11852,6 +11935,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                             onClick={() => {
                                                 if (!isAcknowledged) {
                                                     setAcknowledgedCalls([...acknowledgedCalls, call.id]);
+                                                    if (shiftStartTime && !shiftEndTime) setShiftAcknowledgedCount(p => p + 1);
                                                     stopAlertSound();
                                                     addLog(`✅ Call from ${call.author} acknowledged`, 'success');
                                                 }
@@ -11896,6 +11980,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                                 const remainingCalls = calls.filter(c => c.id !== call.id);
                                                 const hasUnackedRemaining = remainingCalls.some(c => !acknowledgedCallsRef.current.includes(c.id));
                                                 setDismissedCalls([...dismissedCalls, call.id]);
+                                                if (shiftStartTime && !shiftEndTime) setShiftDismissedCount(p => p + 1);
                                                 setCalls(remainingCalls);
                                                 if (!hasUnackedRemaining) {
                                                     stopAlertSound();
@@ -13710,604 +13795,263 @@ if (window.electronAPI?.quit) {
     </div>
 )}
 {/* Shift Summary Modal */}
-{showShiftSummary && shiftStartTime && shiftEndTime && (
-    <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0, 0, 0, 0.85)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 10000,
-        padding: '20px',
-        overflowY: 'auto'
-    }}>
-        <div style={{
-            background: 'linear-gradient(135deg, #1e3a8a, #334155)',
-            border: '2px solid #3b82f6',
-            borderRadius: '16px',
-            padding: '32px',
-            maxWidth: '900px',
-            width: '100%',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.8)'
-        }}>
-            <div style={{
-                width: '80px',
-                height: '80px',
-                background: 'linear-gradient(135deg, #10b981, #059669)',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 24px'
-            }}>
-                <span style={{ fontSize: '48px' }}>!!!</span>
+{/* ── END SHIFT CONFIRMATION ── */}
+{showEndShiftConfirm && (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100003, padding: '20px', backdropFilter: 'blur(8px)' }}>
+        <div style={{ background: 'linear-gradient(135deg, rgba(15,23,42,0.99), rgba(10,15,30,0.99))', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '20px', padding: '40px', maxWidth: '480px', width: '100%', boxShadow: '0 40px 100px rgba(0,0,0,0.7)' }}>
+            <div style={{ height: '3px', background: 'linear-gradient(90deg, #7f1d1d, #dc2626, #ef4444)', borderRadius: '2px', marginBottom: '28px' }} />
+            <div style={{ fontSize: '22px', fontWeight: '900', color: '#f1f5f9', marginBottom: '8px' }}>End Shift?</div>
+            <div style={{ fontSize: '13px', color: '#475569', marginBottom: '24px' }}>Your shift summary will be generated and a PDF report will be exported.</div>
+
+            {/* Quick stats preview */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '28px' }}>
+                {[
+                    { label: 'Plates Searched', value: shiftPlateSearches.length, color: '#60a5fa' },
+                    { label: 'Citizens Searched', value: shiftSearchHistory.length, color: '#a78bfa' },
+                    { label: 'Calls Acknowledged', value: shiftAcknowledgedCount, color: '#34d399' },
+                    { label: 'Calls Dismissed', value: shiftDismissedCount, color: '#f87171' },
+                ].map(({ label, value, color }) => (
+                    <div key={label} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '12px 14px' }}>
+                        <div style={{ fontSize: '9px', color: '#475569', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '4px' }}>{label}</div>
+                        <div style={{ fontSize: '22px', fontWeight: '900', color, fontFamily: 'monospace' }}>{value}</div>
+                    </div>
+                ))}
             </div>
-            
-            <h2 style={{ color: 'white', fontSize: '32px', marginBottom: '24px', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '2px' }}>
-                SHIFT SUMMARY REPORT
-            </h2>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-                <div style={{
-                    background: 'rgba(59, 130, 246, 0.15)',
-                    border: '2px solid rgba(59, 130, 246, 0.3)',
-                    borderRadius: '8px',
-                    padding: '16px',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ color: '#86efac', fontSize: '11px', fontWeight: '600', marginBottom: '8px', textTransform: 'uppercase' }}>START TIME</div>
-                    <div style={{ color: 'white', fontSize: '14px', fontWeight: '700', fontFamily: 'monospace' }}>
-                        {formatShiftTime(shiftStartTime)}
-                    </div>
-                </div>
-                
-                <div style={{
-                    background: 'rgba(239, 68, 68, 0.15)',
-                    border: '2px solid rgba(239, 68, 68, 0.3)',
-                    borderRadius: '8px',
-                    padding: '16px',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ color: '#fca5a5', fontSize: '11px', fontWeight: '600', marginBottom: '8px', textTransform: 'uppercase' }}>END TIME</div>
-                    <div style={{ color: 'white', fontSize: '14px', fontWeight: '700', fontFamily: 'monospace' }}>
-                        {formatShiftTime(shiftEndTime)}
-                    </div>
-                </div>
-                
-                <div style={{
-                    background: 'rgba(251, 191, 36, 0.15)',
-                    border: '2px solid rgba(251, 191, 36, 0.3)',
-                    borderRadius: '8px',
-                    padding: '16px',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ color: '#fde047', fontSize: '11px', fontWeight: '600', marginBottom: '8px', textTransform: 'uppercase' }}>DURATION</div>
-                    <div style={{ color: 'white', fontSize: '18px', fontWeight: '700', fontFamily: 'monospace' }}>
-                        {getShiftDuration()}
-                    </div>
-                </div>
-            </div>
-            
-            <div style={{
-                background: 'rgba(59, 130, 246, 0.1)',
-                border: '2px solid rgba(59, 130, 246, 0.3)',
-                borderRadius: '8px',
-                padding: '20px',
-                marginBottom: '24px'
-            }}>
-                <h3 style={{ color: '#93c5fd', fontSize: '18px', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                    ACTIVITY STATISTICS
-                </h3>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div style={{ 
-                        background: 'rgba(16, 185, 129, 0.15)', 
-                        padding: '12px', 
-                        borderRadius: '6px',
-                        border: '1px solid rgba(16, 185, 129, 0.3)'
-                    }}>
-                        <div style={{ color: '#6ee7b7', fontSize: '11px', marginBottom: '4px' }}>CITIZENS SEARCHED</div>
-                        <div style={{ color: 'white', fontSize: '24px', fontWeight: '700' }}>
-                            {shiftSearchHistory.length}
-                        </div>
-                    </div>
-                    
-                    <div style={{ 
-                        background: 'rgba(59, 130, 246, 0.15)', 
-                        padding: '12px', 
-                        borderRadius: '6px',
-                        border: '1px solid rgba(59, 130, 246, 0.3)'
-                    }}>
-                        <div style={{ color: '#93c5fd', fontSize: '11px', marginBottom: '4px' }}>PLATES SEARCHED</div>
-                        <div style={{ color: 'white', fontSize: '24px', fontWeight: '700' }}>
-                            {shiftPlateSearches.length}
-                        </div>
-                    </div>
-                    
-                    <div style={{ 
-                        background: 'rgba(239, 68, 68, 0.15)', 
-                        padding: '12px', 
-                        borderRadius: '6px',
-                        border: '1px solid rgba(239, 68, 68, 0.3)'
-                    }}>
-                        <div style={{ color: '#fca5a5', fontSize: '11px', marginBottom: '4px' }}>WARRANTS FOUND</div>
-                        <div style={{ color: 'white', fontSize: '24px', fontWeight: '700' }}>
-                            {shiftSearchHistory.filter(s => s.hasWarrants).length}
-                        </div>
-                    </div>
-                    
-                    <div style={{ 
-                        background: 'rgba(251, 191, 36, 0.15)', 
-                        padding: '12px', 
-                        borderRadius: '6px',
-                        border: '1px solid rgba(251, 191, 36, 0.3)'
-                    }}>
-                        <div style={{ color: '#fde047', fontSize: '11px', marginBottom: '4px' }}>VEHICLES REGISTERED</div>
-                        <div style={{ color: 'white', fontSize: '24px', fontWeight: '700' }}>
-                            {shiftSearchHistory.reduce((sum, s) => sum + s.vehicleCount, 0)}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            {shiftSearchHistory.length > 0 && (
-                <div style={{
-                    background: 'rgba(16, 185, 129, 0.1)',
-                    border: '2px solid rgba(16, 185, 129, 0.3)',
-                    borderRadius: '8px',
-                    padding: '20px',
-                    marginBottom: '16px'
-                }}>
-                    <h3 style={{ color: '#86efac', fontSize: '16px', marginBottom: '12px', textTransform: 'uppercase' }}>
-                        CITIZENS SEARCHED ({shiftSearchHistory.length})
-                    </h3>
-                    <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                        {shiftSearchHistory.map((search, idx) => (
-                            <div key={idx} style={{
-                                background: 'rgba(16, 185, 129, 0.1)',
-                                border: '1px solid rgba(16, 185, 129, 0.2)',
-                                borderRadius: '6px',
-                                padding: '10px',
-                                marginBottom: '8px',
-                                display: 'grid',
-                                gridTemplateColumns: '1fr 2fr 1fr',
-                                gap: '12px',
-                                alignItems: 'center'
-                            }}>
-                                <div>
-                                    <div style={{ color: '#6ee7b7', fontSize: '10px' }}>CITIZEN ID</div>
-                                    <div style={{ color: 'white', fontSize: '11px', fontFamily: 'monospace', fontWeight: '600' }}>
-                                        {search.citizenId}
-                                    </div>
-                                </div>
-                                <div>
-                                    <div style={{ color: '#6ee7b7', fontSize: '10px' }}>USERNAME</div>
-                                    <div style={{ color: 'white', fontSize: '12px', fontWeight: '600' }}>
-                                        {search.username}
-                                    </div>
-                                </div>
-                                <div style={{ textAlign: 'right' }}>
-                                    <div style={{ color: '#6ee7b7', fontSize: '10px' }}>TIME</div>
-                                    <div style={{ color: 'white', fontSize: '10px', fontFamily: 'monospace' }}>
-                                        {search.timestamp}
-                                    </div>
-                                    {search.hasWarrants && (
-                                        <div style={{ 
-                                            color: '#ef4444', 
-                                            fontSize: '10px', 
-                                            fontWeight: '700',
-                                            marginTop: '4px'
-                                        }}>
-                                              WARRANT
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-            
-            {shiftPlateSearches.length > 0 && (
-                <div style={{
-                    background: 'rgba(59, 130, 246, 0.1)',
-                    border: '2px solid rgba(59, 130, 246, 0.3)',
-                    borderRadius: '8px',
-                    padding: '20px',
-                    marginBottom: '24px'
-                }}>
-                    <h3 style={{ color: '#93c5fd', fontSize: '16px', marginBottom: '12px', textTransform: 'uppercase' }}>
-                        PLATES SEARCHED ({shiftPlateSearches.length})
-                    </h3>
-                    <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                        {shiftPlateSearches.map((search, idx) => (
-                            <div key={idx} style={{
-                                background: 'rgba(59, 130, 246, 0.1)',
-                                border: '1px solid rgba(59, 130, 246, 0.2)',
-                                borderRadius: '6px',
-                                padding: '10px',
-                                marginBottom: '8px',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center'
-                            }}>
-                                <div>
-                                    <div style={{ color: '#93c5fd', fontSize: '10px' }}>LICENSE PLATE</div>
-                                    <div style={{ 
-                                        color: 'white', 
-                                        fontSize: '14px', 
-                                        fontFamily: 'monospace', 
-                                        fontWeight: '700',
-                                        letterSpacing: '2px'
-                                    }}>
-                                        {search.plate}
-                                    </div>
-                                </div>
-                                <div style={{ textAlign: 'right' }}>
-                                    <div style={{ color: '#93c5fd', fontSize: '10px' }}>TIME</div>
-                                    <div style={{ color: 'white', fontSize: '10px', fontFamily: 'monospace' }}>
-                                        {search.timestamp}
-                                    </div>
-                                    <div style={{ 
-                                        color: search.found ? '#10b981' : '#ef4444', 
-                                        fontSize: '10px', 
-                                        fontWeight: '700',
-                                        marginTop: '4px'
-                                    }}>
-                                        {search.found ? 'FOUND' : 'NOT FOUND'}
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-<button
-    onClick={async () => {
-        try {
-            addLog('Generating enhanced PDF shift report...', 'info');
-            
-            // Create new PDF document
-            const pdfDoc = await PDFLib.PDFDocument.create();
-            const page = pdfDoc.addPage([612, 792]); // US Letter size
-            
-            // Embed fonts
-// Embed fonts
-const helveticaBold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
-const helvetica = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
-const courier = await pdfDoc.embedFont(PDFLib.StandardFonts.Courier);
-const courierBold = await pdfDoc.embedFont(PDFLib.StandardFonts.CourierBold);
-            
-            const { width, height } = page.getSize();
-            let yPosition = height - 50;
-            
-            // Helper function to draw text
-            const drawText = (text, x, y, size, font, color = PDFLib.rgb(0, 0, 0)) => {
-                page.drawText(text, {
-                    x,
-                    y,
-                    size,
-                    font,
-                    color
-                });
-            };
-            
-            // Helper function to draw line
-            const drawLine = (x1, y1, x2, y2, thickness = 1, color = PDFLib.rgb(0, 0, 0)) => {
-                page.drawLine({
-                    start: { x: x1, y: y1 },
-                    end: { x: x2, y: y2 },
-                    thickness,
-                    color
-                });
-            };
-            
-            // Header - Blue background box
-            page.drawRectangle({
-                x: 40,
-                y: yPosition - 80,
-                width: width - 80,
-                height: 80,
-                color: PDFLib.rgb(0.23, 0.51, 0.96),
-            });
-            
-            // Title
-            drawText('NEW YORK STATE POLICE', 70, yPosition - 35, 24, helveticaBold, PDFLib.rgb(1, 1, 1));
-            drawText('SHIFT SUMMARY REPORT', 70, yPosition - 60, 18, helvetica, PDFLib.rgb(1, 1, 1));
-            
-            yPosition -= 100;
-            
-            // Trooper Information Box
-            page.drawRectangle({
-                x: 40,
-                y: yPosition - 90,
-                width: width - 80,
-                height: 90,
-                borderColor: PDFLib.rgb(0.23, 0.51, 0.96),
-                borderWidth: 2,
-            });
-            
-            drawText('TROOPER INFORMATION', 50, yPosition - 20, 14, helveticaBold, PDFLib.rgb(0.23, 0.51, 0.96));
-            drawLine(50, yPosition - 25, width - 50, yPosition - 25, 1, PDFLib.rgb(0.23, 0.51, 0.96));
-            
-            drawText(`Name: ${trooperSettings?.FirstName || 'UNKNOWN'} ${trooperSettings?.LastName || ''}`, 50, yPosition - 45, 11, helvetica);
-            drawText(`Badge: ${trooperSettings?.BadgeID || '00000'}`, 50, yPosition - 62, 11, helvetica);
-            drawText(`Zone: ${trooperSettings?.Zone || 'UNKNOWN'}`, 300, yPosition - 62, 11, helvetica);
-            
-            yPosition -= 110;
-            
-            // Shift Times Box
-            page.drawRectangle({
-                x: 40,
-                y: yPosition - 90,
-                width: width - 80,
-                height: 90,
-                borderColor: PDFLib.rgb(0.23, 0.51, 0.96),
-                borderWidth: 2,
-            });
-            
-            drawText('SHIFT DETAILS', 50, yPosition - 20, 14, helveticaBold, PDFLib.rgb(0.23, 0.51, 0.96));
-            drawLine(50, yPosition - 25, width - 50, yPosition - 25, 1, PDFLib.rgb(0.23, 0.51, 0.96));
-            
-            drawText(`Start Time: ${formatShiftTime(shiftStartTime)}`, 50, yPosition - 45, 11, helvetica);
-            drawText(`End Time: ${formatShiftTime(shiftEndTime)}`, 50, yPosition - 62, 11, helvetica);
-            drawText(`Duration: ${getShiftDuration()}`, 50, yPosition - 79, 11, helveticaBold);
-            
-            yPosition -= 110;
 
-            // Trooper Information Box
-const trooperBoxHeight = selectedUserSession ? 110 : 90;
-
-page.drawRectangle({
-    x: 40,
-    y: yPosition - trooperBoxHeight,
-    width: width - 80,
-    height: trooperBoxHeight,
-    borderColor: PDFLib.rgb(0.23, 0.51, 0.96),
-    borderWidth: 2,
-});
-
-drawText('TROOPER INFORMATION', 50, yPosition - 20, 14, helveticaBold, PDFLib.rgb(0.23, 0.51, 0.96));
-drawLine(50, yPosition - 25, width - 50, yPosition - 25, 1, PDFLib.rgb(0.23, 0.51, 0.96));
-
-drawText(`Name: ${trooperSettings?.FirstName || 'UNKNOWN'} ${trooperSettings?.LastName || ''}`, 50, yPosition - 45, 11, helvetica);
-drawText(`Badge: ${trooperSettings?.BadgeID || '00000'}`, 50, yPosition - 62, 11, helvetica);
-drawText(`Zone: ${trooperSettings?.Zone || 'UNKNOWN'}`, 300, yPosition - 62, 11, helvetica);
-
-// Active Session
-if (selectedUserSession) {
-    const sessionName = selectedUserSession === '1011898104670330920' ? 'Session 1' :
-                       selectedUserSession === '1390212294478397471' ? 'Session 2' :
-                       selectedUserSession === '1390212341005680650' ? 'Session 3' :
-                       'Unknown Session';
-    
-    drawText(`Active Session: ${sessionName}`, 50, yPosition - 79, 11, helvetica);
-} else {
-    drawText('Active Session: None', 50, yPosition - 79, 11, helvetica, PDFLib.rgb(0.5, 0.5, 0.5));
-}
-
-yPosition -= trooperBoxHeight + 10;
-            
-            // Statistics Box
-            page.drawRectangle({
-                x: 40,
-                y: yPosition - 110,
-                width: width - 80,
-                height: 110,
-                color: PDFLib.rgb(0.95, 0.97, 1),
-                borderColor: PDFLib.rgb(0.23, 0.51, 0.96),
-                borderWidth: 2,
-            });
-            
-            drawText('ACTIVITY STATISTICS', 50, yPosition - 20, 14, helveticaBold, PDFLib.rgb(0.23, 0.51, 0.96));
-            drawLine(50, yPosition - 25, width - 50, yPosition - 25, 1, PDFLib.rgb(0.23, 0.51, 0.96));
-            
-            // Statistics in grid
-            drawText('Citizens Searched:', 50, yPosition - 45, 11, helvetica);
-            drawText(`${shiftSearchHistory.length}`, 200, yPosition - 45, 11, helveticaBold);
-            
-            drawText('Plates Searched:', 300, yPosition - 45, 11, helvetica);
-            drawText(`${shiftPlateSearches.length}`, 450, yPosition - 45, 11, helveticaBold);
-            
-            drawText('Warrants Found:', 50, yPosition - 65, 11, helvetica);
-            drawText(`${shiftSearchHistory.filter(s => s.hasWarrants).length}`, 200, yPosition - 65, 11, helveticaBold, PDFLib.rgb(0.93, 0.26, 0.26));
-            
-            drawText('Vehicles Registered:', 300, yPosition - 65, 11, helvetica);
-            drawText(`${shiftSearchHistory.reduce((sum, s) => sum + s.vehicleCount, 0)}`, 450, yPosition - 65, 11, helveticaBold);
-            
-            yPosition -= 130;
-            
-            // Citizens Searched Section
-            if (shiftSearchHistory.length > 0) {
-                drawText('CITIZENS SEARCHED', 50, yPosition, 12, helveticaBold, PDFLib.rgb(0.23, 0.51, 0.96));
-                drawLine(50, yPosition - 5, width - 50, yPosition - 5, 1, PDFLib.rgb(0.23, 0.51, 0.96));
-                yPosition -= 20;
-                
-                shiftSearchHistory.slice(0, 10).forEach((search, idx) => {
-                    const warrantText = search.hasWarrants ? ' WARRANT' : '';
-                    const textColor = search.hasWarrants ? PDFLib.rgb(0.93, 0.26, 0.26) : PDFLib.rgb(0, 0, 0);
-                    
-                    drawText(`${idx + 1}. ${search.username} (ID: ${search.citizenId})${warrantText}`, 50, yPosition, 9, helvetica, textColor);
-                    drawText(search.timestamp, 400, yPosition, 8, helvetica, PDFLib.rgb(0.5, 0.5, 0.5));
-                    yPosition -= 15;
-                    
-                    if (yPosition < 100) return; // Stop if page is full
-                });
-                
-                yPosition -= 10;
-            }
-            
-            // Plates Searched Section - ENHANCED WITH VEHICLE DETAILS
-// Plates Searched Section - ENHANCED WITH VEHICLE DETAILS
-if (shiftPlateSearches.length > 0 && yPosition > 150) {
-    drawText('PLATES SEARCHED', 50, yPosition, 12, helveticaBold, PDFLib.rgb(0.23, 0.51, 0.96));
-    drawLine(50, yPosition - 5, width - 50, yPosition - 5, 1, PDFLib.rgb(0.23, 0.51, 0.96));
-    yPosition -= 20;
-    
-    for (let idx = 0; idx < Math.min(shiftPlateSearches.length, 10); idx++) {
-        const search = shiftPlateSearches[idx];
-        
-        if (yPosition < 100) break; // Stop if page is full
-        
-        // Check if registration has incomplete/unknown fields
-        let hasIncompleteData = false;
-        if (search.found && search.vehicleDetails) {
-            const veh = search.vehicleDetails;
-            hasIncompleteData = !veh.year || !veh.make || !veh.model || !veh.vehicleType || !veh.color ||
-                                veh.year === 'Unknown' || veh.make === 'Unknown' || veh.model === 'Unknown' ||
-                                veh.vehicleType === 'Unknown' || veh.color === 'Unknown';
-        }
-        
-        // Plate box with border
-        const boxHeight = search.found && search.vehicleDetails ? 60 : 25;
-        const borderColor = !search.found ? PDFLib.rgb(0.93, 0.26, 0.26) : 
-                           hasIncompleteData ? PDFLib.rgb(1, 0.65, 0) : 
-                           PDFLib.rgb(0.06, 0.73, 0.51);
-        
-        page.drawRectangle({
-            x: 50,
-            y: yPosition - boxHeight,
-            width: width - 100,
-            height: boxHeight,
-            color: PDFLib.rgb(0.98, 0.99, 1),
-            borderColor: borderColor,
-            borderWidth: 1.5
-        });
-        
-        // Index and plate
-        drawText(`${idx + 1}.`, 60, yPosition - 15, 10, helveticaBold, PDFLib.rgb(0.5, 0.5, 0.5));
-        drawText(search.plate, 85, yPosition - 15, 11, courierBold, PDFLib.rgb(0, 0, 0));
-        
-        // Status badge
-        let statusText = '';
-        let statusColor = PDFLib.rgb(0, 0, 0);
-        let badgeWidth = 60;
-        
-        if (!search.found) {
-            statusText = 'NOT FOUND';
-            statusColor = PDFLib.rgb(0.93, 0.26, 0.26);
-            badgeWidth = 70;
-        } else if (hasIncompleteData) {
-            statusText = 'IMPROPER USE OF REGISTRATION FORMAT';
-            statusColor = PDFLib.rgb(1, 0.65, 0);
-            badgeWidth = 105;
-        } else {
-            statusText = 'FOUND';
-            statusColor = PDFLib.rgb(0.06, 0.73, 0.51);
-            badgeWidth = 45;
-        }
-        
-        page.drawRectangle({
-            x: 220,
-            y: yPosition - 20,
-            width: badgeWidth,
-            height: 16,
-            color: statusColor
-        });
-        
-        drawText(statusText, 225, yPosition - 13, 8, helveticaBold, PDFLib.rgb(1, 1, 1));
-        
-        // Timestamp
-        drawText(search.timestamp, 400, yPosition - 15, 7, helvetica, PDFLib.rgb(0.5, 0.5, 0.5));
-        
-        // Vehicle details (if found)
-        if (search.found && search.vehicleDetails) {
-            const veh = search.vehicleDetails;
-            
-            // Vehicle info line
-            drawText('VEHICLE:', 70, yPosition - 32, 8, helveticaBold, PDFLib.rgb(0.23, 0.51, 0.96));
-            drawText(`${veh.year || 'Unknown'} ${veh.make || 'Unknown'} ${veh.model || 'Unknown'}`, 120, yPosition - 32, 8, helvetica, PDFLib.rgb(0, 0, 0));
-            
-            // Type and Color
-            drawText('TYPE:', 70, yPosition - 45, 8, helveticaBold, PDFLib.rgb(0.23, 0.51, 0.96));
-            drawText(veh.vehicleType || 'Unknown', 105, yPosition - 45, 8, helvetica, PDFLib.rgb(0, 0, 0));
-            
-            drawText('COLOR:', 200, yPosition - 45, 8, helveticaBold, PDFLib.rgb(0.23, 0.51, 0.96));
-            drawText(veh.color || 'Unknown', 240, yPosition - 45, 8, helvetica, PDFLib.rgb(0, 0, 0));
-            
-            // Registered Owner with Discord info
-            drawText('OWNER:', 70, yPosition - 57, 8, helveticaBold, PDFLib.rgb(0.23, 0.51, 0.96));
-            
-            const ownerText = veh.ownerUsername && veh.ownerUsername !== 'UNKNOWN' 
-                ? `${veh.ownerUsername} (${veh.discordUserId || 'Unknown ID'})`
-                : 'Unknown';
-            
-            drawText(ownerText, 115, yPosition - 57, 7, courier, PDFLib.rgb(0, 0, 0));
-        }
-        
-        yPosition -= boxHeight + 8;
-    }
-}
-
-            // Footer
-            drawLine(40, 60, width - 40, 60, 1, PDFLib.rgb(0.7, 0.7, 0.7));
-            drawText('Generated by NYSP MDT System', width / 2 - 100, 45, 9, helvetica, PDFLib.rgb(0.5, 0.5, 0.5));
-            drawText(new Date().toLocaleString(), width / 2 - 60, 30, 8, helvetica, PDFLib.rgb(0.5, 0.5, 0.5));
-            
-            // Save PDF
-            const pdfBytes = await pdfDoc.save();
-            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `NYSP_Shift_Report_${new Date().toISOString().split('T')[0]}_${trooperSettings?.BadgeID || '00000'}.pdf`;
-            a.click();
-            URL.revokeObjectURL(url);
-            
-            addLog('Ã¢Å“â€¦ Enhanced PDF report generated successfully', 'success');
-        } catch (err) {
-            addLog(`Ã¢ÂÅ’ PDF generation failed: ${err.message}`, 'error');
-            console.error('PDF Error:', err);
-            showCustomError('Export Failed', `Could not generate PDF: ${err.message}`);
-        }
-    }}
-    style={{
-        padding: '14px',
-        background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-        color: 'white',
-        border: 'none',
-        borderRadius: '8px',
-        fontSize: '14px',
-        fontWeight: '700',
-        cursor: 'pointer',
-        textTransform: 'uppercase',
-        letterSpacing: '0.5px'
-    }}
->
-    EXPORT REPORT (PDF)
-</button>
-                
-                <button
-                    onClick={() => {
-                        setShowShiftSummary(false);
-                        setShiftStartTime(null);
-                        setShiftEndTime(null);
-                        setShiftSearchHistory([]);
-                        setShiftPlateSearches([]);
-                    }}
-                    style={{
-                        padding: '14px',
-                        background: 'linear-gradient(135deg, #10b981, #059669)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '14px',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px'
-                    }}
-                >
-                    CLOSE
+            <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={() => setShowEndShiftConfirm(false)} style={{ flex: 1, padding: '13px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#64748b', fontSize: '13px', fontWeight: '700', cursor: 'pointer', letterSpacing: '1px' }}>
+                    CANCEL
                 </button>
+                <button onClick={confirmEndShift} style={{ flex: 2, padding: '13px', background: 'linear-gradient(135deg, #dc2626, #b91c1c)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', letterSpacing: '1px', boxShadow: '0 4px 16px rgba(220,38,38,0.4)' }}>
+                    ■ END SHIFT & EXPORT PDF
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
+{showShiftSummary && shiftStartTime && shiftEndTime && (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100002, padding: '20px', backdropFilter: 'blur(10px)', overflowY: 'auto', animation: 'fadeIn 0.3s ease-out' }}>
+        <div style={{ background: 'linear-gradient(135deg, rgba(15,23,42,0.99), rgba(10,15,30,0.99))', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '20px', width: '100%', maxWidth: '760px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 0 0 1px rgba(0,0,0,0.5), 0 40px 100px rgba(0,0,0,0.8)' }}>
+
+            {/* Header */}
+            <div style={{ background: 'linear-gradient(135deg, rgba(30,58,138,0.4), rgba(15,23,42,0.6))', borderBottom: '1px solid rgba(59,130,246,0.15)', padding: '28px 36px', borderRadius: '20px 20px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                        <div style={{ width: '3px', height: '16px', background: 'linear-gradient(180deg, #3b82f6, #1e3a8a)', borderRadius: '2px' }} />
+                        <span style={{ color: '#475569', fontSize: '10px', fontWeight: '700', letterSpacing: '3px' }}>NEW YORK STATE POLICE MDT</span>
+                    </div>
+                    <div style={{ fontSize: '22px', fontWeight: '900', color: '#f1f5f9', letterSpacing: '-0.5px' }}>Shift Summary Report</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                    <div style={{ color: '#475569', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '4px' }}>TOTAL DURATION</div>
+                    <div style={{ color: '#10b981', fontSize: '24px', fontWeight: '900', fontFamily: 'monospace' }}>{getShiftDuration()}</div>
+                </div>
+            </div>
+
+            <div style={{ padding: '28px 36px' }}>
+
+                {/* Officer info */}
+                <div style={{ background: 'rgba(59,130,246,0.05)', border: '1px solid rgba(59,130,246,0.12)', borderRadius: '14px', padding: '20px', marginBottom: '20px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+                    {[
+                        { label: 'OFFICER', value: `${trooperSettings?.FirstName || ''} ${trooperSettings?.LastName || ''}`.trim() || 'N/A' },
+                        { label: 'BADGE ID', value: trooperSettings?.BadgeID || 'N/A' },
+                        { label: 'USERNAME', value: trooperSettings?.Username || 'N/A' },
+                        { label: 'ZONE', value: trooperSettings?.Zone || 'N/A' },
+                    ].map(({ label, value }) => (
+                        <div key={label}>
+                            <div style={{ color: '#334155', fontSize: '9px', fontWeight: '700', letterSpacing: '2px', marginBottom: '4px' }}>{label}</div>
+                            <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700', fontFamily: 'monospace' }}>{value}</div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Times */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+                    {[
+                        { label: 'START TIME', value: formatShiftTime(shiftStartTime), color: '#34d399', bg: 'rgba(16,185,129,0.06)', border: 'rgba(16,185,129,0.15)' },
+                        { label: 'END TIME', value: formatShiftTime(shiftEndTime), color: '#f87171', bg: 'rgba(239,68,68,0.06)', border: 'rgba(239,68,68,0.15)' },
+                        { label: 'BREAKS TAKEN', value: `${shiftBreaks.length} (${Math.floor(shiftBreaks.reduce((a,b) => a + b.duration, 0) / 60000)}m total)`, color: '#fbbf24', bg: 'rgba(245,158,11,0.06)', border: 'rgba(245,158,11,0.15)' },
+                    ].map(({ label, value, color, bg, border }) => (
+                        <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: '12px', padding: '14px 16px' }}>
+                            <div style={{ color: '#334155', fontSize: '9px', fontWeight: '700', letterSpacing: '2px', marginBottom: '6px' }}>{label}</div>
+                            <div style={{ color, fontSize: '12px', fontWeight: '700', fontFamily: 'monospace' }}>{value}</div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Activity stats */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '20px' }}>
+                    {[
+                        { label: 'PLATES SEARCHED', value: shiftPlateSearches.length, color: '#60a5fa', bg: 'rgba(59,130,246,0.06)', border: 'rgba(59,130,246,0.15)' },
+                        { label: 'CITIZENS SEARCHED', value: shiftSearchHistory.length, color: '#a78bfa', bg: 'rgba(167,139,250,0.06)', border: 'rgba(167,139,250,0.15)' },
+                        { label: 'CALLS ACK.', value: shiftAcknowledgedCount, color: '#34d399', bg: 'rgba(16,185,129,0.06)', border: 'rgba(16,185,129,0.15)' },
+                        { label: 'CALLS DISMISSED', value: shiftDismissedCount, color: '#f87171', bg: 'rgba(239,68,68,0.06)', border: 'rgba(239,68,68,0.15)' },
+                    ].map(({ label, value, color, bg, border }) => (
+                        <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                            <div style={{ color: '#334155', fontSize: '9px', fontWeight: '700', letterSpacing: '1.5px', marginBottom: '8px' }}>{label}</div>
+                            <div style={{ color, fontSize: '28px', fontWeight: '900', fontFamily: 'monospace' }}>{value}</div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Plates log */}
+                {shiftPlateSearches.length > 0 && (
+                    <div style={{ background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.1)', borderRadius: '14px', padding: '18px', marginBottom: '14px' }}>
+                        <div style={{ color: '#60a5fa', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '12px' }}>LICENSE PLATES SEARCHED ({shiftPlateSearches.length})</div>
+                        <div style={{ maxHeight: '160px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {shiftPlateSearches.map((s, i) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                                    <span style={{ color: 'white', fontFamily: 'monospace', fontWeight: '700', letterSpacing: '2px', fontSize: '13px' }}>{s.plate}</span>
+                                    <span style={{ color: s.found ? '#34d399' : '#f87171', fontSize: '10px', fontWeight: '700' }}>{s.found ? 'FOUND' : 'NOT FOUND'}</span>
+                                    <span style={{ color: '#334155', fontSize: '10px', fontFamily: 'monospace' }}>{s.timestamp}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Citizens log */}
+                {shiftSearchHistory.length > 0 && (
+                    <div style={{ background: 'rgba(167,139,250,0.04)', border: '1px solid rgba(167,139,250,0.1)', borderRadius: '14px', padding: '18px', marginBottom: '14px' }}>
+                        <div style={{ color: '#a78bfa', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '12px' }}>CITIZENS SEARCHED ({shiftSearchHistory.length})</div>
+                        <div style={{ maxHeight: '160px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {shiftSearchHistory.map((s, i) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                                    <span style={{ color: 'white', fontWeight: '700', fontSize: '12px' }}>{s.username}</span>
+                                    {s.hasWarrants && <span style={{ color: '#ef4444', fontSize: '10px', fontWeight: '700' }}>⚠ WARRANT</span>}
+                                    <span style={{ color: '#334155', fontSize: '10px', fontFamily: 'monospace' }}>{s.timestamp}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Breaks log */}
+                {shiftBreaks.length > 0 && (
+                    <div style={{ background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.1)', borderRadius: '14px', padding: '18px', marginBottom: '20px' }}>
+                        <div style={{ color: '#fbbf24', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '12px' }}>BREAKS ({shiftBreaks.length})</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {shiftBreaks.map((b, i) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                                    <span style={{ color: '#94a3b8', fontSize: '11px', fontFamily: 'monospace' }}>{formatShiftTime(b.start)} → {formatShiftTime(b.end)}</span>
+                                    <span style={{ color: '#fbbf24', fontSize: '11px', fontWeight: '700' }}>{Math.floor(b.duration / 60000)}m {Math.floor((b.duration % 60000) / 1000)}s</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Buttons */}
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <button onClick={async () => {
+                        try {
+                            addLog('Generating shift report PDF...', 'info');
+                            const pdfDoc = await PDFLib.PDFDocument.create();
+                            const page = pdfDoc.addPage([612, 792]);
+                            const helveticaBold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+                            const helvetica = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+                            const courier = await pdfDoc.embedFont(PDFLib.StandardFonts.Courier);
+                            const { width, height } = page.getSize();
+                            let y = height - 50;
+                            const txt = (t, x, yy, size, font, color = PDFLib.rgb(0,0,0)) => page.drawText(String(t), { x, y: yy, size, font, color });
+                            const line = (x1, y1, x2, y2) => page.drawLine({ start:{x:x1,y:y1}, end:{x:x2,y:y2}, thickness:0.5, color: PDFLib.rgb(0.8,0.8,0.8) });
+
+                            // Header
+                            page.drawRectangle({ x:40, y:y-80, width:width-80, height:80, color: PDFLib.rgb(0.23,0.51,0.96) });
+                            txt('NEW YORK STATE POLICE', 55, y-35, 20, helveticaBold, PDFLib.rgb(1,1,1));
+                            txt('SHIFT SUMMARY REPORT', 55, y-58, 14, helvetica, PDFLib.rgb(1,1,1));
+                            txt(`Generated: ${new Date().toLocaleString()}`, 55, y-74, 9, helvetica, PDFLib.rgb(0.8,0.9,1));
+                            y -= 100;
+
+                            // Officer info
+                            page.drawRectangle({ x:40, y:y-70, width:width-80, height:70, color: PDFLib.rgb(0.96,0.97,0.99) });
+                            txt('OFFICER INFORMATION', 50, y-18, 10, helveticaBold, PDFLib.rgb(0.23,0.51,0.96));
+                            txt(`Name: ${trooperSettings?.FirstName || ''} ${trooperSettings?.LastName || ''}`, 50, y-34, 10, helvetica);
+                            txt(`Badge: ${trooperSettings?.BadgeID || 'N/A'}`, 200, y-34, 10, helvetica);
+                            txt(`Username: ${trooperSettings?.Username || 'N/A'}`, 50, y-48, 10, helvetica);
+                            txt(`Zone: ${trooperSettings?.Zone || 'N/A'}`, 200, y-48, 10, helvetica);
+                            txt(`Department: ${trooperSettings?.Department || 'NYSP'}`, 50, y-62, 10, helvetica);
+                            const sessName = selectedUserSession === '1011898104670330920' ? 'Session 1' : selectedUserSession === '1390212294478397471' ? 'Session 2' : selectedUserSession === '1390212341005680650' ? 'Session 3' : 'None';
+                            txt(`Session: ${sessName}`, 200, y-62, 10, helvetica);
+                            y -= 90;
+
+                            // Times
+                            txt('SHIFT TIMES', 50, y-15, 10, helveticaBold, PDFLib.rgb(0.23,0.51,0.96));
+                            txt(`Start: ${formatShiftTime(shiftStartTime)}`, 50, y-30, 10, helvetica);
+                            txt(`End:   ${formatShiftTime(shiftEndTime)}`, 50, y-44, 10, helvetica);
+                            txt(`Duration: ${getShiftDuration()}`, 50, y-58, 10, helvetica);
+                            txt(`Breaks: ${shiftBreaks.length} (${Math.floor(shiftBreaks.reduce((a,b)=>a+b.duration,0)/60000)}m total)`, 50, y-72, 10, helvetica);
+                            y -= 92;
+
+                            // Stats
+                            page.drawRectangle({ x:40, y:y-60, width:width-80, height:60, color: PDFLib.rgb(0.96,0.97,0.99) });
+                            txt('ACTIVITY STATISTICS', 50, y-18, 10, helveticaBold, PDFLib.rgb(0.23,0.51,0.96));
+                            txt(`Plates Searched: ${shiftPlateSearches.length}`, 50, y-34, 10, helvetica);
+                            txt(`Citizens Searched: ${shiftSearchHistory.length}`, 200, y-34, 10, helvetica);
+                            txt(`Calls Acknowledged: ${shiftAcknowledgedCount}`, 50, y-50, 10, helvetica);
+                            txt(`Calls Dismissed: ${shiftDismissedCount}`, 200, y-50, 10, helvetica);
+                            y -= 80;
+
+                            // Plates
+                            if (shiftPlateSearches.length > 0) {
+                                txt('LICENSE PLATES SEARCHED', 50, y-15, 10, helveticaBold, PDFLib.rgb(0.23,0.51,0.96));
+                                y -= 28;
+                                shiftPlateSearches.forEach(s => {
+                                    if (y < 60) { pdfDoc.addPage([612,792]); y = 742; }
+                                    txt(s.plate, 50, y, 9, courier);
+                                    txt(s.found ? 'FOUND' : 'NOT FOUND', 180, y, 9, helvetica, s.found ? PDFLib.rgb(0.06,0.73,0.51) : PDFLib.rgb(0.94,0.27,0.27));
+                                    txt(s.timestamp, 300, y, 8, helvetica, PDFLib.rgb(0.5,0.5,0.5));
+                                    y -= 14;
+                                });
+                                y -= 10;
+                            }
+
+                            // Citizens
+                            if (shiftSearchHistory.length > 0) {
+                                txt('CITIZENS SEARCHED', 50, y-15, 10, helveticaBold, PDFLib.rgb(0.23,0.51,0.96));
+                                y -= 28;
+                                shiftSearchHistory.forEach(s => {
+                                    if (y < 60) { pdfDoc.addPage([612,792]); y = 742; }
+                                    txt(s.username || s.citizenId, 50, y, 9, helvetica);
+                                    if (s.hasWarrants) txt('WARRANT', 200, y, 9, helveticaBold, PDFLib.rgb(0.94,0.27,0.27));
+                                    txt(s.timestamp, 300, y, 8, helvetica, PDFLib.rgb(0.5,0.5,0.5));
+                                    y -= 14;
+                                });
+                                y -= 10;
+                            }
+
+                            // Breaks
+                            if (shiftBreaks.length > 0) {
+                                txt('BREAKS', 50, y-15, 10, helveticaBold, PDFLib.rgb(0.23,0.51,0.96));
+                                y -= 28;
+                                shiftBreaks.forEach((b, i) => {
+                                    if (y < 60) { pdfDoc.addPage([612,792]); y = 742; }
+                                    txt(`Break ${i+1}: ${formatShiftTime(b.start)} → ${formatShiftTime(b.end)} (${Math.floor(b.duration/60000)}m ${Math.floor((b.duration%60000)/1000)}s)`, 50, y, 9, helvetica);
+                                    y -= 14;
+                                });
+                            }
+
+                            const pdfBytes = await pdfDoc.save();
+                            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                            const url = URL.createObjectURL(blob);
+                            const filename = `NYSP_Shift_${trooperSettings?.BadgeID || 'REPORT'}_${new Date().toLocaleDateString().replace(/\//g,'')}.pdf`;
+                            if (window.require) {
+                                const { ipcRenderer } = window.require('electron');
+                                const tempPath = await ipcRenderer.invoke('save-pdf-temp', { filename, data: Array.from(new Uint8Array(pdfBytes)) });
+                                if (tempPath?.path) { const { shell } = window.require('electron'); shell.openPath(tempPath.path); }
+                            } else {
+                                const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+                            }
+                            addLog('✅ Shift report exported', 'success');
+                        } catch(e) { showCustomError('PDF Error', e.message); }
+                    }} style={{ flex: 2, padding: '14px', background: 'linear-gradient(135deg, #1e3a8a, #2563eb)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', letterSpacing: '1px', boxShadow: '0 4px 16px rgba(30,58,138,0.5)' }}>
+                        📄 EXPORT PDF REPORT
+                    </button>
+                    <button onClick={() => { setShowShiftSummary(false); setShiftStartTime(null); setShiftEndTime(null); setShiftSearchHistory([]); setShiftPlateSearches([]); setShiftBreaks([]); setShiftAcknowledgedCount(0); setShiftDismissedCount(0); }} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', letterSpacing: '1px' }}>
+                        ✓ CLOSE
+                    </button>
+                </div>
             </div>
         </div>
     </div>
