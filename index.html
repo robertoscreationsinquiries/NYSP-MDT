@@ -9665,7 +9665,7 @@ return (
 
 {/* ── SHIFT HUD BAR ── */}
 {shiftStartTime && !shiftEndTime && (
-    <div style={{ position: 'fixed', top: 0, left: '280px', right: 0, height: '36px', background: shiftPaused ? 'linear-gradient(90deg, rgba(245,158,11,0.15), rgba(217,119,6,0.08))' : 'linear-gradient(90deg, rgba(16,185,129,0.12), rgba(5,150,105,0.06))', borderBottom: `1px solid ${shiftPaused ? 'rgba(245,158,11,0.25)' : 'rgba(16,185,129,0.2)'}`, display: 'flex', alignItems: 'center', paddingLeft: '20px', paddingRight: '20px', gap: '24px', zIndex: 9990, backdropFilter: 'blur(8px)' }}>
+    <div style={{ position: 'fixed', top: 0, left: '280px', right: 0, height: '36px', background: shiftPaused ? 'rgba(30,20,0,0.92)' : 'rgba(0,20,14,0.92)', borderBottom: `1px solid ${shiftPaused ? 'rgba(245,158,11,0.2)' : 'rgba(16,185,129,0.18)'}`, display: 'flex', alignItems: 'center', paddingLeft: '16px', paddingRight: '12px', gap: '18px', zIndex: 9990, backdropFilter: 'blur(12px)', overflow: 'hidden', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: shiftPaused ? '#f59e0b' : '#10b981', boxShadow: shiftPaused ? '0 0 6px #f59e0b' : '0 0 6px #10b981', animation: shiftPaused ? 'none' : 'pulse-dot 2s infinite' }} />
             <span style={{ color: shiftPaused ? '#fbbf24' : '#34d399', fontSize: '10px', fontWeight: '700', letterSpacing: '2px' }}>{shiftPaused ? 'PAUSED' : 'ON DUTY'}</span>
@@ -10196,7 +10196,7 @@ return (
                         <button onClick={startShift} style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '12px', color: 'white', fontSize: '14px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 4px 16px rgba(16,185,129,0.4)', transition: 'all 0.25s' }}
                             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(16,185,129,0.6)'; }}
                             onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(16,185,129,0.4)'; }}>
-                            {shiftEndTime ? '▶ START NEW SHIFT' : '▶ START SHIFT'}
+                            {shiftEndTime ? '▶ START NEW SHIFT' : '▶  (NEW)'}
                         </button>
                     ) : !shiftEndTime ? (
                         <>
@@ -13934,7 +13934,7 @@ if (window.electronAPI?.quit) {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             {shiftBreaks.map((b, i) => (
                                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)' }}>
-                                    <span style={{ color: '#94a3b8', fontSize: '11px', fontFamily: 'monospace' }}>{formatShiftTime(b.start)} → {formatShiftTime(b.end)}</span>
+                                    <span style={{ color: '#94a3b8', fontSize: '11px', fontFamily: 'monospace' }}>{formatShiftTime(b.start)} &rarr; {formatShiftTime(b.end)}</span>
                                     <span style={{ color: '#fbbf24', fontSize: '11px', fontWeight: '700' }}>{Math.floor(b.duration / 60000)}m {Math.floor((b.duration % 60000) / 1000)}s</span>
                                 </div>
                             ))}
@@ -14027,20 +14027,26 @@ if (window.electronAPI?.quit) {
                                 y -= 28;
                                 shiftBreaks.forEach((b, i) => {
                                     if (y < 60) { pdfDoc.addPage([612,792]); y = 742; }
-                                    txt(`Break ${i+1}: ${formatShiftTime(b.start)} → ${formatShiftTime(b.end)} (${Math.floor(b.duration/60000)}m ${Math.floor((b.duration%60000)/1000)}s)`, 50, y, 9, helvetica);
+                                    txt(`Break ${i+1}: ${formatShiftTime(b.start)} to ${formatShiftTime(b.end)} (${Math.floor(b.duration/60000)}m ${Math.floor((b.duration%60000)/1000)}s)`, 50, y, 9, helvetica);
                                     y -= 14;
                                 });
                             }
 
                             const pdfBytes = await pdfDoc.save();
-                            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-                            const url = URL.createObjectURL(blob);
-                            const filename = `NYSP_Shift_${trooperSettings?.BadgeID || 'REPORT'}_${new Date().toLocaleDateString().replace(/\//g,'')}.pdf`;
+                            const filename = `Shift_${trooperSettings?.BadgeID || 'REPORT'}_${new Date().toLocaleDateString().replace(/\//g,'')}.pdf`;
                             if (window.require) {
-                                const { ipcRenderer } = window.require('electron');
-                                const tempPath = await ipcRenderer.invoke('save-pdf-temp', { filename, data: Array.from(new Uint8Array(pdfBytes)) });
-                                if (tempPath?.path) { const { shell } = window.require('electron'); shell.openPath(tempPath.path); }
+                                const { fs, path, os, shell } = (() => ({
+                                    fs: window.require('fs'),
+                                    path: window.require('path'),
+                                    os: window.require('os'),
+                                    shell: window.require('electron').shell
+                                }))();
+                                const filepath = path.join(os.tmpdir(), filename);
+                                fs.writeFileSync(filepath, Buffer.from(pdfBytes));
+                                shell.openExternal(`file://${filepath}`);
                             } else {
+                                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                                const url = URL.createObjectURL(blob);
                                 const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
                             }
                             addLog('✅ Shift report exported', 'success');
