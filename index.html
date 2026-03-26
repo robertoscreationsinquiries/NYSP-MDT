@@ -1532,19 +1532,19 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
         (function() {
             const badge = document.createElement('div');
             const sha = window.APP_COMMIT_SHA || 'dev';
-            badge.textContent = `BETA BUILD - APP V. 0.1.0.5  •  ${sha}`;
-            badge.style.cssText = 'position:fixed;bottom:16px;left:8px;font-size:9px;font-weight:700;color:rgba(251,191,36,0.45);letter-spacing:1px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;max-width:264px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+            badge.textContent = `BETA BUILD - APP V. 0.1.0.7  •  ${sha}`;
+            badge.style.cssText = 'position:fixed;bottom:16px;left:44px;font-size:9px;font-weight:700;color:rgba(251,191,36,0.45);letter-spacing:1px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;white-space:nowrap;';
             document.body.appendChild(badge);
             if (window.APP_GITHUB_BRANCH && window.APP_GITHUB_BRANCH !== 'main') {
                 const testingBadge = document.createElement('div');
                 testingBadge.textContent = `⚠ TESTING BRANCH: ⚠`;
-                testingBadge.style.cssText = 'position:fixed;bottom:30px;left:8px;font-size:9px;font-weight:700;color:rgba(239,68,68,0.8);letter-spacing:1px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;max-width:264px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+                testingBadge.style.cssText = 'position:fixed;bottom:30px;left:44px;font-size:9px;font-weight:700;color:rgba(239,68,68,0.8);letter-spacing:1px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;white-space:nowrap;';
                 document.body.appendChild(testingBadge);
             }
         })();
 
         function NYSPLookupTool() {
-            const APP_VERSION = '0.1.0.5';
+            const APP_VERSION = '0.1.0.7';
             const [licensePlate, setLicensePlate] = useState('');
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
@@ -3198,6 +3198,22 @@ const FAQ_DATA = [
 
 const updateLogsData = [
     {
+        title: "CAD SYSTEM - NEW ADDITION",
+        version: "0.1.0.7",
+        release_date: "03/26/2026",
+        description: "Added support for dispatcher on backend, changes to backends, and much more!",
+        new: [
+            '(RE)ADDED Shift logging system!',
+        ],
+        bugs: [],
+        modifications: [
+         'CHANGED textlabels across the application from "NYSP" to "CAD".',
+        'CHANGED visuals for log-in screens.',
+        ],
+        removed: [],
+        planned: []
+    },
+    {
         title: "CAD SYSTEM - HOTFIX",
         version: "0.1.0.5",
         release_date: "03/23/2026",
@@ -3205,10 +3221,11 @@ const updateLogsData = [
         new: [
             'ADDED a dropdown setting in "pending calls" tab to select your session if it has not been selected already.',
         ],
-        bugs: [],
-        modifications: [
-         'FIXED a bug where the Roblox Profile search delay was higher than necessary.',
+        bugs: [
+            'FIXED a bug where the Roblox Profile search delay was higher than necessary.',
         'FIXED a bug where the warrant search delay was higher than necessary for "Search by License plate" tab.',
+        ],
+        modifications: [
         ],
         removed: [],
         planned: []
@@ -3223,10 +3240,12 @@ const updateLogsData = [
             'ADDED a drop-down setting to select your input device (microphone).',
             'ADDED 3 new sounds for Voice to Plate feature.'
         ],
-        bugs: [],
-        modifications: [
-         'FIXED vehicle-registered timestamps not showing correctly under "ID LOOKUP" tab.',
+        bugs: [
+        'FIXED vehicle-registered timestamps not showing correctly under "ID LOOKUP" tab.',
          'FIXED vehicle-registered timestamps not showing for improperly registered vehicles.',
+        ],
+        modifications: [
+
         ],
         removed: [],
         planned: []
@@ -9665,7 +9684,7 @@ return (
 
 {/* ── SHIFT HUD BAR ── */}
 {shiftStartTime && !shiftEndTime && (
-    <div style={{ position: 'fixed', top: 0, left: '280px', width: 'calc(100vw - 280px)', height: '36px', background: shiftPaused ? 'rgba(30,20,0,0.95)' : 'rgba(0,18,12,0.95)', borderBottom: `1px solid ${shiftPaused ? 'rgba(245,158,11,0.2)' : 'rgba(16,185,129,0.18)'}`, display: 'flex', alignItems: 'center', paddingLeft: '16px', paddingRight: '12px', gap: '16px', zIndex: 9990, backdropFilter: 'blur(12px)', overflow: 'hidden', boxSizing: 'border-box' }}>
+    <div style={{ position: 'fixed', top: 0, left: '36px', width: 'calc(100vw - 36px)', height: '36px', background: shiftPaused ? 'rgba(30,20,0,0.95)' : 'rgba(0,18,12,0.95)', borderBottom: `1px solid ${shiftPaused ? 'rgba(245,158,11,0.2)' : 'rgba(16,185,129,0.18)'}`, display: 'flex', alignItems: 'center', paddingLeft: '16px', paddingRight: '12px', gap: '16px', zIndex: 9990, backdropFilter: 'blur(12px)', overflow: 'hidden', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: shiftPaused ? '#f59e0b' : '#10b981', boxShadow: shiftPaused ? '0 0 6px #f59e0b' : '0 0 6px #10b981', animation: shiftPaused ? 'none' : 'pulse-dot 2s infinite' }} />
             <span style={{ color: shiftPaused ? '#fbbf24' : '#34d399', fontSize: '10px', fontWeight: '700', letterSpacing: '2px' }}>{shiftPaused ? 'PAUSED' : 'ON DUTY'}</span>
@@ -10204,7 +10223,7 @@ return (
                                 <div style={{ color: '#6ee7b7', fontSize: '10px', fontWeight: '700', letterSpacing: '1px', marginBottom: '4px' }}>
                                     {shiftPaused ? '⏸ PAUSED' : '▶ ON DUTY'}
                                 </div>
-                                <div style={{ color: 'white', fontSize: '18px', fontWeight: '800', fontFamily: 'monospace', textShadow: '0 2px 4px rgba(0,0,0,0.3)', marginBottom: '4px' }}>
+                                <div style={{ color: 'white', fontSize: '14px', fontWeight: '800', fontFamily: 'monospace', textShadow: '0 2px 4px rgba(0,0,0,0.3)', marginBottom: '4px' }}>
                                     {(() => {
                                         const now = currentTime;
                                         const elapsed = shiftPaused 
