@@ -2384,20 +2384,23 @@ useEffect(() => {
 }, [useMicrophone]);
 
 // Service status polling
+const activeServiceAlertsRef = React.useRef({});
 useEffect(() => {
+    const SERVICE_CHECKS = [
+        { key: 'discord',    url: 'https://discordstatus.com/api/v2/status.json',        name: 'Discord' },
+        { key: 'github',     url: 'https://www.githubstatus.com/api/v2/status.json',     name: 'GitHub' },
+        { key: 'cloudflare', url: 'https://www.cloudflarestatus.com/api/v2/status.json', name: 'Cloudflare' },
+    ];
+
     const checkServices = async () => {
-        const checks = [
-            { key: 'discord', url: 'https://discordstatus.com/api/v2/status.json' },
-            { key: 'github', url: 'https://www.githubstatus.com/api/v2/status.json' },
-            { key: 'cloudflare', url: 'https://www.cloudflarestatus.com/api/v2/status.json' },
-        ];
         const results = {};
-        await Promise.all(checks.map(async ({ key, url }) => {
+        await Promise.all(SERVICE_CHECKS.map(async ({ key, url }) => {
             try {
                 const resp = await Promise.race([
-                    fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`),
-                    new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 5000))
+                    fetch(url, { cache: 'no-store' }),
+                    new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 6000))
                 ]);
+                if (!resp.ok) { results[key] = 'unknown'; return; }
                 const data = await resp.json();
                 const indicator = data?.status?.indicator;
                 results[key] = indicator === 'none' ? 'operational' : indicator === 'minor' ? 'degraded' : 'outage';
@@ -2405,8 +2408,37 @@ useEffect(() => {
                 results[key] = 'unknown';
             }
         }));
+
         setServiceStatus(prev => ({ ...prev, ...results }));
+
+        // Only add/remove announcements when status actually changes
+        SERVICE_CHECKS.forEach(({ key, name }) => {
+            const status = results[key];
+            const announcementKey = `__service_${key}`;
+            const alreadyAlerted = activeServiceAlertsRef.current[key];
+            const isProblematic = status === 'degraded' || status === 'outage';
+
+            if (isProblematic && !alreadyAlerted) {
+                // New problem — add announcement and mark as alerted
+                const severity = status === 'outage'
+                    ? 'is currently experiencing a service outage'
+                    : 'is currently experiencing degraded performance';
+                const msg = `⚠ SERVICE ALERT: ${name} ${severity}. Some CAD features may be unavailable or unstable. Please stand by.`;
+                window.LIVEANNOUNCEMENTS = { ...(window.LIVEANNOUNCEMENTS || {}), [announcementKey]: msg };
+                setLiveAnnouncements(prev => ({ ...prev, [announcementKey]: msg }));
+                activeServiceAlertsRef.current[key] = true;
+            } else if (!isProblematic && alreadyAlerted) {
+                // Recovered — remove announcement
+                const updated = { ...(window.LIVEANNOUNCEMENTS || {}) };
+                delete updated[announcementKey];
+                window.LIVEANNOUNCEMENTS = updated;
+                setLiveAnnouncements(prev => { const n = { ...prev }; delete n[announcementKey]; return n; });
+                activeServiceAlertsRef.current[key] = false;
+            }
+            // If status unchanged — do nothing, no duplicate
+        });
     };
+
     checkServices();
     const interval = setInterval(checkServices, 60000);
     return () => clearInterval(interval);
@@ -10176,24 +10208,6 @@ return (
                                 </div>
                             </div>
                         ))}
-                    {[
-                            { label: 'DISCORD', key: 'discord' },
-                            { label: 'GITHUB', key: 'github' },
-                            { label: 'CLOUDFLARE', key: 'cloudflare' },
-                        ].map(({ label, key }) => {
-                            const s = serviceStatus[key];
-                            const dot = s === 'operational' ? '#10b981' : s === 'degraded' ? '#f59e0b' : s === 'outage' ? '#ef4444' : '#6b7280';
-                            const text = s === 'operational' ? 'OPERATIONAL' : s === 'degraded' ? 'DEGRADED' : s === 'outage' ? 'OUTAGE' : 'CHECKING...';
-                            return (
-                                <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                                    <span style={{ color: '#6ee7b7', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>{label}</span>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dot, boxShadow: `0 0 8px ${dot}`, animation: s === 'checking' ? 'none' : 'pulse-dot 2s ease-in-out infinite' }} />
-                                        <span style={{ color: 'white', fontSize: '13px', fontWeight: '700' }}>{text}</span>
-                                    </div>
-                                </div>
-                            );
-                        })}
                     </div>
                 </div>
             </div>
