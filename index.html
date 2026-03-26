@@ -1805,6 +1805,7 @@ const [isRecordingMicHotkey, setIsRecordingMicHotkey] = useState(false);
 // LOGIN SYSTEM STATE
 // ══════════════════════════════════════════════════════════════════════════
 const [showLoginScreen, setShowLoginScreen] = useState(true);
+const [loginFadingOut, setLoginFadingOut] = useState(false);
 const [loginUsername, setLoginUsername] = useState(() => localStorage.getItem('nysp_saved_username') || '');
 const [loginPassword, setLoginPassword] = useState(() => localStorage.getItem('nysp_saved_password') || '');
 const [loginError, setLoginError] = useState('');
@@ -8981,9 +8982,13 @@ if (window.MAINTENANCE === true && !(window.APP_GITHUB_BRANCH && window.APP_GITH
             Department: user.department || 'NYSP'
         });
 
-        setShowLoginScreen(false);
-        setShowLoader(true);
+        setLoginFadingOut(true);
         setIsLoggingIn(false);
+        setTimeout(() => {
+            setShowLoginScreen(false);
+            setLoginFadingOut(false);
+            setShowLoader(true);
+        }, 400);
         if (compactMode && window.require) {
             try { window.require('electron').ipcRenderer.send('toggle-compact-mode', true); } catch(_) {}
         }
@@ -9406,11 +9411,11 @@ return (
 
 
 
-        {/* ═══════════════════════════════════════════════════════════════════ */}
+{/* ═══════════════════════════════════════════════════════════════════ */}
 {/* LOGIN SCREEN */}
 {/* ═══════════════════════════════════════════════════════════════════ */}
 {!maintenanceActive && !showUpdateScreen && showLoginScreen && (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#060a12', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100002, padding: '20px' }}>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#060a12', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100002, padding: '20px', animation: loginFadingOut ? 'fadeOut 0.4s ease-out forwards' : 'fadeIn 0.4s ease-out' }}>
         {/* Background grid */}
         <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px)', backgroundSize: '40px 40px', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', top: '-200px', left: '-200px', width: '600px', height: '600px', background: 'radial-gradient(circle, rgba(30,58,138,0.2) 0%, transparent 70%)', pointerEvents: 'none' }} />
