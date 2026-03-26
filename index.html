@@ -1824,6 +1824,11 @@ const voiceRecogRef = React.useRef(null);
 
 
 const [databaseStatus, setDatabaseStatus] = useState({ connected: false, checking: true });
+const [serviceStatus, setServiceStatus] = useState({
+    discord: 'checking',
+    github: 'checking',
+    cloudflare: 'checking'
+});
 
 React.useEffect(() => {
     // Check maintenance status immediately on load
@@ -2377,6 +2382,35 @@ useEffect(() => {
         stopMicTest();
     }
 }, [useMicrophone]);
+
+// Service status polling
+useEffect(() => {
+    const checkServices = async () => {
+        const checks = [
+            { key: 'discord', url: 'https://discordstatus.com/api/v2/status.json' },
+            { key: 'github', url: 'https://www.githubstatus.com/api/v2/status.json' },
+            { key: 'cloudflare', url: 'https://www.cloudflarestatus.com/api/v2/status.json' },
+        ];
+        const results = {};
+        await Promise.all(checks.map(async ({ key, url }) => {
+            try {
+                const resp = await Promise.race([
+                    fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`),
+                    new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 5000))
+                ]);
+                const data = await resp.json();
+                const indicator = data?.status?.indicator;
+                results[key] = indicator === 'none' ? 'operational' : indicator === 'minor' ? 'degraded' : 'outage';
+            } catch {
+                results[key] = 'unknown';
+            }
+        }));
+        setServiceStatus(prev => ({ ...prev, ...results }));
+    };
+    checkServices();
+    const interval = setInterval(checkServices, 60000);
+    return () => clearInterval(interval);
+}, []);
 
 // Enumerate mic devices when microphone is enabled
 useEffect(() => {
@@ -3201,9 +3235,10 @@ const updateLogsData = [
         title: "CAD SYSTEM - NEW ADDITION",
         version: "0.1.0.7",
         release_date: "03/26/2026",
-        description: "Added support for dispatcher on backend, changes to backends, and much more!",
+        description: "Added support for dispatcher on backend, changes to backends, and more!",
         new: [
             '(RE)ADDED Shift logging system!',
+            'ADDED LIVE tracking to all dependencies to ensure there is no outage.'
         ],
         bugs: [],
         modifications: [
@@ -9729,10 +9764,10 @@ return (
                     setShiftPaused(true);
                     addLog('⏸️ Shift paused', 'info');
                 }
-            }} style={{ padding: '4px 12px', background: shiftPaused ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)', border: `1px solid ${shiftPaused ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}`, borderRadius: '6px', color: shiftPaused ? '#34d399' : '#fbbf24', fontSize: '10px', fontWeight: '700', cursor: 'pointer', letterSpacing: '1px' }}>
+            }} style={{ padding: '3px 10px', background: 'transparent', border: `1px solid ${shiftPaused ? 'rgba(16,185,129,0.35)' : 'rgba(245,158,11,0.35)'}`, borderRadius: '4px', color: shiftPaused ? '#34d399' : '#fbbf24', fontSize: '9px', fontWeight: '700', cursor: 'pointer', letterSpacing: '1.5px', textTransform: 'uppercase', lineHeight: '20px' }}>
                 {shiftPaused ? '▶ RESUME' : '⏸ PAUSE'}
             </button>
-            <button onClick={() => setShowEndShiftConfirm(true)} style={{ padding: '4px 12px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', color: '#f87171', fontSize: '10px', fontWeight: '700', cursor: 'pointer', letterSpacing: '1px' }}>
+            <button onClick={() => setShowEndShiftConfirm(true)} style={{ padding: '3px 10px', background: 'transparent', border: '1px solid rgba(239,68,68,0.35)', borderRadius: '4px', color: '#f87171', fontSize: '9px', fontWeight: '700', cursor: 'pointer', letterSpacing: '1.5px', textTransform: 'uppercase', lineHeight: '20px' }}>
                 ■ END SHIFT
             </button>
         </div>
@@ -10141,6 +10176,24 @@ return (
                                 </div>
                             </div>
                         ))}
+                    {[
+                            { label: 'DISCORD', key: 'discord' },
+                            { label: 'GITHUB', key: 'github' },
+                            { label: 'CLOUDFLARE', key: 'cloudflare' },
+                        ].map(({ label, key }) => {
+                            const s = serviceStatus[key];
+                            const dot = s === 'operational' ? '#10b981' : s === 'degraded' ? '#f59e0b' : s === 'outage' ? '#ef4444' : '#6b7280';
+                            const text = s === 'operational' ? 'OPERATIONAL' : s === 'degraded' ? 'DEGRADED' : s === 'outage' ? 'OUTAGE' : 'CHECKING...';
+                            return (
+                                <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <span style={{ color: '#6ee7b7', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>{label}</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dot, boxShadow: `0 0 8px ${dot}`, animation: s === 'checking' ? 'none' : 'pulse-dot 2s ease-in-out infinite' }} />
+                                        <span style={{ color: 'white', fontSize: '13px', fontWeight: '700' }}>{text}</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             </div>
