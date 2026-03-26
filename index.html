@@ -1533,12 +1533,12 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
             const badge = document.createElement('div');
             const sha = window.APP_COMMIT_SHA || 'dev';
             badge.textContent = `BETA BUILD - APP V. 0.1.0.5  •  ${sha}`;
-            badge.style.cssText = 'position:fixed;bottom:16px;left:296px;font-size:10px;font-weight:700;color:rgba(251,191,36,0.55);letter-spacing:1.5px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;';
+            badge.style.cssText = 'position:fixed;bottom:16px;left:8px;font-size:9px;font-weight:700;color:rgba(251,191,36,0.45);letter-spacing:1px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;max-width:264px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
             document.body.appendChild(badge);
             if (window.APP_GITHUB_BRANCH && window.APP_GITHUB_BRANCH !== 'main') {
                 const testingBadge = document.createElement('div');
                 testingBadge.textContent = `⚠ TESTING BRANCH: ⚠`;
-                testingBadge.style.cssText = 'position:fixed;bottom:30px;left:296px;font-size:10px;font-weight:700;color:rgba(239,68,68,0.85);letter-spacing:1.5px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;';
+                testingBadge.style.cssText = 'position:fixed;bottom:30px;left:8px;font-size:9px;font-weight:700;color:rgba(239,68,68,0.8);letter-spacing:1px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;max-width:264px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
                 document.body.appendChild(testingBadge);
             }
         })();
@@ -9550,7 +9550,7 @@ return (
                 <div style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 16px rgba(59,130,246,0.5)' }}>
                     <Shield size={18} style={{ color: 'white' }} />
                 </div>
-                <span style={{ color: '#60a5fa', fontSize: '12px', fontWeight: '700', letterSpacing: '3px', textTransform: 'uppercase' }}>NEW YORK STATE POLICE</span>
+                <span style={{ color: '#60a5fa', fontSize: '12px', fontWeight: '700', letterSpacing: '3px', textTransform: 'uppercase' }}>CAD</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#fbbf24', boxShadow: '0 0 8px #fbbf24', animation: 'pulse-dot 1s ease-in-out infinite' }} />
@@ -9665,7 +9665,7 @@ return (
 
 {/* ── SHIFT HUD BAR ── */}
 {shiftStartTime && !shiftEndTime && (
-    <div style={{ position: 'fixed', top: 0, left: '280px', right: 0, height: '36px', background: shiftPaused ? 'rgba(30,20,0,0.92)' : 'rgba(0,20,14,0.92)', borderBottom: `1px solid ${shiftPaused ? 'rgba(245,158,11,0.2)' : 'rgba(16,185,129,0.18)'}`, display: 'flex', alignItems: 'center', paddingLeft: '16px', paddingRight: '12px', gap: '18px', zIndex: 9990, backdropFilter: 'blur(12px)', overflow: 'hidden', boxSizing: 'border-box' }}>
+    <div style={{ position: 'fixed', top: 0, left: '280px', width: 'calc(100vw - 280px)', height: '36px', background: shiftPaused ? 'rgba(30,20,0,0.95)' : 'rgba(0,18,12,0.95)', borderBottom: `1px solid ${shiftPaused ? 'rgba(245,158,11,0.2)' : 'rgba(16,185,129,0.18)'}`, display: 'flex', alignItems: 'center', paddingLeft: '16px', paddingRight: '12px', gap: '16px', zIndex: 9990, backdropFilter: 'blur(12px)', overflow: 'hidden', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: shiftPaused ? '#f59e0b' : '#10b981', boxShadow: shiftPaused ? '0 0 6px #f59e0b' : '0 0 6px #10b981', animation: shiftPaused ? 'none' : 'pulse-dot 2s infinite' }} />
             <span style={{ color: shiftPaused ? '#fbbf24' : '#34d399', fontSize: '10px', fontWeight: '700', letterSpacing: '2px' }}>{shiftPaused ? 'PAUSED' : 'ON DUTY'}</span>
@@ -9696,7 +9696,7 @@ return (
                 </div>
             ))}
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px', flexShrink: 0 }}>
             <button onClick={() => {
                 if (shiftPaused) {
                     const pauseDuration = new Date() - pauseStartTime;
@@ -10196,15 +10196,15 @@ return (
                         <button onClick={startShift} style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '12px', color: 'white', fontSize: '14px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 4px 16px rgba(16,185,129,0.4)', transition: 'all 0.25s' }}
                             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(16,185,129,0.6)'; }}
                             onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(16,185,129,0.4)'; }}>
-                            {shiftEndTime ? '▶ START NEW SHIFT' : '▶  (NEW)'}
+                            {shiftEndTime ? '▶ START NEW SHIFT' : '▶ START SHIFT (NEW)'}
                         </button>
                     ) : !shiftEndTime ? (
                         <>
-                            <div style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '12px', padding: '16px', marginBottom: '12px', textAlign: 'center' }}>
-                                <div style={{ color: '#6ee7b7', fontSize: '11px', fontWeight: '700', letterSpacing: '1px', marginBottom: '6px' }}>
-                                    {shiftPaused ? '⏸️ PAUSED' : '▶️ ON DUTY'}
+                            <div style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '12px', padding: '10px 16px', marginBottom: '12px', textAlign: 'center' }}>
+                                <div style={{ color: '#6ee7b7', fontSize: '10px', fontWeight: '700', letterSpacing: '1px', marginBottom: '4px' }}>
+                                    {shiftPaused ? '⏸ PAUSED' : '▶ ON DUTY'}
                                 </div>
-                                <div style={{ color: 'white', fontSize: '26px', fontWeight: '800', fontFamily: 'monospace', textShadow: '0 2px 4px rgba(0,0,0,0.3)', marginBottom: '6px' }}>
+                                <div style={{ color: 'white', fontSize: '18px', fontWeight: '800', fontFamily: 'monospace', textShadow: '0 2px 4px rgba(0,0,0,0.3)', marginBottom: '4px' }}>
                                     {(() => {
                                         const now = currentTime;
                                         const elapsed = shiftPaused 
@@ -10287,7 +10287,7 @@ return (
             <span style={{ color: 'white', fontSize: '22px', fontWeight: '800', letterSpacing: '2px', whiteSpace: 'nowrap' }}>LICENSE PLATE SEARCH</span>
             <span style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '4px', padding: '2px 8px', color: '#60a5fa', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px', whiteSpace: 'nowrap' }}>VEHICLE REGISTRY</span>
         </div>
-        <p style={{ color: '#475569', fontSize: '13px', margin: '0 0 10px', whiteSpace: 'nowrap' }}>Query active vehicle registrations · New York State Police MDT</p>
+        <p style={{ color: '#475569', fontSize: '13px', margin: '0 0 10px', whiteSpace: 'nowrap' }}>Query active vehicle registrations · CAD</p>
         <button
             onClick={() => { if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); } else { setActiveView('home'); } }}
             style={{ width: 'auto', padding: '7px 16px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '8px', color: '#93c5fd', cursor: 'pointer', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', display: 'inline-flex', alignItems: 'center', gap: '7px', transition: 'all 0.2s', whiteSpace: 'nowrap' }}
@@ -10721,7 +10721,7 @@ return (
                         <span style={{ color: 'white', fontSize: '22px', fontWeight: '800', letterSpacing: '2px', whiteSpace: 'nowrap' }}>CITIZEN DATABASE SEARCH</span>
                         <span style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '4px', padding: '2px 8px', color: '#60a5fa', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px', whiteSpace: 'nowrap' }}>CITIZEN REGISTRY</span>
                     </div>
-                    <p style={{ color: '#475569', fontSize: '13px', margin: '0 0 10px', whiteSpace: 'nowrap' }}>Query citizen records by ID · New York State Police MDT</p>
+                    <p style={{ color: '#475569', fontSize: '13px', margin: '0 0 10px', whiteSpace: 'nowrap' }}>Query citizen records by ID · CAD</p>
                     <button
                         onClick={() => { if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); } else { setActiveView('home'); } }}
                         style={{ width: 'auto', padding: '7px 16px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '8px', color: '#93c5fd', cursor: 'pointer', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', display: 'inline-flex', alignItems: 'center', gap: '7px', transition: 'all 0.2s', whiteSpace: 'nowrap' }}
@@ -13839,7 +13839,7 @@ if (window.electronAPI?.quit) {
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
                         <div style={{ width: '3px', height: '16px', background: 'linear-gradient(180deg, #3b82f6, #1e3a8a)', borderRadius: '2px' }} />
-                        <span style={{ color: '#475569', fontSize: '10px', fontWeight: '700', letterSpacing: '3px' }}>NEW YORK STATE POLICE MDT</span>
+                        <span style={{ color: '#475569', fontSize: '10px', fontWeight: '700', letterSpacing: '3px' }}>CAD</span>
                     </div>
                     <div style={{ fontSize: '22px', fontWeight: '900', color: '#f1f5f9', letterSpacing: '-0.5px' }}>Shift Summary Report</div>
                 </div>
@@ -13959,7 +13959,7 @@ if (window.electronAPI?.quit) {
 
                             // Header
                             page.drawRectangle({ x:40, y:y-80, width:width-80, height:80, color: PDFLib.rgb(0.23,0.51,0.96) });
-                            txt('NEW YORK STATE POLICE', 55, y-35, 20, helveticaBold, PDFLib.rgb(1,1,1));
+                            txt('SHIFT RECORD LOG', 55, y-35, 20, helveticaBold, PDFLib.rgb(1,1,1));
                             txt('SHIFT SUMMARY REPORT', 55, y-58, 14, helvetica, PDFLib.rgb(1,1,1));
                             txt(`Generated: ${new Date().toLocaleString()}`, 55, y-74, 9, helvetica, PDFLib.rgb(0.8,0.9,1));
                             y -= 100;
