@@ -1992,8 +1992,7 @@ if (trimmedLine.startsWith('SFX_MIC_NOTAVAILABLE=')) {
 }
             
            if (trimmedLine.startsWith('GroqConsoleAPIKey=')) {
-                const eqIdx = trimmedLine.indexOf('=');
-                const key = eqIdx >= 0 ? trimmedLine.substring(eqIdx + 1) : '';
+                const key = trimmedLine.split('=')[1];
                 console.log('═══════════════════════════════════════════════════');
                 console.log('🔍 [SETTINGS] Found GroqConsoleAPIKey in settings file');
                 console.log('📋 [SETTINGS] Raw value:', key.substring(0, 15) + '...');
@@ -2142,8 +2141,7 @@ React.useEffect(() => {
             const trimmedLine = line.trim();
             
            if (trimmedLine.startsWith('DiscordAccountToken')) {
-                const eqIdx = trimmedLine.indexOf('=');
-                const key = eqIdx >= 0 ? trimmedLine.substring(eqIdx + 1) : '';
+                const key = trimmedLine.split('=')[1];
                 console.log('═══════════════════════════════════════════════════');
                 console.log('🔍 [SETTINGS] Found Discord Account Token in settings file');
                 console.log('📋 [SETTINGS] Raw value:', key.substring(0, 15) + '...');
