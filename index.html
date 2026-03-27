@@ -5329,9 +5329,16 @@ IMPORTANT: Return ONLY a JSON array with ${vehicleBlocks.length} objects, one fo
         batchText += `Vehicle ${index + 1}:\n${blockText}\n\n`;
     });
     
-    batchText += `Return format: 
+    batchText += `Each registration has these fields on separate lines in this order:
+Year, Make, Model, Color, Vehicle Type, State, License Plate.
+Some entries may also start with a @username or <@id> line - ignore that line.
+Make may be a real brand (Toyota, Honda, GMC, Hyundai, Tesla, etc.) or a fictional game brand (Bremen, Koritsu, Comrader, Hamotsu, Delton, Eva, Senseon, Turismo, Ganetto, Mita, Roamer, etc.) - accept all of them as valid.
+Type may include values like "Sedan", "SUV", "Crossover", "MPV/Minivan", "Truck", "Hatchback", "Coupe", "Van", "Convertible", etc.
+State may be a full state name like "New York" or abbreviation like "NY" - convert full names to 2-letter codes.
+
+Return format:
 [
-  {"year": "YYYY", "make": "Make", "model": "Model", "color": "Color", "type": "Type", "state": "ST", "plate": "PLATE"},
+  {"year": "YYYY", "make": "Make", "model": "Model", "color": "Color", "vehicleType": "Type", "state": "State", "plate": "PLATE"},
   ...
 ]
 
@@ -5544,7 +5551,7 @@ console.log('🔍 [PARSE] Extracting vehicle blocks...');
         // ✅ THE MISSING YEAR DETECTION LOOP
         for (const line of lines) {
             // Skip empty lines and username mentions
-            if (!line || line.includes('<@')) continue;
+            if (!line || line.includes('<@') || /^@\w/.test(line)) continue;
             
             // Check if this line is a valid year
             const isYear = /^\d{4}$/.test(line) && validYears.includes(line);
@@ -6950,7 +6957,7 @@ console.log('📦 [VEHICLES] Processing', vMessages.length, 'messages...!');
                     // Skip empty lines
                     if (!line) continue;
                     
-                    const hasUsername = line.includes('<@') || line.startsWith('@');
+                    const hasUsername = line.includes('<@') || /^@\w/.test(line);
                     const isYear = /^\d{4}$/.test(line) && validYears.includes(line);
                     const hasCombinedYearMake = /^(19|20)\d{2}\s+[A-Za-z]/.test(line);
                     
@@ -6986,8 +6993,8 @@ console.log('📦 [VEHICLES] Processing', vMessages.length, 'messages...!');
                 console.log('🔄 [PARSE] Found', carBlocks.length, 'vehicle blocks in message');
                 
                 // If message had enough content but no blocks detected → improper registration
-                const cleanLines = lines.filter(l => l && !l.includes('<@') && !l.startsWith('@'));
-                if (carBlocks.length === 0 && (cleanLines.length >= 1)) {
+                const cleanLines = lines.filter(l => l && !l.includes('<@') && !/^@\w/.test(l));
+                if (carBlocks.length === 0 && cleanLines.length >= 3) {
                     console.log('⚠️ [PARSE] Message has content but no parseable blocks - flagging as improper');
                     allVehicleBlocks._failedRaw = allVehicleBlocks._failedRaw || [];
                     allVehicleBlocks._failedRaw.push({ content: msg.content, timestamp: msg.timestamp });
