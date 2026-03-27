@@ -4325,6 +4325,21 @@ const generatePlateVariants = (plate) => {
         variants.add(`${mixedPattern[1]} ${mixedPattern[2]}${mixedPattern[3]}`);
         variants.add(`${mixedPattern[1]}${mixedPattern[2]}-${mixedPattern[3]}`);
     }
+
+    // Pattern 4: ABC-D12, QUR-S75 style (letters-letter+digits)
+    const dashLetterNum = normalized.match(/^([A-Z]{2,})([A-Z])(\d+)$/);
+    if (dashLetterNum) {
+        variants.add(`${dashLetterNum[1]}-${dashLetterNum[2]}${dashLetterNum[3]}`);
+        variants.add(`${dashLetterNum[1]}-${dashLetterNum[2]}-${dashLetterNum[3]}`);
+        variants.add(`${dashLetterNum[1]} ${dashLetterNum[2]}${dashLetterNum[3]}`);
+    }
+
+    // Pattern 5: ABC-123 style (3 letters hyphen 3 digits) — JSV-3591, ZVO-3652
+    const threeThree = normalized.match(/^([A-Z]{3})(\d{3,4})$/);
+    if (threeThree) {
+        variants.add(`${threeThree[1]}-${threeThree[2]}`);
+        variants.add(`${threeThree[1]} ${threeThree[2]}`);
+    }
     
     console.log('🔍 [VARIANTS] Generated variants:', Array.from(variants));
     return Array.from(variants);
@@ -5890,10 +5905,38 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
                 }
             }
             
-            // If we found matches, we can stop trying variants
-            if (foundMessages.length > 0) {
-                break;
+// If we found matches, we can stop trying variants
+        if (foundMessages.length > 0) {
+            break;
+        }
+
+        // If this was the last variant and still nothing — try searching just the numeric/unique suffix
+        // Discord tokenizes on hyphens so "QUR-S75" won't match as a phrase, but "S75" will
+        if (foundMessages.length === 0 && plateVariants.indexOf(variant) === plateVariants.length - 1) {
+            const suffixMatch = normalized.match(/([A-Z]?\d{2,})$/);
+            if (suffixMatch && suffixMatch[1].length >= 2) {
+                const suffix = suffixMatch[1];
+                const fallbackUrl = `https://discord.com/api/v9/guilds/${guildId}/messages/search?channel_id=${channelId}&content=${encodeURIComponent(suffix)}`;
+                const fallbackResp = await fetch(fallbackUrl, {
+                    headers: { 'Authorization': discordToken, 'Content-Type': 'application/json' }
+                });
+                if (fallbackResp.ok) {
+                    const fallbackData = await fallbackResp.json();
+                    if (fallbackData.messages) {
+                        const msgs = fallbackData.messages.flat();
+                        for (const msg of msgs) {
+                            const msgNorm = normalizePlate(msg.content);
+                            if (msgNorm.includes(normalized)) {
+                                if (!foundMessages.find(m => m.id === msg.id)) {
+                                    foundMessages.push(msg);
+                                    addLog(`✓ Match via suffix search: ${suffix}`, 'success');
+                                }
+                            }
+                        }
+                    }
+                }
             }
+        }
             
             setSearchProgress(30 + (plateVariants.indexOf(variant) + 1) / plateVariants.length * 30);
         }
