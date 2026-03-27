@@ -1827,8 +1827,7 @@ const [databaseStatus, setDatabaseStatus] = useState({ connected: false, checkin
 const [serviceStatus, setServiceStatus] = useState({
     discord: 'checking',
     github: 'checking',
-    cloudflare: 'checking',
-    groq: 'checking'
+    cloudflare: 'checking'
 });
 
 React.useEffect(() => {
@@ -2401,7 +2400,6 @@ useEffect(() => {
         { key: 'discord',    url: 'https://discordstatus.com/api/v2/status.json',        name: 'Discord' },
         { key: 'github',     url: 'https://www.githubstatus.com/api/v2/status.json',     name: 'GitHub' },
         { key: 'cloudflare', url: 'https://www.cloudflarestatus.com/api/v2/status.json', name: 'Cloudflare' },
-        { key: 'groq',       url: 'https://groqstatus.com/api/v2/status.json',           name: 'Groq AI' },
     ];
 
     const checkServices = async () => {
@@ -3590,7 +3588,6 @@ const creditsData = {
         { name: 'Theaviator_44789', reason: 'UI Layout help' },    
         { name: 'Alp_hah', reason: 'Helping with Discord Server' },
         { name: 'KilonovaMT', reason: 'Help with Panic Button feature' },
-        { name: 'yaboycarsonnn', reason: 'Help with MAC compatability' },
     ],
     testers: [
             { name: 'Theaviator_44789', reason: 'Beta Testing & Quality- and Feature validation' },    
@@ -3603,14 +3600,6 @@ const creditsData = {
         { name: 'Alp_hah', reason: 'Beta Testing & Quality- and Feature validation' },
         { name: 'd_vrango', reason: 'Beta Testing & Quality- and Feature validation' },
         { name: 'Plsqeoi', reason: 'Beta Testing & Quality- and Feature validation' },
-        { name: 'kingitegg', reason: 'Beta Testing & Quality- and Feature validation' },
-        { name: 'Leonardothey', reason: 'Beta Testing & Quality- and Feature validation' },
-        { name: 'Naglisrobloxofficer', reason: 'Beta Testing & Quality- and Feature validation' },
-        { name: 'JellyBirds80', reason: 'Beta Testing & Quality- and Feature validation' },
-        { name: 'jallaaz', reason: 'Beta Testing & Quality- and Feature validation' },
-        { name: 'yaboycarsonnnn', reason: 'Beta Testing & Quality- and Feature validation' },
-        { name: 'PdawgHomeslice', reason: 'Beta Testing & Quality- and Feature validation' },
-        { name: 'iloveHisinbenXD', reason: 'Beta Testing & Quality- and Feature validation' },
     ]
 };
 const usefulLinksData = [
@@ -4324,21 +4313,6 @@ const generatePlateVariants = (plate) => {
         variants.add(`${mixedPattern[1]}-${mixedPattern[2]}-${mixedPattern[3]}`);
         variants.add(`${mixedPattern[1]} ${mixedPattern[2]}${mixedPattern[3]}`);
         variants.add(`${mixedPattern[1]}${mixedPattern[2]}-${mixedPattern[3]}`);
-    }
-
-    // Pattern 4: ABC-D12, QUR-S75 style (letters-letter+digits)
-    const dashLetterNum = normalized.match(/^([A-Z]{2,})([A-Z])(\d+)$/);
-    if (dashLetterNum) {
-        variants.add(`${dashLetterNum[1]}-${dashLetterNum[2]}${dashLetterNum[3]}`);
-        variants.add(`${dashLetterNum[1]}-${dashLetterNum[2]}-${dashLetterNum[3]}`);
-        variants.add(`${dashLetterNum[1]} ${dashLetterNum[2]}${dashLetterNum[3]}`);
-    }
-
-    // Pattern 5: ABC-123 style (3 letters hyphen 3 digits) — JSV-3591, ZVO-3652
-    const threeThree = normalized.match(/^([A-Z]{3})(\d{3,4})$/);
-    if (threeThree) {
-        variants.add(`${threeThree[1]}-${threeThree[2]}`);
-        variants.add(`${threeThree[1]} ${threeThree[2]}`);
     }
     
     console.log('🔍 [VARIANTS] Generated variants:', Array.from(variants));
@@ -5344,16 +5318,9 @@ IMPORTANT: Return ONLY a JSON array with ${vehicleBlocks.length} objects, one fo
         batchText += `Vehicle ${index + 1}:\n${blockText}\n\n`;
     });
     
-    batchText += `Each registration has these fields on separate lines in this order:
-Year, Make, Model, Color, Vehicle Type, State, License Plate.
-Some entries may also start with a @username or <@id> line - ignore that line.
-Make may be a real brand (Toyota, Honda, GMC, Hyundai, Tesla, etc.) or a fictional game brand (Bremen, Koritsu, Comrader, Hamotsu, Delton, Eva, Senseon, Turismo, Ganetto, Mita, Roamer, etc.) - accept all of them as valid.
-Type may include values like "Sedan", "SUV", "Crossover", "MPV/Minivan", "Truck", "Hatchback", "Coupe", "Van", "Convertible", etc.
-State may be a full state name like "New York" or abbreviation like "NY" - convert full names to 2-letter codes.
-
-Return format:
+    batchText += `Return format: 
 [
-  {"year": "YYYY", "make": "Make", "model": "Model", "color": "Color", "vehicleType": "Type", "state": "State", "plate": "PLATE"},
+  {"year": "YYYY", "make": "Make", "model": "Model", "color": "Color", "type": "Type", "state": "ST", "plate": "PLATE"},
   ...
 ]
 
@@ -5566,7 +5533,7 @@ console.log('🔍 [PARSE] Extracting vehicle blocks...');
         // ✅ THE MISSING YEAR DETECTION LOOP
         for (const line of lines) {
             // Skip empty lines and username mentions
-            if (!line || line.includes('<@') || /^@\w/.test(line)) continue;
+            if (!line || line.includes('<@')) continue;
             
             // Check if this line is a valid year
             const isYear = /^\d{4}$/.test(line) && validYears.includes(line);
@@ -5905,38 +5872,10 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
                 }
             }
             
-// If we found matches, we can stop trying variants
-        if (foundMessages.length > 0) {
-            break;
-        }
-
-        // If this was the last variant and still nothing — try searching just the numeric/unique suffix
-        // Discord tokenizes on hyphens so "QUR-S75" won't match as a phrase, but "S75" will
-        if (foundMessages.length === 0 && plateVariants.indexOf(variant) === plateVariants.length - 1) {
-            const suffixMatch = normalized.match(/([A-Z]?\d{2,})$/);
-            if (suffixMatch && suffixMatch[1].length >= 2) {
-                const suffix = suffixMatch[1];
-                const fallbackUrl = `https://discord.com/api/v9/guilds/${guildId}/messages/search?channel_id=${channelId}&content=${encodeURIComponent(suffix)}`;
-                const fallbackResp = await fetch(fallbackUrl, {
-                    headers: { 'Authorization': discordToken, 'Content-Type': 'application/json' }
-                });
-                if (fallbackResp.ok) {
-                    const fallbackData = await fallbackResp.json();
-                    if (fallbackData.messages) {
-                        const msgs = fallbackData.messages.flat();
-                        for (const msg of msgs) {
-                            const msgNorm = normalizePlate(msg.content);
-                            if (msgNorm.includes(normalized)) {
-                                if (!foundMessages.find(m => m.id === msg.id)) {
-                                    foundMessages.push(msg);
-                                    addLog(`✓ Match via suffix search: ${suffix}`, 'success');
-                                }
-                            }
-                        }
-                    }
-                }
+            // If we found matches, we can stop trying variants
+            if (foundMessages.length > 0) {
+                break;
             }
-        }
             
             setSearchProgress(30 + (plateVariants.indexOf(variant) + 1) / plateVariants.length * 30);
         }
@@ -7000,7 +6939,7 @@ console.log('📦 [VEHICLES] Processing', vMessages.length, 'messages...!');
                     // Skip empty lines
                     if (!line) continue;
                     
-                    const hasUsername = line.includes('<@') || /^@\w/.test(line);
+                    const hasUsername = line.includes('<@') || line.startsWith('@');
                     const isYear = /^\d{4}$/.test(line) && validYears.includes(line);
                     const hasCombinedYearMake = /^(19|20)\d{2}\s+[A-Za-z]/.test(line);
                     
@@ -7036,8 +6975,8 @@ console.log('📦 [VEHICLES] Processing', vMessages.length, 'messages...!');
                 console.log('🔄 [PARSE] Found', carBlocks.length, 'vehicle blocks in message');
                 
                 // If message had enough content but no blocks detected → improper registration
-                const cleanLines = lines.filter(l => l && !l.includes('<@') && !/^@\w/.test(l));
-                if (carBlocks.length === 0 && cleanLines.length >= 3) {
+                const cleanLines = lines.filter(l => l && !l.includes('<@') && !l.startsWith('@'));
+                if (carBlocks.length === 0 && (cleanLines.length >= 1)) {
                     console.log('⚠️ [PARSE] Message has content but no parseable blocks - flagging as improper');
                     allVehicleBlocks._failedRaw = allVehicleBlocks._failedRaw || [];
                     allVehicleBlocks._failedRaw.push({ content: msg.content, timestamp: msg.timestamp });
