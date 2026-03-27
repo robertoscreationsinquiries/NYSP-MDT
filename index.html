@@ -2082,7 +2082,17 @@ const response = await fetch(
                 eval(content);
                 
                 if (window.LIVEANNOUNCEMENTS) {
-                    const announcements = window.LIVEANNOUNCEMENTS;
+                    // Preserve active service alert announcements across Worker fetches
+                    const workerAnnouncements = window.LIVEANNOUNCEMENTS || {};
+                    const preserved = {};
+                    Object.entries(activeServiceAlertsRef.current).forEach(([key, active]) => {
+                        const aKey = `__service_${key}`;
+                        if (active && window[`__serviceMsg_${key}`]) {
+                            preserved[aKey] = window[`__serviceMsg_${key}`];
+                        }
+                    });
+                    const announcements = { ...workerAnnouncements, ...preserved };
+                    window.LIVEANNOUNCEMENTS = announcements;
                     const count = Object.keys(announcements).length;
                     
                     console.log('[ANNOUNCEMENTS] ✅ Found', count, 'announcement(s)');
@@ -2424,6 +2434,7 @@ useEffect(() => {
                     ? 'is currently experiencing a service outage'
                     : 'is currently experiencing degraded performance';
                 const msg = `⚠ SERVICE ALERT: ${name} ${severity}. Some CAD features may be unavailable or unstable. Please stand by.`;
+                window[`__serviceMsg_${key}`] = msg;
                 window.LIVEANNOUNCEMENTS = { ...(window.LIVEANNOUNCEMENTS || {}), [announcementKey]: msg };
                 setLiveAnnouncements(prev => ({ ...prev, [announcementKey]: msg }));
                 activeServiceAlertsRef.current[key] = true;
@@ -2434,6 +2445,7 @@ useEffect(() => {
                 window.LIVEANNOUNCEMENTS = updated;
                 setLiveAnnouncements(prev => { const n = { ...prev }; delete n[announcementKey]; return n; });
                 activeServiceAlertsRef.current[key] = false;
+                delete window[`__serviceMsg_${key}`];
             }
             // If status unchanged — do nothing, no duplicate
         });
@@ -3576,6 +3588,7 @@ const creditsData = {
         { name: 'Theaviator_44789', reason: 'UI Layout help' },    
         { name: 'Alp_hah', reason: 'Helping with Discord Server' },
         { name: 'KilonovaMT', reason: 'Help with Panic Button feature' },
+        { name: 'yaboycarsonnn', reason: 'Help with MAC compatability' },
     ],
     testers: [
             { name: 'Theaviator_44789', reason: 'Beta Testing & Quality- and Feature validation' },    
@@ -3588,6 +3601,14 @@ const creditsData = {
         { name: 'Alp_hah', reason: 'Beta Testing & Quality- and Feature validation' },
         { name: 'd_vrango', reason: 'Beta Testing & Quality- and Feature validation' },
         { name: 'Plsqeoi', reason: 'Beta Testing & Quality- and Feature validation' },
+        { name: 'kingitegg', reason: 'Beta Testing & Quality- and Feature validation' },
+        { name: 'Leonardothey', reason: 'Beta Testing & Quality- and Feature validation' },
+        { name: 'Naglisrobloxofficer', reason: 'Beta Testing & Quality- and Feature validation' },
+        { name: 'JellyBirds80', reason: 'Beta Testing & Quality- and Feature validation' },
+        { name: 'jallaaz', reason: 'Beta Testing & Quality- and Feature validation' },
+        { name: 'yaboycarsonnnn', reason: 'Beta Testing & Quality- and Feature validation' },
+        { name: 'PdawgHomeslice', reason: 'Beta Testing & Quality- and Feature validation' },
+        { name: 'iloveHisinbenXD', reason: 'Beta Testing & Quality- and Feature validation' },
     ]
 };
 const usefulLinksData = [
