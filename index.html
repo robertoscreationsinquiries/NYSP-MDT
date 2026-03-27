@@ -1676,8 +1676,6 @@ const [nightMode, setNightMode] = useState(false);
 const [showUsefulLinks, setShowUsefulLinks] = useState(false);
 const [selectedDepartment, setSelectedDepartment] = useState(null);
 const isDispatcher = (trooperSettings?.Department || selectedDepartment) === 'DISPATCHER';
-const groqKeyValid = (groqConsoleAPIKey || window.GROQ_CONSOLE_API_KEY || localStorage.getItem('groqConsoleAPIKey') || '').length >= 10;
-const groqLockedMsg = () => showCustomError('Feature Locked', 'A valid Groq Console API Key is required to use this feature.\n\nPlease go to Settings and enter your Groq API key to proceed.');
 const [maintenanceActive, setMaintenanceActive] = React.useState(false);
 const [lastMaintenanceCheck, setLastMaintenanceCheck] = React.useState(Date.now());
 const [showUpdateScreen, setShowUpdateScreen] = React.useState(false);
@@ -10243,22 +10241,18 @@ return (
                     <span style={{ width: '3px', height: '14px', background: 'linear-gradient(180deg, #93c5fd, #60a5fa)', borderRadius: '2px' }}></span>
                     CORE FUNCTIONS
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-                    <Tooltip text={groqKeyValid ? "Search vehicle registration by license plate" : "Groq API key required"}>
-                        <button onClick={() => groqKeyValid ? setActiveView('search') : groqLockedMsg()}
-                            style={{ padding: '20px 12px', background: groqKeyValid ? 'linear-gradient(135deg, rgba(59,130,246,0.2), rgba(37,99,235,0.1))' : 'rgba(255,255,255,0.03)', border: groqKeyValid ? '1px solid rgba(59,130,246,0.35)' : '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', color: groqKeyValid ? '#93c5fd' : '#374151', cursor: groqKeyValid ? 'pointer' : 'not-allowed', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', transition: 'all 0.25s', width: '100%', boxShadow: 'none', position: 'relative' }}
-                            onMouseEnter={e => { if (groqKeyValid) { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(59,130,246,0.4)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.4), rgba(37,99,235,0.3))'; e.currentTarget.style.color = '#fff'; }}}
-                            onMouseLeave={e => { if (groqKeyValid) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.2), rgba(37,99,235,0.1))'; e.currentTarget.style.color = '#93c5fd'; }}}>
-                            {!groqKeyValid && <span style={{ position: 'absolute', top: '8px', right: '8px', fontSize: '10px' }}>🔒</span>}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', animation: 'float-up 6s ease-in-out infinite' }}>
+                    <Tooltip text="Search vehicle registration by license plate">
+                        <button onClick={() => setActiveView('search')} style={{ padding: '20px 12px', background: 'linear-gradient(135deg, rgba(59,130,246,0.2), rgba(37,99,235,0.1))', border: '1px solid rgba(59,130,246,0.35)', borderRadius: '12px', color: '#93c5fd', cursor: 'pointer', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', transition: 'all 0.25s', width: '100%', boxShadow: '0 4px 16px rgba(59,130,246,0.1)' }}
+                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(59,130,246,0.4)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.4), rgba(37,99,235,0.3))'; e.currentTarget.style.color = '#fff'; }}
+                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(59,130,246,0.1)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.2), rgba(37,99,235,0.1))'; e.currentTarget.style.color = '#93c5fd'; }}>
                             🔍 SCAN PLATE
                         </button>
                     </Tooltip>
-                    <Tooltip text={groqKeyValid ? "Look up an individual's records and registered vehicles" : "Groq API key required"}>
-                        <button onClick={() => groqKeyValid ? setActiveView('database-search') : groqLockedMsg()}
-                            style={{ padding: '20px 12px', background: groqKeyValid ? 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(5,150,105,0.1))' : 'rgba(255,255,255,0.03)', border: groqKeyValid ? '1px solid rgba(34,197,94,0.35)' : '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', color: groqKeyValid ? '#6ee7b7' : '#374151', cursor: groqKeyValid ? 'pointer' : 'not-allowed', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', transition: 'all 0.25s', width: '100%', boxShadow: 'none', position: 'relative' }}
-                            onMouseEnter={e => { if (groqKeyValid) { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(34,197,94,0.4)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.4), rgba(5,150,105,0.3))'; e.currentTarget.style.color = '#fff'; }}}
-                            onMouseLeave={e => { if (groqKeyValid) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(5,150,105,0.1))'; e.currentTarget.style.color = '#6ee7b7'; }}}>
-                            {!groqKeyValid && <span style={{ position: 'absolute', top: '8px', right: '8px', fontSize: '10px' }}>🔒</span>}
+                    <Tooltip text="Look up an individual's records and registered vehicles">
+                        <button onClick={() => setActiveView('database-search')} style={{ padding: '20px 12px', background: 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(5,150,105,0.1))', border: '1px solid rgba(34,197,94,0.35)', borderRadius: '12px', color: '#6ee7b7', cursor: 'pointer', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', transition: 'all 0.25s', width: '100%', boxShadow: '0 4px 16px rgba(34,197,94,0.1)' }}
+                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(34,197,94,0.4)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.4), rgba(5,150,105,0.3))'; e.currentTarget.style.color = '#fff'; }}
+                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(34,197,94,0.1)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(5,150,105,0.1))'; e.currentTarget.style.color = '#6ee7b7'; }}>
                             👤 ID LOOKUP
                         </button>
                     </Tooltip>
@@ -12636,22 +12630,21 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '16px' }}>
                 {[
                     { label: 'Home', view: 'home', icon: <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg> },
-                    { label: 'Plate Search', view: 'search', locked: !groqKeyValid, icon: <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35"/></svg> },
-                    { label: 'Citizen Search', view: 'database-search', locked: !groqKeyValid, icon: <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg> },
+                    { label: 'Plate Search', view: 'search', icon: <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35"/></svg> },
+                    { label: 'Citizen Search', view: 'database-search', icon: <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg> },
                     { label: 'Active Calls', view: 'calls', icon: <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg> },
                     { label: 'Settings', view: 'settings', icon: <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg> },
                 ].map((item, idx) => {
                     const isActive = activeView === item.view;
                     return (
-                        <button key={idx} onClick={() => { if (item.locked) { groqLockedMsg(); return; } setActiveView(item.view); }}
-                            style={{ padding: '10px 12px', background: item.locked ? 'transparent' : isActive ? 'rgba(59,130,246,0.12)' : 'transparent', border: isActive && !item.locked ? '1px solid rgba(59,130,246,0.25)' : '1px solid transparent', borderRadius: '8px', color: item.locked ? '#1f2937' : isActive ? '#93c5fd' : '#4b5563', fontSize: '12px', fontWeight: isActive ? '700' : '500', cursor: item.locked ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left', transition: 'all 0.15s', position: 'relative', opacity: item.locked ? 0.4 : 1 }}
-                            onMouseEnter={e => { if (!isActive && !item.locked) { e.currentTarget.style.background = 'rgba(59,130,246,0.06)'; e.currentTarget.style.color = '#64748b'; }}}
-                            onMouseLeave={e => { if (!isActive && !item.locked) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#4b5563'; }}}
+                        <button key={idx} onClick={() => setActiveView(item.view)}
+                            style={{ padding: '10px 12px', background: isActive ? 'rgba(59,130,246,0.12)' : 'transparent', border: isActive ? '1px solid rgba(59,130,246,0.25)' : '1px solid transparent', borderRadius: '8px', color: isActive ? '#93c5fd' : '#4b5563', fontSize: '12px', fontWeight: isActive ? '700' : '500', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left', transition: 'all 0.15s', position: 'relative' }}
+                            onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = 'rgba(59,130,246,0.06)'; e.currentTarget.style.color = '#64748b'; }}}
+                            onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#4b5563'; }}}
                         >
-                            {isActive && !item.locked && <div style={{ position: 'absolute', left: 0, top: '6px', bottom: '6px', width: '2px', background: '#3b82f6', borderRadius: '0 2px 2px 0' }} />}
-                            <span style={{ color: item.locked ? '#1f2937' : isActive ? '#60a5fa' : '#374151' }}>{item.icon}</span>
+                            {isActive && <div style={{ position: 'absolute', left: 0, top: '6px', bottom: '6px', width: '2px', background: '#3b82f6', borderRadius: '0 2px 2px 0' }} />}
+                            <span style={{ color: isActive ? '#60a5fa' : '#374151' }}>{item.icon}</span>
                             {item.label}
-                            {item.locked && <span style={{ marginLeft: 'auto', fontSize: '10px' }}>🔒</span>}
                         </button>
                     );
                 })}
