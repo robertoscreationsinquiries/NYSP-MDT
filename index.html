@@ -3303,7 +3303,7 @@ const updateLogsData = [
          'CHANGED the frontend for vehicle models to include new car models; if any are missing, please report.',
         'CHANGED live announcement UI with the addition of an X button.',
         'CHANGED Voice to Plate logic; it will now use the same search engine as the search Bar.',
-
+        'CHANGED the visual list for multiple vehicles registered; if the vehicle is not properly registered, instead of leaving it blank it provides the raw discord message.'
         ],
         removed: [
                     'REMOVED and stopped supporting the manual parser as it is heavily outdated and unreliable.',
@@ -6055,7 +6055,7 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
                     if (allRegistrations.length === 0) {
                         console.error('❌ [SEARCH] No vehicles could be parsed');
                         addLog(`❌ Unable to parse ${foundMessages.length} registration(s) — flagging as improper`, 'error');
-                        playSound('fail');
+                        playSound('pass');
                         const failedRaw = foundMessages.map(m => ({
                             content: m.content,
                             timestamp: m.edited_timestamp || m.timestamp
@@ -6159,7 +6159,7 @@ else if (!regData.discordUserId || regData.discordUserId === 'Unknown') {
 // Handle parse failure - set special state but continue to owner lookup
 if (parseFailedButVehicleExists) {
     console.log('⚠️ [SEARCH] Parse failed but vehicle exists - will show owner only');
-    playSound('fail');
+    playSound('pass');
     
 // Extract discordUserId from message if regData doesn't have it
     let ownerId = 'Unknown';
@@ -10648,16 +10648,30 @@ return (
                                 >
                                     {reg.parseFailed ? (
                                     <>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                                            <span style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '4px', padding: '2px 8px', color: '#f87171', fontSize: '9px', fontWeight: '800', letterSpacing: '1.5px' }}>IMPROPER REG</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: '4px', padding: '2px 8px', color: '#fde68a', fontSize: '9px', fontWeight: '800', letterSpacing: '1.5px' }}>⚠ IMPROPER REGISTRATION</span>
+                                            </div>
                                             {reg.registeredAt && <span style={{ color: '#475569', fontSize: '10px', fontFamily: 'monospace' }}>{reg.registeredAt}</span>}
                                         </div>
-                                        {reg.rawDiscordMessage && (
-                                            <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#fde68a', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', padding: '8px 10px', maxHeight: '80px', overflowY: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                                                {reg.rawDiscordMessage}
+                                        {reg.rawDiscordMessage ? (
+                                            <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: '8px', overflow: 'hidden' }}>
+                                                <div style={{ padding: '5px 10px', background: 'rgba(245,158,11,0.08)', borderBottom: '1px solid rgba(245,158,11,0.12)', fontSize: '9px', color: '#fbbf24', fontWeight: '700', letterSpacing: '2px' }}>RAW DISCORD RECORD</div>
+                                                <div style={{ padding: '8px 10px' }}>
+                                                    {reg.rawDiscordMessage.split('\n').filter(l => l.trim()).map((line, i) => (
+                                                        <div key={i} style={{ display: 'flex', gap: '8px', padding: '2px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                                            <span style={{ color: '#475569', fontSize: '10px', fontFamily: 'monospace', minWidth: '18px', flexShrink: 0 }}>{String(i+1).padStart(2,'0')}</span>
+                                                            <span style={{ color: '#fde68a', fontSize: '11px', fontFamily: 'monospace', wordBreak: 'break-word' }}>{line}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
+                                        ) : (
+                                            <div style={{ color: '#6b7280', fontSize: '11px', fontStyle: 'italic' }}>Raw message unavailable</div>
                                         )}
-                                        <div style={{ marginTop: '8px', color: '#f87171', fontSize: '10px', fontWeight: '700' }}>⚠ Manual verification required — click to view</div>
+                                        <div style={{ marginTop: '8px', color: '#fbbf24', fontSize: '10px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <span>&#8594; Click to view registered owner</span>
+                                        </div>
                                     </>
                                 ) : (
                                     <>
