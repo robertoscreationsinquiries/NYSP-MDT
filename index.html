@@ -1532,7 +1532,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
         (function() {
             const badge = document.createElement('div');
             const sha = window.APP_COMMIT_SHA || 'dev';
-            badge.textContent = `BETA BUILD - APP V. 0.1.0.7  •  ${sha}`;
+            badge.textContent = `BETA BUILD - APP V. 0.1.0.7.5  •  ${sha}`;
             badge.style.cssText = 'position:fixed;bottom:16px;left:44px;font-size:9px;font-weight:700;color:rgba(251,191,36,0.45);letter-spacing:1px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;white-space:nowrap;';
             document.body.appendChild(badge);
             if (window.APP_GITHUB_BRANCH && window.APP_GITHUB_BRANCH !== 'main') {
@@ -1544,7 +1544,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
         })();
 
         function NYSPLookupTool() {
-            const APP_VERSION = '0.1.0.7';
+            const APP_VERSION = '0.1.0.7.5';
             const [licensePlate, setLicensePlate] = useState('');
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
@@ -1559,6 +1559,7 @@ const [settingsVisitedOnce, setSettingsVisitedOnce] = useState(false); // NEW - 
             const [selectedSession, setSelectedSession] = useState(null);
             const [calls, setCalls] = useState([]);
             const [liveAnnouncements, setLiveAnnouncements] = useState({});
+            const [dismissedAnnouncements, setDismissedAnnouncements] = useState(new Set());
 const [lastAnnouncementCheck, setLastAnnouncementCheck] = useState(Date.now());
             const [dismissedCalls, setDismissedCalls] = useState([]);
             const [acknowledgedCalls, setAcknowledgedCalls] = useState([]);
@@ -1827,7 +1828,8 @@ const [databaseStatus, setDatabaseStatus] = useState({ connected: false, checkin
 const [serviceStatus, setServiceStatus] = useState({
     discord: 'checking',
     github: 'checking',
-    cloudflare: 'checking'
+    cloudflare: 'checking',
+    groq: 'checking'
 });
 
 React.useEffect(() => {
@@ -2277,11 +2279,22 @@ setVoiceNotif('Phonetic alphabet was not detected during translation. Make sure 
 
     const final = built.toUpperCase();
     console.log('[PHONETIC] Mapped result:', final);
-    setLicensePlate(final);
-setVoiceNotif('Heard: "' + text + '" → Plate set to: ' + final + ' - searching...');
+    // Apply same variant logic as manual search — try with hyphen inserted
+    const withHyphen = (() => {
+        const m = final.match(/^([A-Z]{2,})([A-Z])(\d+)$/);
+        if (m) return `${m[1]}-${m[2]}${m[3]}`;
+        const m2 = final.match(/^([A-Z]{3})(\d{3,4})$/);
+        if (m2) return `${m2[1]}-${m2[2]}`;
+        const m3 = final.match(/^([A-Z]+)(\d+)$/);
+        if (m3) return `${m3[1]}-${m3[2]}`;
+        return final;
+    })();
+    const plateToSearch = withHyphen !== final ? withHyphen : final;
+    setLicensePlate(plateToSearch);
+setVoiceNotif('Heard: "' + text + '" → Plate set to: ' + plateToSearch + ' - searching...');
     setVoiceActive(false);
     setTimeout(() => setVoiceNotif(''), 3000);
-    setTimeout(() => lookupUser(final), 300);
+    setTimeout(() => lookupUser(plateToSearch), 300);
 };
 
 
@@ -2400,6 +2413,7 @@ useEffect(() => {
         { key: 'discord',    url: 'https://discordstatus.com/api/v2/status.json',        name: 'Discord' },
         { key: 'github',     url: 'https://www.githubstatus.com/api/v2/status.json',     name: 'GitHub' },
         { key: 'cloudflare', url: 'https://www.cloudflarestatus.com/api/v2/status.json', name: 'Cloudflare' },
+        { key: 'groq',       url: 'https://groqstatus.com/api/v2/status.json',           name: 'Groq AI' },
     ];
 
     const checkServices = async () => {
@@ -3275,6 +3289,27 @@ const FAQ_DATA = [
 
 
 const updateLogsData = [
+    {
+        title: "CAD SYSTEM - HOTFIXES",
+        version: "0.1.0.7.5",
+        release_date: "03/29/2026",
+        description: "AI Parser supports new vehicle models!",
+        new: [
+        ],
+        bugs: [
+                'FIXED UI issues with Search License Plate (Rare occurences).',
+        ],
+        modifications: [
+         'CHANGED the frontend for vehicle models to include new car models; if any are missing, please report.',
+        'CHANGED live announcement UI with the addition of an X button.',
+        'CHANGED Voice to Plate logic; it will now use the same search engine as the search Bar.',
+
+        ],
+        removed: [
+                    'REMOVED and stopped supporting the manual parser as it is heavily outdated and unreliable.',
+        ],
+        planned: []
+    },
     {
         title: "CAD SYSTEM - NEW ADDITION",
         version: "0.1.0.7",
@@ -4323,6 +4358,21 @@ const generatePlateVariants = (plate) => {
         variants.add(`${mixedPattern[1]} ${mixedPattern[2]}${mixedPattern[3]}`);
         variants.add(`${mixedPattern[1]}${mixedPattern[2]}-${mixedPattern[3]}`);
     }
+
+    // Pattern 4: ABC-D12, QUR-S75 style (letters-letter+digits)
+    const dashLetterNum = normalized.match(/^([A-Z]{2,})([A-Z])(\d+)$/);
+    if (dashLetterNum) {
+        variants.add(`${dashLetterNum[1]}-${dashLetterNum[2]}${dashLetterNum[3]}`);
+        variants.add(`${dashLetterNum[1]}-${dashLetterNum[2]}-${dashLetterNum[3]}`);
+        variants.add(`${dashLetterNum[1]} ${dashLetterNum[2]}${dashLetterNum[3]}`);
+    }
+
+    // Pattern 5: ABC-123 style (3 letters hyphen 3 digits) — JSV-3591, ZVO-3652
+    const threeThree = normalized.match(/^([A-Z]{3})(\d{3,4})$/);
+    if (threeThree) {
+        variants.add(`${threeThree[1]}-${threeThree[2]}`);
+        variants.add(`${threeThree[1]} ${threeThree[2]}`);
+    }
     
     console.log('🔍 [VARIANTS] Generated variants:', Array.from(variants));
     return Array.from(variants);
@@ -4707,7 +4757,7 @@ VALID YEARS (only these years exist in the game):
 1952, 1995, 2001, 2002, 2004, 2005, 2006, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026
 
 COMMON MAKES (both fictional game brands and real brands used):
-- Fictional Brands: Delton, Koritsu, Hamotsu, Turismo, Comrader, Bremen, Centaurus, Aculos, Eva, Marshall, Ganetto, Mita, Mizuhara, Neptune, Nesumi, Revasser, Revolt, Roamer, Salvatore, Senseon, Shatoku, Sternauster, Land Treker, Lexima, Linco, Lyon, GAM, Gemini, Katzmann, Envy, Fangio, Pond
+- Fictional Brands: Delton, Koritsu, Hamotsu, Turismo, Comrader, Bremen, Bremmen, Centaurus, Aculos, Eva, Marshall, Ganetto, Mita, Mizuhara, Neptune, Nesumi, Revasser, Revolt, Roamer, Salvatore, Senseon, Shatoku, Sternauster, Land Treker, Lexima, Linco, Lyon, GAM, Gemini, Katzmann, Envy, Fangio, Pond
 - Real Brands: GMC, Toyota, Honda, Kia, Ford, Chevrolet, Dodge, BMW, Mercedes, Audi, Volkswagen, Nissan, Hyundai, Mazda, Subaru, Jeep, Ram, Acura, Lexus, Infiniti, Cadillac, Lincoln, Buick, Porsche, Tesla
 
 COMMON MODELS (examples):
@@ -5327,9 +5377,16 @@ IMPORTANT: Return ONLY a JSON array with ${vehicleBlocks.length} objects, one fo
         batchText += `Vehicle ${index + 1}:\n${blockText}\n\n`;
     });
     
-    batchText += `Return format: 
+    batchText += `Each registration has these fields on separate lines in this order:
+Year, Make, Model, Color, Vehicle Type, State, License Plate.
+Some entries may also start with a @username or <@id> line - ignore that line.
+Make may be a real brand (Toyota, Honda, GMC, Hyundai, Tesla, etc.) or a fictional game brand (Bremen, Bremmen, Koritsu, Comrader, Hamotsu, Delton, Eva, Senseon, Turismo, Ganetto, Mita, Roamer, etc.) - accept all of them as valid.
+Type may include values like "Sedan", "SUV", "Crossover", "MPV/Minivan", "Truck", "Hatchback", "Coupe", "Van", "Convertible", etc.
+State may be a full state name like "New York" or abbreviation like "NY" - convert full names to 2-letter codes.
+
+Return format:
 [
-  {"year": "YYYY", "make": "Make", "model": "Model", "color": "Color", "type": "Type", "state": "ST", "plate": "PLATE"},
+  {"year": "YYYY", "make": "Make", "model": "Model", "color": "Color", "vehicleType": "Type", "state": "State", "plate": "PLATE"},
   ...
 ]
 
@@ -5542,7 +5599,7 @@ console.log('🔍 [PARSE] Extracting vehicle blocks...');
         // ✅ THE MISSING YEAR DETECTION LOOP
         for (const line of lines) {
             // Skip empty lines and username mentions
-            if (!line || line.includes('<@')) continue;
+            if (!line || line.includes('<@') || /^@\w/.test(line)) continue;
             
             // Check if this line is a valid year
             const isYear = /^\d{4}$/.test(line) && validYears.includes(line);
@@ -5881,10 +5938,38 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
                 }
             }
             
-            // If we found matches, we can stop trying variants
-            if (foundMessages.length > 0) {
-                break;
+// If we found matches, we can stop trying variants
+        if (foundMessages.length > 0) {
+            break;
+        }
+
+        // If this was the last variant and still nothing — try searching just the numeric/unique suffix
+        // Discord tokenizes on hyphens so "QUR-S75" won't match as a phrase, but "S75" will
+        if (foundMessages.length === 0 && plateVariants.indexOf(variant) === plateVariants.length - 1) {
+            const suffixMatch = normalized.match(/([A-Z]?\d{2,})$/);
+            if (suffixMatch && suffixMatch[1].length >= 2) {
+                const suffix = suffixMatch[1];
+                const fallbackUrl = `https://discord.com/api/v9/guilds/${guildId}/messages/search?channel_id=${channelId}&content=${encodeURIComponent(suffix)}`;
+                const fallbackResp = await fetch(fallbackUrl, {
+                    headers: { 'Authorization': discordToken, 'Content-Type': 'application/json' }
+                });
+                if (fallbackResp.ok) {
+                    const fallbackData = await fallbackResp.json();
+                    if (fallbackData.messages) {
+                        const msgs = fallbackData.messages.flat();
+                        for (const msg of msgs) {
+                            const msgNorm = normalizePlate(msg.content);
+                            if (msgNorm.includes(normalized)) {
+                                if (!foundMessages.find(m => m.id === msg.id)) {
+                                    foundMessages.push(msg);
+                                    addLog(`✓ Match via suffix search: ${suffix}`, 'success');
+                                }
+                            }
+                        }
+                    }
+                }
             }
+        }
             
             setSearchProgress(30 + (plateVariants.indexOf(variant) + 1) / plateVariants.length * 30);
         }
@@ -5940,29 +6025,31 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
 // Wait for all parses to complete
                     const allRegistrationsRaw = await Promise.all(parsedPromises);
                     
-                    // Filter out null, parseError, and incomplete vehicles
-                    const allRegistrations = allRegistrationsRaw.filter(r => {
-                        if (!r || r.parseError) return false;
-                        
-                        // Check if vehicle has Unknown values or is incomplete
-                        const isIncomplete = r.plate === 'Unknown' || 
-                                           r.make === 'Unknown' || 
-                                           r.year === 'Unknown' ||
-                                           r.isIncomplete === true;
-                        
-                        if (isIncomplete) {
-                            console.warn('⚠️ [FILTER] Removing incomplete vehicle:', r);
-                            return false;
+                    // Separate parsed and failed registrations
+                    const allRegistrations = [];
+                    const failedRegistrations = [];
+                    allRegistrationsRaw.forEach((r, idx) => {
+                        if (!r || r.parseError || r.plate === 'Unknown' || r.make === 'Unknown' || r.year === 'Unknown' || r.isIncomplete === true) {
+                            // Keep as improper/failed entry with raw message
+                            failedRegistrations.push({
+                                parseFailed: true,
+                                plate: searchedPlate,
+                                phoneticPlate: convertToPhonetic(searchedPlate),
+                                rawDiscordMessage: foundMessages[idx]?.content || null,
+                                registeredAt: foundMessages[idx] ? new Date(foundMessages[idx].edited_timestamp || foundMessages[idx].timestamp).toLocaleString() : null,
+                                discordUserId: foundMessages[idx]?.content?.match(/<@(\d+)>/)?.[1] || 'Unknown'
+                            });
+                        } else {
+                            allRegistrations.push(r);
                         }
-                        
-                        return true;
                     });
+                    const allCombined = [...allRegistrations, ...failedRegistrations];
 
                     
                     console.log('✅ [SEARCH] Parsed', allRegistrations.length, 'of', foundMessages.length, 'registrations');
                     
                     // Count how many failed to parse
-                    const failedCount = foundMessages.length - allRegistrations.length;
+                    const failedCount = failedRegistrations.length;
                     
                     // CASE 1: NO vehicles could be parsed — show as improper registrations
                     if (allRegistrations.length === 0) {
@@ -6001,10 +6088,10 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
                             };
                             setRegistration(regData);
                         } else {
-                            // Multiple parsed, but some failed
+                            // Multiple parsed, but some failed — include failed entries in list
                             setRegistration({ 
                                 multipleMatches: true, 
-                                registrations: allRegistrations,
+                                registrations: allCombined,
                                 parseWarning: {
                                     message: `THE SYSTEM WAS UNABLE TO PARSE ${failedCount} OTHER VEHICLE REGISTRATION(S) DUE TO IMPROPER REGISTRY. MANUAL SEARCH NEEDS TO BE CONDUCTED.`,
                                     count: failedCount
@@ -6015,7 +6102,7 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
                         // All parsed successfully
                         setRegistration({ 
                             multipleMatches: true, 
-                            registrations: allRegistrations 
+                            registrations: allCombined
                         });
                     }
                     
@@ -6948,7 +7035,7 @@ console.log('📦 [VEHICLES] Processing', vMessages.length, 'messages...!');
                     // Skip empty lines
                     if (!line) continue;
                     
-                    const hasUsername = line.includes('<@') || line.startsWith('@');
+                    const hasUsername = line.includes('<@') || /^@\w/.test(line);
                     const isYear = /^\d{4}$/.test(line) && validYears.includes(line);
                     const hasCombinedYearMake = /^(19|20)\d{2}\s+[A-Za-z]/.test(line);
                     
@@ -6984,8 +7071,8 @@ console.log('📦 [VEHICLES] Processing', vMessages.length, 'messages...!');
                 console.log('🔄 [PARSE] Found', carBlocks.length, 'vehicle blocks in message');
                 
                 // If message had enough content but no blocks detected → improper registration
-                const cleanLines = lines.filter(l => l && !l.includes('<@') && !l.startsWith('@'));
-                if (carBlocks.length === 0 && (cleanLines.length >= 1)) {
+                const cleanLines = lines.filter(l => l && !l.includes('<@') && !/^@\w/.test(l));
+                if (carBlocks.length === 0 && cleanLines.length >= 3) {
                     console.log('⚠️ [PARSE] Message has content but no parseable blocks - flagging as improper');
                     allVehicleBlocks._failedRaw = allVehicleBlocks._failedRaw || [];
                     allVehicleBlocks._failedRaw.push({ content: msg.content, timestamp: msg.timestamp });
@@ -7302,7 +7389,7 @@ const parseVehicleBlock = (block, discordUserId, timestamp, edited_timestamp) =>
     // Known data lists
     const validYears = ['1952', '1995', '2001', '2002', '2004', '2005', '2006', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025', '2026'];
     
-    const carMakes = ['Delton', 'Koritsu', 'Hamotsu', 'Turismo', 'Comrader', 'Bremen', 'Centaurus', 'Centurus', 'Aculos', 'Altstadt', 'Eva', 'Marshall', 'Ganetto', 'Mita', 'Mizuhara', 'Neptune', 'Nesumi', 'Revasser', 'Revolt', 'Roamer', 'Salvatore', 'Senseon', 'Shatoku', 'Sternauster', 'Land Treker', 'Lexima', 'Linco', 'Lyon', 'GAM', 'Gemini', 'Katzmann', 'Envy', 'Fangio', 'Pond'];
+    const carMakes = ['Delton', 'Koritsu', 'Hamotsu', 'Turismo', 'Comrader', 'Bremen', 'Bremmen', 'Centaurus', 'Centurus', 'Aculos', 'Altstadt', 'Eva', 'Marshall', 'Ganetto', 'Mita', 'Mizuhara', 'Neptune', 'Nesumi', 'Revasser', 'Revolt', 'Roamer', 'Salvatore', 'Senseon', 'Shatoku', 'Sternauster', 'Land Treker', 'Lexima', 'Linco', 'Lyon', 'GAM', 'Gemini', 'Katzmann', 'Envy', 'Fangio', 'Pond'];
     
  const carModels = [
     'Monterey 2500HD Valentines 2025 Edition',
@@ -7316,6 +7403,7 @@ const parseVehicleBlock = (block, discordUserId, timestamp, edited_timestamp) =>
     'Astryne',
     'Porsche Taycan',
     'Holsman EGFD',
+    'Rennstrecke',
     'Chevrolet Tahoe',
     'Holsman EGPD',
     'Eva Manitou',
@@ -10544,7 +10632,7 @@ return (
                                     key={idx}
                                     onClick={() => {
                                         setRegistration(reg);
-                                        if (tokenSaved) {
+                                        if (!reg.parseFailed && tokenSaved && reg.discordUserId && reg.discordUserId !== 'Unknown') {
                                             const memberUrl = `https://discord.com/api/v9/guilds/888585906020311060/members/${reg.discordUserId}`;
                                             fetch(memberUrl, { headers: { 'Authorization': discordToken } }).then(resp => { if (resp.ok) return resp.json(); }).then(memberData => {
                                                 if (memberData) {
@@ -10554,26 +10642,43 @@ return (
                                             });
                                         }
                                     }}
-                                    style={{ padding: '16px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '10px', cursor: 'pointer', transition: 'all 0.2s' }}
-                                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.18)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.08)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                                    style={{ padding: '16px', background: reg.parseFailed ? 'rgba(239,68,68,0.06)' : 'rgba(59,130,246,0.08)', border: reg.parseFailed ? '1px solid rgba(239,68,68,0.25)' : '1px solid rgba(59,130,246,0.25)', borderRadius: '10px', cursor: 'pointer', transition: 'all 0.2s' }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = reg.parseFailed ? 'rgba(239,68,68,0.12)' : 'rgba(59,130,246,0.18)'; e.currentTarget.style.borderColor = reg.parseFailed ? 'rgba(239,68,68,0.5)' : 'rgba(59,130,246,0.5)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = reg.parseFailed ? 'rgba(239,68,68,0.06)' : 'rgba(59,130,246,0.08)'; e.currentTarget.style.borderColor = reg.parseFailed ? 'rgba(239,68,68,0.25)' : 'rgba(59,130,246,0.25)'; e.currentTarget.style.transform = 'translateY(0)'; }}
                                 >
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                        <div>
-                                            <div style={{ color: '#93c5fd', fontSize: '11px', fontWeight: '700', marginBottom: '4px', letterSpacing: '1px' }}>VEHICLE</div>
-                                            <div style={{ color: 'white', fontSize: '14px', fontWeight: '700' }}>{reg.year} {reg.make} {reg.model}</div>
-                                            <div style={{ color: '#bfdbfe', fontSize: '12px', marginTop: '2px', opacity: 0.8 }}>{reg.color} {reg.vehicleType}</div>
+                                    {reg.parseFailed ? (
+                                    <>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                            <span style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '4px', padding: '2px 8px', color: '#f87171', fontSize: '9px', fontWeight: '800', letterSpacing: '1.5px' }}>IMPROPER REG</span>
+                                            {reg.registeredAt && <span style={{ color: '#475569', fontSize: '10px', fontFamily: 'monospace' }}>{reg.registeredAt}</span>}
                                         </div>
-                                        <div>
-                                            <div style={{ color: '#93c5fd', fontSize: '11px', fontWeight: '700', marginBottom: '4px', letterSpacing: '1px' }}>PLATE</div>
-                                            <div style={{ color: 'white', fontSize: '18px', fontWeight: '800', fontFamily: 'monospace', background: 'rgba(59,130,246,0.2)', padding: '4px 10px', borderRadius: '6px', display: 'inline-block', letterSpacing: '2px' }}>{reg.plate}</div>
-                                            <div style={{ color: '#bfdbfe', fontSize: '12px', marginTop: '2px', opacity: 0.8 }}>{reg.state}</div>
+                                        {reg.rawDiscordMessage && (
+                                            <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#fde68a', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', padding: '8px 10px', maxHeight: '80px', overflowY: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                                                {reg.rawDiscordMessage}
+                                            </div>
+                                        )}
+                                        <div style={{ marginTop: '8px', color: '#f87171', fontSize: '10px', fontWeight: '700' }}>⚠ Manual verification required — click to view</div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                            <div>
+                                                <div style={{ color: '#93c5fd', fontSize: '11px', fontWeight: '700', marginBottom: '4px', letterSpacing: '1px' }}>VEHICLE</div>
+                                                <div style={{ color: 'white', fontSize: '14px', fontWeight: '700' }}>{reg.year} {reg.make} {reg.model}</div>
+                                                <div style={{ color: '#bfdbfe', fontSize: '12px', marginTop: '2px', opacity: 0.8 }}>{reg.color} {reg.vehicleType}</div>
+                                            </div>
+                                            <div>
+                                                <div style={{ color: '#93c5fd', fontSize: '11px', fontWeight: '700', marginBottom: '4px', letterSpacing: '1px' }}>PLATE</div>
+                                                <div style={{ color: 'white', fontSize: '18px', fontWeight: '800', fontFamily: 'monospace', background: 'rgba(59,130,246,0.2)', padding: '4px 10px', borderRadius: '6px', display: 'inline-block', letterSpacing: '2px' }}>{reg.plate}</div>
+                                                <div style={{ color: '#bfdbfe', fontSize: '12px', marginTop: '2px', opacity: 0.8 }}>{reg.state}</div>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(59,130,246,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div style={{ color: '#64748b', fontSize: '11px' }}>{reg.timestamp ? new Date(reg.timestamp).toLocaleString() : ''}</div>
-                                        <div style={{ color: '#3b82f6', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>→ View Full Details</div>
-                                    </div>
+                                        <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(59,130,246,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ color: '#64748b', fontSize: '11px' }}>{reg.timestamp ? new Date(reg.timestamp).toLocaleString() : ''}</div>
+                                            <div style={{ color: '#3b82f6', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>&#8594; View Full Details</div>
+                                        </div>
+                                    </>
+                                )}
                                 </div>
                             ))}
                         </div>
@@ -14170,9 +14275,9 @@ if (window.electronAPI?.quit) {
     </div>
 )}
 
-{liveAnnouncements && Object.entries(liveAnnouncements).length > 0 && (
+{liveAnnouncements && Object.entries(liveAnnouncements).filter(([id]) => !dismissedAnnouncements.has(id)).length > 0 && (
     <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999, pointerEvents: 'none', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {Object.entries(liveAnnouncements).map(([id, message]) => (
+        {Object.entries(liveAnnouncements).filter(([id]) => !dismissedAnnouncements.has(id)).map(([id, message]) => (
             <div key={id}
                 style={{
                     background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,58,138,0.25))',
@@ -14189,22 +14294,27 @@ if (window.electronAPI?.quit) {
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateX(-4px)'; e.currentTarget.style.boxShadow = '0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateX(0)'; e.currentTarget.style.boxShadow = '0 4px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)'; }}
             >
-                {/* top accent line like cards in the app */}
                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(239,68,68,0.7), transparent)' }}></div>
-                {/* ambient glow */}
                 <div style={{ position: 'absolute', top: '-50%', right: '-10%', width: '50%', height: '200%', background: 'radial-gradient(circle, rgba(239,68,68,0.06) 0%, transparent 70%)', pointerEvents: 'none' }}></div>
 
-                {/* header */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', position: 'relative', zIndex: 1 }}>
                     <div style={{ width: '28px', height: '28px', background: 'linear-gradient(135deg, rgba(239,68,68,0.2), rgba(220,38,38,0.1))', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', flexShrink: 0 }}>📢</div>
                     <span style={{ color: '#f87171', fontSize: '10px', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase' }}>LIVE ANNOUNCEMENT</span>
-                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px rgba(239,68,68,0.9)', animation: 'pulse-dot 2s ease-in-out infinite' }}></div>
-                        <span style={{ color: '#ef4444', fontSize: '9px', fontWeight: '700', letterSpacing: '1px' }}>LIVE</span>
+                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px rgba(239,68,68,0.9)', animation: 'pulse-dot 2s ease-in-out infinite' }}></div>
+                            <span style={{ color: '#ef4444', fontSize: '9px', fontWeight: '700', letterSpacing: '1px' }}>LIVE</span>
+                        </div>
+                        <button
+                            onClick={() => setDismissedAnnouncements(prev => new Set([...prev, id]))}
+                            style={{ width: '18px', height: '18px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#475569', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0, transition: 'all 0.15s', flexShrink: 0 }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.15)'; e.currentTarget.style.color = '#f87171'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.3)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#475569'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                            title="Dismiss announcement"
+                        >✕</button>
                     </div>
                 </div>
 
-                {/* message */}
                 <div style={{ color: '#94a3b8', fontSize: '12px', lineHeight: '1.6', fontWeight: '500', position: 'relative', zIndex: 1, paddingLeft: '2px' }}>
                     {message}
                 </div>
