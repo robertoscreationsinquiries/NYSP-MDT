@@ -1553,6 +1553,24 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
             const [discordToken, setDiscordToken] = useState('');
             const [tokenSaved, setTokenSaved] = useState(false);
             const [consoleLogs, setConsoleLogs] = useState([]);
+            // Intercept all console output so export logs captures everything
+            const consoleBufferRef = React.useRef([]);
+            React.useEffect(() => {
+                const _log = console.log.bind(console);
+                const _error = console.error.bind(console);
+                const _warn = console.warn.bind(console);
+                const capture = (type) => (...args) => {
+                    const msg = args.map(a => {
+                        try { return typeof a === 'object' ? JSON.stringify(a) : String(a); } catch { return String(a); }
+                    }).join(' ');
+                    consoleBufferRef.current.push({ message: msg, type, timestamp: new Date().toLocaleTimeString() });
+                    if (consoleBufferRef.current.length > 5000) consoleBufferRef.current.shift();
+                };
+                console.log = (...a) => { capture('info')(...a); _log(...a); };
+                console.error = (...a) => { capture('error')(...a); _error(...a); };
+                console.warn = (...a) => { capture('warn')(...a); _warn(...a); };
+                return () => { console.log = _log; console.error = _error; console.warn = _warn; };
+            }, []);
 const [activeView, setActiveView] = useState('home'); // Changed from 'welcome' to 'home'
 const [settingsVisitedOnce, setSettingsVisitedOnce] = useState(false); // NEW - track if settings opened before
             const [plateSuggestions, setPlateSuggestions] = useState([]);
@@ -3298,6 +3316,7 @@ const updateLogsData = [
         ],
         bugs: [
                 'FIXED UI issues with Search License Plate (Rare occurences).',
+                'FIXED Export Logs button'
         ],
         modifications: [
          'CHANGED the frontend for vehicle models to include new car models; if any are missing, please report.',
@@ -6010,6 +6029,18 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
                         try {
                             const parsed = await parseRegistration(msg);
                             if (parsed && !parsed.parseError) {
+                                if (parsed.multipleVehicles && parsed.vehicles) {
+                                    // Message had multiple vehicles — find the one matching the searched plate
+                                    const normalized = normalizePlate(searchedPlate);
+                                    const match = parsed.vehicles.find(v => normalizePlate(v.plate || '') === normalized)
+                                               || parsed.vehicles[0];
+                                    if (match) {
+                                        match.plate = searchedPlate;
+                                        match.phoneticPlate = convertToPhonetic(searchedPlate);
+                                        return match;
+                                    }
+                                    return null;
+                                }
                                 // Force the plate to be exactly what was searched
                                 parsed.plate = searchedPlate;
                                 parsed.phoneticPlate = convertToPhonetic(searchedPlate);
@@ -11599,9 +11630,14 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                         const pad = (n) => String(n).padStart(2,'0');
                                         const filename = `${pad(now.getMonth()+1)}${pad(now.getDate())}${now.getFullYear()}${pad(now.getHours())}${pad(now.getMinutes())}_EXPORTCADLOGS.txt`;
                                         const patterns = [/DiscordAccountToken=.+/gi,/discord.*token[^\n]*/gi,/NjE[A-Za-z0-9+/=]{20,}/g,/GroqConsoleAPIKey=.+/gi,/gsk_[A-Za-z0-9]{20,}/g];
-                                        let txt = consoleLogs.map(l => `[${l.timestamp}] [${l.type.toUpperCase()}] ${l.message}`).join('\n');
+                                        const allLogs = [
+                                            ...consoleBufferRef.current,
+                                            ...consoleLogs
+                                        ];
+                                        // Deduplicate by keeping console buffer as primary (it has everything)
+                                        let txt = consoleBufferRef.current.map(l => `[${l.timestamp}] [${l.type.toUpperCase()}] ${l.message}`).join('\n');
                                         patterns.forEach(p => { txt = txt.replace(p, '[REDACTED]'); });
-                                        const blob = new Blob([`NYSP MDT - Exported Logs\n${now.toLocaleString()}\n${'═'.repeat(60)}\n\n` + txt], { type: 'text/plain' });
+                                        const blob = new Blob([`CAD SYSTEM - Exported Logs\n${now.toLocaleString()}\n${'═'.repeat(60)}\n\n` + txt], { type: 'text/plain' });
                                         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
                                         addLog(`📥 ${filename}`, 'success');
                                     }} style={S.btn('#3b82f6', false)}>📄 Export Logs</button>
