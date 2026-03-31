@@ -6002,8 +6002,8 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
             addLog(`❌ No registration found: ${searchedPlate}`, 'error');
             playSound('fail');
             
-            setRegistration(null);
-            setError('Database does not have any registered vehicles under the license plate you put in.');
+            setRegistration({ notFound: true });
+            setError('');
             setLoading(false);
             setSearchProgress(0);
             
@@ -10337,7 +10337,7 @@ return (
                         {[
                             { label: 'MDT STATUS', value: 'ONLINE', dot: '#10b981' },
                             { label: 'DATABASE', value: databaseStatus.checking ? 'CHECKING...' : (databaseStatus.connected ? 'CONNECTED' : 'DISCONNECTED'), dot: databaseStatus.checking ? '#fbbf24' : (databaseStatus.connected ? '#10b981' : '#ef4444') },
-                            { label: 'ACTIVE SESSION', value: selectedUserSession ? `SESSION ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'}` : 'NONE', dot: selectedUserSession ? '#60a5fa' : '#6b7280' },
+                            { label: 'ACTIVE SESSION', value: selectedUserSession ? `SESSION ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : selectedUserSession === '1390212341005680650' ? '3' : 'WL'}` : 'NONE', dot: selectedUserSession ? '#60a5fa' : '#6b7280' },
                             { label: 'LOCAL TIME', value: currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }), mono: true, dot: null },
                         ].map(({ label, value, dot, mono }) => (
                             <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -10380,6 +10380,89 @@ return (
                             {callButtonFlash ? '🚨 ' : '📡 '}PENDING CALLS
                         </button>
                     </Tooltip>
+                </div>
+            </div>
+
+{/* ── NEW ROW: CHATBOX + AVAILABLE OFFICERS ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+
+                {/* CHATBOX */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(79,70,229,0.04))', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '14px', padding: '20px', boxShadow: '0 4px 24px rgba(0,0,0,0.2)', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ color: '#a5b4fc', fontSize: '11px', fontWeight: '700', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ width: '3px', height: '14px', background: 'linear-gradient(180deg, #a5b4fc, #6366f1)', borderRadius: '2px' }}></span>
+                        UNIT CHAT
+                        <span style={{ marginLeft: 'auto', background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: '4px', padding: '2px 8px', color: '#818cf8', fontSize: '9px', fontWeight: '800', letterSpacing: '1.5px' }}>COMING SOON</span>
+                    </div>
+                    {/* Message list placeholder */}
+                    <div style={{ height: '160px', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '10px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto' }}>
+                        {[
+                            { user: 'DAREALROBZ', badge: '00706', msg: 'Show 10-8, Zone 0G', time: '20:41' },
+                            { user: 'Alp_hah', badge: '00601', msg: 'Show 10-8, Zone 00', time: '20:42' },
+                            { user: 'vectra_rb', badge: '00201', msg: 'Heading to 10-50 on Columbia TPKE', time: '20:44' },
+                        ].map((m, i) => (
+                            <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                <div style={{ width: '26px', height: '26px', background: 'linear-gradient(135deg, #4f46e5, #6366f1)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '700', color: 'white', flexShrink: 0 }}>{m.badge.slice(-2)}</div>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'baseline', marginBottom: '2px' }}>
+                                        <span style={{ color: '#a5b4fc', fontSize: '10px', fontWeight: '700' }}>{m.user}</span>
+                                        <span style={{ color: '#374151', fontSize: '9px' }}>{m.time}</span>
+                                    </div>
+                                    <div style={{ color: '#94a3b8', fontSize: '11px', lineHeight: '1.4' }}>{m.msg}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    {/* Input bar */}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <input disabled placeholder="Unit chat coming soon..." style={{ flex: 1, padding: '9px 12px', background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: '8px', color: '#4b5563', fontSize: '12px', outline: 'none', cursor: 'not-allowed' }} />
+                        <button disabled style={{ padding: '9px 14px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '8px', color: '#4b5563', fontSize: '12px', cursor: 'not-allowed' }}>Send</button>
+                    </div>
+                    {/* Locked overlay */}
+                    <div style={{ position: 'absolute', inset: 0, borderRadius: '14px', background: 'rgba(7,9,15,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(2px)', zIndex: 2 }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '22px', marginBottom: '6px' }}>🔒</div>
+                            <div style={{ color: '#6366f1', fontSize: '11px', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase' }}>Feature Locked</div>
+                            <div style={{ color: '#374151', fontSize: '10px', marginTop: '4px' }}>Coming in a future update</div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* AVAILABLE OFFICERS */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.04))', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '14px', padding: '20px', boxShadow: '0 4px 24px rgba(0,0,0,0.2)', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ color: '#6ee7b7', fontSize: '11px', fontWeight: '700', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ width: '3px', height: '14px', background: 'linear-gradient(180deg, #6ee7b7, #10b981)', borderRadius: '2px' }}></span>
+                        AVAILABLE OFFICERS
+                        <span style={{ marginLeft: 'auto', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '4px', padding: '2px 8px', color: '#34d399', fontSize: '9px', fontWeight: '800', letterSpacing: '1.5px' }}>COMING SOON</span>
+                    </div>
+                    <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {[
+                            { username: 'DAREALROBZ', name: 'Robert Mendoza', callsign: '0G', available: true },
+                            { username: 'Alp_hah', name: 'Travis Norman', callsign: '00', available: true },
+                            { username: 'vectra_rb', name: 'Victor Mendoza', callsign: '0G', available: false },
+                            { username: 'PdawgHomeslice', name: 'Clyde Martin', callsign: 'S1', available: true },
+                        ].map((o, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px' }}>
+                                {/* Avatar placeholder */}
+                                <div style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, #064e3b, #065f46)', borderRadius: '8px', border: '1px solid rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '14px' }}>👤</div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ color: 'white', fontSize: '12px', fontWeight: '700', marginBottom: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.name}</div>
+                                    <div style={{ color: '#6b7280', fontSize: '10px' }}>{o.username} · Zone {o.callsign}</div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
+                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: o.available ? '#10b981' : '#6b7280', boxShadow: o.available ? '0 0 6px #10b981' : 'none' }} />
+                                    <span style={{ color: o.available ? '#34d399' : '#6b7280', fontSize: '9px', fontWeight: '700', letterSpacing: '1px' }}>{o.available ? 'AVAIL' : 'BUSY'}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    {/* Locked overlay */}
+                    <div style={{ position: 'absolute', inset: 0, borderRadius: '14px', background: 'rgba(7,9,15,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(2px)', zIndex: 2 }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '22px', marginBottom: '6px' }}>🔒</div>
+                            <div style={{ color: '#10b981', fontSize: '11px', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase' }}>Feature Locked</div>
+                            <div style={{ color: '#374151', fontSize: '10px', marginTop: '4px' }}>Coming in a future update</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -11554,6 +11637,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                         <option value="1011898104670330920" style={{ background: '#0f172a' }}>Session 1</option>
                                         <option value="1390212294478397471" style={{ background: '#0f172a' }}>Session 2</option>
                                         <option value="1390212341005680650" style={{ background: '#0f172a' }}>Session 3</option>
+                                        <option value="1411101488146550784" style={{ background: '#0f172a' }}>Whitelisted Session</option>
                                     </select>
                                 </div>
 
@@ -11763,7 +11847,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                         margin: '0 0 10px', 
                         whiteSpace: 'nowrap' 
                     }}>
-                        {selectedUserSession ? `Session ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'} · Live emergency dispatch monitoring` : 'No session has been selected for monitoring.'}
+                        {selectedUserSession ? `${selectedUserSession === '1411101488146550784' ? 'Whitelisted Session' : `Session ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'}`} · Live emergency dispatch monitoring` : 'No session has been selected for monitoring.'}
                     </p>
                     <button
                         onClick={() => { 
@@ -11928,6 +12012,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                         <option value="1011898104670330920" style={{ background: '#0f172a' }}>Session 1</option>
                         <option value="1390212294478397471" style={{ background: '#0f172a' }}>Session 2</option>
                         <option value="1390212341005680650" style={{ background: '#0f172a' }}>Session 3</option>
+                        <option value="1411101488146550784" style={{ background: '#0f172a' }}>Whitelisted Session</option>
                     </select>
                 </div>
 
@@ -11968,7 +12053,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                 }}>
                     <div>
                         <div style={{ color: '#60a5fa', fontSize: '12px', fontWeight: '600', marginBottom: '4px' }}>
-                            ACTIVE CALLS IN SESSION {selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'}
+                            ACTIVE CALLS IN SESSION {selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : selectedUserSession === '1390212341005680650' ? '3' : 'WHITELISTED'}
                         </div>
                         <div style={{ color: '#93c5fd', fontSize: '11px' }}>
                             Auto-refresh every 7 seconds
@@ -14234,7 +14319,7 @@ if (window.electronAPI?.quit) {
                             txt(`Username: ${trooperSettings?.Username || 'N/A'}`, 50, y-48, 10, helvetica);
                             txt(`Zone: ${trooperSettings?.Zone || 'N/A'}`, 200, y-48, 10, helvetica);
                             txt(`Department: ${trooperSettings?.Department || 'NYSP'}`, 50, y-62, 10, helvetica);
-                            const sessName = selectedUserSession === '1011898104670330920' ? 'Session 1' : selectedUserSession === '1390212294478397471' ? 'Session 2' : selectedUserSession === '1390212341005680650' ? 'Session 3' : 'None';
+                            const sessName = selectedUserSession === '1011898104670330920' ? 'Session 1' : selectedUserSession === '1390212294478397471' ? 'Session 2' : selectedUserSession === '1390212341005680650' ? 'Session 3' : selectedUserSession === '1411101488146550784' ? 'Whitelisted Session' : 'None';
                             txt(`Session: ${sessName}`, 200, y-62, 10, helvetica);
                             y -= 90;
 
