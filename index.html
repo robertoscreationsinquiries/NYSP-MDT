@@ -1532,7 +1532,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
         (function() {
             const badge = document.createElement('div');
             const sha = window.APP_COMMIT_SHA || 'dev';
-            badge.textContent = `BETA BUILD - APP V. 0.1.0.7.5  •  ${sha}`;
+            badge.textContent = `BETA BUILD - APP V. 0.1.0.7.B  •  ${sha}`;
             badge.style.cssText = 'position:fixed;bottom:16px;left:44px;font-size:9px;font-weight:700;color:rgba(251,191,36,0.45);letter-spacing:1px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;white-space:nowrap;';
             document.body.appendChild(badge);
             if (window.APP_GITHUB_BRANCH && window.APP_GITHUB_BRANCH !== 'main') {
@@ -1544,7 +1544,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
         })();
 
         function NYSPLookupTool() {
-            const APP_VERSION = '0.1.0.7.5';
+            const APP_VERSION = '0.1.0.7.B';
             const [licensePlate, setLicensePlate] = useState('');
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
@@ -3307,6 +3307,25 @@ const FAQ_DATA = [
 
 
 const updateLogsData = [
+    {
+        title: "CAD SYSTEM - HOTFIXES",
+        version: "0.1.0.7.B",
+        release_date: "03/31/2026",
+        description: "Hotfixes and more...",
+        new: [
+            'ADDED support for whitelisted sessions'
+        ],
+        bugs: [
+                'FIXED "unregistered vehicle" sound not playing whenever a vehicle was not found.',
+        ],
+        modifications: [
+        ],
+        removed: [
+        ],
+        planned: [
+            'PLANNED new sound for when a citizen is not found within the database.',
+        ]
+    },
     {
         title: "CAD SYSTEM - HOTFIXES",
         version: "0.1.0.7.5",
