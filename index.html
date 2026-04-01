@@ -6099,6 +6099,7 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
             console.log('🔍 [DEBUG] Tried variants:', plateVariants.join(', '));
             addLog(`❌ No registration found: ${searchedPlate}`, 'error');
             playSound('fail');
+            if (window.SOUNDS && window.SOUNDS.plateFail) { try { const _a = new Audio(window.SOUNDS.plateFail); _a.volume = 0.5; _a.play().catch(() => {}); } catch(_) {} }
             
 setRegistration({ notFound: true });
             setError('');
@@ -6589,6 +6590,7 @@ console.log('   - Username:', memberData.user.username);
             } else {
                 addLog('No match', 'error');
                 playSound('fail');
+                if (window.SOUNDS && window.SOUNDS.plateFail) { try { const _a = new Audio(window.SOUNDS.plateFail); _a.volume = 0.5; _a.play().catch(() => {}); } catch(_) {} }
                 setRegistration({ notFound: true });
                 setShiftPlateSearches(prev => [...prev, {
                     plate: searchedPlate,
@@ -10578,10 +10580,11 @@ return (
                             { emoji: '🔗', label: 'LINKS', onClick: () => setShowUsefulLinks(true), color: '#22d3ee' },
                         ].map((btn, i) => (
                             <Tooltip key={i} text={btn.label}>
-                                <button onClick={btn.onClick} style={{ padding: '9px 6px', background: `linear-gradient(135deg, ${btn.color}18, ${btn.color}0a)`, border: `1px solid ${btn.color}30`, borderRadius: '8px', color: btn.color, cursor: 'pointer', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.3px', transition: 'all 0.2s', width: '100%' }}
-                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.background = `linear-gradient(135deg, ${btn.color}30, ${btn.color}18)`; e.currentTarget.style.color = '#fff'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.background = `linear-gradient(135deg, ${btn.color}18, ${btn.color}0a)`; e.currentTarget.style.color = btn.color; }}>
-                                    {btn.emoji}
+                                <button onClick={btn.onClick} style={{ padding: '16px 8px', background: `linear-gradient(135deg, ${btn.color}18, ${btn.color}0a)`, border: `1px solid ${btn.color}30`, borderRadius: '10px', color: btn.color, cursor: 'pointer', fontSize: '18px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.3px', transition: 'all 0.2s', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}
+                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.background = `linear-gradient(135deg, ${btn.color}30, ${btn.color}18)`; e.currentTarget.style.color = '#fff'; e.currentTarget.style.boxShadow = `0 6px 18px ${btn.color}30`; }}
+                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.background = `linear-gradient(135deg, ${btn.color}18, ${btn.color}0a)`; e.currentTarget.style.color = btn.color; e.currentTarget.style.boxShadow = 'none'; }}>
+                                    <span>{btn.emoji}</span>
+                                    <span style={{ fontSize: '8px', letterSpacing: '1px', opacity: 0.8 }}>{btn.label}</span>
                                 </button>
                             </Tooltip>
                         ))}
@@ -12439,7 +12442,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
             This app is out of date.
         </div>
         <div style={{ fontSize: '17px', color: 'rgba(255,255,255,0.55)', lineHeight: '1.6', maxWidth: '480px', marginBottom: '0px' }}>
-            Your current app version is unsupported and will be deprecated soon. To update, view the following channel for v0.1.0.4 installation guide:
+            Your current app version is unsupported and will be deprecated soon. To update, view the following channel:
             <span style={{ color: '#ffffff', fontWeight: '700' }}> #installation-guide</span>
         </div>
     </div>
