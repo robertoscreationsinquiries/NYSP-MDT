@@ -1595,6 +1595,10 @@ const [loadingHistory, setLoadingHistory] = useState(false);
 const [showExitConfirm, setShowExitConfirm] = useState(false);
 const [showChatPanel, setShowChatPanel] = useState(false);
 const [chatInput, setChatInput] = useState('');
+const [citizenNotFound, setCitizenNotFound] = useState(false);
+const [citizenNotFoundQuery, setCitizenNotFoundQuery] = useState('');
+const [onlineOfficers, setOnlineOfficers] = useState([]);
+const [officerStatus, setOfficerStatus] = useState('10-9');
 const [searchCitizenId, setSearchCitizenId] = useState('');
 const [compactMode, setCompactMode] = useState(false);
 const [pastRecords, setPastRecords] = useState([]);
@@ -2873,6 +2877,12 @@ const scrollToTop = () => {
             return true;
         } else {
             addLog(`Token validation failed: ${resp.status}`, 'error');
+            if (trooperSettings?.BadgeID && trooperSettings.BadgeID !== 'N/A') {
+                fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/presence/logout', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ badge: trooperSettings.BadgeID })
+                }).catch(() => {});
+            }
             setTokenSaved(false);
             showCustomError('Invalid Token', 'Your Discord token is invalid or has expired. Please update it in Settings.');
             return false;
@@ -2891,6 +2901,41 @@ useEffect(() => {
     }
 }, [tokenSaved, discordToken, trooperSettings, selectedUserSession]);
 
+// Presence heartbeat — fires immediately then every 80s whenever token/session/status changes
+React.useEffect(() => {
+    if (!tokenSaved || !trooperSettings?.BadgeID || trooperSettings.BadgeID === 'N/A') return;
+    const send = () => {
+        fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/presence', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                badge: trooperSettings.BadgeID,
+                firstName: trooperSettings.FirstName || '',
+                lastName: trooperSettings.LastName || '',
+                zone: trooperSettings.Zone || '-',
+                session: selectedUserSession || null,
+                status: officerStatus
+            })
+        }).catch(() => {});
+    };
+    send();
+    const id = setInterval(send, 80000);
+    return () => clearInterval(id);
+}, [tokenSaved, trooperSettings, selectedUserSession, officerStatus]);
+
+// Poll online officers every 10s when a session is active
+React.useEffect(() => {
+    if (!tokenSaved || !selectedUserSession) { setOnlineOfficers([]); return; }
+    const poll = () => {
+        fetch(`https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/presence?session=${encodeURIComponent(selectedUserSession)}`)
+            .then(r => r.json())
+            .then(d => { if (Array.isArray(d.officers)) setOnlineOfficers(d.officers); })
+            .catch(() => {});
+    };
+    poll();
+    const id = setInterval(poll, 10000);
+    return () => clearInterval(id);
+}, [tokenSaved, selectedUserSession]);
 
 
 useEffect(() => {
@@ -5928,8 +5973,8 @@ const lookupUser = async (plateOverride) => {
     setLoading(true);
     setError('');
     setResult(null);
-setRegistration({ notFound: true });
-            setError('');
+    setRegistration(null);
+    setError('');
 
     setSearchProgress(0);
 
@@ -6584,6 +6629,8 @@ const actualSearchValue = (typeof overrideValue === 'string' ? overrideValue : n
     setSelectedVehicleForCitation(null);
     setConsoleLogs([]);
     setSearchProgress(0);
+    setCitizenNotFound(false);
+    setCitizenNotFoundQuery('');
 
     const SEARCH_TIMEOUT = 45000; // 45 seconds for pagination
 
@@ -6870,7 +6917,8 @@ discordUserId = inputUserId;
                 console.error('❌ [SEARCH] User not found in server');
                 addLog(`❌ User "${actualSearchValue}" not found in server`, 'error');
                 addLog('💡 Try searching with their exact Discord ID instead', 'info');
-                showCustomError('Not Found', `Could not find "${actualSearchValue}" in the server. Try using their Discord ID (17-19 digit number) instead.`);
+                setCitizenNotFound(true);
+                setCitizenNotFoundQuery(actualSearchValue);
                 if (window.SOUNDS && window.SOUNDS.noCitizenSFX) { try { const _a = new Audio(window.SOUNDS.noCitizenSFX); _a.volume = 0.5; _a.play().catch(() => {}); } catch(_) {} }
                 setLoadingSearch(false);
                 setSearchProgress(0);
@@ -9285,6 +9333,14 @@ if (window.MAINTENANCE === true && !(window.APP_GITHUB_BRANCH && window.APP_GITH
 };
 const handleLogout = () => {
     console.log('[AUTH] Logging out');
+    // Signal Cloudflare to remove this officer from the presence list
+    if (trooperSettings?.BadgeID && trooperSettings.BadgeID !== 'N/A') {
+        fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/presence/logout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ badge: trooperSettings.BadgeID })
+        }).catch(() => {});
+    }
     localStorage.removeItem('nysp_authenticated_user');
     localStorage.removeItem('nysp_username');
     localStorage.removeItem('nysp_zone');
@@ -10318,7 +10374,7 @@ return (
                     </div>
                     <div style={{ display: 'grid', gap: '7px' }}>
                         {[
-                            { label: 'MDT STATUS', value: 'ONLINE', dot: '#10b981' },
+                            { label: 'CAD STATUS', value: 'ONLINE', dot: '#10b981' },
                             { label: 'DATABASE', value: databaseStatus.checking ? 'CHECKING...' : (databaseStatus.connected ? 'CONNECTED' : 'DISCONNECTED'), dot: databaseStatus.checking ? '#fbbf24' : (databaseStatus.connected ? '#10b981' : '#ef4444') },
                             { label: 'ACTIVE SESSION', value: selectedUserSession ? `SESSION ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : selectedUserSession === '1390212341005680650' ? '3' : 'WL'}` : 'NONE', dot: selectedUserSession ? '#60a5fa' : '#6b7280' },
                             { label: 'LOCAL TIME', value: currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }), mono: true, dot: null },
@@ -10398,76 +10454,101 @@ return (
                 </div>
             </div>
 
-            {/* ── ROW 3: ACTIVE CALLS + AVAILABLE OFFICERS ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px', flex: 1, minHeight: 0 }}>
+            {/* ── ROW 3: AVAILABLE OFFICERS + RIGHT COLUMN ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: '12px', flex: 1, minHeight: 0 }}>
 
-                {/* ACTIVE CALLS */}
-                <div style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.07), rgba(217,119,6,0.03))', border: `1px solid ${callButtonFlash ? 'rgba(239,68,68,0.35)' : 'rgba(245,158,11,0.18)'}`, borderRadius: '12px', padding: '14px 16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                {/* AVAILABLE OFFICERS — live presence data */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.07), rgba(5,150,105,0.03))', border: '1px solid rgba(16,185,129,0.18)', borderRadius: '12px', padding: '14px 16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexShrink: 0 }}>
-                        <div style={{ color: '#fcd34d', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ width: '3px', height: '12px', background: 'linear-gradient(180deg, #fcd34d, #f59e0b)', borderRadius: '2px' }} />
-                            ACTIVE CALLS
-                            {calls.length > 0 && <span style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: '10px', padding: '1px 8px', color: '#fca5a5', fontSize: '9px', fontWeight: '800' }}>{calls.length}</span>}
+                        <div style={{ color: '#6ee7b7', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ width: '3px', height: '12px', background: 'linear-gradient(180deg, #6ee7b7, #10b981)', borderRadius: '2px' }} />
+                            AVAILABLE OFFICERS
+                            {onlineOfficers.length > 0 && <span style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '10px', padding: '1px 7px', color: '#34d399', fontSize: '9px', fontWeight: '800' }}>{onlineOfficers.length}</span>}
                         </div>
-                        <button onClick={() => { setActiveView('calls'); setCallButtonFlash(false); }}
-                            style={{ padding: '3px 10px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '6px', color: '#fbbf24', fontSize: '9px', fontWeight: '700', cursor: 'pointer', letterSpacing: '1px' }}>
-                            VIEW ALL →
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ color: '#374151', fontSize: '9px', fontWeight: '600' }}>MY STATUS:</span>
+                            <select value={officerStatus} onChange={e => setOfficerStatus(e.target.value)}
+                                style={{ padding: '3px 8px', background: 'rgba(0,0,0,0.35)', border: `1px solid ${officerStatus === '10-9' ? 'rgba(16,185,129,0.45)' : officerStatus === '10-10' ? 'rgba(239,68,68,0.45)' : 'rgba(245,158,11,0.45)'}`, borderRadius: '6px', color: officerStatus === '10-9' ? '#34d399' : officerStatus === '10-10' ? '#f87171' : '#fbbf24', fontSize: '10px', fontWeight: '700', cursor: 'pointer', outline: 'none' }}>
+                                <option value="10-9" style={{ background: '#0f172a' }}>10-9 · AVAILABLE</option>
+                                <option value="10-10" style={{ background: '#0f172a' }}>10-10 · NOT AVAILABLE</option>
+                                <option value="10-5" style={{ background: '#0f172a' }}>10-5 · BUSY</option>
+                            </select>
+                        </div>
                     </div>
-                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ flex: 1, overflowY: 'auto' }}>
                         {!selectedUserSession ? (
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#374151', fontSize: '11px', textAlign: 'center', gap: '6px' }}>
-                                <span>No session selected</span>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#374151', fontSize: '11px', textAlign: 'center' }}>Select a session in Settings to see online officers</div>
+                        ) : onlineOfficers.length === 0 ? (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#374151', fontSize: '11px' }}>No officers online in this session</div>
+                        ) : (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '6px' }}>
+                                {onlineOfficers.map((o, i) => {
+                                    const isMe = String(o.badge) === String(trooperSettings?.BadgeID);
+                                    const statusColor = o.status === '10-9' ? '#10b981' : o.status === '10-10' ? '#ef4444' : '#f59e0b';
+                                    const statusLabel = o.status === '10-9' ? 'AVAILABLE' : o.status === '10-10' ? 'UNAVAILABLE' : 'BUSY';
+                                    return (
+                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: isMe ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isMe ? 'rgba(16,185,129,0.22)' : 'rgba(255,255,255,0.05)'}`, borderRadius: '8px' }}>
+                                            <div style={{ width: '30px', height: '30px', background: `linear-gradient(135deg, ${statusColor}28, ${statusColor}14)`, borderRadius: '7px', border: `1px solid ${statusColor}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '13px' }}>👤</div>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ color: 'white', fontSize: '11px', fontWeight: '700', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {o.name}{isMe && <span style={{ color: '#34d399', fontSize: '8px', marginLeft: '4px', fontWeight: '600' }}> (YOU)</span>}
+                                                </div>
+                                                <div style={{ color: '#6b7280', fontSize: '9px' }}>#{o.badge} · Zone {o.zone}</div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+                                                <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: statusColor, boxShadow: `0 0 5px ${statusColor}` }} />
+                                                <span style={{ color: statusColor, fontSize: '8px', fontWeight: '700', letterSpacing: '0.5px' }}>{statusLabel}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
-                        ) : calls.length === 0 ? (
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#374151', fontSize: '11px' }}>No active calls</div>
-                        ) : calls.slice(0, 4).map(call => (
-                            <div key={call.id} onClick={() => { setActiveView('calls'); setCallButtonFlash(false); }}
-                                style={{ padding: '8px 12px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.15s' }}
-                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.12)'; e.currentTarget.style.borderColor = 'rgba(245,158,11,0.3)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.06)'; e.currentTarget.style.borderColor = 'rgba(245,158,11,0.15)'; }}>
-                                <div style={{ color: '#fcd34d', fontSize: '11px', fontWeight: '700', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{call.name}</div>
-                                <div style={{ color: '#9ca3af', fontSize: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{call.location}</div>
-                                <div style={{ color: '#6b7280', fontSize: '9px', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{call.description}</div>
-                            </div>
-                        ))}
-                        {calls.length > 4 && (
-                            <div style={{ color: '#4b5563', fontSize: '10px', textAlign: 'center', padding: '4px', fontWeight: '600' }}>+{calls.length - 4} more calls — click VIEW ALL</div>
                         )}
                     </div>
                 </div>
 
-                {/* AVAILABLE OFFICERS + UNIT UTILITIES (stacked) */}
+                {/* RIGHT COLUMN: SHIFT MANAGEMENT + UTILITIES */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
 
-                    {/* AVAILABLE OFFICERS */}
-                    <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.07), rgba(5,150,105,0.03))', border: '1px solid rgba(16,185,129,0.18)', borderRadius: '12px', padding: '14px 16px', position: 'relative', overflow: 'hidden', flex: 1 }}>
-                        <div style={{ color: '#6ee7b7', fontSize: '10px', fontWeight: '700', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ width: '3px', height: '12px', background: 'linear-gradient(180deg, #6ee7b7, #10b981)', borderRadius: '2px' }} />
-                            AVAILABLE OFFICERS
-                            <span style={{ marginLeft: 'auto', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '4px', padding: '1px 7px', color: '#34d399', fontSize: '8px', fontWeight: '800', letterSpacing: '1.5px' }}>COMING SOON</span>
+                    {/* SHIFT MANAGEMENT — expanded */}
+                    <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.03))', border: '1px solid rgba(16,185,129,0.18)', borderRadius: '12px', padding: '14px 16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ color: '#6ee7b7', fontSize: '10px', fontWeight: '700', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                            <span style={{ width: '3px', height: '12px', background: 'linear-gradient(180deg, #6ee7b7, #34d399)', borderRadius: '2px' }} />
+                            Shift Management
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            {[{ name: `${trooperSettings?.FirstName || 'Unknown'} ${trooperSettings?.LastName || ''}`, username: trooperSettings?.Username || 'unknown', callsign: trooperSettings?.Zone || '-', available: true }].map((o, i) => (
-                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px' }}>
-                                    <div style={{ width: '30px', height: '30px', background: 'linear-gradient(135deg, #064e3b, #065f46)', borderRadius: '7px', border: '1px solid rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '13px' }}>👤</div>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ color: 'white', fontSize: '11px', fontWeight: '700', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.name}</div>
-                                        <div style={{ color: '#6b7280', fontSize: '9px' }}>{o.username} · Zone {o.callsign}</div>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                            {!shiftStartTime || shiftEndTime ? (
+                                <button onClick={startShift} style={{ width: '100%', padding: '13px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '12px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 4px 14px rgba(16,185,129,0.4)', transition: 'all 0.2s' }}
+                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(16,185,129,0.55)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(16,185,129,0.4)'; }}>
+                                    {shiftEndTime ? '▶ START NEW SHIFT' : '▶ START SHIFT'}
+                                </button>
+                            ) : (
+                                <>
+                                    <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '9px', padding: '10px 12px', marginBottom: '10px', textAlign: 'center' }}>
+                                        <div style={{ color: '#6ee7b7', fontSize: '9px', fontWeight: '700', letterSpacing: '1px', marginBottom: '4px' }}>{shiftPaused ? '⏸ PAUSED' : '▶ ON DUTY'}</div>
+                                        <div style={{ color: 'white', fontSize: '18px', fontWeight: '800', fontFamily: 'monospace', marginBottom: '3px' }}>
+                                            {(() => { const elapsed = shiftPaused ? (pauseStartTime - shiftStartTime) - pausedTime : (currentTime - shiftStartTime) - pausedTime; const h = Math.floor(elapsed / 3600000); const m = Math.floor((elapsed % 3600000) / 60000); const s = Math.floor((elapsed % 60000) / 1000); return `${h}h ${m}m ${s}s`; })()}
+                                        </div>
+                                        <div style={{ color: '#86efac', fontSize: '10px' }}>Since {formatShiftTime(shiftStartTime)}</div>
+                                        {pausedTime > 0 && <div style={{ color: '#fbbf24', fontSize: '9px', marginTop: '2px' }}>Break: {Math.floor(pausedTime / 60000)}m</div>}
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                                        <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 5px #10b981' }} />
-                                        <span style={{ color: '#34d399', fontSize: '8px', fontWeight: '700', letterSpacing: '1px' }}>AVAIL</span>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                        <button onClick={() => { if (shiftPaused) { const d = new Date() - pauseStartTime; setPausedTime(p => p + d); setPauseStartTime(null); setShiftPaused(false); addLog('▶️ Resumed', 'success'); } else { setPauseStartTime(new Date()); setShiftPaused(true); addLog('⏸️ Paused', 'info'); } }}
+                                            style={{ padding: '11px', background: shiftPaused ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #f59e0b, #d97706)', border: 'none', borderRadius: '8px', color: 'white', fontSize: '11px', fontWeight: '700', cursor: 'pointer', boxShadow: shiftPaused ? '0 3px 12px rgba(16,185,129,0.4)' : '0 3px 12px rgba(245,158,11,0.4)', transition: 'all 0.2s' }}
+                                            onMouseEnter={e => e.target.style.transform = 'translateY(-1px)'}
+                                            onMouseLeave={e => e.target.style.transform = 'translateY(0)'}>
+                                            {shiftPaused ? 'RESUME' : 'PAUSE'}
+                                        </button>
+                                        <button onClick={() => setShowEndShiftConfirm(true)}
+                                            style={{ padding: '11px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', borderRadius: '8px', color: 'white', fontSize: '11px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 3px 12px rgba(239,68,68,0.4)', transition: 'all 0.2s' }}
+                                            onMouseEnter={e => e.target.style.transform = 'translateY(-1px)'}
+                                            onMouseLeave={e => e.target.style.transform = 'translateY(0)'}>
+                                            END SHIFT
+                                        </button>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
-                        {/* Lock overlay */}
-                        <div style={{ position: 'absolute', inset: 0, borderRadius: '12px', background: 'rgba(7,9,15,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(2px)', zIndex: 2 }}>
-                            <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: '18px', marginBottom: '4px' }}>🔒</div>
-                                <div style={{ color: '#10b981', fontSize: '10px', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase' }}>Coming Soon</div>
-                            </div>
+                                </>
+                            )}
                         </div>
                     </div>
 
@@ -11094,6 +11175,21 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                         </div>
                     )}
                 </div>
+
+                {/* ── CITIZEN NOT FOUND ── */}
+                {citizenNotFound && !searchResults && (
+                    <div style={{ marginTop: '8px', padding: '18px 22px', background: 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(220,38,38,0.07))', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '16px', animation: visualEffects ? 'shake-animation 0.5s ease-in-out' : 'none', boxShadow: '0 4px 16px rgba(239,68,68,0.1)' }}>
+                        <div style={{ width: '42px', height: '42px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(239,68,68,0.4)' }}>
+                            <XCircle size={22} style={{ color: 'white' }} />
+                        </div>
+                        <div>
+                            <div style={{ color: '#fca5a5', fontSize: '14px', fontWeight: '800', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>CITIZEN NOT FOUND</div>
+                            <div style={{ color: '#fecaca', fontSize: '12px', lineHeight: '1.6', opacity: 0.85 }}>
+                                "{citizenNotFoundQuery}" was not found in the server. Try using their Discord ID (17–19 digit number) instead.
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* ── RESULTS ── */}
                 {searchResults && (
