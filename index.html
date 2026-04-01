@@ -1599,6 +1599,8 @@ const [citizenNotFound, setCitizenNotFound] = useState(false);
 const [citizenNotFoundQuery, setCitizenNotFoundQuery] = useState('');
 const [onlineOfficers, setOnlineOfficers] = useState([]);
 const [officerStatus, setOfficerStatus] = useState('10-9');
+const [officerLastUpdated, setOfficerLastUpdated] = useState(null);
+const [officerNextUpdate, setOfficerNextUpdate] = useState(null);
 const [searchCitizenId, setSearchCitizenId] = useState('');
 const [compactMode, setCompactMode] = useState(false);
 const [pastRecords, setPastRecords] = useState([]);
@@ -2905,6 +2907,7 @@ useEffect(() => {
 React.useEffect(() => {
     if (!tokenSaved || !trooperSettings?.BadgeID || trooperSettings.BadgeID === 'N/A') return;
     const send = () => {
+        console.log(`[BACKEND DATA OFFICER]: Sending heartbeat — Badge #${trooperSettings.BadgeID} | ${trooperSettings.FirstName} ${trooperSettings.LastName} | Zone ${trooperSettings.Zone || '-'} | Session ${selectedUserSession || 'none'} | Status ${officerStatus}`);
         fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/presence', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2916,25 +2919,47 @@ React.useEffect(() => {
                 session: selectedUserSession || null,
                 status: officerStatus
             })
-        }).catch(() => {});
+        })
+        .then(r => r.json())
+        .then(d => console.log(`[BACKEND DATA OFFICER]: Heartbeat acknowledged by Cloudflare —`, d))
+        .catch(e => console.error(`[BACKEND DATA OFFICER]: Heartbeat failed —`, e.message));
     };
+    console.log(`[BACKEND DATA OFFICER]: Presence system starting for Badge #${trooperSettings.BadgeID}`);
     send();
     const id = setInterval(send, 80000);
-    return () => clearInterval(id);
+    return () => {
+        console.log(`[BACKEND DATA OFFICER]: Presence heartbeat stopped`);
+        clearInterval(id);
+    };
 }, [tokenSaved, trooperSettings, selectedUserSession, officerStatus]);
 
 // Poll online officers every 10s when a session is active
 React.useEffect(() => {
     if (!tokenSaved || !selectedUserSession) { setOnlineOfficers([]); return; }
     const poll = () => {
+        console.log(`[BACKEND DATA OFFICER]: Polling online officers for session ${selectedUserSession}...`);
         fetch(`https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/presence?session=${encodeURIComponent(selectedUserSession)}`)
             .then(r => r.json())
-            .then(d => { if (Array.isArray(d.officers)) setOnlineOfficers(d.officers); })
-            .catch(() => {});
+            .then(d => {
+                if (Array.isArray(d.officers)) {
+                    console.log(`[BACKEND DATA OFFICER]: Poll complete — ${d.officers.length} officer(s) online:`, d.officers.map(o => `${o.name} (#${o.badge}) ${o.status}`).join(', ') || 'none');
+                    setOnlineOfficers(d.officers);
+                    const now = new Date();
+                    setOfficerLastUpdated(now);
+                    setOfficerNextUpdate(new Date(now.getTime() + 10000));
+                } else {
+                    console.warn(`[BACKEND DATA OFFICER]: Poll returned unexpected data —`, d);
+                }
+            })
+            .catch(e => console.error(`[BACKEND DATA OFFICER]: Poll failed —`, e.message));
     };
+    console.log(`[BACKEND DATA OFFICER]: Starting officer poll for session ${selectedUserSession}`);
     poll();
     const id = setInterval(poll, 10000);
-    return () => clearInterval(id);
+    return () => {
+        console.log(`[BACKEND DATA OFFICER]: Officer poll stopped`);
+        clearInterval(id);
+    };
 }, [tokenSaved, selectedUserSession]);
 
 
@@ -6684,21 +6709,13 @@ discordUserId = inputUserId;
             console.log('📡 [RESPONSE] Status:', memberResp.status);
             
             if (!memberResp.ok) {
-                console.error('❌ [ERROR] Member not found in server');
-                playSound('fail');
+                console.error('❌ [ERROR] Member not found in server, status:', memberResp.status);
+                if (window.SOUNDS && window.SOUNDS.noCitizenSFX) { try { const _a = new Audio(window.SOUNDS.noCitizenSFX); _a.volume = 0.5; _a.play().catch(() => {}); } catch(_) {} }
                 
-                if (memberResp.status === 404) {
+                if (memberResp.status === 404 || memberResp.status === 403) {
                     addLog(`❌ User ID ${inputUserId} not found in server`, 'error');
-                    showCustomError(
-                        'User Not Found',
-                        `Discord ID ${inputUserId} is not a member of this server.\n\nPlease verify the ID is correct.`
-                    );
-                } else if (memberResp.status === 403) {
-                    addLog('❌ Permission denied - check Discord token', 'error');
-                    showCustomError(
-                        'Permission Denied',
-                        'Your Discord token does not have permission to access server members.\n\nVerify your token in Settings.'
-                    );
+                    setCitizenNotFound(true);
+                    setCitizenNotFoundQuery(inputUserId);
                 } else {
                     addLog(`❌ Member lookup failed: ${memberResp.status}`, 'error');
                     showCustomError(
@@ -6870,13 +6887,11 @@ discordUserId = inputUserId;
             
             if (!membersResp.ok) {
                 console.error('❌ [SEARCH] Member search failed:', membersResp.status);
-                playSound('fail');
+                if (window.SOUNDS && window.SOUNDS.noCitizenSFX) { try { const _a = new Audio(window.SOUNDS.noCitizenSFX); _a.volume = 0.5; _a.play().catch(() => {}); } catch(_) {} }
                 
                 if (membersResp.status === 403) {
-                    showCustomError(
-                        'Member not found',
-                        'Citizen ID given does not exist upon extensive research. This can also be an issue on Discords backend..'
-                    );
+                    setCitizenNotFound(true);
+                    setCitizenNotFoundQuery(actualSearchValue);
                 } else {
                     showCustomError(
                         'Search Failed',
@@ -10454,35 +10469,76 @@ return (
                 </div>
             </div>
 
-            {/* ── ROW 3: AVAILABLE OFFICERS + RIGHT COLUMN ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: '12px', flex: 1, minHeight: 0 }}>
+            {/* ── ROW 3: AVAILABLE OFFICERS + UTILITIES (50/50) ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', flex: 1, minHeight: 0 }}>
 
                 {/* AVAILABLE OFFICERS — live presence data */}
                 <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.07), rgba(5,150,105,0.03))', border: '1px solid rgba(16,185,129,0.18)', borderRadius: '12px', padding: '14px 16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexShrink: 0 }}>
+                    {/* Header */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', flexShrink: 0 }}>
                         <div style={{ color: '#6ee7b7', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <span style={{ width: '3px', height: '12px', background: 'linear-gradient(180deg, #6ee7b7, #10b981)', borderRadius: '2px' }} />
                             AVAILABLE OFFICERS
-                            {onlineOfficers.length > 0 && <span style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '10px', padding: '1px 7px', color: '#34d399', fontSize: '9px', fontWeight: '800' }}>{onlineOfficers.length}</span>}
+                            <span style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '10px', padding: '1px 7px', color: '#34d399', fontSize: '9px', fontWeight: '800' }}>
+                                {(() => {
+                                    const myBadge = String(trooperSettings?.BadgeID || '');
+                                    const alreadyInList = onlineOfficers.some(o => String(o.badge) === myBadge);
+                                    return alreadyInList ? onlineOfficers.length : onlineOfficers.length + (tokenSaved && myBadge && myBadge !== 'N/A' ? 1 : 0);
+                                })()}
+                            </span>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ color: '#374151', fontSize: '9px', fontWeight: '600' }}>MY STATUS:</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <span style={{ color: '#374151', fontSize: '9px', fontWeight: '600' }}>STATUS:</span>
                             <select value={officerStatus} onChange={e => setOfficerStatus(e.target.value)}
-                                style={{ padding: '3px 8px', background: 'rgba(0,0,0,0.35)', border: `1px solid ${officerStatus === '10-9' ? 'rgba(16,185,129,0.45)' : officerStatus === '10-10' ? 'rgba(239,68,68,0.45)' : 'rgba(245,158,11,0.45)'}`, borderRadius: '6px', color: officerStatus === '10-9' ? '#34d399' : officerStatus === '10-10' ? '#f87171' : '#fbbf24', fontSize: '10px', fontWeight: '700', cursor: 'pointer', outline: 'none' }}>
+                                style={{ padding: '3px 7px', background: 'rgba(0,0,0,0.35)', border: `1px solid ${officerStatus === '10-9' ? 'rgba(16,185,129,0.45)' : officerStatus === '10-10' ? 'rgba(239,68,68,0.45)' : 'rgba(245,158,11,0.45)'}`, borderRadius: '6px', color: officerStatus === '10-9' ? '#34d399' : officerStatus === '10-10' ? '#f87171' : '#fbbf24', fontSize: '9px', fontWeight: '700', cursor: 'pointer', outline: 'none' }}>
                                 <option value="10-9" style={{ background: '#0f172a' }}>10-9 · AVAILABLE</option>
                                 <option value="10-10" style={{ background: '#0f172a' }}>10-10 · NOT AVAILABLE</option>
                                 <option value="10-5" style={{ background: '#0f172a' }}>10-5 · BUSY</option>
                             </select>
                         </div>
                     </div>
-                    <div style={{ flex: 1, overflowY: 'auto' }}>
+                    {/* Last/next update timestamps */}
+                    <div style={{ display: 'flex', gap: '10px', marginBottom: '8px', flexShrink: 0 }}>
+                        <span style={{ color: '#1f2937', fontSize: '8px', fontWeight: '600' }}>
+                            UPDATED: {officerLastUpdated ? officerLastUpdated.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : '—'}
+                        </span>
+                        <span style={{ color: '#1f2937', fontSize: '8px', fontWeight: '600' }}>
+                            NEXT: {officerNextUpdate ? officerNextUpdate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : '—'}
+                        </span>
+                    </div>
+                    {/* Officer list */}
+                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '5px' }}>
                         {!selectedUserSession ? (
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#374151', fontSize: '11px', textAlign: 'center' }}>Select a session in Settings to see online officers</div>
-                        ) : onlineOfficers.length === 0 ? (
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#374151', fontSize: '11px' }}>No officers online in this session</div>
                         ) : (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '6px' }}>
-                                {onlineOfficers.map((o, i) => {
+                            <>
+                                {/* Always show yourself first */}
+                                {tokenSaved && trooperSettings?.BadgeID && trooperSettings.BadgeID !== 'N/A' && (() => {
+                                    const alreadyInList = onlineOfficers.some(o => String(o.badge) === String(trooperSettings.BadgeID));
+                                    if (alreadyInList) return null; // will show in the list below
+                                    const statusColor = officerStatus === '10-9' ? '#10b981' : officerStatus === '10-10' ? '#ef4444' : '#f59e0b';
+                                    const statusLabel = officerStatus === '10-9' ? 'AVAILABLE' : officerStatus === '10-10' ? 'UNAVAILABLE' : 'BUSY';
+                                    return (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.22)', borderRadius: '8px' }}>
+                                            <div style={{ width: '30px', height: '30px', background: `linear-gradient(135deg, ${statusColor}28, ${statusColor}14)`, borderRadius: '7px', border: `1px solid ${statusColor}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '13px' }}>👤</div>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ color: 'white', fontSize: '11px', fontWeight: '700', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {trooperSettings.FirstName} {trooperSettings.LastName}
+                                                    <span style={{ color: '#34d399', fontSize: '8px', marginLeft: '4px', fontWeight: '600' }}>(YOU)</span>
+                                                </div>
+                                                <div style={{ color: '#6b7280', fontSize: '9px' }}>#{trooperSettings.BadgeID} · Zone {trooperSettings.Zone || '-'} <span style={{ color: '#fbbf24', fontSize: '8px' }}>· pending sync</span></div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+                                                <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: statusColor, boxShadow: `0 0 5px ${statusColor}` }} />
+                                                <span style={{ color: statusColor, fontSize: '8px', fontWeight: '700', letterSpacing: '0.5px' }}>{statusLabel}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                                {/* Online officers from Cloudflare */}
+                                {onlineOfficers.length === 0 && !tokenSaved ? (
+                                    <div style={{ color: '#374151', fontSize: '11px', textAlign: 'center', paddingTop: '8px' }}>No officers online in this session</div>
+                                ) : onlineOfficers.map((o, i) => {
                                     const isMe = String(o.badge) === String(trooperSettings?.BadgeID);
                                     const statusColor = o.status === '10-9' ? '#10b981' : o.status === '10-10' ? '#ef4444' : '#f59e0b';
                                     const statusLabel = o.status === '10-9' ? 'AVAILABLE' : o.status === '10-10' ? 'UNAVAILABLE' : 'BUSY';
@@ -10502,82 +10558,36 @@ return (
                                         </div>
                                     );
                                 })}
-                            </div>
+                            </>
                         )}
                     </div>
                 </div>
 
-                {/* RIGHT COLUMN: SHIFT MANAGEMENT + UTILITIES */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-
-                    {/* SHIFT MANAGEMENT — expanded */}
-                    <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.03))', border: '1px solid rgba(16,185,129,0.18)', borderRadius: '12px', padding: '14px 16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ color: '#6ee7b7', fontSize: '10px', fontWeight: '700', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                            <span style={{ width: '3px', height: '12px', background: 'linear-gradient(180deg, #6ee7b7, #34d399)', borderRadius: '2px' }} />
-                            Shift Management
-                        </div>
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                            {!shiftStartTime || shiftEndTime ? (
-                                <button onClick={startShift} style={{ width: '100%', padding: '13px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '12px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 4px 14px rgba(16,185,129,0.4)', transition: 'all 0.2s' }}
-                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(16,185,129,0.55)'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(16,185,129,0.4)'; }}>
-                                    {shiftEndTime ? '▶ START NEW SHIFT' : '▶ START SHIFT'}
+                {/* SYSTEM UTILITIES — 50% width */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.07), rgba(37,99,235,0.03))', border: '1px solid rgba(59,130,246,0.18)', borderRadius: '12px', padding: '14px 16px', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ color: '#93c5fd', fontSize: '10px', fontWeight: '700', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        <span style={{ width: '3px', height: '12px', background: 'linear-gradient(180deg, #93c5fd, #60a5fa)', borderRadius: '2px' }} />
+                        UTILITIES
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                        {[
+                            { emoji: '⚙️', label: 'SETTINGS', onClick: () => { setActiveView('settings'); setSettingsWarningDismissed(false); setContinueButtonEnabled(false); }, color: '#60a5fa' },
+                            { emoji: '📋', label: 'UPDATES', onClick: () => setShowUpdateLog(true), color: '#a78bfa' },
+                            { emoji: '❓', label: 'FAQ', onClick: () => setShowFAQ(true), color: '#fbbf24' },
+                            { emoji: '👥', label: 'CREDITS', onClick: () => { setCreditsKey(p => p + 1); setShowCredits(false); setTimeout(() => setShowCredits(true), 10); }, color: '#34d399' },
+                            { emoji: '🔗', label: 'LINKS', onClick: () => setShowUsefulLinks(true), color: '#22d3ee' },
+                        ].map((btn, i) => (
+                            <Tooltip key={i} text={btn.label}>
+                                <button onClick={btn.onClick} style={{ padding: '9px 6px', background: `linear-gradient(135deg, ${btn.color}18, ${btn.color}0a)`, border: `1px solid ${btn.color}30`, borderRadius: '8px', color: btn.color, cursor: 'pointer', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.3px', transition: 'all 0.2s', width: '100%' }}
+                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.background = `linear-gradient(135deg, ${btn.color}30, ${btn.color}18)`; e.currentTarget.style.color = '#fff'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.background = `linear-gradient(135deg, ${btn.color}18, ${btn.color}0a)`; e.currentTarget.style.color = btn.color; }}>
+                                    {btn.emoji}
                                 </button>
-                            ) : (
-                                <>
-                                    <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '9px', padding: '10px 12px', marginBottom: '10px', textAlign: 'center' }}>
-                                        <div style={{ color: '#6ee7b7', fontSize: '9px', fontWeight: '700', letterSpacing: '1px', marginBottom: '4px' }}>{shiftPaused ? '⏸ PAUSED' : '▶ ON DUTY'}</div>
-                                        <div style={{ color: 'white', fontSize: '18px', fontWeight: '800', fontFamily: 'monospace', marginBottom: '3px' }}>
-                                            {(() => { const elapsed = shiftPaused ? (pauseStartTime - shiftStartTime) - pausedTime : (currentTime - shiftStartTime) - pausedTime; const h = Math.floor(elapsed / 3600000); const m = Math.floor((elapsed % 3600000) / 60000); const s = Math.floor((elapsed % 60000) / 1000); return `${h}h ${m}m ${s}s`; })()}
-                                        </div>
-                                        <div style={{ color: '#86efac', fontSize: '10px' }}>Since {formatShiftTime(shiftStartTime)}</div>
-                                        {pausedTime > 0 && <div style={{ color: '#fbbf24', fontSize: '9px', marginTop: '2px' }}>Break: {Math.floor(pausedTime / 60000)}m</div>}
-                                    </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                                        <button onClick={() => { if (shiftPaused) { const d = new Date() - pauseStartTime; setPausedTime(p => p + d); setPauseStartTime(null); setShiftPaused(false); addLog('▶️ Resumed', 'success'); } else { setPauseStartTime(new Date()); setShiftPaused(true); addLog('⏸️ Paused', 'info'); } }}
-                                            style={{ padding: '11px', background: shiftPaused ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #f59e0b, #d97706)', border: 'none', borderRadius: '8px', color: 'white', fontSize: '11px', fontWeight: '700', cursor: 'pointer', boxShadow: shiftPaused ? '0 3px 12px rgba(16,185,129,0.4)' : '0 3px 12px rgba(245,158,11,0.4)', transition: 'all 0.2s' }}
-                                            onMouseEnter={e => e.target.style.transform = 'translateY(-1px)'}
-                                            onMouseLeave={e => e.target.style.transform = 'translateY(0)'}>
-                                            {shiftPaused ? 'RESUME' : 'PAUSE'}
-                                        </button>
-                                        <button onClick={() => setShowEndShiftConfirm(true)}
-                                            style={{ padding: '11px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', borderRadius: '8px', color: 'white', fontSize: '11px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 3px 12px rgba(239,68,68,0.4)', transition: 'all 0.2s' }}
-                                            onMouseEnter={e => e.target.style.transform = 'translateY(-1px)'}
-                                            onMouseLeave={e => e.target.style.transform = 'translateY(0)'}>
-                                            END SHIFT
-                                        </button>
-                                    </div>
-                                </>
-                            )}
-                        </div>
+                            </Tooltip>
+                        ))}
                     </div>
-
-                    {/* SYSTEM UTILITIES */}
-                    <div style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.07), rgba(37,99,235,0.03))', border: '1px solid rgba(59,130,246,0.18)', borderRadius: '12px', padding: '14px 16px' }}>
-                        <div style={{ color: '#93c5fd', fontSize: '10px', fontWeight: '700', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ width: '3px', height: '12px', background: 'linear-gradient(180deg, #93c5fd, #60a5fa)', borderRadius: '2px' }} />
-                            UTILITIES
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
-                            {[
-                                { emoji: '⚙️', label: 'SETTINGS', onClick: () => { setActiveView('settings'); setSettingsWarningDismissed(false); setContinueButtonEnabled(false); }, color: '#60a5fa' },
-                                { emoji: '📋', label: 'UPDATES', onClick: () => setShowUpdateLog(true), color: '#a78bfa' },
-                                { emoji: '❓', label: 'FAQ', onClick: () => setShowFAQ(true), color: '#fbbf24' },
-                                { emoji: '👥', label: 'CREDITS', onClick: () => { setCreditsKey(p => p + 1); setShowCredits(false); setTimeout(() => setShowCredits(true), 10); }, color: '#34d399' },
-                                { emoji: '🔗', label: 'LINKS', onClick: () => setShowUsefulLinks(true), color: '#22d3ee' },
-                            ].map((btn, i) => (
-                                <Tooltip key={i} text={btn.label}>
-                                    <button onClick={btn.onClick} style={{ padding: '9px 6px', background: `linear-gradient(135deg, ${btn.color}18, ${btn.color}0a)`, border: `1px solid ${btn.color}30`, borderRadius: '8px', color: btn.color, cursor: 'pointer', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.3px', transition: 'all 0.2s', width: '100%' }}
-                                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.background = `linear-gradient(135deg, ${btn.color}30, ${btn.color}18)`; e.currentTarget.style.color = '#fff'; }}
-                                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.background = `linear-gradient(135deg, ${btn.color}18, ${btn.color}0a)`; e.currentTarget.style.color = btn.color; }}>
-                                        {btn.emoji}
-                                    </button>
-                                </Tooltip>
-                            ))}
-                        </div>
-                    </div>
-
                 </div>
+
             </div>
 
             {/* ── EXIT ── */}
