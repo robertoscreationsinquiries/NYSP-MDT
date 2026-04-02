@@ -1532,7 +1532,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
         (function() {
             const badge = document.createElement('div');
             const sha = window.APP_COMMIT_SHA || 'dev';
-            badge.textContent = `BETA BUILD - APP V. 0.1.0.7.5  •  ${sha}`;
+            badge.textContent = `BETA BUILD - APP V. 0.1.0.9  •  ${sha}`;
             badge.style.cssText = 'position:fixed;bottom:16px;left:44px;font-size:9px;font-weight:700;color:rgba(251,191,36,0.45);letter-spacing:1px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;white-space:nowrap;';
             document.body.appendChild(badge);
             if (window.APP_GITHUB_BRANCH && window.APP_GITHUB_BRANCH !== 'main') {
@@ -1544,7 +1544,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
         })();
 
         function NYSPLookupTool() {
-            const APP_VERSION = '0.1.0.7.5';
+            const APP_VERSION = '0.1.0.9';
             const [licensePlate, setLicensePlate] = useState('');
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
@@ -1593,6 +1593,14 @@ const [databaseHistory, setDatabaseHistory] = useState([]);
 const [citizenSearchResults, setCitizenSearchResults] = useState(null);
 const [loadingHistory, setLoadingHistory] = useState(false);
 const [showExitConfirm, setShowExitConfirm] = useState(false);
+const [showChatPanel, setShowChatPanel] = useState(false);
+const [chatInput, setChatInput] = useState('');
+const [citizenNotFound, setCitizenNotFound] = useState(false);
+const [citizenNotFoundQuery, setCitizenNotFoundQuery] = useState('');
+const [onlineOfficers, setOnlineOfficers] = useState([]);
+const [officerStatus, setOfficerStatus] = useState('10-9');
+const [officerLastUpdated, setOfficerLastUpdated] = useState(null);
+const [officerNextUpdate, setOfficerNextUpdate] = useState(null);
 const [searchCitizenId, setSearchCitizenId] = useState('');
 const [compactMode, setCompactMode] = useState(false);
 const [pastRecords, setPastRecords] = useState([]);
@@ -2871,6 +2879,12 @@ const scrollToTop = () => {
             return true;
         } else {
             addLog(`Token validation failed: ${resp.status}`, 'error');
+            if (trooperSettings?.BadgeID && trooperSettings.BadgeID !== 'N/A') {
+                fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/presence/logout', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ badge: trooperSettings.BadgeID })
+                }).catch(() => {});
+            }
             setTokenSaved(false);
             showCustomError('Invalid Token', 'Your Discord token is invalid or has expired. Please update it in Settings.');
             return false;
@@ -2889,6 +2903,64 @@ useEffect(() => {
     }
 }, [tokenSaved, discordToken, trooperSettings, selectedUserSession]);
 
+// Presence heartbeat — fires immediately then every 80s whenever token/session/status changes
+React.useEffect(() => {
+    if (!tokenSaved || !trooperSettings?.BadgeID || trooperSettings.BadgeID === 'N/A') return;
+    const send = () => {
+        console.log(`[BACKEND DATA OFFICER]: Sending heartbeat — Badge #${trooperSettings.BadgeID} | ${trooperSettings.FirstName} ${trooperSettings.LastName} | Zone ${trooperSettings.Zone || '-'} | Session ${selectedUserSession || 'none'} | Status ${officerStatus}`);
+        fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/presence', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                badge: trooperSettings.BadgeID,
+                firstName: trooperSettings.FirstName || '',
+                lastName: trooperSettings.LastName || '',
+                zone: trooperSettings.Zone || '-',
+                session: selectedUserSession || null,
+                status: officerStatus
+            })
+        })
+        .then(r => r.json())
+        .then(d => console.log(`[BACKEND DATA OFFICER]: Heartbeat acknowledged by Cloudflare —`, d))
+        .catch(e => console.error(`[BACKEND DATA OFFICER]: Heartbeat failed —`, e.message));
+    };
+    console.log(`[BACKEND DATA OFFICER]: Presence system starting for Badge #${trooperSettings.BadgeID}`);
+    send();
+    const id = setInterval(send, 80000);
+    return () => {
+        console.log(`[BACKEND DATA OFFICER]: Presence heartbeat stopped`);
+        clearInterval(id);
+    };
+}, [tokenSaved, trooperSettings, selectedUserSession, officerStatus]);
+
+// Poll online officers every 10s when a session is active
+React.useEffect(() => {
+    if (!tokenSaved || !selectedUserSession) { setOnlineOfficers([]); return; }
+    const poll = () => {
+        console.log(`[BACKEND DATA OFFICER]: Polling online officers for session ${selectedUserSession}...`);
+        fetch(`https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/presence?session=${encodeURIComponent(selectedUserSession)}`)
+            .then(r => r.json())
+            .then(d => {
+                if (Array.isArray(d.officers)) {
+                    console.log(`[BACKEND DATA OFFICER]: Poll complete — ${d.officers.length} officer(s) online:`, d.officers.map(o => `${o.name} (#${o.badge}) ${o.status}`).join(', ') || 'none');
+                    setOnlineOfficers(d.officers);
+                    const now = new Date();
+                    setOfficerLastUpdated(now);
+                    setOfficerNextUpdate(new Date(now.getTime() + 10000));
+                } else {
+                    console.warn(`[BACKEND DATA OFFICER]: Poll returned unexpected data —`, d);
+                }
+            })
+            .catch(e => console.error(`[BACKEND DATA OFFICER]: Poll failed —`, e.message));
+    };
+    console.log(`[BACKEND DATA OFFICER]: Starting officer poll for session ${selectedUserSession}`);
+    poll();
+    const id = setInterval(poll, 10000);
+    return () => {
+        console.log(`[BACKEND DATA OFFICER]: Officer poll stopped`);
+        clearInterval(id);
+    };
+}, [tokenSaved, selectedUserSession]);
 
 
 useEffect(() => {
@@ -3307,6 +3379,46 @@ const FAQ_DATA = [
 
 
 const updateLogsData = [
+    {
+        title: "CAD SYSTEM - AVAILABLE OFFICERS & MORE!",
+        version: "0.1.0.9",
+        release_date: "04/02/2026",
+        description: "The addition of available officers and other important changes on our backend!",
+        new: [
+            'ADDED "Available Officers" list in the home dashboard with the option to select your status.',
+            'ADDED new SFX that plays whenever a citizen is not found!',
+            'ADDED new visual alerts when a vehicle / citizen is not found.'
+        ],
+        bugs: [
+            'FIXED "unregistered vehicle" sound not playing whenever a vehicle was not found.',
+        ],
+        modifications: [
+            'CHANGED layout of home dashboard. Additional changes will be made in another update.'
+        ],
+        removed: [
+        ],
+        planned: [
+            'PLANNED chat system.',
+        ]
+    },
+    {
+        title: "CAD SYSTEM - HOTFIXES",
+        version: "0.1.0.7.B",
+        release_date: "03/31/2026",
+        description: "Hotfixes and more...",
+        new: [
+            'ADDED support for whitelisted sessions'
+        ],
+        bugs: [
+        ],
+        modifications: [
+        ],
+        removed: [
+        ],
+        planned: [
+            'PLANNED new sound for when a citizen is not found within the database.',
+        ]
+    },
     {
         title: "CAD SYSTEM - HOTFIXES",
         version: "0.1.0.7.5",
@@ -4104,6 +4216,12 @@ React.useEffect(() => {
         };
         
         loadCalls();
+
+        // Auto-refresh every 15s while on calls tab
+        const interval = setInterval(() => {
+            if (activeView === 'calls' && tokenSaved && selectedUserSession) loadCalls();
+        }, 15000);
+        return () => clearInterval(interval);
     }
 }, [activeView, selectedUserSession, tokenSaved, discordToken, dismissedCalls, acknowledgedCalls]);
 
@@ -5902,6 +6020,7 @@ const lookupUser = async (plateOverride) => {
     setError('');
     setResult(null);
     setRegistration(null);
+    setError('');
 
     setSearchProgress(0);
 
@@ -6001,9 +6120,11 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
             console.log('🔍 [DEBUG] Tried variants:', plateVariants.join(', '));
             addLog(`❌ No registration found: ${searchedPlate}`, 'error');
             playSound('fail');
-            
-            setRegistration(null);
-            setError('Database does not have any registered vehicles under the license plate you put in.');
+            if (window.SOUNDS && window.SOUNDS.plateFail) { try { const _a = new Audio(window.SOUNDS.plateFail); _a.volume = 0.5; _a.play().catch(() => {}); } catch(_) {} }
+            if (window.SOUNDS && window.SOUNDS.noCitizenSFX) { try { const _a = new Audio(window.SOUNDS.noCitizenSFX); _a.volume = 0.5; _a.play().catch(() => {}); } catch(_) {} }
+            showCustomError('No Registration Found', `The license plate "${searchedPlate}" does not appear in the vehicle registration database.`);
+            setRegistration({ notFound: true });
+            setError('');
             setLoading(false);
             setSearchProgress(0);
             
@@ -6383,6 +6504,9 @@ console.log('   - Username:', memberData.user.username);
                         }
 
                         
+// 🚀 Kick off warrant check immediately in parallel — don't wait for Roblox
+                        // (warrant check already started before Roblox fetch above)
+
 // ✅ Also fetch and store Roblox profile for display
                         console.log('🎮 [ROBLOX] Fetching profile data for display...');
                         try {
@@ -6488,6 +6612,7 @@ console.log('   - Username:', memberData.user.username);
             } else {
                 addLog('No match', 'error');
                 playSound('fail');
+                if (window.SOUNDS && window.SOUNDS.plateFail) { try { const _a = new Audio(window.SOUNDS.plateFail); _a.volume = 0.5; _a.play().catch(() => {}); } catch(_) {} }
                 setRegistration({ notFound: true });
                 setShiftPlateSearches(prev => [...prev, {
                     plate: searchedPlate,
@@ -6553,6 +6678,8 @@ const actualSearchValue = (typeof overrideValue === 'string' ? overrideValue : n
     setSelectedVehicleForCitation(null);
     setConsoleLogs([]);
     setSearchProgress(0);
+    setCitizenNotFound(false);
+    setCitizenNotFoundQuery('');
 
     const SEARCH_TIMEOUT = 45000; // 45 seconds for pagination
 
@@ -6606,21 +6733,13 @@ discordUserId = inputUserId;
             console.log('📡 [RESPONSE] Status:', memberResp.status);
             
             if (!memberResp.ok) {
-                console.error('❌ [ERROR] Member not found in server');
-                playSound('fail');
+                console.error('❌ [ERROR] Member not found in server, status:', memberResp.status);
+                if (window.SOUNDS && window.SOUNDS.noCitizenSFX) { try { const _a = new Audio(window.SOUNDS.noCitizenSFX); _a.volume = 0.5; _a.play().catch(() => {}); } catch(_) {} }
                 
-                if (memberResp.status === 404) {
+                if (memberResp.status === 404 || memberResp.status === 403) {
                     addLog(`❌ User ID ${inputUserId} not found in server`, 'error');
-                    showCustomError(
-                        'User Not Found',
-                        `Discord ID ${inputUserId} is not a member of this server.\n\nPlease verify the ID is correct.`
-                    );
-                } else if (memberResp.status === 403) {
-                    addLog('❌ Permission denied - check Discord token', 'error');
-                    showCustomError(
-                        'Permission Denied',
-                        'Your Discord token does not have permission to access server members.\n\nVerify your token in Settings.'
-                    );
+                    setCitizenNotFound(true);
+                    setCitizenNotFoundQuery(inputUserId);
                 } else {
                     addLog(`❌ Member lookup failed: ${memberResp.status}`, 'error');
                     showCustomError(
@@ -6792,13 +6911,11 @@ discordUserId = inputUserId;
             
             if (!membersResp.ok) {
                 console.error('❌ [SEARCH] Member search failed:', membersResp.status);
-                playSound('fail');
+                if (window.SOUNDS && window.SOUNDS.noCitizenSFX) { try { const _a = new Audio(window.SOUNDS.noCitizenSFX); _a.volume = 0.5; _a.play().catch(() => {}); } catch(_) {} }
                 
                 if (membersResp.status === 403) {
-                    showCustomError(
-                        'Member not found',
-                        'Citizen ID given does not exist upon extensive research. This can also be an issue on Discords backend..'
-                    );
+                    setCitizenNotFound(true);
+                    setCitizenNotFoundQuery(actualSearchValue);
                 } else {
                     showCustomError(
                         'Search Failed',
@@ -6839,7 +6956,9 @@ discordUserId = inputUserId;
                 console.error('❌ [SEARCH] User not found in server');
                 addLog(`❌ User "${actualSearchValue}" not found in server`, 'error');
                 addLog('💡 Try searching with their exact Discord ID instead', 'info');
-                showCustomError('Not Found', `Could not find "${actualSearchValue}" in the server. Try using their Discord ID (17-19 digit number) instead.`);
+                setCitizenNotFound(true);
+                setCitizenNotFoundQuery(actualSearchValue);
+                if (window.SOUNDS && window.SOUNDS.noCitizenSFX) { try { const _a = new Audio(window.SOUNDS.noCitizenSFX); _a.volume = 0.5; _a.play().catch(() => {}); } catch(_) {} }
                 setLoadingSearch(false);
                 setSearchProgress(0);
                 return;
@@ -9253,6 +9372,14 @@ if (window.MAINTENANCE === true && !(window.APP_GITHUB_BRANCH && window.APP_GITH
 };
 const handleLogout = () => {
     console.log('[AUTH] Logging out');
+    // Signal Cloudflare to remove this officer from the presence list
+    if (trooperSettings?.BadgeID && trooperSettings.BadgeID !== 'N/A') {
+        fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/presence/logout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ badge: trooperSettings.BadgeID })
+        }).catch(() => {});
+    }
     localStorage.removeItem('nysp_authenticated_user');
     localStorage.removeItem('nysp_username');
     localStorage.removeItem('nysp_zone');
@@ -9870,7 +9997,7 @@ return (
                     const alreadyAccepted = localStorage.getItem('mdtWelcomeAccepted');
                     if (!alreadyAccepted) setShowWelcomePopup(true);
                     const loadedSoundCount = window.SOUNDS ? Object.keys(window.SOUNDS).length : 0;
-                    if (loadedSoundCount < 12) setSoundsOutOfDate(true);
+                    if (loadedSoundCount < 13) setSoundsOutOfDate(true);
                     if (soundSettings?.StartupSFX && SOUNDS.StartupSFX) {
                         try { const audio = new Audio(SOUNDS.StartupSFX); audio.volume = 0.5; audio.play().catch(() => {}); } catch (e) {}
                     }
@@ -10210,285 +10337,297 @@ return (
 )}
 
 {activeView === 'home' ? (
-    <div style={{ 
-        maxWidth: '100%',
-        margin: '0 auto', 
-        padding: '20px', 
-        width: '100%',
-        animation: 'fadeIn 0.4s ease-out',
-        boxSizing: 'border-box',
-        background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
-        minHeight: '100vh',
-        WebkitMaskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)',
-        maskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)'
-    }}>
-        <div className="card" style={{ 
-            height: 'calc(100vh - 60px)',
-            overflowY: 'auto',
-            background: 'transparent',
-            border: 'none',
-            boxShadow: 'none'
-        }}>
+    <div style={{ maxWidth: '100%', margin: '0 auto', padding: '16px 20px', width: '100%', animation: 'fadeIn 0.4s ease-out', boxSizing: 'border-box', background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)', minHeight: '100vh', WebkitMaskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)', maskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)' }}>
+        <div style={{ height: 'calc(100vh - 56px)', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
-            {/* ── HEADER BAR ── */}
-            <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '20px',
-                marginBottom: '20px',
-                padding: '20px 24px',
-                borderRadius: '14px',
-                background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,58,138,0.4))',
-                border: '1px solid rgba(59,130,246,0.25)',
-                boxShadow: '0 4px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)',
-                position: 'relative',
-                overflow: 'hidden'
-            }}>
-                {/* Ambient glow */}
-                <div style={{ position: 'absolute', top: '-60%', right: '-10%', width: '50%', height: '220%', background: 'radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%)', pointerEvents: 'none' }}></div>
-                
-                <div style={{ width: '64px', height: '64px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '14px', animation: 'float-up 3s ease-in-out infinite', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(59,130,246,0.5)', border: '1px solid rgba(96,165,250,0.3)', flexShrink: 0 }}>
-                    <Shield size={36} style={{ color: 'white' }} />
+            {/* ── HEADER ── */}
+            <div style={{ padding: '16px 20px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(15,23,42,0.97), rgba(30,58,138,0.35))', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 4px 24px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', gap: '16px', position: 'relative', overflow: 'hidden', flexShrink: 0 }}>
+                <div style={{ position: 'absolute', top: '-50%', right: '-5%', width: '40%', height: '200%', background: 'radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 70%)', pointerEvents: 'none' }} />
+                <div style={{ width: '48px', height: '48px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(59,130,246,0.5)', border: '1px solid rgba(96,165,250,0.3)', flexShrink: 0 }}>
+                    <Shield size={26} style={{ color: 'white' }} />
                 </div>
-                
                 <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', flexWrap: 'wrap' }}>
-                        <h1 style={{ color: 'white', fontSize: '22px', fontWeight: '800', margin: 0, letterSpacing: '1px', textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap' }}>
+                        <h1 style={{ color: 'white', fontSize: '18px', fontWeight: '800', margin: 0, letterSpacing: '0.5px' }}>
                             {selectedDepartment === 'NYSP' ? 'New York State Police' : selectedDepartment === 'DISPATCHER' ? 'Dispatcher' : 'East Greenbush Police Department'}
                         </h1>
-                        <span style={{ color: '#3b82f6', fontSize: '11px', fontWeight: '700', letterSpacing: '2px', background: 'rgba(59,130,246,0.15)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(59,130,246,0.3)' }}>
-                            EST. 2025
-                        </span>
+                        <span style={{ color: '#3b82f6', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', background: 'rgba(59,130,246,0.12)', padding: '2px 7px', borderRadius: '4px', border: '1px solid rgba(59,130,246,0.25)' }}>EST. 2025</span>
                     </div>
-                    <p style={{ color: '#60a5fa', fontSize: '13px', margin: '4px 0 0', fontWeight: '500' }}>
-                        {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} - {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
+                    <p style={{ color: '#60a5fa', fontSize: '11px', margin: '2px 0 0', fontWeight: '500' }}>
+                        {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} — {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
                     </p>
                 </div>
-
-                {/* Live status pill */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '20px', padding: '8px 14px', flexShrink: 0 }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981', animation: 'pulse-dot 2s ease-in-out infinite' }}></div>
-                    <span style={{ color: '#34d399', fontSize: '12px', fontWeight: '700', letterSpacing: '1px' }}>ONLINE</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '16px', padding: '6px 12px', flexShrink: 0 }}>
+                    <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981', animation: 'pulse-dot 2s ease-in-out infinite' }} />
+                    <span style={{ color: '#34d399', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>ONLINE</span>
                 </div>
             </div>
 
             {/* TOKEN WARNING */}
             {tokenExpiryWarning && (
-                <div style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.2), rgba(220,38,38,0.1))', border: '1px solid rgba(239,68,68,0.4)', borderRadius: '12px', padding: '16px 20px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 4px 16px rgba(239,68,68,0.2)' }}>
-                    <span style={{ fontSize: '24px' }}>⚠️</span>
+                <div style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.08))', border: '1px solid rgba(239,68,68,0.35)', borderRadius: '10px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                    <span style={{ fontSize: '20px' }}>⚠️</span>
                     <div style={{ flex: 1 }}>
-                        <div style={{ color: '#fca5a5', fontSize: '13px', fontWeight: '700', marginBottom: '2px', letterSpacing: '0.5px' }}>TOKEN EXPIRY WARNING</div>
-                        <div style={{ color: '#fecaca', fontSize: '12px' }}>Your Discord token may be invalid. Please update it in Settings.</div>
+                        <div style={{ color: '#fca5a5', fontSize: '12px', fontWeight: '700', marginBottom: '1px' }}>TOKEN EXPIRY WARNING</div>
+                        <div style={{ color: '#fecaca', fontSize: '11px' }}>Your Discord token may be invalid. Please update it in Settings.</div>
                     </div>
-                    <Tooltip text="Go to settings to update your token">
-                        <button onClick={() => { setActiveView('settings'); setSettingsWarningDismissed(false); setContinueButtonEnabled(false); }} style={{ padding: '8px 18px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(239,68,68,0.4)', transition: 'all 0.2s', whiteSpace: 'nowrap' }}
-                            onMouseEnter={e => { e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 6px 18px rgba(239,68,68,0.6)'; }}
-                            onMouseLeave={e => { e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = '0 4px 12px rgba(239,68,68,0.4)'; }}
-                        >UPDATE TOKEN</button>
-                    </Tooltip>
+                    <button onClick={() => { setActiveView('settings'); setSettingsWarningDismissed(false); setContinueButtonEnabled(false); }} style={{ padding: '6px 14px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: 'white', border: 'none', borderRadius: '7px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>UPDATE</button>
                 </div>
             )}
 
-            {/* ── MAIN GRID: LEFT COLUMN + RIGHT COLUMN ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            {/* ── ROW 1: OFFICER INFO + SYSTEM STATUS + SHIFT ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 0.85fr', gap: '12px', flexShrink: 0 }}>
 
-                {/* ── LEFT: OFFICER CARD ── */}
-                <div style={{ background: 'linear-gradient(135deg, rgba(30,58,138,0.2), rgba(59,130,246,0.08))', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px', padding: '20px', position: 'relative', overflow: 'hidden', animation: 'border-glow-pulse 4s ease-in-out infinite'}}>
-                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(59,130,246,0.6), transparent)' }}></div>
-                    
-                    <div style={{ color: '#60a5fa', fontSize: '11px', fontWeight: '700', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ width: '3px', height: '14px', background: 'linear-gradient(180deg, #60a5fa, #3b82f6)', borderRadius: '2px' }}></span>
+                {/* OFFICER INFORMATION */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(30,58,138,0.18), rgba(59,130,246,0.07))', border: '1px solid rgba(59,130,246,0.22)', borderRadius: '12px', padding: '16px', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(59,130,246,0.5), transparent)' }} />
+                    <div style={{ color: '#60a5fa', fontSize: '10px', fontWeight: '700', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ width: '3px', height: '12px', background: 'linear-gradient(180deg, #60a5fa, #3b82f6)', borderRadius: '2px' }} />
                         Officer Information
                     </div>
-
-                    {/* Big name display */}
-                    <div style={{ marginBottom: '16px', padding: '14px', background: 'rgba(59,130,246,0.08)', borderRadius: '10px', border: '1px solid rgba(59,130,246,0.15)' }}>
-                        <div style={{ color: '#93c5fd', fontSize: '10px', letterSpacing: '1.5px', fontWeight: '600', marginBottom: '4px' }}>OFFICER NAME</div>
-                        <div style={{ color: 'white', fontSize: '20px', fontWeight: '800', letterSpacing: '0.5px' }}>
-                            {trooperSettings?.FirstName || 'UNKNOWN'} {trooperSettings?.LastName || ''}
-                        </div>
+                    <div style={{ marginBottom: '10px', padding: '10px 12px', background: 'rgba(59,130,246,0.07)', borderRadius: '8px', border: '1px solid rgba(59,130,246,0.12)' }}>
+                        <div style={{ color: '#6b7280', fontSize: '9px', letterSpacing: '1.5px', fontWeight: '600', marginBottom: '3px' }}>OFFICER NAME</div>
+                        <div style={{ color: 'white', fontSize: '17px', fontWeight: '800', letterSpacing: '0.3px' }}>{trooperSettings?.FirstName || 'UNKNOWN'} {trooperSettings?.LastName || ''}</div>
                     </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
                         {[
                             { label: 'BADGE ID', value: `#${trooperSettings?.BadgeID || '00000'}`, mono: true },
                             { label: 'ZONE', value: `ZONE ${trooperSettings?.Zone || '-'}` },
                             { label: 'USERNAME', value: trooperSettings?.Username || 'UNKNOWN' },
                             { label: 'REG. EXPIRY', value: editableTrooperSettings?.expDate || '-' },
                         ].map(({ label, value, mono }) => (
-                            <div key={label} style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)' }}>
-                                <div style={{ color: '#93c5fd', fontSize: '9px', letterSpacing: '1.5px', fontWeight: '700', marginBottom: '4px' }}>{label}</div>
-                                <div style={{ color: 'white', fontSize: '13px', fontWeight: '700', fontFamily: mono ? 'monospace' : 'inherit' }}>{value}</div>
+                            <div key={label} style={{ padding: '8px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                <div style={{ color: '#6b7280', fontSize: '8px', letterSpacing: '1.5px', fontWeight: '700', marginBottom: '3px' }}>{label}</div>
+                                <div style={{ color: 'white', fontSize: '12px', fontWeight: '700', fontFamily: mono ? 'monospace' : 'inherit' }}>{value}</div>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                {/* ── RIGHT: SYSTEM STATUS ── */}
-                <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.08))', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '14px', padding: '20px', position: 'relative', overflow: 'hidden', animation: 'border-glow-pulse 4s ease-in-out infinite' }}>
-                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(16,185,129,0.6), transparent)' }}></div>
-                    
-                    <div style={{ color: '#34d399', fontSize: '11px', fontWeight: '700', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ width: '3px', height: '14px', background: 'linear-gradient(180deg, #34d399, #10b981)', borderRadius: '2px' }}></span>
+                {/* SYSTEM STATUS */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(5,150,105,0.06))', border: '1px solid rgba(16,185,129,0.22)', borderRadius: '12px', padding: '16px', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(16,185,129,0.5), transparent)' }} />
+                    <div style={{ color: '#34d399', fontSize: '10px', fontWeight: '700', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ width: '3px', height: '12px', background: 'linear-gradient(180deg, #34d399, #10b981)', borderRadius: '2px' }} />
                         System Status
                     </div>
-
-                    <div style={{ display: 'grid', gap: '10px' }}>
+                    <div style={{ display: 'grid', gap: '7px' }}>
                         {[
-                            { label: 'MDT STATUS', value: 'ONLINE', dot: '#10b981' },
+                            { label: 'CAD STATUS', value: 'ONLINE', dot: '#10b981' },
                             { label: 'DATABASE', value: databaseStatus.checking ? 'CHECKING...' : (databaseStatus.connected ? 'CONNECTED' : 'DISCONNECTED'), dot: databaseStatus.checking ? '#fbbf24' : (databaseStatus.connected ? '#10b981' : '#ef4444') },
-                            { label: 'ACTIVE SESSION', value: selectedUserSession ? `SESSION ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'}` : 'NONE', dot: selectedUserSession ? '#60a5fa' : '#6b7280' },
+                            { label: 'ACTIVE SESSION', value: selectedUserSession ? `SESSION ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : selectedUserSession === '1390212341005680650' ? '3' : 'WL'}` : 'NONE', dot: selectedUserSession ? '#60a5fa' : '#6b7280' },
                             { label: 'LOCAL TIME', value: currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }), mono: true, dot: null },
                         ].map(({ label, value, dot, mono }) => (
-                            <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                                <span style={{ color: '#6ee7b7', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>{label}</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    {dot && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dot, boxShadow: `0 0 8px ${dot}`, animation: 'pulse-dot 2s ease-in-out infinite' }}></div>}
-                                    <span style={{ color: 'white', fontSize: '13px', fontWeight: '700', fontFamily: mono ? 'monospace' : 'inherit' }}>{value}</span>
+                            <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <span style={{ color: '#6ee7b7', fontSize: '9px', fontWeight: '700', letterSpacing: '1px' }}>{label}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                                    {dot && <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: dot, boxShadow: `0 0 6px ${dot}`, animation: 'pulse-dot 2s ease-in-out infinite' }} />}
+                                    <span style={{ color: 'white', fontSize: '11px', fontWeight: '700', fontFamily: mono ? 'monospace' : 'inherit' }}>{value}</span>
                                 </div>
                             </div>
                         ))}
                     </div>
                 </div>
+
+                {/* SHIFT MANAGEMENT */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.03))', border: '1px solid rgba(16,185,129,0.18)', borderRadius: '12px', padding: '16px' }}>
+                    <div style={{ color: '#6ee7b7', fontSize: '10px', fontWeight: '700', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ width: '3px', height: '12px', background: 'linear-gradient(180deg, #6ee7b7, #34d399)', borderRadius: '2px' }} />
+                        Shift Management
+                    </div>
+                    {!shiftStartTime || shiftEndTime ? (
+                        <button onClick={startShift} style={{ width: '100%', padding: '13px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '12px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 4px 14px rgba(16,185,129,0.4)', transition: 'all 0.2s' }}
+                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(16,185,129,0.55)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(16,185,129,0.4)'; }}>
+                            {shiftEndTime ? '▶ START NEW SHIFT' : '▶ START SHIFT'}
+                        </button>
+                    ) : (
+                        <>
+                            <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '9px', padding: '8px 12px', marginBottom: '10px', textAlign: 'center' }}>
+                                <div style={{ color: '#6ee7b7', fontSize: '9px', fontWeight: '700', letterSpacing: '1px', marginBottom: '3px' }}>{shiftPaused ? '⏸ PAUSED' : '▶ ON DUTY'}</div>
+                                <div style={{ color: 'white', fontSize: '15px', fontWeight: '800', fontFamily: 'monospace', marginBottom: '2px' }}>
+                                    {(() => { const elapsed = shiftPaused ? (pauseStartTime - shiftStartTime) - pausedTime : (currentTime - shiftStartTime) - pausedTime; const h = Math.floor(elapsed / 3600000); const m = Math.floor((elapsed % 3600000) / 60000); const s = Math.floor((elapsed % 60000) / 1000); return `${h}h ${m}m ${s}s`; })()}
+                                </div>
+                                <div style={{ color: '#86efac', fontSize: '10px' }}>Since {formatShiftTime(shiftStartTime)}</div>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                <button onClick={() => { if (shiftPaused) { const d = new Date() - pauseStartTime; setPausedTime(p => p + d); setPauseStartTime(null); setShiftPaused(false); addLog('▶️ Resumed', 'success'); } else { setPauseStartTime(new Date()); setShiftPaused(true); addLog('⏸️ Paused', 'info'); } }}
+                                    style={{ padding: '11px', background: shiftPaused ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #f59e0b, #d97706)', border: 'none', borderRadius: '8px', color: 'white', fontSize: '11px', fontWeight: '700', cursor: 'pointer', boxShadow: shiftPaused ? '0 3px 12px rgba(16,185,129,0.4)' : '0 3px 12px rgba(245,158,11,0.4)', transition: 'all 0.2s' }}
+                                    onMouseEnter={e => e.target.style.transform = 'translateY(-1px)'}
+                                    onMouseLeave={e => e.target.style.transform = 'translateY(0)'}>
+                                    {shiftPaused ? 'RESUME' : 'PAUSE'}
+                                </button>
+                                <button onClick={() => setShowEndShiftConfirm(true)}
+                                    style={{ padding: '11px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', borderRadius: '8px', color: 'white', fontSize: '11px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 3px 12px rgba(239,68,68,0.4)', transition: 'all 0.2s' }}
+                                    onMouseEnter={e => e.target.style.transform = 'translateY(-1px)'}
+                                    onMouseLeave={e => e.target.style.transform = 'translateY(0)'}>
+                                    END SHIFT
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
             </div>
 
-            {/* ── CORE FUNCTIONS ── */}
-            <div style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.08), rgba(37,99,235,0.04))', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '14px', padding: '20px', marginBottom: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.2)' }}>
-                <div style={{ color: '#93c5fd', fontSize: '11px', fontWeight: '700', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ width: '3px', height: '14px', background: 'linear-gradient(180deg, #93c5fd, #60a5fa)', borderRadius: '2px' }}></span>
+            {/* ── ROW 2: CORE FUNCTIONS ── */}
+            <div style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.07), rgba(37,99,235,0.03))', border: '1px solid rgba(59,130,246,0.18)', borderRadius: '12px', padding: '14px 16px', flexShrink: 0 }}>
+                <div style={{ color: '#93c5fd', fontSize: '10px', fontWeight: '700', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '3px', height: '12px', background: 'linear-gradient(180deg, #93c5fd, #60a5fa)', borderRadius: '2px' }} />
                     CORE FUNCTIONS
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', animation: 'float-up 6s ease-in-out infinite' }}>
-                    <Tooltip text="Search vehicle registration by license plate">
-                        <button onClick={() => setActiveView('search')} style={{ padding: '20px 12px', background: 'linear-gradient(135deg, rgba(59,130,246,0.2), rgba(37,99,235,0.1))', border: '1px solid rgba(59,130,246,0.35)', borderRadius: '12px', color: '#93c5fd', cursor: 'pointer', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', transition: 'all 0.25s', width: '100%', boxShadow: '0 4px 16px rgba(59,130,246,0.1)' }}
-                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(59,130,246,0.4)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.4), rgba(37,99,235,0.3))'; e.currentTarget.style.color = '#fff'; }}
-                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(59,130,246,0.1)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.2), rgba(37,99,235,0.1))'; e.currentTarget.style.color = '#93c5fd'; }}>
-                            🔍 SCAN PLATE
-                        </button>
-                    </Tooltip>
-                    <Tooltip text="Look up an individual's records and registered vehicles">
-                        <button onClick={() => setActiveView('database-search')} style={{ padding: '20px 12px', background: 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(5,150,105,0.1))', border: '1px solid rgba(34,197,94,0.35)', borderRadius: '12px', color: '#6ee7b7', cursor: 'pointer', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', transition: 'all 0.25s', width: '100%', boxShadow: '0 4px 16px rgba(34,197,94,0.1)' }}
-                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(34,197,94,0.4)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.4), rgba(5,150,105,0.3))'; e.currentTarget.style.color = '#fff'; }}
-                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(34,197,94,0.1)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(5,150,105,0.1))'; e.currentTarget.style.color = '#6ee7b7'; }}>
-                            👤 ID LOOKUP
-                        </button>
-                    </Tooltip>
-                    <Tooltip text="View active calls in your session">
-                        <button onClick={() => { setActiveView('calls'); setCallButtonFlash(false); }} style={{ padding: '20px 12px', background: callButtonFlash ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'linear-gradient(135deg, rgba(251,191,36,0.2), rgba(217,119,6,0.1))', border: callButtonFlash ? '1px solid #991b1b' : '1px solid rgba(251,191,36,0.35)', borderRadius: '12px', color: callButtonFlash ? '#fff' : '#fcd34d', cursor: 'pointer', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', transition: 'all 0.25s', animation: callButtonFlash ? 'flash-red 1.5s infinite' : 'none', boxShadow: callButtonFlash ? '0 4px 20px rgba(239,68,68,0.6)' : '0 4px 16px rgba(251,191,36,0.1)', width: '100%' }}
-                            onMouseEnter={e => { if (!callButtonFlash) { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(251,191,36,0.4)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(251,191,36,0.4), rgba(217,119,6,0.3))'; e.currentTarget.style.color = '#fff'; } }}
-                            onMouseLeave={e => { if (!callButtonFlash) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(251,191,36,0.1)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(251,191,36,0.2), rgba(217,119,6,0.1))'; e.currentTarget.style.color = '#fcd34d'; } }}>
-                            {callButtonFlash ? '🚨 ' : '📡 '}PENDING CALLS
-                        </button>
-                    </Tooltip>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                    {[
+                        { label: '🔍 SCAN PLATE', view: 'search', color: '#3b82f6', tip: 'Search vehicle registration by license plate' },
+                        { label: '👤 ID LOOKUP', view: 'database-search', color: '#22c55e', tip: "Look up an individual's records" },
+                        { label: callButtonFlash ? '🚨 PENDING CALLS' : '📡 PENDING CALLS', view: 'calls', color: callButtonFlash ? '#ef4444' : '#f59e0b', tip: 'View active calls in your session', flash: callButtonFlash },
+                    ].map(({ label, view, color, tip, flash }) => (
+                        <Tooltip key={view} text={tip}>
+                            <button onClick={() => { setActiveView(view); if (view === 'calls') setCallButtonFlash(false); }}
+                                style={{ padding: '16px 10px', background: flash ? `linear-gradient(135deg, #ef4444, #dc2626)` : `linear-gradient(135deg, ${color}20, ${color}0d)`, border: `1px solid ${flash ? '#991b1b' : color + '35'}`, borderRadius: '10px', color: flash ? '#fff' : color, cursor: 'pointer', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', transition: 'all 0.2s', width: '100%', boxShadow: flash ? `0 4px 18px rgba(239,68,68,0.5)` : `0 2px 8px ${color}12`, animation: flash ? 'flash-red 1.5s infinite' : 'none' }}
+                                onMouseEnter={e => { if (!flash) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 6px 20px ${color}40`; e.currentTarget.style.background = `linear-gradient(135deg, ${color}35, ${color}20)`; e.currentTarget.style.color = '#fff'; }}}
+                                onMouseLeave={e => { if (!flash) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 2px 8px ${color}12`; e.currentTarget.style.background = `linear-gradient(135deg, ${color}20, ${color}0d)`; e.currentTarget.style.color = color; }}}>
+                                {label}
+                            </button>
+                        </Tooltip>
+                    ))}
                 </div>
             </div>
 
-{/* ── BOTTOM ROW: SYSTEM UTILITIES + SHIFT MANAGEMENT ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            {/* ── ROW 3: AVAILABLE OFFICERS + UTILITIES (50/50) ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', flex: 1, minHeight: 0 }}>
 
-                {/* SYSTEM UTILITIES */}
-                <div style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.08), rgba(37,99,235,0.04))', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '14px', padding: '20px', boxShadow: '0 4px 24px rgba(0,0,0,0.2)' }}>
-                    <div style={{ color: '#93c5fd', fontSize: '11px', fontWeight: '700', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ width: '3px', height: '14px', background: 'linear-gradient(180deg, #93c5fd, #60a5fa)', borderRadius: '2px' }}></span>
-                        SYSTEM UTILITIES
+                {/* AVAILABLE OFFICERS — live presence data */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.07), rgba(5,150,105,0.03))', border: '1px solid rgba(16,185,129,0.18)', borderRadius: '12px', padding: '14px 16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    {/* Header */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', flexShrink: 0 }}>
+                        <div style={{ color: '#6ee7b7', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ width: '3px', height: '12px', background: 'linear-gradient(180deg, #6ee7b7, #10b981)', borderRadius: '2px' }} />
+                            AVAILABLE OFFICERS
+                            <span style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '10px', padding: '1px 7px', color: '#34d399', fontSize: '9px', fontWeight: '800' }}>
+                                {(() => {
+                                    const myBadge = String(trooperSettings?.BadgeID || '');
+                                    const alreadyInList = onlineOfficers.some(o => String(o.badge) === myBadge);
+                                    return alreadyInList ? onlineOfficers.length : onlineOfficers.length + (tokenSaved && myBadge && myBadge !== 'N/A' ? 1 : 0);
+                                })()}
+                            </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <span style={{ color: '#374151', fontSize: '9px', fontWeight: '600' }}>STATUS:</span>
+                            <select value={officerStatus} onChange={e => setOfficerStatus(e.target.value)}
+                                style={{ padding: '3px 7px', background: 'rgba(0,0,0,0.35)', border: `1px solid ${officerStatus === '10-9' ? 'rgba(16,185,129,0.45)' : officerStatus === '10-10' ? 'rgba(239,68,68,0.45)' : 'rgba(245,158,11,0.45)'}`, borderRadius: '6px', color: officerStatus === '10-9' ? '#34d399' : officerStatus === '10-10' ? '#f87171' : '#fbbf24', fontSize: '9px', fontWeight: '700', cursor: 'pointer', outline: 'none' }}>
+                                <option value="10-9" style={{ background: '#0f172a' }}>10-9 · AVAILABLE</option>
+                                <option value="10-10" style={{ background: '#0f172a' }}>10-10 · NOT AVAILABLE</option>
+                                <option value="10-5" style={{ background: '#0f172a' }}>10-5 · BUSY</option>
+                            </select>
+                        </div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    {/* Last/next update timestamps */}
+                    <div style={{ display: 'flex', gap: '10px', marginBottom: '8px', flexShrink: 0 }}>
+                        <span style={{ color: '#1f2937', fontSize: '8px', fontWeight: '600' }}>
+                            UPDATED: {officerLastUpdated ? officerLastUpdated.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : '—'}
+                        </span>
+                        <span style={{ color: '#1f2937', fontSize: '8px', fontWeight: '600' }}>
+                            NEXT: {officerNextUpdate ? officerNextUpdate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : '—'}
+                        </span>
+                    </div>
+                    {/* Officer list */}
+                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                        {!selectedUserSession ? (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#374151', fontSize: '11px', textAlign: 'center' }}>Select a session in Settings to see online officers</div>
+                        ) : (
+                            <>
+                                {/* Always show yourself first */}
+                                {tokenSaved && trooperSettings?.BadgeID && trooperSettings.BadgeID !== 'N/A' && (() => {
+                                    const alreadyInList = onlineOfficers.some(o => String(o.badge) === String(trooperSettings.BadgeID));
+                                    if (alreadyInList) return null; // will show in the list below
+                                    const statusColor = officerStatus === '10-9' ? '#10b981' : officerStatus === '10-10' ? '#ef4444' : '#f59e0b';
+                                    const statusLabel = officerStatus === '10-9' ? 'AVAILABLE' : officerStatus === '10-10' ? 'UNAVAILABLE' : 'BUSY';
+                                    return (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.22)', borderRadius: '8px' }}>
+                                            <div style={{ width: '30px', height: '30px', background: `linear-gradient(135deg, ${statusColor}28, ${statusColor}14)`, borderRadius: '7px', border: `1px solid ${statusColor}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '13px' }}>👤</div>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ color: 'white', fontSize: '11px', fontWeight: '700', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {trooperSettings.FirstName} {trooperSettings.LastName}
+                                                    <span style={{ color: '#34d399', fontSize: '8px', marginLeft: '4px', fontWeight: '600' }}>(YOU)</span>
+                                                </div>
+                                                <div style={{ color: '#6b7280', fontSize: '9px' }}>#{trooperSettings.BadgeID} · Zone {trooperSettings.Zone || '-'} <span style={{ color: '#fbbf24', fontSize: '8px' }}>· pending sync</span></div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+                                                <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: statusColor, boxShadow: `0 0 5px ${statusColor}` }} />
+                                                <span style={{ color: statusColor, fontSize: '8px', fontWeight: '700', letterSpacing: '0.5px' }}>{statusLabel}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                                {/* Online officers from Cloudflare */}
+                                {onlineOfficers.length === 0 && !tokenSaved ? (
+                                    <div style={{ color: '#374151', fontSize: '11px', textAlign: 'center', paddingTop: '8px' }}>No officers online in this session</div>
+                                ) : onlineOfficers.map((o, i) => {
+                                    const isMe = String(o.badge) === String(trooperSettings?.BadgeID);
+                                    const statusColor = o.status === '10-9' ? '#10b981' : o.status === '10-10' ? '#ef4444' : '#f59e0b';
+                                    const statusLabel = o.status === '10-9' ? 'AVAILABLE' : o.status === '10-10' ? 'UNAVAILABLE' : 'BUSY';
+                                    return (
+                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: isMe ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isMe ? 'rgba(16,185,129,0.22)' : 'rgba(255,255,255,0.05)'}`, borderRadius: '8px' }}>
+                                            <div style={{ width: '30px', height: '30px', background: `linear-gradient(135deg, ${statusColor}28, ${statusColor}14)`, borderRadius: '7px', border: `1px solid ${statusColor}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '13px' }}>👤</div>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ color: 'white', fontSize: '11px', fontWeight: '700', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {o.name}{isMe && <span style={{ color: '#34d399', fontSize: '8px', marginLeft: '4px', fontWeight: '600' }}> (YOU)</span>}
+                                                </div>
+                                                <div style={{ color: '#6b7280', fontSize: '9px' }}>#{o.badge} · Zone {o.zone}</div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+                                                <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: statusColor, boxShadow: `0 0 5px ${statusColor}` }} />
+                                                <span style={{ color: statusColor, fontSize: '8px', fontWeight: '700', letterSpacing: '0.5px' }}>{statusLabel}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </>
+                        )}
+                    </div>
+                </div>
+
+                {/* SYSTEM UTILITIES — 50% width */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.07), rgba(37,99,235,0.03))', border: '1px solid rgba(59,130,246,0.18)', borderRadius: '12px', padding: '14px 16px', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ color: '#93c5fd', fontSize: '10px', fontWeight: '700', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        <span style={{ width: '3px', height: '12px', background: 'linear-gradient(180deg, #93c5fd, #60a5fa)', borderRadius: '2px' }} />
+                        UTILITIES
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
                         {[
-                            { emoji: '⚙️', label: 'SETTINGS', onClick: () => { setActiveView('settings'); setSettingsWarningDismissed(false); setContinueButtonEnabled(false); }, color: '#60a5fa', tooltip: 'Configure trooper credentials' },
-                            { emoji: '📋', label: 'UPDATE LOG', onClick: () => setShowUpdateLog(true), color: '#a78bfa', tooltip: 'View changelog' },
-                            { emoji: '❓', label: 'FAQ', onClick: () => setShowFAQ(true), color: '#fbbf24', tooltip: 'Get answers to questions' },
-                            { emoji: '👥', label: 'CREDITS', onClick: () => { setCreditsKey(prev => prev + 1); setShowCredits(false); setTimeout(() => setShowCredits(true), 10); }, color: '#34d399', tooltip: 'View credits' },
-{ emoji: '🔗', label: 'LINKS', onClick: () => setShowUsefulLinks(true), color: '#22d3ee', tooltip: 'Quick access to resources' }
+                            { emoji: '⚙️', label: 'SETTINGS', onClick: () => { setActiveView('settings'); setSettingsWarningDismissed(false); setContinueButtonEnabled(false); }, color: '#60a5fa' },
+                            { emoji: '📋', label: 'UPDATES', onClick: () => setShowUpdateLog(true), color: '#a78bfa' },
+                            { emoji: '❓', label: 'FAQ', onClick: () => setShowFAQ(true), color: '#fbbf24' },
+                            { emoji: '👥', label: 'CREDITS', onClick: () => { setCreditsKey(p => p + 1); setShowCredits(false); setTimeout(() => setShowCredits(true), 10); }, color: '#34d399' },
+                            { emoji: '🔗', label: 'LINKS', onClick: () => setShowUsefulLinks(true), color: '#22d3ee' },
                         ].map((btn, i) => (
-                            <Tooltip key={i} text={btn.tooltip}>
-                                <button onClick={btn.onClick} style={{ padding: '12px 8px', background: `linear-gradient(135deg, ${btn.color}20, ${btn.color}0d)`, border: `1px solid ${btn.color}35`, borderRadius: '10px', color: btn.color, cursor: 'pointer', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', transition: 'all 0.25s', width: '100%', boxShadow: `0 2px 8px ${btn.color}10` }}
-                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 6px 18px ${btn.color}35`; e.currentTarget.style.background = `linear-gradient(135deg, ${btn.color}35, ${btn.color}20)`; e.currentTarget.style.color = '#fff'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 2px 8px ${btn.color}10`; e.currentTarget.style.background = `linear-gradient(135deg, ${btn.color}20, ${btn.color}0d)`; e.currentTarget.style.color = btn.color; }}>
-                                    {btn.emoji} {btn.label}
+                            <Tooltip key={i} text={btn.label}>
+                                <button onClick={btn.onClick} style={{ padding: '16px 8px', background: `linear-gradient(135deg, ${btn.color}18, ${btn.color}0a)`, border: `1px solid ${btn.color}30`, borderRadius: '10px', color: btn.color, cursor: 'pointer', fontSize: '18px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.3px', transition: 'all 0.2s', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}
+                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.background = `linear-gradient(135deg, ${btn.color}30, ${btn.color}18)`; e.currentTarget.style.color = '#fff'; e.currentTarget.style.boxShadow = `0 6px 18px ${btn.color}30`; }}
+                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.background = `linear-gradient(135deg, ${btn.color}18, ${btn.color}0a)`; e.currentTarget.style.color = btn.color; e.currentTarget.style.boxShadow = 'none'; }}>
+                                    <span>{btn.emoji}</span>
+                                    <span style={{ fontSize: '8px', letterSpacing: '1px', opacity: 0.8 }}>{btn.label}</span>
                                 </button>
                             </Tooltip>
                         ))}
                     </div>
                 </div>
 
-                {/* SHIFT MANAGEMENT */}
-                <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.04))', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '14px', padding: '20px', boxShadow: '0 4px 24px rgba(0,0,0,0.2)' }}>
-                    <div style={{ color: '#6ee7b7', fontSize: '11px', fontWeight: '700', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ width: '3px', height: '14px', background: 'linear-gradient(180deg, #6ee7b7, #34d399)', borderRadius: '2px' }}></span>
-                        SHIFT MANAGEMENT
-                    </div>
-
-                    {!shiftStartTime || shiftEndTime ? (
-                        <button onClick={startShift} style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '12px', color: 'white', fontSize: '14px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 4px 16px rgba(16,185,129,0.4)', transition: 'all 0.25s' }}
-                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(16,185,129,0.6)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(16,185,129,0.4)'; }}>
-                            {shiftEndTime ? '▶ START NEW SHIFT' : '▶ START SHIFT (NEW)'}
-                        </button>
-                    ) : !shiftEndTime ? (
-                        <>
-                            <div style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '12px', padding: '10px 16px', marginBottom: '12px', textAlign: 'center' }}>
-                                <div style={{ color: '#6ee7b7', fontSize: '10px', fontWeight: '700', letterSpacing: '1px', marginBottom: '4px' }}>
-                                    {shiftPaused ? '⏸ PAUSED' : '▶ ON DUTY'}
-                                </div>
-                                <div style={{ color: 'white', fontSize: '14px', fontWeight: '800', fontFamily: 'monospace', textShadow: '0 2px 4px rgba(0,0,0,0.3)', marginBottom: '4px' }}>
-                                    {(() => {
-                                        const now = currentTime;
-                                        const elapsed = shiftPaused 
-                                            ? (pauseStartTime - shiftStartTime) - pausedTime
-                                            : (now - shiftStartTime) - pausedTime;
-                                        const hours = Math.floor(elapsed / 3600000);
-                                        const minutes = Math.floor((elapsed % 3600000) / 60000);
-                                        const seconds = Math.floor((elapsed % 60000) / 1000);
-                                        return `${hours}h ${minutes}m ${seconds}s`;
-                                    })()}
-                                </div>
-                                <div style={{ color: '#86efac', fontSize: '11px' }}>Started: {formatShiftTime(shiftStartTime)}</div>
-                                {pausedTime > 0 && <div style={{ color: '#fbbf24', fontSize: '10px', marginTop: '2px' }}>Break: {Math.floor(pausedTime / 60000)}m</div>}
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                <Tooltip text={shiftPaused ? "Resume your shift" : "Pause shift for break"}>
-                                    <button onClick={() => { if (shiftPaused) { const pauseDuration = new Date() - pauseStartTime; setPausedTime(prev => prev + pauseDuration); setPauseStartTime(null); setShiftPaused(false); addLog('▶️ Shift resumed', 'success'); } else { setPauseStartTime(new Date()); setShiftPaused(true); addLog('⏸️ Shift paused', 'info'); } }}
-                                        style={{ padding: '14px', background: shiftPaused ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #f59e0b, #d97706)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', boxShadow: shiftPaused ? '0 4px 14px rgba(16,185,129,0.4)' : '0 4px 14px rgba(245,158,11,0.4)', transition: 'all 0.25s', width: '100%' }}
-                                        onMouseEnter={e => { e.target.style.transform = 'translateY(-2px)'; }}
-                                        onMouseLeave={e => { e.target.style.transform = 'translateY(0)'; }}>
-                                        {shiftPaused ? 'RESUME' : 'PAUSE'}
-                                    </button>
-                                </Tooltip>
-                                <Tooltip text="End your shift">
-                                    <button onClick={() => setShowEndShiftConfirm(true)}
-                                        style={{ padding: '14px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', boxShadow: '0 4px 14px rgba(239,68,68,0.4)', transition: 'all 0.25s', width: '100%' }}
-                                        onMouseEnter={e => { e.target.style.transform = 'translateY(-2px)'; }}
-                                        onMouseLeave={e => { e.target.style.transform = 'translateY(0)'; }}>
-                                        END SHIFT
-                                    </button>
-                                </Tooltip>
-                            </div>
-                        </>
-                    ) : (
-                        <Tooltip text="Start a new shift">
-                            <button onClick={startShift} style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '12px', color: 'white', fontSize: '14px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 4px 16px rgba(16,185,129,0.4)', transition: 'all 0.25s' }}
-                                onMouseEnter={e => { e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 6px 22px rgba(16,185,129,0.6)'; }}
-                                onMouseLeave={e => { e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = '0 4px 16px rgba(16,185,129,0.4)'; }}>
-                                START NEW SHIFT
-                            </button>
-                        </Tooltip>
-                    )}
-                </div>
-
-
             </div>
-            {/* ── EXIT APP ── */}
-<button
-    onClick={() => setShowExitConfirm(true)}
-    style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(220,38,38,0.06))', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '14px', color: '#f87171', cursor: 'pointer', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', transition: 'all 0.25s', boxShadow: '0 2px 8px rgba(239,68,68,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
-    onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(239,68,68,0.25), rgba(220,38,38,0.15))'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(239,68,68,0.3)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.5)'; }}
-    onMouseLeave={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(220,38,38,0.06))'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#f87171'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.25)'; }}
->
-    EXIT APPLICATION
-</button>
+
+            {/* ── EXIT ── */}
+            <button onClick={() => setShowExitConfirm(true)}
+                style={{ width: '100%', padding: '12px', background: 'linear-gradient(135deg, rgba(239,68,68,0.1), rgba(220,38,38,0.05))', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '10px', color: '#f87171', cursor: 'pointer', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexShrink: 0 }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(239,68,68,0.2), rgba(220,38,38,0.12))'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(239,68,68,0.25)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(239,68,68,0.1), rgba(220,38,38,0.05))'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.color = '#f87171'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'; }}>
+                EXIT APPLICATION
+            </button>
+
         </div>
     </div>
 ) : (
+
+
 <>
 
 <div className="main-content" style={{
@@ -10644,7 +10783,7 @@ return (
                         <div>
                             <div style={{ color: '#fca5a5', fontSize: '16px', fontWeight: '800', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>NO REGISTRATION FOUND</div>
                             <div style={{ color: '#fecaca', fontSize: '13px', lineHeight: '1.6', opacity: 0.85 }}>
-                                The license plate "{licensePlate}" does not appear in the vehicle registration database. The vehicle may be unregistered or the plate may have been entered incorrectly.
+                                Vehicle is unregistered. The license plate "{licensePlate}" does not appear in the vehicle registration database.
                             </div>
                         </div>
                     </div>
@@ -11071,6 +11210,21 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                         </div>
                     )}
                 </div>
+
+                {/* ── CITIZEN NOT FOUND ── */}
+                {citizenNotFound && !searchResults && (
+                    <div style={{ marginTop: '8px', padding: '18px 22px', background: 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(220,38,38,0.07))', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '16px', animation: visualEffects ? 'shake-animation 0.5s ease-in-out' : 'none', boxShadow: '0 4px 16px rgba(239,68,68,0.1)' }}>
+                        <div style={{ width: '42px', height: '42px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(239,68,68,0.4)' }}>
+                            <XCircle size={22} style={{ color: 'white' }} />
+                        </div>
+                        <div>
+                            <div style={{ color: '#fca5a5', fontSize: '14px', fontWeight: '800', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>CITIZEN NOT FOUND</div>
+                            <div style={{ color: '#fecaca', fontSize: '12px', lineHeight: '1.6', opacity: 0.85 }}>
+                                "{citizenNotFoundQuery}" was not found within the database. Check if CitizenID is correct.
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* ── RESULTS ── */}
                 {searchResults && (
@@ -11554,6 +11708,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                         <option value="1011898104670330920" style={{ background: '#0f172a' }}>Session 1</option>
                                         <option value="1390212294478397471" style={{ background: '#0f172a' }}>Session 2</option>
                                         <option value="1390212341005680650" style={{ background: '#0f172a' }}>Session 3</option>
+                                        <option value="1411101488146550784" style={{ background: '#0f172a' }}>Whitelisted Session</option>
                                     </select>
                                 </div>
 
@@ -11763,7 +11918,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                         margin: '0 0 10px', 
                         whiteSpace: 'nowrap' 
                     }}>
-                        {selectedUserSession ? `Session ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'} · Live emergency dispatch monitoring` : 'No session has been selected for monitoring.'}
+                        {selectedUserSession ? `${selectedUserSession === '1411101488146550784' ? 'Whitelisted Session' : `Session ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'}`} · Live emergency dispatch monitoring` : 'No session has been selected for monitoring.'}
                     </p>
                     <button
                         onClick={() => { 
@@ -11928,6 +12083,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                         <option value="1011898104670330920" style={{ background: '#0f172a' }}>Session 1</option>
                         <option value="1390212294478397471" style={{ background: '#0f172a' }}>Session 2</option>
                         <option value="1390212341005680650" style={{ background: '#0f172a' }}>Session 3</option>
+                        <option value="1411101488146550784" style={{ background: '#0f172a' }}>Whitelisted Session</option>
                     </select>
                 </div>
 
@@ -11968,7 +12124,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                 }}>
                     <div>
                         <div style={{ color: '#60a5fa', fontSize: '12px', fontWeight: '600', marginBottom: '4px' }}>
-                            ACTIVE CALLS IN SESSION {selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'}
+                            ACTIVE CALLS IN SESSION {selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : selectedUserSession === '1390212341005680650' ? '3' : 'WHITELISTED'}
                         </div>
                         <div style={{ color: '#93c5fd', fontSize: '11px' }}>
                             Auto-refresh every 7 seconds
@@ -12308,7 +12464,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
             This app is out of date.
         </div>
         <div style={{ fontSize: '17px', color: 'rgba(255,255,255,0.55)', lineHeight: '1.6', maxWidth: '480px', marginBottom: '0px' }}>
-            Your current app version is unsupported and will be deprecated soon. To update, view the following channel for v0.1.0.4 installation guide:
+            Your current app version is unsupported and will be deprecated soon. To update, view the following channel:
             <span style={{ color: '#ffffff', fontWeight: '700' }}> #installation-guide</span>
         </div>
     </div>
@@ -12745,6 +12901,13 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                     );
                 })}
             </div>
+            {/* Chat button */}
+            <div onClick={() => setShowChatPanel(p => !p)} title="Unit Chat"
+                style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '7px', cursor: 'pointer', transition: 'all 0.15s', color: showChatPanel ? '#a5b4fc' : '#374151', background: showChatPanel ? 'rgba(99,102,241,0.15)' : 'transparent', border: showChatPanel ? '1px solid rgba(99,102,241,0.3)' : '1px solid transparent', marginBottom: '4px' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.1)'; e.currentTarget.style.color = '#a5b4fc'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = showChatPanel ? 'rgba(99,102,241,0.15)' : 'transparent'; e.currentTarget.style.color = showChatPanel ? '#a5b4fc' : '#374151'; }}>
+                <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+            </div>
             {/* Divider */}
             <div style={{ width: '20px', height: '1px', background: 'rgba(59,130,246,0.1)', marginBottom: '8px' }} />
             {/* Exit mini mode */}
@@ -12816,6 +12979,36 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
             </div>
         </div>
     </>
+)}
+
+{/* ── FLOATING UNIT CHAT PANEL ── */}
+{showChatPanel && (
+    <div style={{ position: 'fixed', bottom: '20px', left: '46px', width: '300px', height: '380px', background: 'rgba(8,12,22,0.97)', border: '1px solid rgba(99,102,241,0.28)', borderRadius: '14px', zIndex: 9995, display: 'flex', flexDirection: 'column', boxShadow: '0 8px 40px rgba(0,0,0,0.7)', backdropFilter: 'blur(12px)', overflow: 'hidden' }}>
+        <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(99,102,241,0.12)', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(99,102,241,0.05)', flexShrink: 0 }}>
+            <svg width="12" height="12" fill="none" stroke="#a5b4fc" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+            <span style={{ color: '#a5b4fc', fontSize: '10px', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase', flex: 1 }}>UNIT CHAT</span>
+            {selectedUserSession && <span style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: '4px', padding: '1px 6px', color: '#818cf8', fontSize: '8px', fontWeight: '700', letterSpacing: '1px' }}>SESSION {selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : selectedUserSession === '1390212341005680650' ? '3' : 'WL'}</span>}
+            <div onClick={() => setShowChatPanel(false)} style={{ cursor: 'pointer', color: '#374151', lineHeight: 0 }} onMouseEnter={e => e.currentTarget.style.color = '#f87171'} onMouseLeave={e => e.currentTarget.style.color = '#374151'}>
+                <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </div>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '10px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '6px', color: '#1f2937', fontSize: '11px' }}>
+            <svg width="28" height="28" fill="none" stroke="#1f2937" viewBox="0 0 24 24" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+            No messages yet
+        </div>
+        <div style={{ padding: '8px 10px', borderTop: '1px solid rgba(99,102,241,0.1)', display: 'flex', gap: '6px', flexShrink: 0, background: 'rgba(0,0,0,0.15)' }}>
+            <input value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Coming soon..." disabled style={{ flex: 1, padding: '7px 10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: '7px', color: '#374151', fontSize: '11px', outline: 'none', cursor: 'not-allowed' }} />
+            <button disabled style={{ padding: '7px 12px', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.18)', borderRadius: '7px', color: '#374151', fontSize: '10px', fontWeight: '700', cursor: 'not-allowed' }}>SEND</button>
+        </div>
+        {/* Lock overlay */}
+        <div style={{ position: 'absolute', inset: 0, borderRadius: '14px', background: 'rgba(7,9,15,0.52)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(2px)', zIndex: 2 }}>
+            <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '20px', marginBottom: '5px' }}>🔒</div>
+                <div style={{ color: '#6366f1', fontSize: '10px', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase' }}>Feature Locked</div>
+                <div style={{ color: '#374151', fontSize: '9px', marginTop: '3px' }}>Coming in a future update</div>
+            </div>
+        </div>
+    </div>
 )}
 
 {/* EXIT CONFIRMATION MODAL */}
@@ -13797,14 +13990,13 @@ if (window.electronAPI?.quit) {
         </div>
     </div>
 )}
-
 {/* Image Gallery Modal */}
 {imageGallery && (
     <div 
         style={{
             position: 'fixed',
             top: 0,
-            left: 0,
+            left: '36px',
             right: 0,
             bottom: 0,
             background: 'rgba(0, 0, 0, 0.97)',
@@ -13861,7 +14053,7 @@ if (window.electronAPI?.quit) {
                 }}
                 style={{
                     position: 'absolute',
-                    left: '30px',
+                    left: '56px',
                     background: 'rgba(59, 130, 246, 0.3)',
                     border: '2px solid rgba(59, 130, 246, 0.5)',
                     borderRadius: '50%',
@@ -14234,7 +14426,7 @@ if (window.electronAPI?.quit) {
                             txt(`Username: ${trooperSettings?.Username || 'N/A'}`, 50, y-48, 10, helvetica);
                             txt(`Zone: ${trooperSettings?.Zone || 'N/A'}`, 200, y-48, 10, helvetica);
                             txt(`Department: ${trooperSettings?.Department || 'NYSP'}`, 50, y-62, 10, helvetica);
-                            const sessName = selectedUserSession === '1011898104670330920' ? 'Session 1' : selectedUserSession === '1390212294478397471' ? 'Session 2' : selectedUserSession === '1390212341005680650' ? 'Session 3' : 'None';
+                            const sessName = selectedUserSession === '1011898104670330920' ? 'Session 1' : selectedUserSession === '1390212294478397471' ? 'Session 2' : selectedUserSession === '1390212341005680650' ? 'Session 3' : selectedUserSession === '1411101488146550784' ? 'Whitelisted Session' : 'None';
                             txt(`Session: ${sessName}`, 200, y-62, 10, helvetica);
                             y -= 90;
 
