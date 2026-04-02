@@ -1532,7 +1532,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
         (function() {
             const badge = document.createElement('div');
             const sha = window.APP_COMMIT_SHA || 'dev';
-            badge.textContent = `BETA BUILD - APP V. 0.1.0.7.B  •  ${sha}`;
+            badge.textContent = `BETA BUILD - APP V. 0.1.0.9  •  ${sha}`;
             badge.style.cssText = 'position:fixed;bottom:16px;left:44px;font-size:9px;font-weight:700;color:rgba(251,191,36,0.45);letter-spacing:1px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;white-space:nowrap;';
             document.body.appendChild(badge);
             if (window.APP_GITHUB_BRANCH && window.APP_GITHUB_BRANCH !== 'main') {
@@ -1544,7 +1544,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
         })();
 
         function NYSPLookupTool() {
-            const APP_VERSION = '0.1.0.7.B';
+            const APP_VERSION = '0.1.0.9';
             const [licensePlate, setLicensePlate] = useState('');
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
@@ -3380,6 +3380,28 @@ const FAQ_DATA = [
 
 const updateLogsData = [
     {
+        title: "CAD SYSTEM - AVAILABLE OFFICERS & MORE!",
+        version: "0.1.0.9",
+        release_date: "04/02/2026",
+        description: "The addition of available officers and other important changes on our backend!",
+        new: [
+            'ADDED "Available Officers" list in the home dashboard with the option to select your status.',
+            'ADDED new SFX that plays whenever a citizen is not found!',
+            'ADDED new visual alerts when a vehicle / citizen is not found.'
+        ],
+        bugs: [
+            'FIXED "unregistered vehicle" sound not playing whenever a vehicle was not found.',
+        ],
+        modifications: [
+            'CHANGED layout of home dashboard. Additional changes will be made in another update.'
+        ],
+        removed: [
+        ],
+        planned: [
+            'PLANNED chat system.',
+        ]
+    },
+    {
         title: "CAD SYSTEM - HOTFIXES",
         version: "0.1.0.7.B",
         release_date: "03/31/2026",
@@ -3388,7 +3410,6 @@ const updateLogsData = [
             'ADDED support for whitelisted sessions'
         ],
         bugs: [
-                'FIXED "unregistered vehicle" sound not playing whenever a vehicle was not found.',
         ],
         modifications: [
         ],
@@ -6100,8 +6121,9 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
             addLog(`❌ No registration found: ${searchedPlate}`, 'error');
             playSound('fail');
             if (window.SOUNDS && window.SOUNDS.plateFail) { try { const _a = new Audio(window.SOUNDS.plateFail); _a.volume = 0.5; _a.play().catch(() => {}); } catch(_) {} }
-            
-setRegistration({ notFound: true });
+            if (window.SOUNDS && window.SOUNDS.noCitizenSFX) { try { const _a = new Audio(window.SOUNDS.noCitizenSFX); _a.volume = 0.5; _a.play().catch(() => {}); } catch(_) {} }
+            showCustomError('No Registration Found', `The license plate "${searchedPlate}" does not appear in the vehicle registration database.`);
+            setRegistration({ notFound: true });
             setError('');
             setLoading(false);
             setSearchProgress(0);
@@ -11198,7 +11220,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                         <div>
                             <div style={{ color: '#fca5a5', fontSize: '14px', fontWeight: '800', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>CITIZEN NOT FOUND</div>
                             <div style={{ color: '#fecaca', fontSize: '12px', lineHeight: '1.6', opacity: 0.85 }}>
-                                "{citizenNotFoundQuery}" was not found in the server. Try using their Discord ID (17–19 digit number) instead.
+                                "{citizenNotFoundQuery}" was not found within the database. Check if CitizenID is correct.
                             </div>
                         </div>
                     </div>
