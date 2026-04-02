@@ -1869,6 +1869,15 @@ React.useEffect(() => {
 }, []);
 
 // ═══════════════════════════════════════════════════════════════════════
+// AVAILABLE OFFICERS FEATURE FLAG — fetched from Cloudflare every 80s
+// ═══════════════════════════════════════════════════════════════════════
+React.useEffect(() => {
+    checkOfficersFlag();
+    const interval = setInterval(checkOfficersFlag, 80000);
+    return () => clearInterval(interval);
+}, []);
+
+// ═══════════════════════════════════════════════════════════════════════
 // VERSION TRACKING - Show update screen when version changes
 // ═══════════════════════════════════════════════════════════════════════
 React.useEffect(() => {
@@ -1892,6 +1901,28 @@ React.useEffect(() => {
         console.log('[VERSION] ✅ Same version, no update needed');
     }
 }, []); // Run once on mount
+
+async function checkOfficersFlag() {
+    console.log('[OFFICERS] 🔄 Checking feature flag...');
+    try {
+        const cached = localStorage.getItem('officersFlagCache');
+        if (cached) {
+            const { value, ts } = JSON.parse(cached);
+            if (Date.now() - ts < 75000) { // use cache if fresher than 75s
+                window.AVAILABLE_OFFICERS_DISABLED = value;
+                console.log('[OFFICERS] Using cached flag:', value ? '🚫 DISABLED' : '✅ ENABLED');
+                return;
+            }
+        }
+        const response = await fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/officers-config', { cache: 'no-store' });
+        const script = await response.text();
+        eval(script);
+        localStorage.setItem('officersFlagCache', JSON.stringify({ value: window.AVAILABLE_OFFICERS_DISABLED, ts: Date.now() }));
+    } catch (err) {
+        console.warn('[OFFICERS] Flag check failed, defaulting to enabled:', err.message);
+        window.AVAILABLE_OFFICERS_DISABLED = false;
+    }
+}
 
 async function checkMaintenanceStatus() {
     console.log('[MAINTENANCE] 🔄 Checking status...');
@@ -2907,6 +2938,7 @@ useEffect(() => {
 React.useEffect(() => {
     if (!tokenSaved || !trooperSettings?.BadgeID || trooperSettings.BadgeID === 'N/A') return;
     const send = () => {
+if (window.AVAILABLE_OFFICERS_DISABLED) { console.log('[BACKEND DATA OFFICER]: ⛔ Heartbeat skipped — feature disabled by Cloudflare'); return; }
         console.log(`[BACKEND DATA OFFICER]: Sending heartbeat — Badge #${trooperSettings.BadgeID} | ${trooperSettings.FirstName} ${trooperSettings.LastName} | Zone ${trooperSettings.Zone || '-'} | Session ${selectedUserSession || 'none'} | Status ${officerStatus}`);
         fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/presence', {
             method: 'POST',
@@ -2936,7 +2968,9 @@ React.useEffect(() => {
 // Poll online officers every 10s when a session is active
 React.useEffect(() => {
     if (!tokenSaved || !selectedUserSession) { setOnlineOfficers([]); return; }
-    const poll = () => {
+const poll = () => {
+        if (!selectedUserSession) return;
+        if (window.AVAILABLE_OFFICERS_DISABLED) { console.log('[BACKEND DATA OFFICER]: ⛔ Poll skipped — feature disabled by Cloudflare'); return; }
         console.log(`[BACKEND DATA OFFICER]: Polling online officers for session ${selectedUserSession}...`);
         fetch(`https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/presence?session=${encodeURIComponent(selectedUserSession)}`)
             .then(r => r.json())
@@ -2955,7 +2989,7 @@ React.useEffect(() => {
     };
     console.log(`[BACKEND DATA OFFICER]: Starting officer poll for session ${selectedUserSession}`);
     poll();
-    const id = setInterval(poll, 10000);
+    const id = setInterval(poll, 30000);
     return () => {
         console.log(`[BACKEND DATA OFFICER]: Officer poll stopped`);
         clearInterval(id);
@@ -10497,6 +10531,13 @@ return (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', flex: 1, minHeight: 0 }}>
 
                 {/* AVAILABLE OFFICERS — live presence data */}
+                {window.AVAILABLE_OFFICERS_DISABLED ? (
+                    <div style={{ background: 'linear-gradient(135deg, rgba(107,114,128,0.07), rgba(75,85,99,0.03))', border: '1px solid rgba(107,114,128,0.18)', borderRadius: '12px', padding: '14px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '20px' }}>🚫</span>
+                        <div style={{ color: '#6b7280', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px' }}>FEATURE DISABLED</div>
+                        <div style={{ color: '#4b5563', fontSize: '9px', textAlign: 'center' }}>Available Officers has been disabled</div>
+                    </div>
+                ) : (
                 <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.07), rgba(5,150,105,0.03))', border: '1px solid rgba(16,185,129,0.18)', borderRadius: '12px', padding: '14px 16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                     {/* Header */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', flexShrink: 0 }}>
@@ -10587,6 +10628,7 @@ return (
                     </div>
                 </div>
 
+                )}
                 {/* SYSTEM UTILITIES — 50% width */}
                 <div style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.07), rgba(37,99,235,0.03))', border: '1px solid rgba(59,130,246,0.18)', borderRadius: '12px', padding: '14px 16px', display: 'flex', flexDirection: 'column' }}>
                     <div style={{ color: '#93c5fd', fontSize: '10px', fontWeight: '700', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
