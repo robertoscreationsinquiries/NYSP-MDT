@@ -6206,7 +6206,6 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
             addLog(`❌ No registration found: ${searchedPlate}`, 'error');
             try { if (window.SOUNDS?.plateFail) { const _a = new Audio(window.SOUNDS.plateFail); _a.volume = 0.5; _a.play().catch(() => {}); } } catch(_) {}
             try { if (window.SOUNDS?.noCitizenSFX) { const _a = new Audio(window.SOUNDS.noCitizenSFX); _a.volume = 0.5; _a.play().catch(() => {}); } } catch(_) {}
-            showCustomError('No Registration Found', `The license plate "${searchedPlate}" does not appear in the vehicle registration database.`);
             setRegistration({ notFound: true });
             setError('');
             setLoading(false);
