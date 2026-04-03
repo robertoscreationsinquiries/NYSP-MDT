@@ -1594,7 +1594,12 @@ const [citizenSearchResults, setCitizenSearchResults] = useState(null);
 const [loadingHistory, setLoadingHistory] = useState(false);
 const [showExitConfirm, setShowExitConfirm] = useState(false);
 const [showChatPanel, setShowChatPanel] = useState(false);
-const [chatInput, setChatInput] = useState('');
+const [showBoloModal, setShowBoloModal] = useState(false);
+const [boloList, setBoloList] = useState([]);
+const [boloForm, setBoloForm] = useState({ plate: '', description: '', reason: '', expiresIn: 10, image: null });
+const [boloSelectedImage, setBoloSelectedImage] = useState(null);
+const [boloCooldownUntil, setBoloCooldownUntil] = useState(null);
+const [chatTab, setChatTab] = useState('officers'); // 'officers' | 'chat'
 const [citizenNotFound, setCitizenNotFound] = useState(false);
 const [citizenNotFoundQuery, setCitizenNotFoundQuery] = useState('');
 const [onlineOfficers, setOnlineOfficers] = useState([]);
@@ -1867,6 +1872,21 @@ React.useEffect(() => {
     
     return () => clearInterval(interval);
 }, []);
+
+// ── BOLO POLLING — every 45s ──
+React.useEffect(() => {
+    if (!tokenSaved) return;
+    const fetchBolos = () => {
+        const session = selectedUserSession ? `?session=${encodeURIComponent(selectedUserSession)}` : '';
+        fetch(`https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/bolo${session}`)
+            .then(r => r.json())
+            .then(d => { if (d.bolos) setBoloList(d.bolos); })
+            .catch(() => {});
+    };
+    fetchBolos();
+    const id = setInterval(fetchBolos, 45000);
+    return () => clearInterval(id);
+}, [tokenSaved, selectedUserSession]);
 
 // ═══════════════════════════════════════════════════════════════════════
 // AVAILABLE OFFICERS FEATURE FLAG — fetched from Cloudflare every 80s
@@ -2935,30 +2955,41 @@ useEffect(() => {
 }, [tokenSaved, discordToken, trooperSettings, selectedUserSession]);
 
 // Presence heartbeat — fires immediately then every 80s whenever token/session/status changes
+// Presence heartbeat — fires immediately then every 110s, but only sends if data changed or TTL refresh needed
 React.useEffect(() => {
     if (!tokenSaved || !trooperSettings?.BadgeID || trooperSettings.BadgeID === 'N/A') return;
-    const send = () => {
-if (window.AVAILABLE_OFFICERS_DISABLED) { console.log('[BACKEND DATA OFFICER]: ⛔ Heartbeat skipped — feature disabled by Cloudflare'); return; }
+    const send = (force = false) => {
+        if (window.AVAILABLE_OFFICERS_DISABLED) { console.log('[BACKEND DATA OFFICER]: ⛔ Heartbeat skipped — feature disabled by Cloudflare'); return; }
+        const payload = {
+            badge: trooperSettings.BadgeID,
+            firstName: trooperSettings.FirstName || '',
+            lastName: trooperSettings.LastName || '',
+            zone: trooperSettings.Zone || '-',
+            session: selectedUserSession || null,
+            status: officerStatus
+        };
+        const fingerprint = JSON.stringify(payload);
+        const now = Date.now();
+        // Skip write if nothing changed AND last send was under 200s ago (TTL is 250s)
+        if (!force && window._lastPresenceFingerprint === fingerprint && window._lastPresenceSent && (now - window._lastPresenceSent) < 200000) {
+            console.log('[BACKEND DATA OFFICER]: Heartbeat skipped — no change');
+            return;
+        }
+        window._lastPresenceFingerprint = fingerprint;
+        window._lastPresenceSent = now;
         console.log(`[BACKEND DATA OFFICER]: Sending heartbeat — Badge #${trooperSettings.BadgeID} | ${trooperSettings.FirstName} ${trooperSettings.LastName} | Zone ${trooperSettings.Zone || '-'} | Session ${selectedUserSession || 'none'} | Status ${officerStatus}`);
         fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/presence', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                badge: trooperSettings.BadgeID,
-                firstName: trooperSettings.FirstName || '',
-                lastName: trooperSettings.LastName || '',
-                zone: trooperSettings.Zone || '-',
-                session: selectedUserSession || null,
-                status: officerStatus
-            })
+            body: JSON.stringify(payload)
         })
         .then(r => r.json())
         .then(d => console.log(`[BACKEND DATA OFFICER]: Heartbeat acknowledged by Cloudflare —`, d))
         .catch(e => console.error(`[BACKEND DATA OFFICER]: Heartbeat failed —`, e.message));
     };
     console.log(`[BACKEND DATA OFFICER]: Presence system starting for Badge #${trooperSettings.BadgeID}`);
-    send();
-    const id = setInterval(send, 80000);
+    send(true); // always send on first mount
+    const id = setInterval(send, 110000);
     return () => {
         console.log(`[BACKEND DATA OFFICER]: Presence heartbeat stopped`);
         clearInterval(id);
@@ -3413,6 +3444,25 @@ const FAQ_DATA = [
 
 
 const updateLogsData = [
+    {
+        title: "CAD SYSTEM - AVAILABLE OFFICERS & MORE!",
+        version: "0.1.0.9.8",
+        release_date: "04/03/2026",
+        description: "The addition of BOLOs!",
+        new: [
+            'ADDED "BOLO" system.',
+        ],
+        bugs: [
+            '(hopefully) FIXED "unregistered vehicle" sound not playing whenever a vehicle was not found.',
+        ],
+        modifications: [
+        ],
+        removed: [
+        ],
+        planned: [
+            'PLANNED chat system.',
+        ]
+    },
     {
         title: "CAD SYSTEM - AVAILABLE OFFICERS & MORE!",
         version: "0.1.0.9",
@@ -6081,6 +6131,7 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
         
         // Try each variant until we find matches
         for (const variant of plateVariants) {
+            const normalized = normalizePlate(variant);
             console.log('🔍 [VARIANT] Trying:', variant);
             
             const searchUrl = `https://discord.com/api/v9/guilds/${guildId}/messages/search?channel_id=${channelId}&content=${encodeURIComponent(variant)}`;
@@ -6153,10 +6204,8 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
             console.error('❌ [SEARCH] No registration found for plate:', searchedPlate);
             console.log('🔍 [DEBUG] Tried variants:', plateVariants.join(', '));
             addLog(`❌ No registration found: ${searchedPlate}`, 'error');
-            playSound('fail');
-            if (window.SOUNDS && window.SOUNDS.plateFail) { try { const _a = new Audio(window.SOUNDS.plateFail); _a.volume = 0.5; _a.play().catch(() => {}); } catch(_) {} }
-            if (window.SOUNDS && window.SOUNDS.noCitizenSFX) { try { const _a = new Audio(window.SOUNDS.noCitizenSFX); _a.volume = 0.5; _a.play().catch(() => {}); } catch(_) {} }
-            showCustomError('No Registration Found', `The license plate "${searchedPlate}" does not appear in the vehicle registration database.`);
+            try { if (window.SOUNDS?.plateFail) { const _a = new Audio(window.SOUNDS.plateFail); _a.volume = 0.5; _a.play().catch(() => {}); } } catch(_) {}
+            try { if (window.SOUNDS?.noCitizenSFX) { const _a = new Audio(window.SOUNDS.noCitizenSFX); _a.volume = 0.5; _a.play().catch(() => {}); } } catch(_) {}
             setRegistration({ notFound: true });
             setError('');
             setLoading(false);
@@ -10530,7 +10579,7 @@ return (
             {/* ── ROW 3: AVAILABLE OFFICERS + UTILITIES (50/50) ── */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', flex: 1, minHeight: 0 }}>
 
-                {/* AVAILABLE OFFICERS — live presence data */}
+                {/* AVAILABLE OFFICERS + CHAT */}
                 {window.AVAILABLE_OFFICERS_DISABLED ? (
                     <div style={{ background: 'linear-gradient(135deg, rgba(107,114,128,0.07), rgba(75,85,99,0.03))', border: '1px solid rgba(107,114,128,0.18)', borderRadius: '12px', padding: '14px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                         <span style={{ fontSize: '20px' }}>🚫</span>
@@ -10539,8 +10588,15 @@ return (
                     </div>
                 ) : (
                 <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.07), rgba(5,150,105,0.03))', border: '1px solid rgba(16,185,129,0.18)', borderRadius: '12px', padding: '14px 16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    {/* Header */}
+                    {/* Tab switcher */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', flexShrink: 0 }}>
+                        <div style={{ display: 'flex', gap: '3px' }}>
+                            <button onClick={() => setChatTab('officers')} style={{ padding: '3px 8px', borderRadius: '5px', border: 'none', cursor: 'pointer', fontSize: '9px', fontWeight: '700', letterSpacing: '1px', textTransform: 'uppercase', background: chatTab === 'officers' ? 'rgba(16,185,129,0.25)' : 'transparent', color: chatTab === 'officers' ? '#34d399' : '#4b5563', transition: 'all 0.15s' }}>OFFICERS</button>
+                            
+                            <button onClick={() => setChatTab('bolo')} style={{ padding: '3px 8px', borderRadius: '5px', border: 'none', cursor: 'pointer', fontSize: '9px', fontWeight: '700', letterSpacing: '1px', textTransform: 'uppercase', background: chatTab === 'bolo' ? 'rgba(248,113,113,0.25)' : 'transparent', color: chatTab === 'bolo' ? '#f87171' : '#4b5563', transition: 'all 0.15s', position: 'relative' }}>
+                                BOLO{boloList.length > 0 && <span style={{ position: 'absolute', top: '-3px', right: '-3px', background: '#ef4444', borderRadius: '50%', width: '8px', height: '8px', fontSize: '0px' }} />}
+                            </button>
+                        </div>
                         <div style={{ color: '#6ee7b7', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <span style={{ width: '3px', height: '12px', background: 'linear-gradient(180deg, #6ee7b7, #10b981)', borderRadius: '2px' }} />
                             AVAILABLE OFFICERS
@@ -10571,7 +10627,32 @@ return (
                             NEXT: {officerNextUpdate ? officerNextUpdate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : '—'}
                         </span>
                     </div>
-                    {/* Officer list */}
+                    {/* Tab content */}
+                    {chatTab === 'bolo' ? (
+                        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {boloList.length === 0 ? (
+                                <div style={{ color: '#374151', fontSize: '10px', textAlign: 'center', paddingTop: '20px' }}>No active BOLOs in this session</div>
+                            ) : boloList.map((b, i) => {
+                                const remaining = Math.max(0, Math.round((b.expiresAt - Date.now()) / 60000));
+                                return (
+                                    <div key={i} style={{ background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.18)', borderRadius: '10px', padding: '10px', display: 'flex', gap: '8px' }}>
+                                        {b.image && (
+                                            <img src={b.image} onClick={() => setBoloSelectedImage(b.image)} style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '7px', flexShrink: 0, cursor: 'zoom-in', border: '1px solid rgba(248,113,113,0.25)' }} />
+                                        )}
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+                                                <span style={{ color: '#f87171', fontSize: '11px', fontWeight: '800', fontFamily: 'monospace', letterSpacing: '2px' }}>{b.plate || 'NO PLATE'}</span>
+                                                <span style={{ color: remaining < 5 ? '#ef4444' : '#4b5563', fontSize: '8px', fontWeight: '700' }}>{remaining}m left</span>
+                                            </div>
+                                            {b.description && <div style={{ color: '#d1d5db', fontSize: '9px', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.description}</div>}
+                                            {b.reason && <div style={{ color: '#9ca3af', fontSize: '9px', marginBottom: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.reason}</div>}
+                                            <div style={{ color: '#374151', fontSize: '8px' }}>by {b.issuedBy}</div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
                     <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '5px' }}>
                         {!selectedUserSession ? (
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#374151', fontSize: '11px', textAlign: 'center' }}>Select a session in Settings to see online officers</div>
@@ -10626,6 +10707,7 @@ return (
                             </>
                         )}
                     </div>
+                    )}
                 </div>
 
                 )}
@@ -10642,6 +10724,7 @@ return (
                             { emoji: '❓', label: 'FAQ', onClick: () => setShowFAQ(true), color: '#fbbf24' },
                             { emoji: '👥', label: 'CREDITS', onClick: () => { setCreditsKey(p => p + 1); setShowCredits(false); setTimeout(() => setShowCredits(true), 10); }, color: '#34d399' },
                             { emoji: '🔗', label: 'LINKS', onClick: () => setShowUsefulLinks(true), color: '#22d3ee' },
+                            { emoji: '🚨', label: 'BOLO', onClick: () => setShowBoloModal(true), color: '#f87171' },
                         ].map((btn, i) => (
                             <Tooltip key={i} text={btn.label}>
                                 <button onClick={btn.onClick} style={{ padding: '16px 8px', background: `linear-gradient(135deg, ${btn.color}18, ${btn.color}0a)`, border: `1px solid ${btn.color}30`, borderRadius: '10px', color: btn.color, cursor: 'pointer', fontSize: '18px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.3px', transition: 'all 0.2s', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}
@@ -13053,7 +13136,133 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
     </div>
 )}
 
-{/* EXIT CONFIRMATION MODAL */}
+{/* ── BOLO IMAGE LIGHTBOX ── */}
+{boloSelectedImage && (
+    <div onClick={() => setBoloSelectedImage(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}>
+        <img src={boloSelectedImage} style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: '10px', boxShadow: '0 0 60px rgba(248,113,113,0.3)' }} />
+    </div>
+)}
+
+{/* ── BOLO MODAL ── */}
+{showBoloModal && (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <div style={{ background: 'linear-gradient(160deg, #0a0f1e 0%, #0f172a 60%, #1a0a0a 100%)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: '18px', padding: '28px', width: '100%', maxWidth: '560px', boxShadow: '0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(248,113,113,0.08)', maxHeight: '90vh', overflowY: 'auto' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, rgba(248,113,113,0.2), rgba(239,68,68,0.1))', border: '1px solid rgba(248,113,113,0.3)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>🚨</div>
+                    <div>
+                        <div style={{ color: '#f87171', fontSize: '16px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '3px' }}>ISSUE BOLO</div>
+                        <div style={{ color: '#4b5563', fontSize: '10px', letterSpacing: '1px' }}>BE ON THE LOOKOUT</div>
+                    </div>
+                </div>
+                <button onClick={() => { setShowBoloModal(false); setBoloForm({ plate: '', description: '', reason: '', expiresIn: 10, image: null, session: null }); }} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#6b7280', cursor: 'pointer', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', transition: 'all 0.15s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; e.currentTarget.style.color = '#f87171'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#6b7280'; }}>✕</button>
+            </div>
+
+            {/* Cooldown warning */}
+            {boloCooldownUntil && Date.now() < boloCooldownUntil && (
+                <div style={{ marginBottom: '16px', padding: '12px 16px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '16px' }}>⏳</span>
+                    <div>
+                        <div style={{ color: '#fbbf24', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>BOLO COOLDOWN ACTIVE</div>
+                        <div style={{ color: '#92400e', fontSize: '10px' }}>You can issue another BOLO in {Math.ceil((boloCooldownUntil - Date.now()) / 60000)} minute(s)</div>
+                    </div>
+                </div>
+            )}
+
+            {/* Two column layout */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                {/* Left — image paste */}
+                <div
+                    onPaste={e => {
+                        const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith('image/'));
+                        if (item) { const reader = new FileReader(); reader.onload = ev => setBoloForm(f => ({ ...f, image: ev.target.result })); reader.readAsDataURL(item.getAsFile()); }
+                    }}
+                    tabIndex={0}
+                    style={{ border: '2px dashed rgba(248,113,113,0.25)', borderRadius: '12px', minHeight: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', outline: 'none', background: 'rgba(248,113,113,0.03)', transition: 'all 0.2s', position: 'relative', overflow: 'hidden' }}
+                    onFocus={e => e.currentTarget.style.borderColor = 'rgba(248,113,113,0.6)'}
+                    onBlur={e => e.currentTarget.style.borderColor = 'rgba(248,113,113,0.25)'}
+                >
+                    {boloForm.image ? (
+                        <>
+                            <img src={boloForm.image} style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '10px' }} />
+                            <button onClick={e => { e.stopPropagation(); setBoloForm(f => ({ ...f, image: null })); }} style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.7)', border: 'none', borderRadius: '50%', width: '22px', height: '22px', color: 'white', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                        </>
+                    ) : (
+                        <div style={{ textAlign: 'center', padding: '12px' }}>
+                            <div style={{ fontSize: '24px', marginBottom: '6px' }}>📸</div>
+                            <div style={{ color: '#4b5563', fontSize: '10px', lineHeight: '1.6' }}>Click here then<br/><strong style={{ color: '#f87171' }}>CTRL+V</strong> to paste image<br/><span style={{ color: '#374151' }}>(optional)</span></div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Right — plate + session */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div>
+                        <div style={{ color: '#6b7280', fontSize: '9px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '5px' }}>LICENSE PLATE</div>
+                        <input value={boloForm.plate} onChange={e => setBoloForm(f => ({ ...f, plate: e.target.value.toUpperCase() }))}
+                            placeholder="e.g. ABC1234"
+                            style={{ width: '100%', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '8px 12px', color: '#e2e8f0', fontSize: '12px', fontFamily: 'monospace', fontWeight: '700', outline: 'none', boxSizing: 'border-box', letterSpacing: '2px' }} />
+                    </div>
+                    <div>
+                        <div style={{ color: '#6b7280', fontSize: '9px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '5px' }}>TARGET SESSION <span style={{ color: '#f87171' }}>*</span></div>
+                        <select value={boloForm.session || ''} onChange={e => setBoloForm(f => ({ ...f, session: e.target.value || null }))}
+                            style={{ width: '100%', background: 'rgba(0,0,0,0.35)', border: `1px solid ${boloForm.session ? 'rgba(248,113,113,0.4)' : 'rgba(255,255,255,0.08)'}`, borderRadius: '8px', padding: '8px 12px', color: boloForm.session ? '#f87171' : '#4b5563', fontSize: '10px', fontWeight: '700', outline: 'none', cursor: 'pointer', boxSizing: 'border-box' }}>
+                            <option value="">— SELECT SESSION —</option>
+                            <option value="1011898104670330920">SESSION 1</option>
+                            <option value="1390212294478397471">SESSION 2</option>
+                            <option value="1390212341005680650">SESSION 3</option>
+                        </select>
+                    </div>
+                    <div>
+                        <div style={{ color: '#6b7280', fontSize: '9px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '5px' }}>EXPIRES IN</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
+                            {[10, 15, 20, 30, 40, 50, 60, 80].map(m => (
+                                <button key={m} onClick={() => setBoloForm(f => ({ ...f, expiresIn: m }))}
+                                    style={{ padding: '5px 2px', borderRadius: '6px', border: `1px solid ${boloForm.expiresIn === m ? 'rgba(248,113,113,0.6)' : 'rgba(255,255,255,0.07)'}`, background: boloForm.expiresIn === m ? 'rgba(248,113,113,0.18)' : 'rgba(0,0,0,0.2)', color: boloForm.expiresIn === m ? '#f87171' : '#4b5563', fontSize: '9px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.15s' }}>
+                                    {m}m
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Description + Reason */}
+            {[{ label: 'VEHICLE DESCRIPTION', key: 'description', placeholder: 'e.g. Black 2019 Ford F-150, tinted windows' }, { label: 'REASON FOR BOLO', key: 'reason', placeholder: 'e.g. Suspect fled scene of armed robbery on Main St' }].map(({ label, key, placeholder }) => (
+                <div key={key} style={{ marginBottom: '12px' }}>
+                    <div style={{ color: '#6b7280', fontSize: '9px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '5px' }}>{label}</div>
+                    <textarea value={boloForm[key]} onChange={e => setBoloForm(f => ({ ...f, [key]: e.target.value.toUpperCase() }))}
+                        placeholder={placeholder} rows={2}
+                        style={{ width: '100%', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '8px 12px', color: '#e2e8f0', fontSize: '11px', fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box', resize: 'none', lineHeight: '1.5' }} />
+                </div>
+            ))}
+
+            {/* Submit */}
+            <button
+                disabled={!!boloCooldownUntil && Date.now() < boloCooldownUntil}
+                onClick={() => {
+                    if (boloCooldownUntil && Date.now() < boloCooldownUntil) return;
+                    if (!boloForm.session) { showCustomError('Session Required', 'Please select which session this BOLO should appear in.'); return; }
+                    if (!boloForm.plate && !boloForm.description) { showCustomError('Missing Info', 'Please enter at least a license plate or vehicle description.'); return; }
+                    const payload = { ...boloForm, issuedBy: `${trooperSettings?.FirstName} ${trooperSettings?.LastName}` };
+                    fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/bolo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+                        .then(() => {
+                            const session = selectedUserSession ? `?session=${encodeURIComponent(selectedUserSession)}` : '';
+                            return fetch(`https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/bolo${session}`).then(r => r.json()).then(d => { if (d.bolos) setBoloList(d.bolos); });
+                        }).catch(() => {});
+                    setBoloCooldownUntil(Date.now() + 15 * 60 * 1000);
+                    setShowBoloModal(false);
+                    setBoloForm({ plate: '', description: '', reason: '', expiresIn: 10, image: null, session: null });
+                }}
+                style={{ width: '100%', padding: '14px', background: (boloCooldownUntil && Date.now() < boloCooldownUntil) ? 'rgba(75,85,99,0.2)' : 'linear-gradient(135deg, rgba(248,113,113,0.2), rgba(239,68,68,0.12))', border: `1px solid ${(boloCooldownUntil && Date.now() < boloCooldownUntil) ? 'rgba(75,85,99,0.3)' : 'rgba(248,113,113,0.4)'}`, borderRadius: '12px', color: (boloCooldownUntil && Date.now() < boloCooldownUntil) ? '#4b5563' : '#f87171', cursor: (boloCooldownUntil && Date.now() < boloCooldownUntil) ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '3px', transition: 'all 0.2s' }}>
+                {(boloCooldownUntil && Date.now() < boloCooldownUntil) ? `⏳ COOLDOWN — ${Math.ceil((boloCooldownUntil - Date.now()) / 60000)}m REMAINING` : '🚨 ISSUE BOLO'}
+            </button>
+        </div>
+    </div>
+)}
 {showExitConfirm && (
     <div style={{
         position: 'fixed',
