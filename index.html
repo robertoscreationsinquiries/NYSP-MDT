@@ -13230,7 +13230,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
             </div>
 
             {/* Description + Reason */}
-            {[{ label: 'VEHICLE DESCRIPTION', key: 'description', placeholder: 'e.g. Black 2019 Ford F-150, tinted windows' }, { label: 'REASON FOR BOLO', key: 'reason', placeholder: 'e.g. Suspect fled scene of armed robbery on Main St' }].map(({ label, key, placeholder }) => (
+            {[{ label: 'VEHICLE DESCRIPTION', key: 'description', placeholder: 'e.g. Black 2019 Ford F-150, tinted windows' }, { label: 'REASON FOR BOLO', key: 'reason', placeholder: 'e.g. Fleeing Law Enforcement, etc' }].map(({ label, key, placeholder }) => (
                 <div key={key} style={{ marginBottom: '12px' }}>
                     <div style={{ color: '#6b7280', fontSize: '9px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '5px' }}>{label}</div>
                     <textarea value={boloForm[key]} onChange={e => setBoloForm(f => ({ ...f, [key]: e.target.value.toUpperCase() }))}
