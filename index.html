@@ -1755,6 +1755,8 @@ const [panicEnabled, setPanicEnabled] = useState(false);
 const [panicHotkey, setPanicHotkey] = useState('');
 const [panicHotkeyDraft, setPanicHotkeyDraft] = useState('');
 const [panicCooldownUntil, setPanicCooldownUntil] = useState(0);
+const [activePanic, setActivePanic] = useState(null); // { badge, name, triggeredAt }
+const [panicFlickerOfficer, setPanicFlickerOfficer] = useState(null); // badge of officer to flicker
 const [panicTriggerMode, setPanicTriggerMode] = useState('HOLD'); // 'HOLD' or 'TRIPLE'
 const [panicTriggerModeDraft, setPanicTriggerModeDraft] = useState('HOLD');
 const [phoneticMode, setPhoneticMode] = useState('POLICE'); // 'POLICE' or 'NATO'
@@ -1822,6 +1824,11 @@ const triggerPanicActivate = React.useCallback(async () => {
     setPanicNotifType('activated');
     addLog('🚨 PANIC BUTTON ACTIVATED', 'error');
     setPanicNotif('🚨 Panic activated - sending command to Roblox...');
+    // Notify Cloudflare so other officers get alerted via their poll
+    fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/panic', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ badge: trooperSettings?.BadgeID, name: `${trooperSettings?.FirstName} ${trooperSettings?.LastName}`, session: selectedUserSession })
+    }).catch(() => {});
     try {
         const result = await window.electron?.invoke('trigger-panic-roblox');
         if (result?.success) {
@@ -1851,6 +1858,8 @@ const [authenticatedUser, setAuthenticatedUser] = useState(null);
 const [showBanScreen, setShowBanScreen] = useState(false);
 const [banReason, setBanReason] = useState('');
 const [showLogoutScreen, setShowLogoutScreen] = useState(false);
+const [showDevPanel, setShowDevPanel] = useState(false);
+const [showShutdownScreen, setShowShutdownScreen] = useState(false);
 const [trooperData, setTrooperData] = useState(null);
 const voiceRecogRef = React.useRef(null);
 
@@ -1921,6 +1930,14 @@ React.useEffect(() => {
         console.log('[VERSION] ✅ Same version, no update needed');
     }
 }, []); // Run once on mount
+
+const panicFlickerStyle = document.createElement('style');
+panicFlickerStyle.textContent = `
+@keyframes panic-flicker { 0%,100%{background:rgba(249,115,22,0.35)} 50%{background:rgba(249,115,22,0.08)} }
+.panic-officer { animation: panic-flicker 0.6s ease-in-out 5; animation-fill-mode: forwards; background: rgba(249,115,22,0.2) !important; border-color: rgba(249,115,22,0.5) !important; }
+.panic-officer-steady { background: rgba(249,115,22,0.15) !important; border-color: rgba(249,115,22,0.4) !important; }
+`;
+document.head.appendChild(panicFlickerStyle);
 
 async function checkOfficersFlag() {
     console.log('[OFFICERS] 🔄 Checking feature flag...');
@@ -2962,6 +2979,7 @@ React.useEffect(() => {
         if (window.AVAILABLE_OFFICERS_DISABLED) { console.log('[BACKEND DATA OFFICER]: ⛔ Heartbeat skipped — feature disabled by Cloudflare'); return; }
         const payload = {
             badge: trooperSettings.BadgeID,
+            callSign: trooperSettings.CallSign || trooperSettings.BadgeID,
             firstName: trooperSettings.FirstName || '',
             lastName: trooperSettings.LastName || '',
             zone: trooperSettings.Zone || '-',
@@ -3007,8 +3025,20 @@ const poll = () => {
             .then(r => r.json())
             .then(d => {
                 if (Array.isArray(d.officers)) {
-                    console.log(`[BACKEND DATA OFFICER]: Poll complete — ${d.officers.length} officer(s) online:`, d.officers.map(o => `${o.name} (#${o.badge}) ${o.status}`).join(', ') || 'none');
-                    setOnlineOfficers(d.officers);
+console.log(`[BACKEND DATA OFFICER]: Poll complete — ${d.officers.length} officer(s) online:`, d.officers.map(o => `${o.name} (#${o.badge}) ${o.status}`).join(', ') || 'none');
+                    setOnlineOfficers(d.officers || []);
+                    // Check panic signal piggybacked on poll
+                    if (d.panic && d.panic.badge !== trooperSettings?.BadgeID) {
+                        const alreadyActive = activePanic && activePanic.triggeredAt === d.panic.triggeredAt;
+                        if (!alreadyActive) {
+                            setActivePanic(d.panic);
+                            setPanicFlickerOfficer(d.panic.badge);
+                            try { if (window.SOUNDS?.panicAlarm) { const _a = new Audio(window.SOUNDS.panicAlarm); _a.volume = 0.8; _a.play().catch(() => {}); } } catch(_) {}
+                            setTimeout(() => setPanicFlickerOfficer(null), 30000);
+                        }
+                    } else if (!d.panic) {
+                        setActivePanic(null);
+                    }
                     const now = new Date();
                     setOfficerLastUpdated(now);
                     setOfficerNextUpdate(new Date(now.getTime() + 10000));
@@ -4036,6 +4066,7 @@ useEffect(() => {
                     Username: user.robloxUsername,
                     Zone: user.patrolZone,
                     BadgeID: user.badgeId,
+                    CallSign: user.callSign || user.badgeId,
                     FirstName: user.firstName,
                     LastName: user.lastName,
                     Department: user.department || 'NYSP'
@@ -4795,7 +4826,7 @@ React.useEffect(() => {
                 holdTimer = setTimeout(() => {
                     setPanicModalOpen(true);
                     startPanicAlarm();
-                    setPanicCooldownUntil(Date.now() + 15000);
+                    setPanicCooldownUntil(Date.now() + 60000);
                 }, 2000);
             }
         } else {
@@ -4807,7 +4838,7 @@ React.useEffect(() => {
             if (panicTapCountRef.current >= 3) {
                 panicTapCountRef.current = 0;
                 setPanicTapCount(0);
-                setPanicCooldownUntil(Date.now() + 15000);
+                setPanicCooldownUntil(Date.now() + 60000);
                 window.electron?.ipcRenderer?.invoke('trigger-panic-roblox').catch(() => {});
                 setPanicNotif('🚨 Panic button activated. All units have been notified. Update responding units with your location.');
                 setPanicNotifType('activated');
@@ -6453,6 +6484,14 @@ if (parseFailedButVehicleExists) {
     // Force the plate to match what was searched
     regData.plate = searchedPlate;
     regData.phoneticPlate = convertToPhonetic(searchedPlate);
+
+    // ── BOLO CHECK ──
+    const normalizedSearched = normalizePlate(searchedPlate);
+    const boloHit = boloList.find(b => b.session === selectedUserSession && normalizePlate(b.plate || '') === normalizedSearched && b.expiresAt > Date.now());
+    if (boloHit) {
+        try { if (window.SOUNDS?.warrantAlert) { const _a = new Audio(window.SOUNDS.warrantAlert); _a.volume = 0.8; _a.play().catch(() => {}); } } catch(_) {}
+        showCustomError('🚨 BOLO VEHICLE DETECTED', `This vehicle (${searchedPlate}) is flagged as a BOLO.\n\nReason: ${boloHit.reason || 'N/A'}\nDescription: ${boloHit.description || 'N/A'}\nIssued by: ${boloHit.issuedBy}`);
+    }
 }
 
 // ✅ Extract final Discord ID that works for both success and failure cases
@@ -9430,6 +9469,7 @@ if (window.MAINTENANCE === true && !(window.APP_GITHUB_BRANCH && window.APP_GITH
             Username: user.robloxUsername,
             Zone: user.patrolZone,
             BadgeID: user.badgeId,
+            CallSign: user.callSign || user.badgeId,
             FirstName: user.firstName,
             LastName: user.lastName,
             Department: user.department || 'NYSP'
@@ -9485,6 +9525,35 @@ return (
         
 
         {/* MAINTENANCE SCREEN */}
+{/* ── SHUTDOWN SCREEN — highest priority ── */}
+{showShutdownScreen && (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'radial-gradient(ellipse at center, #0a0a1a 0%, #000000 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+        <div style={{ textAlign: 'center', maxWidth: '600px', padding: '40px', animation: 'fadeIn 1.5s ease-out' }}>
+            {/* Shield icon */}
+            <div style={{ fontSize: '64px', marginBottom: '24px', filter: 'grayscale(1) opacity(0.4)' }}>🛡️</div>
+            <div style={{ width: '60px', height: '1px', background: 'linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent)', margin: '0 auto 32px' }} />
+            <h1 style={{ color: '#e2e8f0', fontSize: '32px', fontWeight: '800', letterSpacing: '6px', textTransform: 'uppercase', marginBottom: '8px', fontFamily: 'monospace' }}>SYSTEM SHUTDOWN</h1>
+            <div style={{ width: '80px', height: '2px', background: 'linear-gradient(90deg,transparent,rgba(239,68,68,0.6),transparent)', margin: '0 auto 32px' }} />
+            <p style={{ color: '#94a3b8', fontSize: '15px', lineHeight: '1.9', marginBottom: '12px', fontWeight: '400' }}>
+                This system has been permanently decommissioned.
+            </p>
+            <p style={{ color: '#64748b', fontSize: '14px', lineHeight: '1.8', marginBottom: '40px' }}>
+                We sincerely thank all officers who served with the New York CAD system. Your dedication with helping and serving the community has made a meaningful impact.
+            </p>
+            <div style={{ color: '#475569', fontSize: '12px', letterSpacing: '3px', textTransform: 'uppercase', fontFamily: 'monospace' }}>
+                Thank you for everything.
+            </div>
+            <div style={{ marginTop: '48px', color: '#1e293b', fontSize: '10px', letterSpacing: '2px', fontFamily: 'monospace' }}>NY · CAD · END OF SERVICE</div>
+            {/* Dev-only exit button */}
+            {trooperSettings?.BadgeID === '00706' && (
+                <button onClick={() => setShowShutdownScreen(false)} style={{ marginTop: '32px', padding: '8px 20px', background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: '8px', color: '#a78bfa', cursor: 'pointer', fontSize: '10px', fontWeight: '700', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                    [DEV] EXIT PREVIEW
+                </button>
+            )}
+        </div>
+    </div>
+)}
+
 {maintenanceActive && (
     <div style={{ 
         position: 'fixed', 
@@ -10671,7 +10740,7 @@ return (
                                                     {trooperSettings.FirstName} {trooperSettings.LastName}
                                                     <span style={{ color: '#34d399', fontSize: '8px', marginLeft: '4px', fontWeight: '600' }}>(YOU)</span>
                                                 </div>
-                                                <div style={{ color: '#6b7280', fontSize: '9px' }}>#{trooperSettings.BadgeID} · Zone {trooperSettings.Zone || '-'} <span style={{ color: '#fbbf24', fontSize: '8px' }}>· pending sync</span></div>
+                                                <div style={{ color: '#6b7280', fontSize: '9px' }}>{trooperSettings.CallSign || trooperSettings.BadgeID} · Zone {trooperSettings.Zone || '-'} <span style={{ color: '#fbbf24', fontSize: '8px' }}>· pending sync</span></div>
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
                                                 <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: statusColor, boxShadow: `0 0 5px ${statusColor}` }} />
@@ -10688,13 +10757,13 @@ return (
                                     const statusColor = o.status === '10-9' ? '#10b981' : o.status === '10-10' ? '#ef4444' : '#f59e0b';
                                     const statusLabel = o.status === '10-9' ? 'AVAILABLE' : o.status === '10-10' ? 'UNAVAILABLE' : 'BUSY';
                                     return (
-                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: isMe ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isMe ? 'rgba(16,185,129,0.22)' : 'rgba(255,255,255,0.05)'}`, borderRadius: '8px' }}>
+                                        <div key={i} className={panicFlickerOfficer === o.badge ? 'panic-officer' : (activePanic?.badge === o.badge ? 'panic-officer-steady' : '')} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: isMe ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isMe ? 'rgba(16,185,129,0.22)' : 'rgba(255,255,255,0.05)'}`, borderRadius: '8px', transition: 'all 0.3s' }}>
                                             <div style={{ width: '30px', height: '30px', background: `linear-gradient(135deg, ${statusColor}28, ${statusColor}14)`, borderRadius: '7px', border: `1px solid ${statusColor}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '13px' }}>👤</div>
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <div style={{ color: 'white', fontSize: '11px', fontWeight: '700', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                     {o.name}{isMe && <span style={{ color: '#34d399', fontSize: '8px', marginLeft: '4px', fontWeight: '600' }}> (YOU)</span>}
                                                 </div>
-                                                <div style={{ color: '#6b7280', fontSize: '9px' }}>#{o.badge} · Zone {o.zone}</div>
+                                                <div style={{ color: '#6b7280', fontSize: '9px' }}>{o.callSign || o.badge} · Zone {o.zone}</div>
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
                                                 <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: statusColor, boxShadow: `0 0 5px ${statusColor}` }} />
@@ -11060,7 +11129,7 @@ return (
 
                             {!loadingRoblox && (
                                 <>
-                                    <button onClick={() => { setShowDatabaseHistory(true); setDatabaseSearchId(registration?.discordUserId || searchResults?.discordUserId || ''); }}
+                                    <button onClick={() => { setShowDatabaseHistory(true); const _uid = registration?.discordUserId || searchResults?.discordUserId || ''; setDatabaseSearchId(_uid); if (_uid) setTimeout(() => searchPastRecords(_uid), 100); }}
                                         style={{ width: '100%', marginTop: '12px', padding: '12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', color: '#cbd5e1', fontSize: '13px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', transition: 'all 0.2s' }}
                                         onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
                                         onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
@@ -11938,6 +12007,19 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                     {savingSettings ? '⏳ Saving...' : '💾 Export to Local File'}
                                 </button>
                             </div>
+
+                            {/* ── DEVELOPER ONLY ── */}
+                            {trooperSettings?.BadgeID === '00706' && (
+                                <div style={{ marginTop: '24px', padding: '16px', background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.2)', borderRadius: '12px' }}>
+                                    <div style={{ color: '#a78bfa', fontSize: '9px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span style={{ width: '3px', height: '12px', background: 'linear-gradient(180deg,#a78bfa,#7c3aed)', borderRadius: '2px' }} />
+                                        DEVELOPER ONLY
+                                    </div>
+                                    <button onClick={() => setShowDevPanel(true)} style={{ width: '100%', padding: '11px', background: 'linear-gradient(135deg,rgba(168,85,247,0.15),rgba(124,58,237,0.08))', border: '1px solid rgba(168,85,247,0.3)', borderRadius: '9px', color: '#c4b5fd', cursor: 'pointer', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px' }}>
+                                        🛠 OPEN DEVELOPER PANEL
+                                    </button>
+                                </div>
+                            )}
 
                         </div>
                     );
@@ -13262,6 +13344,33 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
         </div>
     </div>
 )}
+{/* ── DEVELOPER PANEL ── */}
+{showDevPanel && (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <div style={{ background: 'linear-gradient(160deg,#0a0f1e,#1a0a2e)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: '18px', padding: '28px', width: '100%', maxWidth: '420px', boxShadow: '0 24px 80px rgba(0,0,0,0.7)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+                <div style={{ color: '#a78bfa', fontSize: '14px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '2px' }}>🛠 Developer Panel</div>
+                <button onClick={() => setShowDevPanel(false)} style={{ background: 'transparent', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '18px' }}>✕</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {[
+                    { label: '🔧 Preview: Under Maintenance', action: () => { setMaintenanceActive(true); setShowDevPanel(false); } },
+                    { label: '✅ Preview: Maintenance Finished', action: () => { setMaintenanceActive(false); setShowUpdateScreen(true); setShowDevPanel(false); } },
+                    { label: '💀 Preview: Shutdown Screen', action: () => { setShowShutdownScreen(true); setShowDevPanel(false); } },
+                    { label: '🔒 Preview: Ban Screen', action: () => { setBanReason('Developer preview — test ban'); setShowBanScreen(true); setShowDevPanel(false); } },
+                    { label: '🚪 Preview: Logout Screen', action: () => { setShowLogoutScreen(true); setShowDevPanel(false); } },
+                ].map((item, i) => (
+                    <button key={i} onClick={item.action} style={{ padding: '12px 16px', background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.2)', borderRadius: '10px', color: '#c4b5fd', cursor: 'pointer', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'left', transition: 'all 0.15s' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(168,85,247,0.18)'; e.currentTarget.style.borderColor = 'rgba(168,85,247,0.5)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(168,85,247,0.08)'; e.currentTarget.style.borderColor = 'rgba(168,85,247,0.2)'; }}>
+                        {item.label}
+                    </button>
+                ))}
+            </div>
+        </div>
+    </div>
+)}
+
 {showExitConfirm && (
     <div style={{
         position: 'fixed',
@@ -13998,6 +14107,35 @@ if (window.electronAPI?.quit) {
                                     </div>
                                 </div>
                                 
+                                {/* Raw Discord Message */}
+                                {record.content && (
+                                    <div style={{ marginBottom: '16px', background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', overflow: 'hidden' }}>
+                                        <div style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <span style={{ color: '#4b5563', fontSize: '9px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase' }}>RECORD CONTENT</span>
+                                        </div>
+                                        <div style={{ padding: '12px 16px' }}>
+                                            {record.content.split('\n').filter(l => l.trim()).map((line, li) => {
+                                                const isHeader = line.includes('**') || line.startsWith('__') || /^[A-Z\s]{4,}:/.test(line);
+                                                const clean = line.replace(/\*\*/g, '').replace(/__/g, '');
+                                                const colonIdx = clean.indexOf(':');
+                                                const hasLabel = colonIdx > 0 && colonIdx < 30;
+                                                return (
+                                                    <div key={li} style={{ display: 'flex', gap: '8px', padding: '3px 0', borderBottom: li < record.content.split('\n').filter(l => l.trim()).length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none' }}>
+                                                        {hasLabel ? (
+                                                            <>
+                                                                <span style={{ color: '#6b7280', fontSize: '11px', fontWeight: '700', minWidth: '120px', flexShrink: 0, fontFamily: 'monospace' }}>{clean.substring(0, colonIdx).trim()}</span>
+                                                                <span style={{ color: '#e2e8f0', fontSize: '11px', fontFamily: 'monospace' }}>{clean.substring(colonIdx + 1).trim()}</span>
+                                                            </>
+                                                        ) : (
+                                                            <span style={{ color: isHeader ? '#93c5fd' : '#cbd5e1', fontSize: '11px', fontWeight: isHeader ? '700' : '400', fontFamily: 'monospace', letterSpacing: isHeader ? '0.5px' : 'normal' }}>{clean}</span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Record Details Grid */}
                                 <div style={{
                                     display: 'grid',
