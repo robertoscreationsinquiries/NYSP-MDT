@@ -2992,7 +2992,7 @@ if (window.AVAILABLE_OFFICERS_DISABLED) { console.log('[BACKEND DATA OFFICER]: â
                 body: JSON.stringify({ ...pendingApexReport, badge: trooperSettings?.BadgeID, reportedAt: Date.now() })
             }).then(() => setPendingApexReport(prev => ({ ...prev, sent: true }))).catch(() => {});
         }
-        console.log(`[BACKEND DATA OFFICER]: Sending heartbeat`
+        console.log(`[BACKEND DATA OFFICER]: Sending heartbeat â€” Badge #${trooperSettings.BadgeID} | ${trooperSettings.FirstName} ${trooperSettings.LastName} | Zone ${trooperSettings.Zone || '-'} | Session ${selectedUserSession || 'none'} | Status ${officerStatus}`);
         const payload = {
             badge: trooperSettings.BadgeID,
             callSign: trooperSettings.CallSign || trooperSettings.BadgeID,
