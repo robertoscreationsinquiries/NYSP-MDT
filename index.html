@@ -1599,6 +1599,10 @@ const [boloList, setBoloList] = useState([]);
 const [boloForm, setBoloForm] = useState({ plate: '', description: '', reason: '', expiresIn: 10, image: null });
 const [boloSelectedImage, setBoloSelectedImage] = useState(null);
 const [boloCooldownUntil, setBoloCooldownUntil] = useState(null);
+const [showApexModal, setShowApexModal] = useState(false);
+const [apexImage, setApexImage] = useState(null);
+const [apexProcessing, setApexProcessing] = useState(false);
+const [apexResult, setApexResult] = useState(null);
 const [chatTab, setChatTab] = useState('officers'); // 'officers' | 'chat'
 const [citizenNotFound, setCitizenNotFound] = useState(false);
 const [citizenNotFoundQuery, setCitizenNotFoundQuery] = useState('');
@@ -3475,8 +3479,29 @@ const FAQ_DATA = [
 
 const updateLogsData = [
     {
+        title: "CAD SYSTEM - BOLO addons, and much more!",
+        version: "0.1.0.9.C",
+        release_date: "04/08/2026",
+        description: "Additions to the current BOLO system alongside extra content!",
+        new: [
+            'ADDED "BOLO" system.',
+        ],
+        bugs: [
+            'FIXED license plate search engine silently failing and gives errors.',
+        ],
+        modifications: [
+            'CHANGED BOLO system to also flag any license plates if they match a current BOLO vehicle',
+            'CHANGED Government Records visually',
+            'CHANGED BadgeIDs in "Available Officers" to display callsigns instead',
+        ],
+        removed: [
+        ],
+        planned: [
+        ]
+    },
+    {
         title: "CAD SYSTEM - BOLOs!",
-        version: "0.1.0.9.8",
+        version: "0.1.0.9.B",
         release_date: "04/03/2026",
         description: "The addition of BOLOs!",
         new: [
@@ -6733,7 +6758,7 @@ console.log('   - Username:', memberData.user.username);
             } else {
                 addLog('No match', 'error');
                 playSound('fail');
-                if (window.SOUNDS && window.SOUNDS.plateFail) { try { const _a = new Audio(window.SOUNDS.plateFail); _a.volume = 0.5; _a.play().catch(() => {}); } catch(_) {} }
+
                 setRegistration({ notFound: true });
                 setShiftPlateSearches(prev => [...prev, {
                     plate: searchedPlate,
@@ -10911,6 +10936,15 @@ return (
                     </div>
 
 <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                            onClick={() => { setApexImage(null); setApexResult(null); setShowApexModal(true); }}
+                            disabled={loading || searchCooldown}
+                            title="APEX — Automated Plate Extraction & Recognition"
+                            style={{ width: '52px', flexShrink: 0, padding: '14px', background: 'linear-gradient(135deg, rgba(168,85,247,0.2), rgba(124,58,237,0.1))', border: '1px solid rgba(168,85,247,0.4)', borderRadius: '10px', color: (loading || searchCooldown) ? '#4b5563' : '#c4b5fd', fontSize: '14px', fontWeight: '800', cursor: (loading || searchCooldown) ? 'not-allowed' : 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', letterSpacing: '0.5px' }}
+                            onMouseEnter={e => { if (!loading && !searchCooldown) { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(168,85,247,0.35), rgba(124,58,237,0.2))'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(168,85,247,0.3)'; }}}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(168,85,247,0.2), rgba(124,58,237,0.1))'; e.currentTarget.style.boxShadow = 'none'; }}>
+                            📷
+                        </button>
                         {useMicrophone && (
                             <button
                                 onClick={() => {
@@ -12787,7 +12821,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
 
                 <div style={{ color: '#bfdbfe', fontSize: '12px', lineHeight: '1.6' }}>
                     <p style={{ marginBottom: '12px' }}>
-                        <strong style={{ color: '#ef4444' }}>⚠ CRITICAL SAFETY WARNING:</strong> Use of this application while operating a motor vehicle as it is in motion is <strong>STRONGLY DISCOURAGED</strong> and you may be found guilty under ORCR Law, §1915, Use of portable electronic devices.
+                        <strong style={{ color: '#ef4444' }}>⚠ CRITICAL SAFETY WARNING:</strong> Use of this application while operating a motor vehicle as it is in motion is <strong>STRONGLY DISCOURAGED</strong> and you may be removed from the testing program if you put lives in danger.
                     </p>
 
                     <p style={{ marginBottom: '12px' }}>
@@ -13371,6 +13405,149 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
     </div>
 )}
 
+{/* ── APEX MODAL ── */}
+{showApexModal && (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backdropFilter: 'blur(6px)' }}>
+        <div style={{ background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)', border: '1px solid rgba(168,85,247,0.25)', borderRadius: '14px', width: '100%', maxWidth: '500px', overflow: 'hidden', boxShadow: '0 4px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '20px 24px', background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(88,28,220,0.25))', borderBottom: '1px solid rgba(168,85,247,0.2)', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: '-60%', right: '-5%', width: '40%', height: '220%', background: 'radial-gradient(circle, rgba(168,85,247,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
+                <div style={{ width: '44px', height: '44px', background: 'linear-gradient(135deg, #5b21b6, #7c3aed)', borderRadius: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(124,58,237,0.4)', flexShrink: 0, fontSize: '20px' }}>📷</div>
+                <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
+                    <div style={{ color: 'white', fontSize: '16px', fontWeight: '800', letterSpacing: '2px' }}>APEX</div>
+                    <div style={{ color: '#a78bfa', fontSize: '11px', marginTop: '2px', fontWeight: '500' }}>Automated Plate Extraction & Recognition</div>
+                </div>
+                <button onClick={() => { setShowApexModal(false); setApexImage(null); setApexResult(null); setApexProcessing(false); }}
+                    style={{ width: '32px', height: '32px', minWidth: '32px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}>
+                    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: '24px' }}>
+                {/* Paste area */}
+                <div
+                    onPaste={e => {
+                        const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith('image/'));
+                        if (item) {
+                            const reader = new FileReader();
+                            reader.onload = ev => { setApexImage(ev.target.result); setApexResult(null); };
+                            reader.readAsDataURL(item.getAsFile());
+                        }
+                    }}
+                    tabIndex={0}
+                    style={{ border: `2px dashed ${apexImage ? 'rgba(168,85,247,0.5)' : 'rgba(168,85,247,0.25)'}`, borderRadius: '12px', minHeight: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', outline: 'none', background: 'rgba(88,28,220,0.04)', marginBottom: '16px', overflow: 'hidden', position: 'relative', transition: 'all 0.2s' }}
+                    onFocus={e => e.currentTarget.style.borderColor = 'rgba(168,85,247,0.7)'}
+                    onBlur={e => e.currentTarget.style.borderColor = apexImage ? 'rgba(168,85,247,0.5)' : 'rgba(168,85,247,0.25)'}
+                >
+                    {apexImage ? (
+                        <>
+                            <img src={apexImage} style={{ maxWidth: '100%', maxHeight: '200px', objectFit: 'contain', borderRadius: '8px' }} />
+                            <button onClick={e => { e.stopPropagation(); setApexImage(null); setApexResult(null); }}
+                                style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.7)', border: 'none', borderRadius: '50%', width: '24px', height: '24px', color: 'white', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                        </>
+                    ) : (
+                        <div style={{ textAlign: 'center', padding: '20px' }}>
+                            <div style={{ fontSize: '32px', marginBottom: '10px' }}>📋</div>
+                            <div style={{ color: '#7c3aed', fontSize: '13px', fontWeight: '700', marginBottom: '4px' }}>Click here, then press CTRL+V</div>
+                            <div style={{ color: '#4b5563', fontSize: '11px' }}>Paste a screenshot of a license plate</div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Result display */}
+                {apexResult && (
+                    <div style={{ marginBottom: '16px', padding: '14px 18px', background: apexResult.error ? 'rgba(239,68,68,0.08)' : 'rgba(168,85,247,0.08)', border: `1px solid ${apexResult.error ? 'rgba(239,68,68,0.25)' : 'rgba(168,85,247,0.3)'}`, borderRadius: '10px' }}>
+                        {apexResult.error ? (
+                            <div style={{ color: '#f87171', fontSize: '12px', fontWeight: '600' }}>{apexResult.error}</div>
+                        ) : (
+                            <>
+                                <div style={{ color: '#6b7280', fontSize: '9px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '6px' }}>APEX DETECTED PLATE</div>
+                                <div style={{ color: '#e2e8f0', fontSize: '22px', fontWeight: '900', fontFamily: 'monospace', letterSpacing: '4px', marginBottom: '4px' }}>{apexResult.plate}</div>
+                                {apexResult.confidence && <div style={{ color: '#6b7280', fontSize: '10px' }}>Confidence: {apexResult.confidence}</div>}
+                            </>
+                        )}
+                    </div>
+                )}
+
+                {/* Buttons */}
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                        disabled={!apexImage || apexProcessing}
+                        onClick={async () => {
+                            if (!apexImage || apexProcessing) return;
+                            setApexProcessing(true);
+                            setApexResult(null);
+                            try {
+                                const groqKey = window.GROQ_CONSOLE_API_KEY || localStorage.getItem('groqConsoleAPIKey') || '';
+                                if (!groqKey) { setApexResult({ error: 'Groq API key not configured. Check Settings.' }); setApexProcessing(false); return; }
+
+                                const base64 = apexImage.split(',')[1];
+                                const mimeMatch = apexImage.match(/data:([^;]+);/);
+                                const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+
+                                const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                                    method: 'POST',
+                                    headers: { 'Authorization': `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+                                        messages: [{
+                                            role: 'user',
+                                            content: [
+                                                { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
+                                                { type: 'text', text: 'Extract ONLY the license plate number/letters from this image. The license plate is the large text on the plate itself. Ignore any text on frames, borders, decorative elements, dealer names, slogans, or small text. Return ONLY the plate alphanumeric characters in this exact format: PLATE: [plate text here]. Nothing else.' }
+                                            ]
+                                        }],
+                                        max_tokens: 50,
+                                        temperature: 0.1
+                                    })
+                                });
+
+                                if (!resp.ok) {
+                                    const err = await resp.json().catch(() => ({}));
+                                    setApexResult({ error: `API error: ${err?.error?.message || resp.status}` });
+                                    setApexProcessing(false);
+                                    return;
+                                }
+
+                                const data = await resp.json();
+                                const text = data.choices?.[0]?.message?.content || '';
+                                const match = text.match(/PLATE:\s*([A-Z0-9\-\s]{2,10})/i);
+                                if (match) {
+                                    const detected = match[1].trim().replace(/\s+/g, ' ');
+                                    setApexResult({ plate: detected, confidence: 'High' });
+                                } else {
+                                    setApexResult({ error: 'Could not detect a license plate in this image. Try a clearer screenshot.' });
+                                }
+                            } catch (e) {
+                                setApexResult({ error: `Error: ${e.message}` });
+                            }
+                            setApexProcessing(false);
+                        }}
+                        style={{ flex: 1, padding: '13px', background: (!apexImage || apexProcessing) ? 'rgba(75,85,99,0.2)' : 'linear-gradient(135deg, rgba(168,85,247,0.25), rgba(124,58,237,0.15))', border: `1px solid ${(!apexImage || apexProcessing) ? 'rgba(75,85,99,0.3)' : 'rgba(168,85,247,0.5)'}`, borderRadius: '10px', color: (!apexImage || apexProcessing) ? '#4b5563' : '#c4b5fd', cursor: (!apexImage || apexProcessing) ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}>
+                        {apexProcessing ? <><span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⟳</span> SCANNING...</> : '📷 SCAN PLATE'}
+                    </button>
+                    {apexResult?.plate && (
+                        <button
+                            onClick={() => {
+                                setLicensePlate(apexResult.plate.replace(/\s/g, ''));
+                                setShowApexModal(false);
+                                setApexImage(null);
+                                setApexResult(null);
+                                setTimeout(() => lookupUser(apexResult.plate.replace(/\s/g, '')), 100);
+                            }}
+                            style={{ flex: 1, padding: '13px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'none', borderRadius: '10px', color: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px', boxShadow: '0 4px 16px rgba(59,130,246,0.4)', transition: 'all 0.2s' }}>
+                            🔍 SEARCH NOW
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+    </div>
+)}
+
 {showExitConfirm && (
     <div style={{
         position: 'fixed',
@@ -13709,150 +13886,53 @@ if (window.electronAPI?.quit) {
 
 {showDatabaseHistory && (
     <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0, 0, 0, 0.95)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 10000,
-        padding: '20px'
-    }}>
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 10000, backdropFilter: 'blur(6px)', padding: '20px', animation: 'fadeIn 0.2s ease-out'
+    }} onClick={e => { if (e.target === e.currentTarget) { setShowDatabaseHistory(false); setPastRecords([]); setDatabaseSearchId(''); setDatabaseSearchUsername(''); } }}>
         <div style={{
-            background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-            borderRadius: '20px',
-            maxWidth: '1600px',
-            width: '100%',
-            maxHeight: '90vh',
-            display: 'flex',
-            flexDirection: 'column',
-            border: '2px solid rgba(59, 130, 246, 0.3)',
-            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.8)',
-            overflow: 'hidden'
+            background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
+            border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px',
+            width: '100%', maxWidth: '1600px', height: '85vh',
+            display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            boxShadow: '0 4px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)'
         }}>
-            {/* Header */}
+            {/* Header — credits style */}
             <div style={{
-                padding: '24px 32px',
-                borderBottom: '2px solid rgba(59, 130, 246, 0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.5))'
+                display: 'flex', alignItems: 'center', gap: '16px', padding: '20px 24px', flexShrink: 0,
+                background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,58,138,0.4))',
+                borderBottom: '1px solid rgba(59,130,246,0.2)', position: 'relative', overflow: 'hidden'
             }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <span style={{ fontSize: '32px' }}></span>
-                        <h2 style={{
-                            margin: 0,
-                            fontSize: '28px',
-                            fontWeight: '700',
-                            background: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            letterSpacing: '0.5px'
-                        }}>
-                            GOVERNMENT RECORDS
-                        </h2>
-                    </div>
-                    
-                    {/* Currently Viewing Text - Updates AFTER Search */}
-                    {databaseSearchUsername && databaseSearchId ? (
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            fontSize: '14px',
-                            color: '#94a3b8',
-                            marginTop: '4px'
-                        }}>
-                            <span style={{ color: '#64748b' }}>Currently viewing:</span>
-                            <span style={{ color: '#f1f5f9', fontWeight: '600' }}>{databaseSearchUsername}</span>
-                            <span style={{ color: '#475569' }}>/</span>
-                            <span style={{
-                                fontFamily: 'monospace',
-                                color: '#93c5fd',
-                                background: 'rgba(59, 130, 246, 0.15)',
-                                padding: '2px 8px',
-                                borderRadius: '4px',
-                                border: '1px solid rgba(59, 130, 246, 0.3)',
-                                fontSize: '13px'
-                            }}>
-                                {databaseSearchId}
-                            </span>
-                        </div>
-                    ) : loadingPastRecords ? (
-                        <div style={{
-                            fontSize: '14px',
-                            color: '#94a3b8',
-                            fontStyle: 'italic'
-                        }}>
-                            ⏳ Searching...
-                        </div>
-                    ) : (
-                        <div style={{
-                            fontSize: '14px',
-                            color: '#64748b',
-                            fontStyle: 'italic'
-                        }}>
-                            Enter a Discord User ID to search records
-                        </div>
-                    )}
+                <div style={{ position: 'absolute', top: '-60%', right: '-5%', width: '40%', height: '220%', background: 'radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 70%)', pointerEvents: 'none' }} />
+                <div style={{ width: '44px', height: '44px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(59,130,246,0.4)', flexShrink: 0 }}>
+                    <svg width="22" height="22" fill="none" stroke="white" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 </div>
-                
-                {/* Close Button */}
+                <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
+                    <div style={{ color: 'white', fontSize: '16px', fontWeight: '800', letterSpacing: '1px' }}>GOVERNMENT RECORDS</div>
+                    <div style={{ color: '#60a5fa', fontSize: '11px', marginTop: '2px', fontWeight: '500' }}>
+                        {databaseSearchUsername && databaseSearchId ? (
+                            <span>Viewing: <span style={{ color: '#f1f5f9', fontWeight: '700' }}>{databaseSearchUsername}</span> <span style={{ color: '#374151' }}>·</span> <span style={{ fontFamily: 'monospace', color: '#93c5fd' }}>{databaseSearchId}</span></span>
+                        ) : loadingPastRecords ? '⏳ Searching...' : 'Enter a Discord User ID to search records'}
+                    </div>
+                </div>
                 <button
-                    onClick={() => {
-                        setShowDatabaseHistory(false);
-                        setPastRecords([]);
-                        setDatabaseSearchId('');
-                        setDatabaseSearchUsername('');
-                    }}
-                    style={{
-                        background: 'rgba(220, 38, 38, 0.2)',
-                        border: '2px solid rgba(220, 38, 38, 0.4)',
-                        borderRadius: '12px',
-                        color: '#fca5a5',
-                        fontSize: '24px',
-                        width: '48px',
-                        height: '48px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s'
-                    }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(220, 38, 38, 0.3)';
-                        e.currentTarget.style.borderColor = 'rgba(220, 38, 38, 0.6)';
-                        e.currentTarget.style.transform = 'scale(1.05)';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(220, 38, 38, 0.2)';
-                        e.currentTarget.style.borderColor = 'rgba(220, 38, 38, 0.4)';
-                        e.currentTarget.style.transform = 'scale(1)';
-                    }}
-                >
-                    ✕
+                    onClick={() => { setShowDatabaseHistory(false); setPastRecords([]); setDatabaseSearchId(''); setDatabaseSearchUsername(''); }}
+                    style={{ width: '32px', height: '32px', minWidth: '32px', minHeight: '32px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0, padding: 0 }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'; }}>
+                    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-            
+
             {/* Search Bar */}
-            <div style={{
-                padding: '20px 32px',
-                borderBottom: '1px solid rgba(59, 130, 246, 0.1)',
-                background: 'rgba(15, 23, 42, 0.3)'
-            }}>
-                <div style={{
-                    display: 'flex',
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid rgba(59,130,246,0.1)', background: 'rgba(15,23,42,0.3)', flexShrink: 0 }}>
+                <div style={{ display: 'flex',
                     gap: '16px',
                     alignItems: 'stretch'
                 }}>
                     <input
                         type="text"
-                        placeholder="Enter CitizenID..."
+                        placeholder="Enter Discord User ID (CitizenID)..."
                         value={databaseSearchId}
                         onChange={(e) => {
                             setDatabaseSearchId(e.target.value);
@@ -13920,8 +14000,8 @@ if (window.electronAPI?.quit) {
                             cursor: loadingPastRecords ? 'not-allowed' : 'pointer',
                             whiteSpace: 'nowrap',
                             transition: 'all 0.2s',
-                            minWidth: '200px',
-                            maxWidth: '200px',
+                            minWidth: '140px',
+                            maxWidth: '140px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -13995,34 +14075,45 @@ if (window.electronAPI?.quit) {
                     <div style={{
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '20px'
+                        gap: '12px'
                     }}>
                         {pastRecords.map((record, index) => (
                             <div
                                 key={record.id || index}
                                 style={{
                                     background: record.type === 'Bench Warrant' || record.type === 'Arrest Warrant'
-                                        ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(220, 38, 38, 0.15))'
-                                        : 'linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9))',
+                                        ? 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(220,38,38,0.06))'
+                                        : 'linear-gradient(135deg, rgba(30,58,138,0.12), rgba(59,130,246,0.04))',
                                     border: record.type === 'Bench Warrant' || record.type === 'Arrest Warrant'
-                                        ? '2px solid rgba(239, 68, 68, 0.6)'
-                                        : '2px solid rgba(59, 130, 246, 0.3)',
-                                    borderRadius: '16px',
-                                    padding: '24px',
-                                    transition: 'all 0.2s',
+                                        ? '1px solid rgba(239,68,68,0.35)'
+                                        : '1px solid rgba(59,130,246,0.18)',
+                                    borderRadius: '12px',
+                                    padding: '0',
+                                    transition: 'all 0.15s',
+                                    overflow: 'hidden',
+                                    position: 'relative',
                                     animation: record.type === 'Bench Warrant' || record.type === 'Arrest Warrant'
                                         ? 'pulse-border-warrant 2s infinite'
                                         : 'none'
                                 }}
                                 onMouseEnter={(e) => {
-                                    e.currentTarget.style.transform = 'translateX(6px)';
-                                    e.currentTarget.style.boxShadow = '0 12px 32px rgba(0, 0, 0, 0.5)';
+                                    e.currentTarget.style.background = record.type === 'Bench Warrant' || record.type === 'Arrest Warrant'
+                                        ? 'linear-gradient(135deg, rgba(239,68,68,0.18), rgba(220,38,38,0.1))'
+                                        : 'linear-gradient(135deg, rgba(30,58,138,0.2), rgba(59,130,246,0.08))';
+                                    e.currentTarget.style.borderColor = record.type === 'Bench Warrant' || record.type === 'Arrest Warrant'
+                                        ? 'rgba(239,68,68,0.55)' : 'rgba(59,130,246,0.4)';
                                 }}
                                 onMouseLeave={(e) => {
-                                    e.currentTarget.style.transform = 'translateX(0)';
-                                    e.currentTarget.style.boxShadow = 'none';
+                                    e.currentTarget.style.background = record.type === 'Bench Warrant' || record.type === 'Arrest Warrant'
+                                        ? 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(220,38,38,0.06))'
+                                        : 'linear-gradient(135deg, rgba(30,58,138,0.12), rgba(59,130,246,0.04))';
+                                    e.currentTarget.style.borderColor = record.type === 'Bench Warrant' || record.type === 'Arrest Warrant'
+                                        ? 'rgba(239,68,68,0.35)' : 'rgba(59,130,246,0.18)';
                                 }}
                             >
+                                {/* Top accent bar — credits style */}
+                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: record.type === 'Bench Warrant' || record.type === 'Arrest Warrant' ? 'linear-gradient(90deg, transparent, rgba(239,68,68,0.6), transparent)' : 'linear-gradient(90deg, transparent, rgba(59,130,246,0.4), transparent)' }} />
+                                <div style={{ padding: '20px 24px' }}>
                                 {/* Record Header */}
                                 <div style={{
                                     display: 'flex',
@@ -14347,6 +14438,7 @@ if (window.electronAPI?.quit) {
                                     </div>
                                 )}
                             </div>
+                        </div>
                         ))}
                     </div>
                 )}
