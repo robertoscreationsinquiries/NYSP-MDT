@@ -1835,6 +1835,7 @@ const [panicHotkeyDraft, setPanicHotkeyDraft] = useState('');
 const [panicCooldownUntil, setPanicCooldownUntil] = useState(0);
 const [activePanic, setActivePanic] = useState(null); // { badge, name, triggeredAt }
 const [panicFlickerOfficer, setPanicFlickerOfficer] = useState(null); // badge of officer to flicker
+const activePanicRef = React.useRef(null);
 const [panicTriggerMode, setPanicTriggerMode] = useState('HOLD'); // 'HOLD' or 'TRIPLE'
 const [panicTriggerModeDraft, setPanicTriggerModeDraft] = useState('HOLD');
 const [phoneticMode, setPhoneticMode] = useState('POLICE'); // 'POLICE' or 'NATO'
@@ -3115,19 +3116,17 @@ const poll = () => {
                 if (Array.isArray(d.officers)) {
 console.log(`[BACKEND DATA OFFICER]: Poll complete — ${d.officers.length} officer(s) online:`, d.officers.map(o => `${o.name} (#${o.badge}) ${o.status}`).join(', ') || 'none');
                     setOnlineOfficers(d.officers || []);
-                    // Check panic signal piggybacked on poll
+                    // Check panic signal piggybacked on poll — use ref to avoid stale closure
                     if (d.panic) {
-                        const alreadyActive = activePanic && activePanic.triggeredAt === d.panic.triggeredAt;
+                        const alreadyActive = activePanicRef.current && activePanicRef.current.triggeredAt === d.panic.triggeredAt;
                         if (!alreadyActive) {
+                            activePanicRef.current = d.panic;
                             setActivePanic(d.panic);
                             setPanicFlickerOfficer(d.panic.badge);
-                            // Only play sound + open modal for OTHER officers' panics
-                            if (d.panic.badge !== trooperSettings?.BadgeID) {
-                                try { if (window.SOUNDS?.panicAlarm) { const _a = new Audio(window.SOUNDS.panicAlarm); _a.volume = 0.8; _a.play().catch(() => {}); } } catch(_) {}
-                            }
-                            setTimeout(() => setPanicFlickerOfficer(null), 30000);
+                            setTimeout(() => { setPanicFlickerOfficer(null); }, 25000);
                         }
                     } else if (!d.panic) {
+                        activePanicRef.current = null;
                         setActivePanic(null);
                     }
                     const now = new Date();
@@ -3571,21 +3570,22 @@ const updateLogsData = [
         release_date: "04/08/2026",
         description: "Additions to the current BOLO system alongside extra content!",
         new: [
-            'ADDED "BOLO" system',
             'ADDED Automatic Plate Extraction & Recognition system',
             'ADDED Skeleton loading system (EXPERIMENTAL AND EXCLUSIVE TO SEARCH BY LICENSEPLATE)'
         ],
         bugs: [
             'FIXED license plate search engine silently failing and gives errors',
+            'FIXED system taking longer than necessary to show warrants and now shows them immediately',
             'FIXED unregistered vehicle and citizen does not exist sound playing simultaneously when a vehicle does not exist'
         ],
         modifications: [
             'CHANGED BOLO system to also flag any license plates if they match a current BOLO vehicle',
             'CHANGED Government Records visually',
             'CHANGED BadgeIDs in "Available Officers" to display callsigns instead',
-            'CHANGED size and positions of Voice to Plate & search bar.',
+            'CHANGED size and positions of Voice to Plate & search bar',
             'CHANGED Main.JS file to update automatically (changes to some code will still require manual reinstallation)',
-            'CHANGED Panic Button SOS Countdown UI with a hold & slide feature'
+            'CHANGED Panic Button SOS Countdown UI with a hold & slide feature',
+            'CHANGED some text across the application'
         ],
         removed: [
         ],
@@ -11043,12 +11043,12 @@ return (
                                     if (!loading) { console.log('⌨️ [ENTER] License plate search triggered'); lookupUser(); }
                                 }
                             }}
-                            placeholder="ARC-044, ARC044, or ARC 044"
+                            placeholder="Enter License Plate..."
                             style={{ width: '100%', padding: '14px 16px', background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '10px', color: 'white', fontSize: '15px', fontFamily: 'monospace', letterSpacing: '2px', boxSizing: 'border-box', outline: 'none', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.3)', transition: 'border-color 0.2s' }}
                             onFocus={e => e.target.style.borderColor = 'rgba(59,130,246,0.6)'}
                             onBlur={e => e.target.style.borderColor = 'rgba(59,130,246,0.3)'}
                         />
-                        <p style={{ color: '#4b5563', fontSize: '11px', marginTop: '6px', fontStyle: 'italic' }}>Works with all formats: ARC-044, ARC044, or ARC 044</p>
+                        <p style={{ color: '#4b5563', fontSize: '11px', marginTop: '6px', fontStyle: 'italic' }}>Extracts vehicle & owner details, including warrants, records, etc.</p>
                     </div>
 
 {/* Main search button */}
@@ -11544,7 +11544,7 @@ if (searchCooldown || loadingSearch || !searchCitizenId || searchCitizenId.trim(
                                     searchByUsername(searchCitizenId);
                                 }
                             }}
-                            placeholder="Enter Discord User ID..."
+                            placeholder="Enter CitizenID..."
                             style={{ width: '100%', padding: '14px 16px', background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '10px', color: 'white', fontSize: '15px', fontFamily: 'monospace', letterSpacing: '2px', boxSizing: 'border-box', outline: 'none', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.3)', transition: 'border-color 0.2s' }}
                             onFocus={e => e.target.style.borderColor = 'rgba(59,130,246,0.6)'}
                             onBlur={e => e.target.style.borderColor = 'rgba(59,130,246,0.3)'}
@@ -13613,24 +13613,24 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
 })()}
 {/* ── APEX MODAL ── */}
 {showApexModal && (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', padding: '80px 20px 20px' }}
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backdropFilter: 'blur(6px)', animation: 'fadeIn 0.2s ease-out' }}
         onClick={e => { if (e.target === e.currentTarget) { setShowApexModal(false); setApexImage(null); setApexResult(null); } }}>
-        <div style={{ background: 'linear-gradient(160deg, #0a0f1e 0%, #111827 100%)', border: '1px solid rgba(168,85,247,0.25)', borderRadius: '14px', width: '320px', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.7)', animation: 'fadeIn 0.15s ease-out' }}>
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 18px', background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(76,29,149,0.3))', borderBottom: '1px solid rgba(168,85,247,0.15)', position: 'relative', overflow: 'hidden' }}>
-                <div style={{ position: 'absolute', top: '-60%', right: '-5%', width: '50%', height: '220%', background: 'radial-gradient(circle, rgba(168,85,247,0.1) 0%, transparent 70%)', pointerEvents: 'none' }} />
-                <div style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg, #5b21b6, #7c3aed)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 3px 10px rgba(124,58,237,0.4)', flexShrink: 0 }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 7h.01M17 7h.01M12 7h.01M7 12h10"/></svg>
+        <div style={{ background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)', border: '1px solid rgba(168,85,247,0.25)', borderRadius: '14px', width: '100%', maxWidth: '480px', overflow: 'hidden', boxShadow: '0 4px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)' }}>
+            {/* Header — credits style */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '20px 24px', background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(76,29,149,0.35))', borderBottom: '1px solid rgba(168,85,247,0.2)', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: '-60%', right: '-5%', width: '40%', height: '220%', background: 'radial-gradient(circle, rgba(168,85,247,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
+                <div style={{ width: '44px', height: '44px', background: 'linear-gradient(135deg, #5b21b6, #7c3aed)', borderRadius: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(124,58,237,0.4)', flexShrink: 0 }}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 7h.01M17 7h.01M12 7h.01M7 12h10"/></svg>
                 </div>
                 <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
-                    <div style={{ color: 'white', fontSize: '13px', fontWeight: '800', letterSpacing: '2px' }}>APEX</div>
-                    <div style={{ color: '#a78bfa', fontSize: '10px', fontWeight: '500' }}>Paste plate image to scan</div>
+                    <div style={{ color: 'white', fontSize: '16px', fontWeight: '800', letterSpacing: '1px' }}>APEX</div>
+                    <div style={{ color: '#a78bfa', fontSize: '11px', marginTop: '2px', fontWeight: '500' }}>Automated Plate Extraction & Recognition</div>
                 </div>
                 <button onClick={() => { setShowApexModal(false); setApexImage(null); setApexResult(null); setApexProcessing(false); }}
-                    style={{ width: '26px', height: '26px', borderRadius: '7px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0 }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.2)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(239,68,68,0.08)'}>
-                    <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    style={{ width: '32px', height: '32px', minWidth: '32px', minHeight: '32px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0, padding: 0 }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'; }}>
+                    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
 
