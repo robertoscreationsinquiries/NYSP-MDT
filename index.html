@@ -6667,7 +6667,19 @@ console.log('   - Username:', memberData.user.username);
                         addLog(`Server name: ${serverName}`, 'success');
 
                         // Fire warrant check immediately in parallel — don't wait for Roblox
-                        // (warrant check already fired above in parallel)
+                        setWarrantChecking(true);
+                        setWarrantInfo(null);
+                        checkWarrants(regData.discordUserId).then(warrants => {
+                            setWarrantChecking(false);
+                            if (warrants) {
+                                setWarrantInfo(warrants);
+                                setWarrantFlash(true);
+                                playWarrantAlert();
+                                setTimeout(() => setWarrantFlash(false), 3000);
+                            } else {
+                                setWarrantInfo(null);
+                            }
+                        });
                         
                         // ✅ Call lookupRobloxUser which sets result state
                         await lookupRobloxUser(serverName);
@@ -6740,8 +6752,7 @@ console.log('   - Username:', memberData.user.username);
                         }
 
                         
-// 🚀 Kick off warrant check immediately in parallel — don't wait for Roblox
-                        // (warrant check already started before Roblox fetch above)
+// 🚀 Warrant check already fired above in parallel — no action needed here
 
 // ✅ Also fetch and store Roblox profile for display
                         console.log('🎮 [ROBLOX] Fetching profile data for display...');
@@ -11204,43 +11215,7 @@ return (
                     </div>
                 )}
 
-                {/* ── RESULTS ── */}
-                {loading && (
-                    <div className="results-grid" style={{ marginTop: '16px' }}>
-                        {/* Owner box skeleton */}
-                        <div style={{ padding: '20px', background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.1)', borderRadius: '14px' }}>
-                            <div className="skel" style={{ height: '10px', width: '120px', marginBottom: '18px' }} />
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
-                                <div className="skel" style={{ width: '56px', height: '56px', borderRadius: '50%', flexShrink: 0 }} />
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    <div className="skel" style={{ height: '10px', width: '70%' }} />
-                                    <div className="skel" style={{ height: '10px', width: '45%' }} />
-                                </div>
-                            </div>
-                            {[80, 60, 90, 55].map((w, i) => (
-                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                                    <div className="skel" style={{ height: '9px', width: '35%' }} />
-                                    <div className="skel" style={{ height: '9px', width: `${w - 30}%` }} />
-                                </div>
-                            ))}
-                        </div>
-                        {/* Vehicle box skeleton */}
-                        <div style={{ padding: '20px', background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.1)', borderRadius: '14px' }}>
-                            <div className="skel" style={{ height: '10px', width: '100px', marginBottom: '18px' }} />
-                            {[75, 55, 85, 65, 70, 50].map((w, i) => (
-                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                                    <div className="skel" style={{ height: '9px', width: '30%' }} />
-                                    <div className="skel" style={{ height: '9px', width: `${w - 25}%` }} />
-                                </div>
-                            ))}
-                        </div>
-                        {/* Warrant box skeleton */}
-                        <div style={{ padding: '20px', background: 'rgba(239,68,68,0.03)', border: '1px solid rgba(239,68,68,0.08)', borderRadius: '14px' }}>
-                            <div className="skel" style={{ height: '10px', width: '80px', marginBottom: '18px' }} />
-                            <div className="skel" style={{ height: '40px', borderRadius: '10px' }} />
-                        </div>
-                    </div>
-                )}
+                
 
                 {(result || registration || loadingRoblox || robloxError) && registration && !registration.notFound && !registration.multipleMatches && (
                     <div className={`results-grid ${visualEffects ? 'pulse-animation' : ''}`}>
@@ -11264,11 +11239,25 @@ return (
                             )}
 
                             {loadingRoblox ? (
-                                <div className="mdt-progress-wrapper">
-                                    <div className="mdt-spinner"><div className="mdt-spinner-ring"></div><div className="mdt-spinner-ring"></div></div>
-                                    <div className="mdt-progress-text">{robloxLoadingStage || 'PROCESSING...'}</div>
-                                    {searchProgress > 0 && (<><div className="mdt-progress-bar-outer"><div className="mdt-progress-bar-inner" style={{ width: `${searchProgress}%` }}></div></div><div style={{ color: '#60a5fa', fontSize: '12px', fontWeight: '700' }}>{searchProgress}%</div></>)}
-                                </div>
+                                <>
+                                    {/* Avatar + name shimmer */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
+                                        <div className="skel" style={{ width: '52px', height: '52px', borderRadius: '50%', flexShrink: 0 }} />
+                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            <div className="skel" style={{ height: '11px', width: '65%' }} />
+                                            <div className="skel" style={{ height: '10px', width: '42%' }} />
+                                        </div>
+                                    </div>
+                                    {/* Info rows shimmer */}
+                                    {['72%','58%','80%','48%'].map((w,i) => (
+                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                            <div className="skel" style={{ height: '9px', width: '34%' }} />
+                                            <div className="skel" style={{ height: '9px', width: w }} />
+                                        </div>
+                                    ))}
+                                    {/* Warrant badge shimmer */}
+                                    <div className="skel" style={{ height: '42px', borderRadius: '10px', marginTop: '14px' }} />
+                                </>
                             ) : robloxError ? (
                                 <>
                                     <div style={{ padding: '16px', textAlign: 'center', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', marginBottom: '14px' }}>
