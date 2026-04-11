@@ -1449,12 +1449,14 @@ const PanicCountdown = ({ onExpire, onCancel }) => {
     const [isDragging, setIsDragging] = React.useState(false);
     const dragStartX = React.useRef(null);
     const trackRef = React.useRef(null);
+    const onExpireRef = React.useRef(onExpire);
+    React.useEffect(() => { onExpireRef.current = onExpire; }, [onExpire]);
     const TRACK_WIDTH = 260;
     const KNOB_WIDTH = 64;
     const MAX_SLIDE = TRACK_WIDTH - KNOB_WIDTH - 8;
 
     React.useEffect(() => {
-        if (seconds <= 0) { onExpire(); return; }
+        if (seconds <= 0) { onExpireRef.current(); return; }
         const t = setTimeout(() => setSeconds(s => s - 1), 1000);
         return () => clearTimeout(t);
     }, [seconds]);
@@ -1464,7 +1466,7 @@ const PanicCountdown = ({ onExpire, onCancel }) => {
         if (!isDragging) return;
         const nx = Math.max(0, Math.min(MAX_SLIDE, clientX - dragStartX.current));
         setSlideX(nx);
-        if (nx >= MAX_SLIDE - 4) { setIsDragging(false); onExpire(); }
+        if (nx >= MAX_SLIDE - 4) { setIsDragging(false); onExpireRef.current(); }
     };
     const endDrag = () => { setIsDragging(false); setSlideX(0); };
 
@@ -3114,12 +3116,15 @@ const poll = () => {
 console.log(`[BACKEND DATA OFFICER]: Poll complete — ${d.officers.length} officer(s) online:`, d.officers.map(o => `${o.name} (#${o.badge}) ${o.status}`).join(', ') || 'none');
                     setOnlineOfficers(d.officers || []);
                     // Check panic signal piggybacked on poll
-                    if (d.panic && d.panic.badge !== trooperSettings?.BadgeID) {
+                    if (d.panic) {
                         const alreadyActive = activePanic && activePanic.triggeredAt === d.panic.triggeredAt;
                         if (!alreadyActive) {
                             setActivePanic(d.panic);
                             setPanicFlickerOfficer(d.panic.badge);
-                            try { if (window.SOUNDS?.panicAlarm) { const _a = new Audio(window.SOUNDS.panicAlarm); _a.volume = 0.8; _a.play().catch(() => {}); } } catch(_) {}
+                            // Only play sound + open modal for OTHER officers' panics
+                            if (d.panic.badge !== trooperSettings?.BadgeID) {
+                                try { if (window.SOUNDS?.panicAlarm) { const _a = new Audio(window.SOUNDS.panicAlarm); _a.volume = 0.8; _a.play().catch(() => {}); } } catch(_) {}
+                            }
                             setTimeout(() => setPanicFlickerOfficer(null), 30000);
                         }
                     } else if (!d.panic) {
@@ -11240,19 +11245,15 @@ return (
 
                             {loadingRoblox ? (
                                 <>
-                                    {/* Avatar + name shimmer */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
-                                        <div className="skel" style={{ width: '52px', height: '52px', borderRadius: '50%', flexShrink: 0 }} />
-                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                            <div className="skel" style={{ height: '11px', width: '65%' }} />
-                                            <div className="skel" style={{ height: '10px', width: '42%' }} />
-                                        </div>
+                                    {/* Avatar — mirrors avatar-container */}
+                                    <div className="avatar-container">
+                                        <div className="skel" style={{ width: '100%', height: '100%', borderRadius: '12px' }} />
                                     </div>
-                                    {/* Info rows shimmer */}
-                                    {['72%','58%','80%','48%'].map((w,i) => (
-                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                                            <div className="skel" style={{ height: '9px', width: '34%' }} />
-                                            <div className="skel" style={{ height: '9px', width: w }} />
+                                    {/* info-item rows — mirrors Roblox Username / User ID / Display Name / Join Date / Discord ID */}
+                                    {['Roblox Username','User ID','Display Name','Join Date','Discord ID'].map((label, i) => (
+                                        <div key={i} className="info-item">
+                                            <span className="info-label">{label}:</span>
+                                            <div className="skel" style={{ height: '13px', width: i === 1 ? '110px' : i === 3 ? '140px' : '90px', borderRadius: '4px' }} />
                                         </div>
                                     ))}
                                     {/* Warrant badge shimmer */}
