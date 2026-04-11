@@ -2019,8 +2019,8 @@ React.useEffect(() => {
 
 const panicFlickerStyle = document.createElement('style');
 panicFlickerStyle.textContent = `
-@keyframes panic-flicker { 0%,100%{background:rgba(249,115,22,0.35)} 50%{background:rgba(249,115,22,0.08)} }
-.panic-officer { animation: panic-flicker 0.6s ease-in-out 5; animation-fill-mode: forwards; background: rgba(249,115,22,0.2) !important; border-color: rgba(249,115,22,0.5) !important; }
+@keyframes panic-flicker { 0%,100%{background:rgba(249,115,22,0.08);border-color:rgba(249,115,22,0.15)} 50%{background:rgba(249,115,22,0.45) !important;border-color:rgba(249,115,22,0.8) !important} }
+.panic-officer { animation: panic-flicker 0.7s ease-in-out infinite; }
 .panic-officer-steady { background: rgba(249,115,22,0.15) !important; border-color: rgba(249,115,22,0.4) !important; }
 `;
 document.head.appendChild(panicFlickerStyle);
@@ -13605,11 +13605,25 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                     disabled={onCooldown}
                     onClick={() => {
                         if (!apexReportText.trim() || onCooldown) return;
-                        setPendingApexReport(prev => ({ ...prev, corrected: apexReportText.trim(), submittedAt: Date.now() }));
+                        const report = {
+                            detected: pendingApexReport.detected,
+                            corrected: apexReportText.trim(),
+                            image: pendingApexReport.image || null,
+                            badge: trooperSettingsRef.current?.BadgeID || trooperSettings?.BadgeID,
+                            submittedAt: Date.now(),
+                            reportedAt: Date.now()
+                        };
+                        fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/apex-report', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(report)
+                        }).then(r => r.json()).then(d => {
+                            console.log('[APEX REPORT] Sent:', d);
+                        }).catch(e => console.error('[APEX REPORT] Failed:', e));
                         setApexReportLastSent(Date.now());
                         setShowApexReport(false);
                         setApexReportText('');
-                        showCustomError('Report Submitted', 'Thank you — the misread report will be sent to the server on your next heartbeat.', true);
+                        showCustomError('Report Submitted', 'Misread report sent to server. Thank you!', true);
                     }}
                     style={{ width: '100%', padding: '11px', background: onCooldown ? 'rgba(75,85,99,0.15)' : 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(217,119,6,0.1))', border: `1px solid ${onCooldown ? 'rgba(75,85,99,0.3)' : 'rgba(245,158,11,0.4)'}`, borderRadius: '9px', color: onCooldown ? '#4b5563' : '#fbbf24', cursor: onCooldown ? 'not-allowed' : 'pointer', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '2px', transition: 'all 0.2s' }}>
                     {onCooldown ? `COOLDOWN — ${remainingMins}m ${String(remainingSecsDisplay).padStart(2,'0')}s` : 'SUBMIT REPORT'}
