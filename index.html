@@ -448,6 +448,8 @@ body::before {
         .reset-link:hover { color: white; }
         .animate-spin { animation: spin 1s linear infinite; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes shimmer { 0% { background-position: -600px 0; } 100% { background-position: 600px 0; } }
+.skel { background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.04) 75%); background-size: 600px 100%; animation: shimmer 1.6s infinite; border-radius: 6px; }
 @keyframes fadeIn {
     from {
         opacity: 0;
@@ -1441,30 +1443,94 @@ body::after {
 };
 
     
-const PanicCountdown = ({ onExpire }) => {
-            const [seconds, setSeconds] = React.useState(10);
-            React.useEffect(() => {
-                if (seconds <= 0) { onExpire(); return; }
-                const t = setTimeout(() => setSeconds(s => s - 1), 1000);
-                return () => clearTimeout(t);
-            }, [seconds]);
-            const pct = (seconds / 10) * 100;
-            const color = seconds <= 3 ? '#ef4444' : seconds <= 6 ? '#f59e0b' : '#10b981';
-            return (
-                <div style={{ marginBottom: '28px' }}>
-                    <p style={{ color: '#1a1a1a', fontSize: '15px', lineHeight: '1.7', marginBottom: '16px', fontWeight: '500' }}>
-                        Panic button activation has been registered. If this was unintentional, react promptly and disengage the function by clicking <strong>"DISENGAGE"</strong> below.
-                    </p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                        <div style={{ flex: 1, height: '6px', background: 'rgba(0,0,0,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: '3px', transition: 'width 1s linear, background 0.3s' }} />
-                        </div>
-                        <span style={{ fontSize: '18px', fontWeight: '900', color, minWidth: '28px', textAlign: 'right', fontFamily: 'monospace' }}>{seconds}</span>
-                    </div>
-                    <div style={{ color: '#9ca3af', fontSize: '11px', textAlign: 'right' }}>seconds to auto-activate</div>
+const PanicCountdown = ({ onExpire, onCancel }) => {
+    const [seconds, setSeconds] = React.useState(10);
+    const [slideX, setSlideX] = React.useState(0);
+    const [isDragging, setIsDragging] = React.useState(false);
+    const dragStartX = React.useRef(null);
+    const trackRef = React.useRef(null);
+    const TRACK_WIDTH = 260;
+    const KNOB_WIDTH = 64;
+    const MAX_SLIDE = TRACK_WIDTH - KNOB_WIDTH - 8;
+
+    React.useEffect(() => {
+        if (seconds <= 0) { onExpire(); return; }
+        const t = setTimeout(() => setSeconds(s => s - 1), 1000);
+        return () => clearTimeout(t);
+    }, [seconds]);
+
+    const startDrag = (clientX) => { setIsDragging(true); dragStartX.current = clientX - slideX; };
+    const moveDrag = (clientX) => {
+        if (!isDragging) return;
+        const nx = Math.max(0, Math.min(MAX_SLIDE, clientX - dragStartX.current));
+        setSlideX(nx);
+        if (nx >= MAX_SLIDE - 4) { setIsDragging(false); onExpire(); }
+    };
+    const endDrag = () => { setIsDragging(false); setSlideX(0); };
+
+    const pct = seconds / 10;
+    const urgentColor = seconds <= 3 ? '#ef4444' : seconds <= 6 ? '#f59e0b' : '#ffffff';
+
+    return (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 999999, background: '#0a0a0f', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '60px 32px 56px', userSelect: 'none' }}
+            onMouseMove={e => moveDrag(e.clientX)} onMouseUp={endDrag} onMouseLeave={endDrag}>
+            {/* Top section — title + description + countdown */}
+            <div style={{ textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ color: '#ffffff', fontSize: '32px', fontWeight: '800', letterSpacing: '-0.5px', marginBottom: '14px', lineHeight: 1.2 }}>
+                    DAPS detected inputs.
                 </div>
-            );
-        };
+                <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '16px', fontWeight: '400', marginBottom: '52px', lineHeight: 1.5, maxWidth: '280px' }}>
+                    DAPS will trigger SOS if you don't respond.
+                </div>
+                {/* Big countdown ring */}
+                <div style={{ position: 'relative', width: '130px', height: '130px', marginBottom: '12px' }}>
+                    <svg width="130" height="130" style={{ transform: 'rotate(-90deg)' }}>
+                        <circle cx="65" cy="65" r="58" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="4" />
+                        <circle cx="65" cy="65" r="58" fill="none" stroke={urgentColor} strokeWidth="4"
+                            strokeDasharray={`${2 * Math.PI * 58}`}
+                            strokeDashoffset={`${2 * Math.PI * 58 * (1 - pct)}`}
+                            strokeLinecap="round"
+                            style={{ transition: 'stroke-dashoffset 1s linear, stroke 0.3s' }} />
+                    </svg>
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ color: urgentColor, fontSize: '44px', fontWeight: '900', fontFamily: 'monospace', lineHeight: 1, transition: 'color 0.3s' }}>{seconds}</span>
+                    </div>
+                </div>
+                <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '12px', letterSpacing: '1.5px', textTransform: 'uppercase' }}>seconds to auto-activate</div>
+            </div>
+
+            {/* Bottom section — slide button + cancel */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px', width: '100%' }}>
+                {/* Slide-to-confirm track */}
+                <div ref={trackRef} style={{ width: `${TRACK_WIDTH}px`, height: '64px', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: '32px', position: 'relative', overflow: 'hidden', cursor: 'pointer' }}>
+                    {/* Track label */}
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.35)', fontSize: '12px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase', pointerEvents: 'none', paddingLeft: '40px' }}>
+                        slide to activate SOS
+                    </div>
+                    {/* Sliding knob */}
+                    <div
+                        style={{ position: 'absolute', top: '4px', left: `${4 + slideX}px`, width: `${KNOB_WIDTH}px`, height: '56px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', borderRadius: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(239,68,68,0.5)', cursor: 'grab', transition: isDragging ? 'none' : 'left 0.3s ease', zIndex: 2 }}
+                        onMouseDown={e => { e.preventDefault(); startDrag(e.clientX); }}
+                        onTouchStart={e => { startDrag(e.touches[0].clientX); }}
+                        onTouchMove={e => { moveDrag(e.touches[0].clientX); }}
+                        onTouchEnd={endDrag}>
+                        <div style={{ color: 'white', fontWeight: '900', fontSize: '13px', letterSpacing: '1px' }}>SOS</div>
+                    </div>
+                </div>
+
+                {/* Cancel button */}
+                <button
+                    onClick={onCancel}
+                    style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', fontSize: '20px' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+                <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '11px', letterSpacing: '0.5px', marginTop: '-12px' }}>Cancel</div>
+            </div>
+        </div>
+    );
+};
 
 const raceProxies = (promises) => new Promise((resolve) => {
     let remaining = promises.length;
@@ -1532,7 +1598,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
         (function() {
             const badge = document.createElement('div');
             const sha = window.APP_COMMIT_SHA || 'dev';
-            badge.textContent = `BETA BUILD - APP V. 0.1.0.9.C  •  ${sha}`;
+            badge.textContent = `BETA BUILD - APP V. 0.1.1  •  ${sha}`;
             badge.style.cssText = 'position:fixed;bottom:16px;left:44px;font-size:9px;font-weight:700;color:rgba(251,191,36,0.45);letter-spacing:1px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;white-space:nowrap;';
             document.body.appendChild(badge);
             if (window.APP_GITHUB_BRANCH && window.APP_GITHUB_BRANCH !== 'main') {
@@ -1544,7 +1610,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
         })();
 
         function NYSPLookupTool() {
-            const APP_VERSION = '0.1.0.9.C';
+            const APP_VERSION = '0.1.1';
             const [licensePlate, setLicensePlate] = useState('');
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
@@ -1720,9 +1786,7 @@ const isDispatcher = (trooperSettings?.Department || selectedDepartment) === 'DI
 const [maintenanceActive, setMaintenanceActive] = React.useState(false);
 const [lastMaintenanceCheck, setLastMaintenanceCheck] = React.useState(Date.now());
 const [showUpdateScreen, setShowUpdateScreen] = React.useState(false);
-const [showVersionWarning, setShowVersionWarning] = React.useState(false);
-const [versionWarningDismissed, setVersionWarningDismissed] = React.useState(false);
-const [remoteAppVersion, setRemoteAppVersion] = React.useState(null);
+const [showDataCorruptedError, setShowDataCorruptedError] = React.useState(false);
 const [previousVersion, setPreviousVersion] = React.useState(null);
 const [soundSettings, setSoundSettings] = useState({
     platePass: true,
@@ -1989,20 +2053,7 @@ async function checkMaintenanceStatus() {
         
         console.log('[MAINTENANCE] Updated from server:', window.MAINTENANCE);
 
-        // ── VERSION CHECK ──
-        try {
-            const versionResp = await fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/version', { cache: 'no-store' });
-            const remoteVersion = (await versionResp.text()).trim();
-            if (remoteVersion && remoteVersion !== APP_VERSION) {
-                setRemoteAppVersion(remoteVersion);
-                if (!versionWarningDismissed) {
-                    setShowVersionWarning(true);
-                    try { if (window.SOUNDS?.SCREENWARNING_UI) { const _a = new Audio(window.SOUNDS.SCREENWARNING_UI); _a.volume = 0.7; _a.play().catch(() => {}); } } catch(_) {}
-                }
-            } else {
-                setShowVersionWarning(false);
-            }
-        } catch(_) {}
+        
 
         // Get current maintenance status
         const currentStatus = window.MAINTENANCE || false;
@@ -3511,19 +3562,25 @@ const FAQ_DATA = [
 const updateLogsData = [
     {
         title: "CAD SYSTEM - BOLO addons, and much more!",
-        version: "0.1.0.9.C",
+        version: "0.1.1",
         release_date: "04/08/2026",
         description: "Additions to the current BOLO system alongside extra content!",
         new: [
-            'ADDED "BOLO" system.',
+            'ADDED "BOLO" system',
+            'ADDED Automatic Plate Extraction & Recognition system',
+            'ADDED Skeleton loading system (EXPERIMENTAL AND EXCLUSIVE TO SEARCH BY LICENSEPLATE)'
         ],
         bugs: [
-            'FIXED license plate search engine silently failing and gives errors.',
+            'FIXED license plate search engine silently failing and gives errors',
+            'FIXED unregistered vehicle and citizen does not exist sound playing simultaneously when a vehicle does not exist'
         ],
         modifications: [
             'CHANGED BOLO system to also flag any license plates if they match a current BOLO vehicle',
             'CHANGED Government Records visually',
             'CHANGED BadgeIDs in "Available Officers" to display callsigns instead',
+            'CHANGED size and positions of Voice to Plate & search bar.',
+            'CHANGED Main.JS file to update automatically (changes to some code will still require manual reinstallation)',
+            'CHANGED Panic Button SOS Countdown UI with a hold & slide feature'
         ],
         removed: [
         ],
@@ -9511,6 +9568,12 @@ if (window.MAINTENANCE === true && !(window.APP_GITHUB_BRANCH && window.APP_GITH
             badge: user.badgeId
         });
 
+        if (!user.callSign) {
+            setShowDataCorruptedError(true);
+            setIsLoggingIn(false);
+            return;
+        }
+
         setTrooperSettings({
             Username: user.robloxUsername,
             Zone: user.patrolZone,
@@ -9600,58 +9663,7 @@ return (
     </div>
 )}
 
-{showVersionWarning && !maintenanceActive && !showUpdateScreen && (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 90000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backdropFilter: 'blur(8px)', animation: 'fadeIn 0.3s ease-out' }}>
-        <div style={{ background: 'linear-gradient(135deg, #0d1117 0%, #161b22 100%)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: '16px', width: '100%', maxWidth: '440px', overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(234,179,8,0.1)' }}>
-            {/* Amber top bar */}
-            <div style={{ height: '3px', background: 'linear-gradient(90deg, transparent, rgba(234,179,8,0.8), transparent)' }} />
-            <div style={{ padding: '32px 32px 28px' }}>
-                {/* Icon + title */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '18px', marginBottom: '24px' }}>
-                    <div style={{ width: '48px', height: '48px', flexShrink: 0, background: 'linear-gradient(135deg, rgba(234,179,8,0.15), rgba(217,119,6,0.1))', border: '1px solid rgba(234,179,8,0.3)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    </div>
-                    <div>
-                        <div style={{ color: '#fbbf24', fontSize: '11px', fontWeight: '700', letterSpacing: '2.5px', textTransform: 'uppercase', marginBottom: '6px' }}>Update Available</div>
-                        <div style={{ color: '#f1f5f9', fontSize: '20px', fontWeight: '800', lineHeight: 1.2 }}>Focus your attention on driving</div>
-                    </div>
-                </div>
-                {/* Body text */}
-                <div style={{ color: '#94a3b8', fontSize: '13px', lineHeight: '1.7', marginBottom: '8px' }}>
-                    A new version of the CAD system is available. You are currently running an outdated build which may contain bugs or missing features.
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '28px', padding: '10px 14px', background: 'rgba(234,179,8,0.05)', border: '1px solid rgba(234,179,8,0.15)', borderRadius: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ color: '#6b7280', fontSize: '11px', fontWeight: '600', letterSpacing: '1px', textTransform: 'uppercase' }}>Installed</span>
-                        <span style={{ fontFamily: 'monospace', color: '#ef4444', fontSize: '13px', fontWeight: '700', background: 'rgba(239,68,68,0.1)', padding: '2px 8px', borderRadius: '4px' }}>v{APP_VERSION}</span>
-                    </div>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4b5563" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ color: '#6b7280', fontSize: '11px', fontWeight: '600', letterSpacing: '1px', textTransform: 'uppercase' }}>Latest</span>
-                        <span style={{ fontFamily: 'monospace', color: '#10b981', fontSize: '13px', fontWeight: '700', background: 'rgba(16,185,129,0.1)', padding: '2px 8px', borderRadius: '4px' }}>v{remoteAppVersion}</span>
-                    </div>
-                </div>
-                {/* Buttons */}
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    <button
-                        onClick={() => { setVersionWarningDismissed(true); setShowVersionWarning(false); }}
-                        style={{ flex: 1, padding: '13px', background: 'linear-gradient(135deg, rgba(234,179,8,0.15), rgba(217,119,6,0.08))', border: '1px solid rgba(234,179,8,0.35)', borderRadius: '10px', color: '#fbbf24', fontSize: '13px', fontWeight: '800', cursor: 'pointer', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.2s' }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(234,179,8,0.25), rgba(217,119,6,0.15))'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(234,179,8,0.2)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(234,179,8,0.15), rgba(217,119,6,0.08))'; e.currentTarget.style.boxShadow = 'none'; }}>
-                        OK
-                    </button>
-                    <button
-                        onClick={() => { try { ipcRenderer.send('quit-app'); } catch(_) {} }}
-                        style={{ flex: 1, padding: '13px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '10px', color: '#f87171', fontSize: '13px', fontWeight: '800', cursor: 'pointer', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.2s' }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.18)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.45)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.25)'; }}>
-                        Close My App
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-)}
+
 
 {maintenanceActive && (
     <div style={{ 
@@ -10043,6 +10055,39 @@ return (
 {/* ═══════════════════════════════════════════════════════════════════ */}
 {/* LOGIN SCREEN */}
 {/* ═══════════════════════════════════════════════════════════════════ */}
+{showDataCorruptedError && (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 200000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backdropFilter: 'blur(6px)' }}>
+        <div style={{ background: 'linear-gradient(135deg, #0a0f1e, #111827)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '14px', width: '100%', maxWidth: '400px', overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,0.8)' }}>
+            <div style={{ height: '3px', background: 'linear-gradient(90deg, transparent, rgba(239,68,68,0.8), transparent)' }} />
+            <div style={{ padding: '28px 28px 24px', textAlign: 'center' }}>
+                <div style={{ width: '52px', height: '52px', background: 'rgba(239,68,68,0.1)', border: '2px solid rgba(239,68,68,0.4)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                </div>
+                <div style={{ color: '#f1f5f9', fontSize: '17px', fontWeight: '800', marginBottom: '10px', letterSpacing: '0.3px' }}>Data corrupted or does not exist</div>
+                <div style={{ color: '#6b7280', fontSize: '13px', lineHeight: '1.7', marginBottom: '24px' }}>
+                    Your account is missing required data fields. Please contact the system owner to have your account corrected before logging in.
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                        onClick={() => setShowDataCorruptedError(false)}
+                        style={{ flex: 1, padding: '12px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '9px', color: '#f87171', fontSize: '13px', fontWeight: '800', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px', transition: 'all 0.2s' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.18)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}>
+                        Dismiss
+                    </button>
+                    <button
+                        onClick={() => { try { ipcRenderer.send('quit-app'); } catch(_) {} }}
+                        style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, rgba(239,68,68,0.2), rgba(220,38,38,0.1))', border: '1px solid rgba(239,68,68,0.4)', borderRadius: '9px', color: 'white', fontSize: '13px', fontWeight: '800', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px', transition: 'all 0.2s' }}
+                        onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(239,68,68,0.3)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; }}>
+                        Close App
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+)}
+
 {!maintenanceActive && !showUpdateScreen && showLoginScreen && (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#060a12', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100002, padding: '20px', animation: loginFadingOut ? 'fadeOut 0.4s ease-out forwards' : 'fadeIn 0.4s ease-out' }}>
         {/* Background grid */}
@@ -10330,29 +10375,10 @@ return (
 )}
 
 {panicModalOpen && (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
-        <div style={{ width: '380px', borderRadius: '0px', overflow: 'hidden', boxShadow: '0 0 0 2px rgba(239,68,68,0.8), 0 32px 80px rgba(0,0,0,0.9), 0 0 60px rgba(239,68,68,0.3)', animation: 'panicPulse 1s ease-in-out infinite' }}>
-            <style>{`@keyframes panicPulse { 0%,100% { box-shadow: 0 0 0 2px rgba(239,68,68,0.8), 0 32px 80px rgba(0,0,0,0.9), 0 0 60px rgba(239,68,68,0.3); } 50% { box-shadow: 0 0 0 4px rgba(239,68,68,1), 0 32px 80px rgba(0,0,0,0.9), 0 0 100px rgba(239,68,68,0.6); } } @keyframes panicSpin { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }`}</style>
-            {/* Header */}
-            <div style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)', padding: '32px 24px 28px', textAlign: 'center' }}>
-                <div style={{ fontSize: '52px', marginBottom: '12px', animation: 'panicSpin 1s ease-in-out infinite' }}>📡</div>
-                <div style={{ color: 'white', fontSize: '24px', fontWeight: '900', letterSpacing: '3px', textTransform: 'uppercase', marginBottom: '6px' }}>PANIC BUTTON</div>
-                <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: '13px', letterSpacing: '1px' }}>ALERT REGISTERED - {new Date().toLocaleTimeString()}</div>
-            </div>
-            {/* Body */}
-            <div style={{ background: '#f8f5f0', padding: '28px 28px 24px', textAlign: 'center' }}>
-<PanicCountdown onExpire={() => { triggerPanicActivate(); }} />
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <button onClick={() => { stopPanicAlarm(); setPanicModalOpen(false); setPanicNotif('The panic button has been disengaged. You can activate it at any time again.'); setPanicNotifType('disengaged'); setTimeout(() => setPanicNotif(''), 5000); }} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '800', cursor: 'pointer', letterSpacing: '1.5px', textTransform: 'uppercase', boxShadow: '0 4px 16px rgba(16,185,129,0.4)' }}>
-                        ✓ DISENGAGE
-                    </button>
-                    <button onClick={() => { triggerPanicActivate(); }} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '800', cursor: 'pointer', letterSpacing: '1.5px', textTransform: 'uppercase', boxShadow: '0 4px 16px rgba(239,68,68,0.4)' }}>
-                        🚨 ACTIVATE
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <PanicCountdown
+        onExpire={() => { triggerPanicActivate(); }}
+        onCancel={() => { stopPanicAlarm(); setPanicModalOpen(false); setPanicNotif('The panic button has been disengaged. You can activate it at any time again.'); setPanicNotifType('disengaged'); setTimeout(() => setPanicNotif(''), 5000); }}
+    />
 )}
 
 {showPanicTriggeredPopup && (
@@ -11179,6 +11205,43 @@ return (
                 )}
 
                 {/* ── RESULTS ── */}
+                {loading && (
+                    <div className="results-grid" style={{ marginTop: '16px' }}>
+                        {/* Owner box skeleton */}
+                        <div style={{ padding: '20px', background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.1)', borderRadius: '14px' }}>
+                            <div className="skel" style={{ height: '10px', width: '120px', marginBottom: '18px' }} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
+                                <div className="skel" style={{ width: '56px', height: '56px', borderRadius: '50%', flexShrink: 0 }} />
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div className="skel" style={{ height: '10px', width: '70%' }} />
+                                    <div className="skel" style={{ height: '10px', width: '45%' }} />
+                                </div>
+                            </div>
+                            {[80, 60, 90, 55].map((w, i) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                    <div className="skel" style={{ height: '9px', width: '35%' }} />
+                                    <div className="skel" style={{ height: '9px', width: `${w - 30}%` }} />
+                                </div>
+                            ))}
+                        </div>
+                        {/* Vehicle box skeleton */}
+                        <div style={{ padding: '20px', background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.1)', borderRadius: '14px' }}>
+                            <div className="skel" style={{ height: '10px', width: '100px', marginBottom: '18px' }} />
+                            {[75, 55, 85, 65, 70, 50].map((w, i) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                    <div className="skel" style={{ height: '9px', width: '30%' }} />
+                                    <div className="skel" style={{ height: '9px', width: `${w - 25}%` }} />
+                                </div>
+                            ))}
+                        </div>
+                        {/* Warrant box skeleton */}
+                        <div style={{ padding: '20px', background: 'rgba(239,68,68,0.03)', border: '1px solid rgba(239,68,68,0.08)', borderRadius: '14px' }}>
+                            <div className="skel" style={{ height: '10px', width: '80px', marginBottom: '18px' }} />
+                            <div className="skel" style={{ height: '40px', borderRadius: '10px' }} />
+                        </div>
+                    </div>
+                )}
+
                 {(result || registration || loadingRoblox || robloxError) && registration && !registration.notFound && !registration.multipleMatches && (
                     <div className={`results-grid ${visualEffects ? 'pulse-animation' : ''}`}>
 
@@ -13483,7 +13546,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                     { label: '💀 Preview: Shutdown Screen', action: () => { setShowShutdownScreen(true); setShowDevPanel(false); } },
                     { label: '🔒 Preview: Ban Screen', action: () => { setBanReason('Developer preview — test ban'); setShowBanScreen(true); setShowDevPanel(false); } },
                     { label: '🚪 Preview: Logout Screen', action: () => { setShowLogoutScreen(true); setShowDevPanel(false); } },
-                    { label: '⚠️ Preview: Version Warning', action: () => { setRemoteAppVersion('0.1.0.9.D'); setVersionWarningDismissed(false); setShowVersionWarning(true); setShowDevPanel(false); } },
+                    
                 ].map((item, i) => (
                     <button key={i} onClick={item.action} style={{ padding: '12px 16px', background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.2)', borderRadius: '10px', color: '#c4b5fd', cursor: 'pointer', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'left', transition: 'all 0.15s' }}
                         onMouseEnter={e => { e.currentTarget.style.background = 'rgba(168,85,247,0.18)'; e.currentTarget.style.borderColor = 'rgba(168,85,247,0.5)'; }}
