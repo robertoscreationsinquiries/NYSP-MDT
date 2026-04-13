@@ -1695,6 +1695,7 @@ const [searchCitizenId, setSearchCitizenId] = useState('');
 const [compactMode, setCompactMode] = useState(false);
 const [pastRecords, setPastRecords] = useState([]);
 const [recordsLoadingStage, setRecordsLoadingStage] = useState('');
+const streamingRecordsRef = React.useRef([]);
 const [showCredits, setShowCredits] = useState(false);
 const [creditsKey, setCreditsKey] = useState(0);
 const [showFAQ, setShowFAQ] = useState(false);
@@ -1844,6 +1845,9 @@ const [panicEnabled, setPanicEnabled] = useState(false);
 const [panicHotkey, setPanicHotkey] = useState('');
 const [panicHotkeyDraft, setPanicHotkeyDraft] = useState('');
 const [panicCooldownUntil, setPanicCooldownUntil] = useState(0);
+const panicEnabledRef = React.useRef(false);
+const panicCooldownUntilRef = React.useRef(0);
+const panicTriggerModeRef = React.useRef('HOLD');
 const [activePanic, setActivePanic] = useState(null);
 const [panicFlickerOfficer, setPanicFlickerOfficer] = useState(null);
 const activePanicRef = React.useRef(null);
@@ -1851,6 +1855,35 @@ const trooperSettingsRef = React.useRef({});
 const selectedUserSessionRef = React.useRef('');
 const [panicTriggerMode, setPanicTriggerMode] = useState('HOLD'); // 'HOLD' or 'TRIPLE'
 const [panicTriggerModeDraft, setPanicTriggerModeDraft] = useState('HOLD');
+React.useEffect(() => { panicEnabledRef.current = panicEnabled; }, [panicEnabled]);
+
+// Department theme injection
+React.useEffect(() => {
+    const dept = trooperSettings?.Department || selectedDepartment;
+    let styleEl = document.getElementById('dept-theme');
+    if (!styleEl) { styleEl = document.createElement('style'); styleEl.id = 'dept-theme'; document.head.appendChild(styleEl); }
+    if (dept === 'NYSP') {
+        // NYSP: deep navy + gold
+        styleEl.textContent = `
+            .btn-primary, button[style*="linear-gradient(135deg, #3b82f6"] { background: linear-gradient(135deg, #1a3a6e, #1e4080) !important; }
+            .mdt-progress-bar-inner { background: linear-gradient(90deg, #c9a227, #f0c040) !important; }
+            .box-header { background: linear-gradient(135deg, rgba(26,58,110,0.9), rgba(15,30,70,0.95)) !important; border-bottom-color: rgba(201,162,39,0.3) !important; }
+            :root { --accent: #c9a227; --accent-light: #f0c040; --accent-dim: rgba(201,162,39,0.2); --accent-border: rgba(201,162,39,0.35); --primary: #1a3a6e; --primary-light: #1e4080; }
+        `;
+    } else if (dept === 'EGPD') {
+        // EGPD: near-black + white/silver
+        styleEl.textContent = `
+            .btn-primary, button[style*="linear-gradient(135deg, #3b82f6"] { background: linear-gradient(135deg, #1a1a1a, #2a2a2a) !important; }
+            .mdt-progress-bar-inner { background: linear-gradient(90deg, #9ca3af, #e5e7eb) !important; }
+            .box-header { background: linear-gradient(135deg, rgba(20,20,20,0.95), rgba(10,10,10,0.98)) !important; border-bottom-color: rgba(156,163,175,0.3) !important; }
+            :root { --accent: #d1d5db; --accent-light: #f9fafb; --accent-dim: rgba(209,213,219,0.15); --accent-border: rgba(209,213,219,0.3); --primary: #111111; --primary-light: #222222; }
+        `;
+    } else {
+        styleEl.textContent = ''; // default blue
+    }
+}, [trooperSettings?.Department, selectedDepartment]);
+React.useEffect(() => { panicCooldownUntilRef.current = panicCooldownUntil; }, [panicCooldownUntil]);
+React.useEffect(() => { panicTriggerModeRef.current = panicTriggerMode; }, [panicTriggerMode]);
 const [phoneticMode, setPhoneticMode] = useState('POLICE'); // 'POLICE' or 'NATO'
 const [showPhoneticCompare, setShowPhoneticCompare] = useState(false);
 const [panicTapCount, setPanicTapCount] = useState(0);
@@ -3456,10 +3489,24 @@ React.useEffect(() => {
         if (id === 'mic-toggle' && activeView === 'search' && useMicrophone && !loading && !searchCooldown && !voiceCooldown) {
             voiceActive ? stopVoicePlate() : startVoicePlate();
         }
-        if (id === 'panic-trigger' && panicEnabled && !isDispatcher && Date.now() >= (panicCooldownUntil || 0)) {
-            setPanicModalOpen(true);
-            startPanicAlarm();
-            setPanicCooldownUntil(Date.now() + 60000);
+        if (id === 'panic-trigger' && panicEnabledRef.current && !isDispatcher && Date.now() >= panicCooldownUntilRef.current) {
+            if (panicTriggerModeRef.current === 'HOLD') {
+                // HOLD mode: open countdown modal (same as keydown 2s hold)
+                setPanicModalOpen(true);
+                startPanicAlarm();
+                setPanicCooldownUntil(Date.now() + 60000);
+            } else {
+                // TRIPLE mode: count taps via ref
+                panicTapCountRef.current += 1;
+                if (panicTapTimerRef.current) clearTimeout(panicTapTimerRef.current);
+                if (panicTapCountRef.current >= 3) {
+                    panicTapCountRef.current = 0;
+                    setPanicCooldownUntil(Date.now() + 60000);
+                    triggerPanicActivate();
+                } else {
+                    panicTapTimerRef.current = setTimeout(() => { panicTapCountRef.current = 0; }, 1500);
+                }
+            }
         }
     });
     return () => window.electron?.removeAllListeners?.('global-shortcut-fired');
@@ -8408,6 +8455,8 @@ const searchPastRecords = async (userId) => {
     }
     
     setLoadingPastRecords(true);
+    setPastRecords([]);
+    streamingRecordsRef.current = [];
     const cleanUserId = userId.trim();
     
     try {
@@ -8489,6 +8538,31 @@ const guildId = trooperSettings?.GuildID || editableTrooperSettings?.GuildID || 
                 break;
             }
             
+// Parse this page immediately for progressive display
+            for (const msg of messages) {
+                const content = msg.content || '';
+                const mentions = msg.mentions || [];
+                const isMentioned = mentions.some(m => m.id === cleanUserId);
+                const authorId = msg.author?.id;
+                const isAuthor = authorId === cleanUserId;
+                if (!isMentioned && !isAuthor) continue;
+                let recordType = null;
+                if (content.includes('**Traffic Citation**') || content.includes('**Citation**')) recordType = 'Citation';
+                else if (content.includes('**Mailed Citation**')) recordType = 'Mailed Citation';
+                else if (content.includes('**Written Warning**')) recordType = 'Written Warning';
+                else if (content.includes('**Vehicle Removal**') || content.includes('**NYSDOT Removal Record**')) recordType = 'Vehicle Removal';
+                else if (content.includes('**Summons**')) recordType = 'Summons';
+                else if (content.includes('**Arrest Report**') || content.includes('**Arrest**')) recordType = 'Arrest';
+                else if (content.includes('**Points Amend**')) recordType = 'Points Amend';
+                else if (content.includes('**Bench Warrant**')) recordType = 'Bench Warrant';
+                else if (content.includes('**Arrest Warrant**')) recordType = 'Arrest Warrant';
+                if (!recordType) continue;
+                streamingRecordsRef.current.push({ id: msg.id, type: recordType, content, timestamp: msg.timestamp, rawDiscordMessage: content });
+                const sorted = [...streamingRecordsRef.current].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                setPastRecords(sorted);
+                setRecordsLoadingStage(`Found ${streamingRecordsRef.current.length} record${streamingRecordsRef.current.length !== 1 ? 's' : ''}...`);
+            }
+
             allMessages = allMessages.concat(messages);
             lastMessageId = messages[messages.length - 1].id;
             
@@ -8501,8 +8575,8 @@ const guildId = trooperSettings?.GuildID || editableTrooperSettings?.GuildID || 
         console.log(`✅ [STEP 3/4] Fetched ${allMessages.length} total messages from ${pageCount} pages`);
         addLog(`Searched ${allMessages.length} messages from database`, 'info');
         
-        // STEP 4: Filter and parse government records
-        console.log('📋 [STEP 4/4] Parsing government records...');
+        // STEP 4: Full parse with all details (overwrites streaming results)
+        console.log('📋 [STEP 4/4] Full parse for details...');
         
         const records = [];
         let recordCount = {
@@ -11137,20 +11211,35 @@ return (
                             </button>
                         )}
                     </div>
-                    {/* Status bar — only shown when active */}
-                    {(voiceActive || voiceNotif || apexNotif) && (
-                        <div style={{ marginTop: '8px', padding: '8px 12px', background: voiceActive ? 'rgba(220,38,38,0.08)' : apexNotif ? 'rgba(168,85,247,0.08)' : 'rgba(59,130,246,0.08)', border: '1px solid ' + (voiceActive ? 'rgba(220,38,38,0.25)' : apexNotif ? 'rgba(168,85,247,0.25)' : 'rgba(59,130,246,0.2)'), borderRadius: '8px', fontSize: '11px', color: voiceActive ? '#fca5a5' : apexNotif ? '#c4b5fd' : '#93c5fd', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {/* Voice status bar */}
+                    {(voiceActive || voiceNotif) && (
+                        <div style={{ marginTop: '8px', padding: '8px 12px', background: voiceActive ? 'rgba(220,38,38,0.08)' : 'rgba(59,130,246,0.08)', border: '1px solid ' + (voiceActive ? 'rgba(220,38,38,0.25)' : 'rgba(59,130,246,0.2)'), borderRadius: '8px', fontSize: '11px', color: voiceActive ? '#fca5a5' : '#93c5fd', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             {voiceActive && <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', animation: 'pulse 1s infinite' }} />}
-                            <span style={{ flex: 1 }}>{apexNotif || voiceNotif || (voiceActive ? '● Voice to Plate active — speak clearly using the phonetic alphabet.' : '')}</span>
-                            {apexNotif && apexResult?.plate && apexResult?.image && (
-                                <button
-                                    onClick={() => { setPendingApexReport({ detected: apexResult.plate, image: apexResult.image }); setApexReportText(''); setShowApexReport(true); }}
-                                    style={{ flexShrink: 0, padding: '4px 10px', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '6px', color: '#fbbf24', fontSize: '10px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', transition: 'all 0.2s', whiteSpace: 'nowrap' }}
-                                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(245,158,11,0.22)'}
-                                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(245,158,11,0.12)'}>
-                                    ⚠ Report Misread
-                                </button>
-                            )}
+                            {voiceNotif || (voiceActive ? '● Voice to Plate active — speak clearly using the phonetic alphabet.' : '')}
+                        </div>
+                    )}
+                    {/* APEX result card */}
+                    {apexNotif && (
+                        <div style={{ marginTop: '8px', background: 'linear-gradient(135deg, rgba(88,28,220,0.1), rgba(124,58,237,0.06))', border: '1px solid rgba(168,85,247,0.3)', borderRadius: '10px', overflow: 'hidden' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px' }}>
+                                <div style={{ width: '28px', height: '28px', background: 'linear-gradient(135deg, #5b21b6, #7c3aed)', borderRadius: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ color: '#6b7280', fontSize: '9px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '2px' }}>APEX DETECTED</div>
+                                    <div style={{ color: '#e2e8f0', fontSize: '14px', fontWeight: '900', fontFamily: 'monospace', letterSpacing: '3px' }}>{apexResult?.plate || '—'}</div>
+                                </div>
+                                {apexResult?.plate && apexResult?.image && (
+                                    <button
+                                        onClick={() => { setPendingApexReport({ detected: apexResult.plate, image: apexResult.image }); setApexReportText(''); setShowApexReport(true); }}
+                                        style={{ flexShrink: 0, padding: '7px 12px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: '8px', color: '#fbbf24', fontSize: '10px', fontWeight: '800', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '5px' }}
+                                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.2)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(245,158,11,0.2)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.1)'; e.currentTarget.style.boxShadow = 'none'; }}>
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                        Report Misread
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     )}
                     {voiceActive && (
