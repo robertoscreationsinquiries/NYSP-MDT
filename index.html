@@ -646,16 +646,24 @@ html, body {
 .offline-indicator {
     position: fixed;
     top: 20px;
-    right: 20px;
-    background: linear-gradient(135deg, #ef4444, #dc2626);
-    color: white;
-    padding: 12px 20px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    z-index: 9999;
-    animation: slideInRight 0.3s ease-out;
-    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #0a0f1e, #1a0a0a);
+    border: 1px solid rgba(239,68,68,0.4);
+    color: #fca5a5;
+    padding: 14px 24px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 700;
+    z-index: 99999;
+    animation: fadeIn 0.3s ease-out;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(239,68,68,0.15);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    backdrop-filter: blur(10px);
 }
 
 .dyslexia-font,
@@ -1600,7 +1608,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
         (function() {
             const badge = document.createElement('div');
             const sha = window.APP_COMMIT_SHA || 'dev';
-            badge.textContent = `BETA BUILD - APP V. 0.1.1  •  ${sha}`;
+            badge.textContent = `BETA BUILD - APP V. 0.2.0  •  ${sha}`;
             badge.style.cssText = 'position:fixed;bottom:16px;left:44px;font-size:9px;font-weight:700;color:rgba(251,191,36,0.45);letter-spacing:1px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;white-space:nowrap;';
             document.body.appendChild(badge);
             if (window.APP_GITHUB_BRANCH && window.APP_GITHUB_BRANCH !== 'main') {
@@ -1612,7 +1620,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
         })();
 
         function NYSPLookupTool() {
-            const APP_VERSION = '0.1.1';
+            const APP_VERSION = '0.2.0';
             const [licensePlate, setLicensePlate] = useState('');
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
@@ -1686,6 +1694,7 @@ const [officerNextUpdate, setOfficerNextUpdate] = useState(null);
 const [searchCitizenId, setSearchCitizenId] = useState('');
 const [compactMode, setCompactMode] = useState(false);
 const [pastRecords, setPastRecords] = useState([]);
+const [recordsLoadingStage, setRecordsLoadingStage] = useState('');
 const [showCredits, setShowCredits] = useState(false);
 const [creditsKey, setCreditsKey] = useState(0);
 const [showFAQ, setShowFAQ] = useState(false);
@@ -3447,6 +3456,11 @@ React.useEffect(() => {
         if (id === 'mic-toggle' && activeView === 'search' && useMicrophone && !loading && !searchCooldown && !voiceCooldown) {
             voiceActive ? stopVoicePlate() : startVoicePlate();
         }
+        if (id === 'panic-trigger' && panicEnabled && !isDispatcher && Date.now() >= (panicCooldownUntil || 0)) {
+            setPanicModalOpen(true);
+            startPanicAlarm();
+            setPanicCooldownUntil(Date.now() + 60000);
+        }
     });
     return () => window.electron?.removeAllListeners?.('global-shortcut-fired');
 }, [micHotkey, voiceActive, useMicrophone, loading, searchCooldown, voiceCooldown, activeView, keybindsRequireFocus]);
@@ -3574,7 +3588,7 @@ const FAQ_DATA = [
 const updateLogsData = [
     {
         title: "CAD SYSTEM - BOLO addons, and much more!",
-        version: "0.1.1",
+        version: "0.2.0",
         release_date: "04/08/2026",
         description: "Additions to the current BOLO system alongside extra content!",
         new: [
@@ -3584,7 +3598,9 @@ const updateLogsData = [
         bugs: [
             'FIXED license plate search engine silently failing and gives errors',
             'FIXED system taking longer than necessary to show warrants and now shows them immediately',
-            'FIXED unregistered vehicle and citizen does not exist sound playing simultaneously when a vehicle does not exist'
+            'FIXED unregistered vehicle and citizen does not exist sound playing simultaneously when a vehicle does not exist',
+            'FIXED all reported bugs regarding call system',
+            'FIXED DAPS not detecting inputs'
         ],
         modifications: [
             'CHANGED BOLO system to also flag any license plates if they match a current BOLO vehicle',
@@ -3593,7 +3609,9 @@ const updateLogsData = [
             'CHANGED size and positions of Voice to Plate & search bar',
             'CHANGED Main.JS file to update automatically (changes to some code will still require manual reinstallation)',
             'CHANGED Panic Button SOS Countdown UI with a hold & slide feature',
-            'CHANGED some text across the application'
+            'CHANGED some text across the application',
+            'CHANGED "OFFLINE" mode with revamped visual warnings and now audible warnings too',
+            'CHANGED government records UI to gradually show government records instead of having to wait for all of them to load in'
         ],
         removed: [
         ],
@@ -4985,10 +5003,15 @@ React.useEffect(() => {
     };
     window.addEventListener('keydown', handler);
     window.addEventListener('keyup', cancelHandler);
+    // Also register as global shortcut so it works when tabbed out
+    if (panicEnabled && panicHotkey && !isDispatcher) {
+        window.electron?.invoke('register-panic-shortcut', { key: panicHotkey, requireFocus: false });
+    }
     return () => {
         window.removeEventListener('keydown', handler);
         window.removeEventListener('keyup', cancelHandler);
         if (holdTimer) clearTimeout(holdTimer);
+        window.electron?.invoke('register-panic-shortcut', { key: null });
     };
 }, [panicEnabled, panicHotkey, panicTriggerMode, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey, panicCooldownUntil]);
 
@@ -5049,16 +5072,19 @@ React.useEffect(() => {
 
 // Offline detection
 React.useEffect(() => {
-    const checkOnline = () => {
-        setIsOffline(!navigator.onLine);
+    const handleOffline = () => {
+        setIsOffline(true);
+        try { if (window.SOUNDS?.ConnectionLost_SFX) { const a = new Audio(window.SOUNDS.ConnectionLost_SFX); a.volume = 0.7; a.play().catch(() => {}); } } catch(_) {}
     };
-    
-    window.addEventListener('online', checkOnline);
-    window.addEventListener('offline', checkOnline);
-    
+    const handleOnline = () => {
+        setIsOffline(false);
+        try { if (window.SOUNDS?.ConnectionFound_SFX) { const a = new Audio(window.SOUNDS.ConnectionFound_SFX); a.volume = 0.7; a.play().catch(() => {}); } } catch(_) {}
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
     return () => {
-        window.removeEventListener('online', checkOnline);
-        window.removeEventListener('offline', checkOnline);
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
     };
 }, []);
 
@@ -8600,9 +8626,13 @@ const guildId = trooperSettings?.GuildID || editableTrooperSettings?.GuildID || 
             };
             
             records.push(record);
+            // Stream records progressively as they're parsed (newest first so far)
+            const sorted = [...records].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            setPastRecords(sorted);
+            setRecordsLoadingStage(`Loading... ${records.length} record${records.length !== 1 ? 's' : ''} found`);
         }
         
-        // Sort by timestamp (newest first)
+        // Final sort newest first
         records.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         
         console.log('═══════════════════════════════════════════════');
@@ -8619,7 +8649,10 @@ const guildId = trooperSettings?.GuildID || editableTrooperSettings?.GuildID || 
         console.log(`   🔴 Arrest Warrants: ${recordCount.arrestWarrant}`);
         console.log('═══════════════════════════════════════════════');
         
+        // Sort newest first and set
+        records.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         setPastRecords(records);
+        setRecordsLoadingStage('');
         addLog(`✅ Found ${recordCount.total} government records for ${fetchedUsername}`, 'success');
         
     } catch (error) {
@@ -11106,9 +11139,18 @@ return (
                     </div>
                     {/* Status bar — only shown when active */}
                     {(voiceActive || voiceNotif || apexNotif) && (
-                        <div style={{ marginTop: '8px', padding: '8px 12px', background: voiceActive ? 'rgba(220,38,38,0.08)' : 'rgba(59,130,246,0.08)', border: '1px solid ' + (voiceActive ? 'rgba(220,38,38,0.25)' : 'rgba(59,130,246,0.2)'), borderRadius: '8px', fontSize: '11px', color: voiceActive ? '#fca5a5' : '#93c5fd', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ marginTop: '8px', padding: '8px 12px', background: voiceActive ? 'rgba(220,38,38,0.08)' : apexNotif ? 'rgba(168,85,247,0.08)' : 'rgba(59,130,246,0.08)', border: '1px solid ' + (voiceActive ? 'rgba(220,38,38,0.25)' : apexNotif ? 'rgba(168,85,247,0.25)' : 'rgba(59,130,246,0.2)'), borderRadius: '8px', fontSize: '11px', color: voiceActive ? '#fca5a5' : apexNotif ? '#c4b5fd' : '#93c5fd', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             {voiceActive && <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', animation: 'pulse 1s infinite' }} />}
-                            {apexNotif || voiceNotif || (voiceActive ? '● Voice to Plate active — speak clearly using the phonetic alphabet.' : '')}
+                            <span style={{ flex: 1 }}>{apexNotif || voiceNotif || (voiceActive ? '● Voice to Plate active — speak clearly using the phonetic alphabet.' : '')}</span>
+                            {apexNotif && apexResult?.plate && apexResult?.image && (
+                                <button
+                                    onClick={() => { setPendingApexReport({ detected: apexResult.plate, image: apexResult.image }); setApexReportText(''); setShowApexReport(true); }}
+                                    style={{ flexShrink: 0, padding: '4px 10px', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '6px', color: '#fbbf24', fontSize: '10px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', transition: 'all 0.2s', whiteSpace: 'nowrap' }}
+                                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(245,158,11,0.22)'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(245,158,11,0.12)'}>
+                                    ⚠ Report Misread
+                                </button>
+                            )}
                         </div>
                     )}
                     {voiceActive && (
@@ -11313,14 +11355,7 @@ return (
                                         VIEW GOVERNMENT RECORDS
                                     </button>
 
-                                    {apexResult?.plate && apexResult?.image && (
-                                        <button onClick={() => { setPendingApexReport({ detected: apexResult.plate, image: apexResult.image }); setApexReportText(''); setShowApexReport(true); }}
-                                            style={{ width: '100%', marginTop: '8px', padding: '10px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '8px', color: '#fbbf24', fontSize: '11px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.15)'; }}
-                                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.08)'; }}>
-                                            ⚠ Report Misread Plate
-                                        </button>
-                                    )}
+                                    
                                     {!isDispatcher && <button onClick={() => {
                                         const citationReg = registration?.parseFailed
                                             ? { ...registration, timestamp: registration.registeredAt || '' }
@@ -12081,7 +12116,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
 
                                 <div style={{ marginBottom: '12px' }}>
                                     <div style={S.fieldLabel}>📡 Active Session (Call Alerts)</div>
-                                    <select value={selectedUserSession} onChange={(e) => { setSelectedUserSession(e.target.value); addLog('✅ Session updated', 'success'); }} style={{ ...S.input, cursor: 'pointer' }}>
+                                    <select value={selectedUserSession} onChange={(e) => { stopAlertSound(); setSelectedUserSession(e.target.value); addLog('✅ Session updated', 'success'); }} style={{ ...S.input, cursor: 'pointer' }}>
                                         <option value="" style={{ background: '#0f172a' }}>None (No Alerts)</option>
                                         <option value="1011898104670330920" style={{ background: '#0f172a' }}>Session 1</option>
                                         <option value="1390212294478397471" style={{ background: '#0f172a' }}>Session 2</option>
@@ -12468,7 +12503,23 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                     <div style={{ fontSize: '11px', color: '#fcd34d', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '8px' }}>📡 Active Session</div>
                     <select
                         value={selectedUserSession}
-                        onChange={e => { setSelectedUserSession(e.target.value); addLog('✅ Session updated', 'success'); }}
+                        onChange={e => {
+                            stopAlertSound();
+                            const newSession = e.target.value;
+                            setSelectedUserSession(newSession);
+                            // Auto-dismiss calls older than 30 minutes
+                            if (newSession) {
+                                const cutoff = Date.now() - 30 * 60 * 1000;
+                                setCurrentCalls(prev => {
+                                    const old = (prev || []).filter(c => new Date(c.timestamp).getTime() < cutoff);
+                                    if (old.length > 0) {
+                                        setAcknowledgedCalls(a => [...new Set([...a, ...old.map(c => c.id)])]);
+                                    }
+                                    return prev;
+                                });
+                            }
+                            addLog('✅ Session updated', 'success');
+                        }}
                         style={{ width: '100%', padding: '12px 14px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: '10px', color: '#fef3c7', fontSize: '14px', fontWeight: '600', cursor: 'pointer', outline: 'none' }}>
                         <option value="" style={{ background: '#0f172a' }}>None (No Alerts)</option>
                         <option value="1011898104670330920" style={{ background: '#0f172a' }}>Session 1</option>
@@ -14110,7 +14161,7 @@ if (window.electronAPI?.quit) {
                     <div style={{ color: '#60a5fa', fontSize: '11px', marginTop: '2px', fontWeight: '500' }}>
                         {databaseSearchUsername && databaseSearchId ? (
                             <span>Viewing: <span style={{ color: '#f1f5f9', fontWeight: '700' }}>{databaseSearchUsername}</span> <span style={{ color: '#374151' }}>·</span> <span style={{ fontFamily: 'monospace', color: '#93c5fd' }}>{databaseSearchId}</span></span>
-                        ) : loadingPastRecords ? '⏳ Searching...' : 'Enter a Discord User ID to search records'}
+                        ) : loadingPastRecords ? (recordsLoadingStage || '⏳ Searching...') : 'Enter a CitizenID to search records'}
                     </div>
                 </div>
                 <button
@@ -14847,7 +14898,8 @@ if (window.electronAPI?.quit) {
 {/* Offline Indicator */}
 {isOffline && (
     <div className="offline-indicator">
-          OFFLINE - No Internet Connection
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.56 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+        Connection Lost
     </div>
 )}
 
