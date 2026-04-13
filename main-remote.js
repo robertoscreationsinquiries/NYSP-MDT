@@ -16,6 +16,24 @@ ipcMain.on('quit-app', () => {
 ipcMain.on('open-dev-tools', () => mainWindow?.webContents.openDevTools());
 ipcMain.on('toggle-compact-mode', () => {});
 
+ipcMain.handle('register-panic-shortcut', async (event, { key }) => {
+    const { globalShortcut } = require('electron');
+    try {
+        globalShortcut.unregister && globalShortcut.isRegistered && 
+            globalShortcut.isRegistered('panic-trigger') && globalShortcut.unregister('panic-trigger');
+    } catch(_) {}
+    if (!key) return { success: true };
+    try {
+        const converted = key.replace('CTRL', 'CommandOrControl').replace('ALT', 'Alt').replace('SHIFT', 'Shift');
+        globalShortcut.register(converted, () => {
+            mainWindow?.webContents.send('global-shortcut-fired', 'panic-trigger');
+        });
+        return { success: true };
+    } catch(e) {
+        return { success: false, error: e.message };
+    }
+});
+
 ipcMain.handle('register-global-shortcut', async (event, { key, id, requireFocus }) => {
     try {
         globalShortcut.unregisterAll();
