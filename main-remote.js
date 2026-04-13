@@ -16,37 +16,46 @@ ipcMain.on('quit-app', () => {
 ipcMain.on('open-dev-tools', () => mainWindow?.webContents.openDevTools());
 ipcMain.on('toggle-compact-mode', () => {});
 
+let _panicShortcutKey = null;
 ipcMain.handle('register-panic-shortcut', async (event, { key }) => {
-    const { globalShortcut } = require('electron');
     try {
-        globalShortcut.unregister && globalShortcut.isRegistered && 
-            globalShortcut.isRegistered('panic-trigger') && globalShortcut.unregister('panic-trigger');
+        if (_panicShortcutKey && globalShortcut.isRegistered(_panicShortcutKey)) {
+            globalShortcut.unregister(_panicShortcutKey);
+        }
     } catch(_) {}
+    _panicShortcutKey = null;
     if (!key) return { success: true };
     try {
         const converted = key.replace('CTRL', 'CommandOrControl').replace('ALT', 'Alt').replace('SHIFT', 'Shift');
         globalShortcut.register(converted, () => {
             mainWindow?.webContents.send('global-shortcut-fired', 'panic-trigger');
         });
+        _panicShortcutKey = converted;
         return { success: true };
     } catch(e) {
         return { success: false, error: e.message };
     }
 });
 
+let _micShortcutKey = null;
 ipcMain.handle('register-global-shortcut', async (event, { key, id, requireFocus }) => {
     try {
-        globalShortcut.unregisterAll();
-        if (key) {
-            const converted = key
-                .replace('CTRL', 'CommandOrControl')
-                .replace('ALT', 'Alt')
-                .replace('SHIFT', 'Shift');
-            globalShortcut.register(converted, () => {
-                if (requireFocus && !windowFocused) return;
-                mainWindow?.webContents.send('global-shortcut-fired', id);
-            });
+        if (_micShortcutKey && globalShortcut.isRegistered(_micShortcutKey)) {
+            globalShortcut.unregister(_micShortcutKey);
         }
+    } catch(_) {}
+    _micShortcutKey = null;
+    if (!key) return { success: true };
+    try {
+        const converted = key
+            .replace('CTRL', 'CommandOrControl')
+            .replace('ALT', 'Alt')
+            .replace('SHIFT', 'Shift');
+        globalShortcut.register(converted, () => {
+            if (requireFocus && !windowFocused) return;
+            mainWindow?.webContents.send('global-shortcut-fired', id);
+        });
+        _micShortcutKey = converted;
         return { success: true };
     } catch (e) {
         return { success: false, error: e.message };
