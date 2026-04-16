@@ -7,6 +7,66 @@
 console.log('[REMOTE] main-remote.js executing...');
 
 // ── IPC: quit / devtools / compact / global shortcut ──
+let _streamServer = null;
+ipcMain.handle('start-streaming', async () => {
+    if (_streamServer) return { success: true, alreadyRunning: true };
+    const http = require('http');
+    const os = require('os');
+    const interfaces = os.networkInterfaces();
+    let localIp = '127.0.0.1';
+    for (const iface of Object.values(interfaces)) {
+        for (const alias of iface) {
+            if (alias.family === 'IPv4' && !alias.internal) { localIp = alias.address; break; }
+        }
+    }
+    const PORT = 3000;
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><title>NYSP MDT</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#07090f;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;padding:16px}
+h1{font-size:16px;font-weight:800;letter-spacing:2px;color:#60a5fa;text-transform:uppercase;margin-bottom:4px}.sub{font-size:11px;color:#374151;margin-bottom:20px;letter-spacing:1px}
+.card{background:#0d1117;border:1px solid rgba(59,130,246,0.18);border-radius:12px;padding:14px;margin-bottom:12px}
+.card-title{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#374151;margin-bottom:10px}
+.officer{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.officer:last-child{border-bottom:none}.badge{font-size:10px;font-weight:700;color:#93c5fd;background:rgba(59,130,246,0.12);padding:3px 8px;border-radius:5px;font-family:monospace}
+.name{flex:1;font-size:13px;font-weight:600;color:#f1f5f9}.status{font-size:10px;color:#6b7280;font-weight:600}
+.panic{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);border-radius:10px;padding:12px;margin-bottom:12px;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}.panic-title{color:#f87171;font-size:13px;font-weight:800;letter-spacing:1px}
+.panic-sub{color:#fca5a5;font-size:11px;margin-top:4px}.bolo{padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.bolo:last-child{border-bottom:none}.bolo-plate{font-size:14px;font-weight:900;font-family:monospace;color:#e2e8f0;letter-spacing:2px}
+.bolo-meta{font-size:10px;color:#6b7280;margin-top:2px}.empty{color:#374151;font-size:12px;text-align:center;padding:16px 0}
+.refresh{color:#374151;font-size:10px;text-align:center;margin-top:16px}.dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;background:#10b981}
+</style></head><body>
+<h1>NYSP MDT</h1><div class="sub">MOBILE VIEWER · LIVE</div>
+<div id="root"><div class="empty">Loading...</div></div>
+<div class="refresh" id="ts">Refreshing...</div>
+<script>
+async function load(){try{
+const r=await fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/presence?session=all');
+const d=await r.json();
+const officers=d.officers||[];const panic=d.panic;
+let html='';
+if(panic){html+='<div class="panic"><div class="panic-title">🚨 PANIC — '+panic.name+'</div><div class="panic-sub">Badge #'+panic.badge+' · Session '+panic.session+'</div></div>';}
+html+='<div class="card"><div class="card-title">Online Officers ('+officers.length+')</div>';
+if(officers.length===0){html+='<div class="empty">No officers online</div>';}
+else{officers.forEach(o=>{html+='<div class="officer"><span class="badge">#'+o.badge+'</span><span class="name">'+o.name+'</span><span class="status">'+o.status+'</span></div>';});}
+html+='</div>';
+document.getElementById('root').innerHTML=html;
+document.getElementById('ts').textContent='Updated '+new Date().toLocaleTimeString();
+}catch(e){document.getElementById('ts').textContent='Connection error — retrying...';}}
+load();setInterval(load,5000);
+</script></body></html>`;
+    _streamServer = http.createServer((req, res) => {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(html);
+    });
+    _streamServer.listen(PORT, '0.0.0.0');
+    return { success: true, ip: localIp, port: PORT };
+});
+
+ipcMain.handle('stop-streaming', async () => {
+    if (_streamServer) { _streamServer.close(); _streamServer = null; }
+    return { success: true };
+});
+
 ipcMain.on('quit-app', () => {
     console.log('[MAIN] quit-app received');
     globalShortcut.unregisterAll();
