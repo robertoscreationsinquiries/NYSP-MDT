@@ -1532,7 +1532,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
         (function() {
             const badge = document.createElement('div');
             const sha = window.APP_COMMIT_SHA || 'dev';
-            badge.textContent = `BETA BUILD - APP V. 0.1.0.9.8  •  ${sha}`;
+            badge.textContent = `BETA BUILD - APP V. 0.1.0.9.C  •  ${sha}`;
             badge.style.cssText = 'position:fixed;bottom:16px;left:44px;font-size:9px;font-weight:700;color:rgba(251,191,36,0.45);letter-spacing:1px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;white-space:nowrap;';
             document.body.appendChild(badge);
             if (window.APP_GITHUB_BRANCH && window.APP_GITHUB_BRANCH !== 'main') {
@@ -1544,7 +1544,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
         })();
 
         function NYSPLookupTool() {
-            const APP_VERSION = '0.1.0.9.8';
+            const APP_VERSION = '0.1.0.9.C';
             const [licensePlate, setLicensePlate] = useState('');
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
@@ -1639,6 +1639,7 @@ const [warrantFlash, setWarrantFlash] = useState(false);
 const [warrantChecking, setWarrantChecking] = useState(false);
 const [callButtonFlash, setCallButtonFlash] = useState(false);
 const [showLoader, setShowLoader] = useState(true);
+const [loaderAutoSkip, setLoaderAutoSkip] = useState(15);
 const [searchUsername, setSearchUsername] = useState('');
 const [searchResults, setSearchResults] = useState(null);
 const [loadingSearch, setLoadingSearch] = useState(false);
@@ -1648,6 +1649,35 @@ const [cooldownTime, setCooldownTime] = useState(0);
 const [currentTime, setCurrentTime] = useState(new Date());
 const [loaderStatus, setLoaderStatus] = useState('INITIALIZING SYSTEM...');
 const [loaderProgress, setLoaderProgress] = useState(0);
+           const [loaderProgress, setLoaderProgress] = useState(0);
+
+React.useEffect(() => {
+    if (!showLoader) return;
+    setLoaderAutoSkip(15);
+    const interval = setInterval(() => {
+        setLoaderAutoSkip(prev => {
+            if (prev <= 1) {
+                clearInterval(interval);
+                // Fire the same logic as clicking ENTER APP
+                setShowLoader(false);
+                setLoaderProgress(100);
+                if (compactMode && window.require) {
+                    try { window.require('electron').ipcRenderer.send('toggle-compact-mode', true); } catch(_) {}
+                }
+                const alreadyAccepted = localStorage.getItem('mdtWelcomeAccepted');
+                if (!alreadyAccepted) setShowWelcomePopup(true);
+                const loadedSoundCount = window.SOUNDS ? Object.keys(window.SOUNDS).length : 0;
+                if (loadedSoundCount < 13) setSoundsOutOfDate(true);
+                if (soundSettings?.StartupSFX && SOUNDS.StartupSFX) {
+                    try { const audio = new Audio(SOUNDS.StartupSFX); audio.volume = 0.5; audio.play().catch(() => {}); } catch(e) {}
+                }
+                return 0;
+            }
+            return prev - 1;
+        });
+    }, 1000);
+    return () => clearInterval(interval);
+}, [showLoader]);
 const [loaderChecks, setLoaderChecks] = React.useState([
     { label: 'LIBRARIES',      status: 'pending', result: '-' },
     { label: 'SETTINGS',       status: 'pending', result: '-' },
@@ -3232,7 +3262,8 @@ useEffect(() => {
         setLoaderProgress(100);
         setLoaderStatus('System ready');
         
-        // Loader stays open - user must click ENTER APP
+// Loader stays open - user must click ENTER APP — auto-skips after 15s         
+       setLoaderAutoSkip(15);
         setLoaderStatus('SYSTEM READY');
     };
 
@@ -3444,6 +3475,23 @@ const FAQ_DATA = [
 
 
 const updateLogsData = [
+      {
+        title: "CAD SYSTEM - BOLOs!",
+        version: "0.1.0.9.C",
+        release_date: "04/16/2026",
+        description: "Fixes for loading screen",
+        new: [
+        ],
+        bugs: [
+            'FIXED the loading screen not skipping automatically after 15 seconds.',
+        ],
+        modifications: [
+        ],
+        removed: [
+        ],
+        planned: [
+        ]
+    },
     {
         title: "CAD SYSTEM - BOLOs!",
         version: "0.1.0.9.8",
@@ -10070,7 +10118,8 @@ return (
         {/* Bottom bar */}
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '14px 28px', borderTop: '1px solid rgba(59,130,246,0.08)' }}>
             <button
-                onClick={() => {
+onClick={() => {
+                    setLoaderAutoSkip(0);
                     setShowLoader(false);
                     setLoaderProgress(100);
                     if (compactMode && window.require) {
@@ -10088,8 +10137,9 @@ return (
                 onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.18)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)'; e.currentTarget.style.color = '#fff'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.08)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.2)'; e.currentTarget.style.color = '#60a5fa'; }}
             >
-                ENTER APP
+ENTER APP
                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                <span style={{ marginLeft: '4px', opacity: 0.5, fontSize: '10px', fontWeight: '400' }}>({loaderAutoSkip})</span>
             </button>
         </div>
     </div>
