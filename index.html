@@ -1796,6 +1796,9 @@ const [headerShadow, setHeaderShadow] = useState(false);
 const [nightMode, setNightMode] = useState(false);
 const [showUsefulLinks, setShowUsefulLinks] = useState(false);
 const [selectedDepartment, setSelectedDepartment] = useState(null);
+const [streamingActive, setStreamingActive] = useState(false);
+const [streamingAddress, setStreamingAddress] = useState('');
+const [streamingCooldown, setStreamingCooldown] = useState(false);
 const isDispatcher = (trooperSettings?.Department || selectedDepartment) === 'DISPATCHER';
 const [maintenanceActive, setMaintenanceActive] = React.useState(false);
 const [lastMaintenanceCheck, setLastMaintenanceCheck] = React.useState(Date.now());
@@ -12124,6 +12127,42 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                 <div style={S.sectionHead('#6ee7b7')}>🗄️ Hotkeys & Keybinds</div>
                                 <div style={S.sectionSub}>Configure keyboard shortcuts - conflicts are blocked automatically</div>
                                 <ToggleRow label="Panic Button" desc="Enables the panic button hotkey system. AUTOHOTKEY APPLICATION REQUIRED!" on={panicEnabled} accent="#ef4444" onToggle={() => setPanicEnabled(v => !v)} />
+
+                                {/* Streaming — not exportable */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', marginBottom: '8px' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700' }}>Start Streaming</div>
+                                            <span style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', color: '#6b7280', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', padding: '2px 6px' }}>NOT EXPORTED</span>
+                                        </div>
+                                        <div style={{ color: '#4b5563', fontSize: '11px', marginTop: '3px' }}>
+                                            {streamingActive && streamingAddress
+                                                ? <span>Access on your phone: <span style={{ fontFamily: 'monospace', color: '#60a5fa', fontWeight: '700' }}>{streamingAddress}</span></span>
+                                                : 'View CAD live on your phone via local WiFi'}
+                                        </div>
+                                    </div>
+                                    <button
+                                        disabled={streamingCooldown}
+                                        onClick={async () => {
+                                            if (streamingCooldown) return;
+                                            setStreamingCooldown(true);
+                                            setTimeout(() => setStreamingCooldown(false), 15000);
+                                            if (!streamingActive) {
+                                                const result = await window.electron?.invoke('start-streaming');
+                                                if (result?.success) {
+                                                    setStreamingActive(true);
+                                                    setStreamingAddress(`http://${result.ip}:${result.port}`);
+                                                }
+                                            } else {
+                                                await window.electron?.invoke('stop-streaming');
+                                                setStreamingActive(false);
+                                                setStreamingAddress('');
+                                            }
+                                        }}
+                                        style={{ flexShrink: 0, marginLeft: '16px', padding: '8px 16px', background: streamingCooldown ? 'rgba(75,85,99,0.2)' : streamingActive ? 'linear-gradient(135deg, rgba(239,68,68,0.2), rgba(220,38,38,0.1))' : 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(5,150,105,0.1))', border: `1px solid ${streamingCooldown ? 'rgba(75,85,99,0.3)' : streamingActive ? 'rgba(239,68,68,0.35)' : 'rgba(16,185,129,0.35)'}`, borderRadius: '8px', color: streamingCooldown ? '#4b5563' : streamingActive ? '#fca5a5' : '#6ee7b7', fontSize: '11px', fontWeight: '700', cursor: streamingCooldown ? 'not-allowed' : 'pointer', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>
+                                        {streamingCooldown ? '⏳ COOLDOWN' : streamingActive ? 'STOP' : 'START'}
+                                    </button>
+                                </div>
 {panicEnabled && (
     <React.Fragment>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '9px', marginBottom: '7px' }}>
@@ -12596,16 +12635,12 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                             stopAlertSound();
                             const newSession = e.target.value;
                             setSelectedUserSession(newSession);
-                            // Auto-dismiss calls older than 30 minutes
-                            if (newSession) {
+                            if (newSession && window._currentCalls) {
                                 const cutoff = Date.now() - 30 * 60 * 1000;
-                                setCurrentCalls(prev => {
-                                    const old = (prev || []).filter(c => new Date(c.timestamp).getTime() < cutoff);
-                                    if (old.length > 0) {
-                                        setAcknowledgedCalls(a => [...new Set([...a, ...old.map(c => c.id)])]);
-                                    }
-                                    return prev;
-                                });
+                                const oldIds = window._currentCalls
+                                    .filter(c => new Date(c.timestamp).getTime() < cutoff)
+                                    .map(c => c.id);
+                                if (oldIds.length > 0) setAcknowledgedCalls(a => [...new Set([...a, ...oldIds])]);
                             }
                             addLog('✅ Session updated', 'success');
                         }}
