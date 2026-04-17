@@ -1796,7 +1796,7 @@ const [headerShadow, setHeaderShadow] = useState(false);
 const [nightMode, setNightMode] = useState(false);
 const [showUsefulLinks, setShowUsefulLinks] = useState(false);
 const [selectedDepartment, setSelectedDepartment] = useState(null);
-const [mapZoom, setMapZoom] = useState(1);
+const [mapZoom, setMapZoom] = useState(2);
 const [mapOffset, setMapOffset] = useState({ x: 0, y: 0 });
 const [mapDragging, setMapDragging] = useState(false);
 const [mapDragStart, setMapDragStart] = useState(null);
@@ -3188,6 +3188,7 @@ console.log('[BACKEND DATA OFFICER]: Panic data:', d.panic ? `badge=${d.panic.ba
                             activePanicRef.current = d.panic;
                             setActivePanic(d.panic);
                             setPanicFlickerOfficer(d.panic.badge);
+                            logActivity(`DAPS registered officer in need of assistance · Badge #${d.panic.badge}`);
                             setTimeout(() => { setPanicFlickerOfficer(null); }, 25000);
                         }
                     } else if (!d.panic) {
@@ -4753,6 +4754,10 @@ React.useEffect(() => {
                             setTimeout(() => setCallButtonFlash(false), 10000);
                         }
                         addLog(`🚨 ${newCallIds.length} new call(s) detected`, 'info');
+                        newCallIds.forEach(c => {
+                            const author = c.author?.username || c.content?.split('\n')?.[0]?.slice(0,30) || 'Unknown';
+                            logActivity(`Received call placed by ${author}`);
+                        });
                     }
                 }
 
@@ -6712,7 +6717,8 @@ if (parseFailedButVehicleExists) {
 const finalDiscordUserId = regData.discordUserId || 'Unknown';
 console.log('👤 [SEARCH] Final Discord ID for member lookup:', finalDiscordUserId);
 
-setShiftPlateSearches(prev => [...prev, {
+logActivity(`Plate searched → ${searchedPlate} · FOUND`);
+                setShiftPlateSearches(prev => [...prev, {
                     plate: searchedPlate,
                     timestamp: new Date().toLocaleString(),
                     found: true,
@@ -10768,7 +10774,7 @@ return (
     <div style={{ position: 'fixed', top: 0, left: '36px', right: 0, bottom: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#07090f', zIndex: 1 }}>
 
         {/* ── TOP BAR ── */}
-        <div style={{ display: 'flex', alignItems: 'center', background: 'linear-gradient(180deg, #0c1220, #0a0f1a)', borderBottom: '1px solid rgba(59,130,246,0.18)', flexShrink: 0, height: '44px', paddingLeft: '10px', paddingRight: '10px', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', background: 'linear-gradient(180deg, #0d1628, #0a1020)', borderBottom: '2px solid rgba(59,130,246,0.3)', flexShrink: 0, height: '56px', paddingLeft: '14px', paddingRight: '14px', gap: '8px' }}>
             {/* Left: session/officer info */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0, overflow: 'hidden' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '5px 11px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.22)', borderRadius: '6px', flexShrink: 0 }}>
@@ -10808,7 +10814,7 @@ return (
                                 else if (isHistory) { setShowHistoryPanel(p => !p); setShowDataPanel(false); setShowOfficersPanel(false); }
                                 else { setActiveView(item.key); if (item.key === 'calls') setCallButtonFlash(false); }
                             }}
-                            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', height: '32px', background: item.flash ? 'linear-gradient(135deg,#ef4444,#dc2626)' : item.accent ? 'linear-gradient(135deg,#1d4ed8,#1e3a8a)' : active ? 'rgba(59,130,246,0.14)' : 'transparent', border: item.flash ? '1px solid #991b1b' : item.accent ? '1px solid rgba(59,130,246,0.5)' : active ? '1px solid rgba(59,130,246,0.3)' : '1px solid transparent', borderRadius: '6px', color: item.disabled ? '#1f2937' : item.flash ? 'white' : item.accent ? '#93c5fd' : active ? '#60a5fa' : '#6b7280', fontSize: '10px', fontWeight: '700', cursor: item.disabled ? 'not-allowed' : 'pointer', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.15s', whiteSpace: 'nowrap', animation: item.flash ? 'flash-red 1.5s infinite' : 'none', opacity: item.disabled ? 0.4 : 1 }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', height: '40px', background: item.flash ? 'linear-gradient(135deg,#ef4444,#dc2626)' : item.accent ? 'linear-gradient(135deg,#1d4ed8,#1e3a8a)' : active ? 'rgba(59,130,246,0.14)' : 'transparent', border: item.flash ? '1px solid #991b1b' : item.accent ? '1px solid rgba(59,130,246,0.5)' : active ? '1px solid rgba(59,130,246,0.3)' : '1px solid transparent', borderRadius: '6px', color: item.disabled ? '#1f2937' : item.flash ? 'white' : item.accent ? '#93c5fd' : active ? '#60a5fa' : '#6b7280', fontSize: '11px', fontWeight: '700', cursor: item.disabled ? 'not-allowed' : 'pointer', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.15s', whiteSpace: 'nowrap', animation: item.flash ? 'flash-red 1.5s infinite' : 'none', opacity: item.disabled ? 0.4 : 1 }}
                             onMouseEnter={e => { if (!item.disabled && !item.flash && !item.accent && !active) { e.currentTarget.style.background = 'rgba(59,130,246,0.07)'; e.currentTarget.style.color = '#93c5fd'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.18)'; }}}
                             onMouseLeave={e => { if (!item.disabled && !item.flash && !item.accent && !active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#6b7280'; e.currentTarget.style.borderColor = 'transparent'; }}}>
                             <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -10835,13 +10841,13 @@ return (
                     src="https://raw.githubusercontent.com/robertoscreationsinquiries/NYSP-MDT/main/MAPRC1.0.png"
                     alt="MAP"
                     draggable={false}
-                    style={{ transform: `translate(${mapOffset.x}px, ${mapOffset.y}px) scale(${mapZoom})`, transformOrigin: 'center center', maxWidth: 'none', width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none', transition: mapDragging ? 'none' : 'transform 0.05s' }}
+                    style={{ transform: `translate(${mapOffset.x}px, ${mapOffset.y}px) scale(${mapZoom})`, transformOrigin: 'center center', maxWidth: 'none', width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none', transition: mapDragging ? 'none' : 'transform 0.05s' }}
                 />
             </div>
 
             {/* Map controls */}
             <div style={{ position: 'absolute', top: '12px', right: '12px', display: 'flex', flexDirection: 'column', gap: '3px', zIndex: 10 }}>
-                {[{l:'+',fn:()=>setMapZoom(z=>Math.min(4,z+0.25))},{l:'−',fn:()=>setMapZoom(z=>Math.max(0.3,z-0.25))},{l:'⊙',fn:()=>{setMapZoom(1);setMapOffset({x:0,y:0});}}].map((b,i)=>(
+                {[{l:'+',fn:()=>setMapZoom(z=>Math.min(4,z+0.25))},{l:'−',fn:()=>setMapZoom(z=>Math.max(0.3,z-0.25))},{l:'⊙',fn:()=>{setMapZoom(2);setMapOffset({x:0,y:0});}}].map((b,i)=>(
                     <button key={i} onClick={b.fn} style={{ width:'30px',height:'30px',background:'rgba(8,12,22,0.88)',border:'1px solid rgba(59,130,246,0.28)',borderRadius:'6px',color:'#60a5fa',fontSize:i===2?'13px':'17px',fontWeight:'700',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(8px)',transition:'all 0.15s',lineHeight:1 }}
                         onMouseEnter={e=>{e.currentTarget.style.background='rgba(59,130,246,0.18)';e.currentTarget.style.borderColor='rgba(59,130,246,0.5)';}}
                         onMouseLeave={e=>{e.currentTarget.style.background='rgba(8,12,22,0.88)';e.currentTarget.style.borderColor='rgba(59,130,246,0.28)';}}>{b.l}</button>
@@ -10853,18 +10859,12 @@ return (
                 {Math.round(mapZoom*100)}%
             </div>
 
-            {/* Session live badge */}
-            {selectedUserSession && (
-                <div style={{ position:'absolute',bottom:'12px',left:'12px',padding:'5px 11px',background:'rgba(8,12,22,0.88)',border:'1px solid rgba(59,130,246,0.22)',borderRadius:'6px',backdropFilter:'blur(8px)',display:'flex',alignItems:'center',gap:'6px' }}>
-                    <div style={{ width:'5px',height:'5px',borderRadius:'50%',background:'#10b981',boxShadow:'0 0 6px rgba(16,185,129,0.8)',animation:'pulse 2s infinite' }} />
-                    <span style={{ color:'#6ee7b7',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px' }}>LIVE · SESSION {selectedUserSession==='1011898104670330920'?'1':selectedUserSession==='1390212294478397471'?'2':selectedUserSession==='1390212341005680650'?'3':'WL'}</span>
-                </div>
-            )}
+            
         </div>
 
         {/* ── DATA PANEL ── */}
         {showDataPanel && (
-            <div style={{ position:'absolute',top:'44px',right:0,bottom:0,width:'320px',background:'rgba(7,9,15,0.97)',borderLeft:'1px solid rgba(59,130,246,0.18)',zIndex:50,overflowY:'auto',backdropFilter:'blur(16px)',animation:'fadeIn 0.15s ease-out' }}>
+            <div style={{ position:'absolute',top:'56px',right:0,bottom:0,width:'320px',background:'rgba(7,9,15,0.97)',borderLeft:'1px solid rgba(59,130,246,0.18)',zIndex:50,overflowY:'auto',backdropFilter:'blur(16px)',animation:'fadeIn 0.15s ease-out' }}>
                 <div style={{ padding:'14px' }}>
                     <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px' }}>
                         <span style={{ color:'#60a5fa',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>DATA</span>
@@ -10922,10 +10922,15 @@ return (
 
         {/* ── OFFICERS PANEL ── */}
         {showOfficersPanel && (
-            <div style={{ position:'absolute',top:'44px',right:0,bottom:0,width:'320px',background:'rgba(7,9,15,0.97)',borderLeft:'1px solid rgba(59,130,246,0.18)',zIndex:50,overflowY:'auto',backdropFilter:'blur(16px)',animation:'fadeIn 0.15s ease-out' }}>
+            <div style={{ position:'absolute',top:'56px',right:0,bottom:0,width:'320px',background:'rgba(7,9,15,0.97)',borderLeft:'1px solid rgba(59,130,246,0.18)',zIndex:50,overflowY:'auto',backdropFilter:'blur(16px)',animation:'fadeIn 0.15s ease-out' }}>
                 <div style={{ padding:'14px' }}>
                     <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px' }}>
+                        <div>
                         <span style={{ color:'#60a5fa',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>AVAILABLE OFFICERS</span>
+                        <div style={{ color:'#1f2937',fontSize:'9px',marginTop:'2px',fontFamily:'monospace' }}>
+                            {officerNextUpdate ? `Updating at ${officerNextUpdate.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'})}` : 'Pending sync...'}
+                        </div>
+                    </div>
                         <button onClick={()=>setShowOfficersPanel(false)} style={{ background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'5px',color:'#f87171',cursor:'pointer',width:'24px',height:'24px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px' }}>✕</button>
                     </div>
                     {/* Status selector */}
@@ -10942,15 +10947,24 @@ return (
                             const isMe = String(o.badge) === String(trooperSettings?.BadgeID);
                             const isPanic = panicFlickerOfficer === o.badge || activePanic?.badge === o.badge;
                             return (
-                                <div key={i} className={isPanic ? (panicFlickerOfficer === o.badge ? 'panic-officer' : 'panic-officer-steady') : ''} style={{ display:'flex',alignItems:'center',gap:'8px',padding:'9px 11px',background:isMe?'rgba(16,185,129,0.07)':'rgba(255,255,255,0.02)',border:`1px solid ${isMe?'rgba(16,185,129,0.2)':'rgba(255,255,255,0.05)'}`,borderRadius:'8px',transition:'all 0.3s' }}>
-                                    <div style={{ width:'28px',height:'28px',borderRadius:'7px',background:isMe?'linear-gradient(135deg,#059669,#10b981)':'rgba(59,130,246,0.12)',border:`1px solid ${isMe?'rgba(16,185,129,0.4)':'rgba(59,130,246,0.2)'}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0 }}>
-                                        <span style={{ color:isMe?'white':'#60a5fa',fontSize:'10px',fontWeight:'800',fontFamily:'monospace' }}>#{o.badge}</span>
+                                <div key={i} className={isPanic ? (panicFlickerOfficer === o.badge ? 'panic-officer' : 'panic-officer-steady') : ''} style={{ padding:'10px 12px',background:isMe?'rgba(16,185,129,0.07)':'rgba(255,255,255,0.02)',border:`1px solid ${isMe?'rgba(16,185,129,0.2)':'rgba(255,255,255,0.05)'}`,borderRadius:'9px',transition:'all 0.3s',position:'relative',overflow:'hidden' }}>
+                                    {isMe && <div style={{ position:'absolute',left:0,top:0,bottom:0,width:'3px',background:'linear-gradient(180deg,#059669,#10b981)',borderRadius:'3px 0 0 3px' }} />}
+                                    {/* Row 1: callsign + status */}
+                                    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'5px' }}>
+                                        <div style={{ display:'flex',alignItems:'center',gap:'6px' }}>
+                                            <span style={{ color:isMe?'#6ee7b7':'#93c5fd',fontSize:'14px',fontWeight:'900',letterSpacing:'1px',fontFamily:'monospace' }}>{o.callSign||'—'}</span>
+                                            {isMe && <span style={{ fontSize:'8px',fontWeight:'700',color:'#10b981',background:'rgba(16,185,129,0.1)',border:'1px solid rgba(16,185,129,0.2)',borderRadius:'3px',padding:'1px 5px',letterSpacing:'1px' }}>YOU</span>}
+                                        </div>
+                                        <span style={{ fontSize:'9px',fontWeight:'700',letterSpacing:'0.5px',padding:'3px 8px',borderRadius:'4px',background:o.status==='10-9'?'rgba(16,185,129,0.1)':o.status==='10-10'?'rgba(239,68,68,0.1)':'rgba(245,158,11,0.1)',color:o.status==='10-9'?'#10b981':o.status==='10-10'?'#ef4444':'#f59e0b',border:`1px solid ${o.status==='10-9'?'rgba(16,185,129,0.25)':o.status==='10-10'?'rgba(239,68,68,0.25)':'rgba(245,158,11,0.25)'}` }}>{o.status}</span>
                                     </div>
-                                    <div style={{ flex:1,minWidth:0 }}>
-                                        <div style={{ color:isMe?'#6ee7b7':'#e2e8f0',fontSize:'11px',fontWeight:'700',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{o.callSign||o.name}</div>
-                                        <div style={{ color:'#374151',fontSize:'9px',fontWeight:'600',marginTop:'1px' }}>Zone {o.zone||'—'}</div>
+                                    {/* Row 2: name */}
+                                    <div style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'600',marginBottom:'4px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{o.name||'Unknown'}</div>
+                                    {/* Row 3: badge + zone */}
+                                    <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
+                                        <span style={{ color:'#374151',fontSize:'9px',fontWeight:'700',fontFamily:'monospace' }}>#{o.badge}</span>
+                                        <span style={{ width:'3px',height:'3px',borderRadius:'50%',background:'#1f2937',flexShrink:0 }} />
+                                        <span style={{ color:'#374151',fontSize:'9px',fontWeight:'600' }}>Zone {o.zone||'—'}</span>
                                     </div>
-                                    <span style={{ fontSize:'9px',fontWeight:'700',letterSpacing:'0.5px',padding:'2px 7px',borderRadius:'4px',background:o.status==='10-9'?'rgba(16,185,129,0.1)':o.status==='10-10'?'rgba(239,68,68,0.1)':'rgba(245,158,11,0.1)',color:o.status==='10-9'?'#10b981':o.status==='10-10'?'#ef4444':'#f59e0b',border:`1px solid ${o.status==='10-9'?'rgba(16,185,129,0.25)':o.status==='10-10'?'rgba(239,68,68,0.25)':'rgba(245,158,11,0.25)'}` }}>{o.status}</span>
                                 </div>
                             );
                         })}
@@ -10961,7 +10975,7 @@ return (
 
     {/* ── HISTORY PANEL ── */}
         {showHistoryPanel && (
-            <div style={{ position:'absolute',top:'44px',right:0,bottom:0,width:'360px',background:'rgba(7,9,15,0.97)',borderLeft:'1px solid rgba(59,130,246,0.18)',zIndex:50,display:'flex',flexDirection:'column',backdropFilter:'blur(16px)',animation:'fadeIn 0.15s ease-out' }}>
+            <div style={{ position:'absolute',top:'56px',right:0,bottom:0,width:'360px',background:'rgba(7,9,15,0.97)',borderLeft:'1px solid rgba(59,130,246,0.18)',zIndex:50,display:'flex',flexDirection:'column',backdropFilter:'blur(16px)',animation:'fadeIn 0.15s ease-out' }}>
                 <div style={{ padding:'14px',borderBottom:'1px solid rgba(59,130,246,0.1)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
                     <span style={{ color:'#60a5fa',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>ACTIVITY HISTORY</span>
                     <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
@@ -12830,6 +12844,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                         <button 
                                             onClick={() => {
                                                 if (!isAcknowledged) {
+                                                    logActivity(`Call placed by ${call.author || 'Unknown'} was acknowledged`);
                                                     setAcknowledgedCalls([...acknowledgedCalls, call.id]);
                                                     if (shiftStartTime && !shiftEndTime) setShiftAcknowledgedCount(p => p + 1);
                                                     stopAlertSound();
@@ -12875,6 +12890,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                             onClick={() => {
                                                 const remainingCalls = calls.filter(c => c.id !== call.id);
                                                 const hasUnackedRemaining = remainingCalls.some(c => !acknowledgedCallsRef.current.includes(c.id));
+                                                logActivity(`Call placed by ${call.author || 'Unknown'} was dismissed`);
                                                 setDismissedCalls([...dismissedCalls, call.id]);
                                                 if (shiftStartTime && !shiftEndTime) setShiftDismissedCount(p => p + 1);
                                                 setCalls(remainingCalls);
