@@ -10489,65 +10489,75 @@ return (
 {!maintenanceActive && !showUpdateScreen && !showLoginScreen && !showLoader && (
         <div className="app-container">
 
-        {/* ══════════════════════════════════════════════════
-            UNIVERSAL TOP BAR — visible across ALL views
-            ══════════════════════════════════════════════════ */}
-        <div style={{ position:'fixed',top:0,left:0,right:0,height:'48px',display:'flex',alignItems:'center',background:'linear-gradient(180deg,#0d1628,#0a1020)',borderBottom:'1px solid rgba(59,130,246,0.2)',zIndex:9000,paddingLeft:'12px',paddingRight:'12px',gap:'4px',flexShrink:0 }}>
-            {/* HOME — highlighted */}
-            <button onClick={()=>{ setActiveView('home'); setHomeSubView('dashboard'); }}
-                style={{ display:'flex',alignItems:'center',gap:'5px',padding:'5px 12px',height:'34px',background:activeView==='home'?'linear-gradient(135deg,rgba(59,130,246,0.25),rgba(37,99,235,0.15))':'rgba(59,130,246,0.06)',border:activeView==='home'?'1px solid rgba(59,130,246,0.5)':'1px solid rgba(59,130,246,0.2)',borderRadius:'6px',color:activeView==='home'?'#93c5fd':'#4b5563',fontSize:'10px',fontWeight:'800',cursor:'pointer',letterSpacing:'1px',textTransform:'uppercase',transition:'all 0.15s',flexShrink:0 }}
-                onMouseEnter={e=>{ if(activeView!=='home'){e.currentTarget.style.background='rgba(59,130,246,0.12)';e.currentTarget.style.color='#60a5fa';} }}
-                onMouseLeave={e=>{ if(activeView!=='home'){e.currentTarget.style.background='rgba(59,130,246,0.06)';e.currentTarget.style.color='#4b5563';} }}>
-                <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+{/* ══ UNIVERSAL TOP BAR ══ */}
+        <div style={{ position:'fixed',top:0,left:0,right:0,height:'48px',display:'flex',alignItems:'center',background:'linear-gradient(180deg,#0c1422 0%,#0a1018 100%)',borderBottom:'1px solid rgba(59,130,246,0.15)',zIndex:9000,paddingLeft:'10px',paddingRight:'12px',gap:'2px' }}>
+
+            {/* NYSP MDT shield logo */}
+            <div style={{ display:'flex',alignItems:'center',gap:'8px',paddingRight:'10px',borderRight:'1px solid rgba(59,130,246,0.12)',marginRight:'4px',flexShrink:0 }}>
+                <div style={{ width:'28px',height:'28px',background:'linear-gradient(135deg,#1e3a8a,#3b82f6)',borderRadius:'6px',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 0 8px rgba(59,130,246,0.3)' }}>
+                    <svg width="14" height="14" fill="white" viewBox="0 0 24 24"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/></svg>
+                </div>
+                <div>
+                    <div style={{ color:'white',fontSize:'11px',fontWeight:'900',letterSpacing:'2px',lineHeight:1 }}>NYSP</div>
+                    <div style={{ color:'#374151',fontSize:'8px',fontWeight:'600',letterSpacing:'1px' }}>MDT v0.2</div>
+                </div>
+            </div>
+
+            {/* HOME — special highlight */}
+            <button onClick={()=>{setActiveView('home');setHomeSubView('dashboard');}}
+                style={{ display:'flex',alignItems:'center',gap:'5px',padding:'0 10px',height:'32px',background:activeView==='home'&&homeSubView==='dashboard'?'linear-gradient(135deg,rgba(59,130,246,0.3),rgba(37,99,235,0.2))':'transparent',border:activeView==='home'&&homeSubView==='dashboard'?'1px solid rgba(59,130,246,0.55)':'1px solid transparent',borderRadius:'5px',color:activeView==='home'&&homeSubView==='dashboard'?'#93c5fd':'#6b7280',fontSize:'10px',fontWeight:'800',cursor:'pointer',letterSpacing:'0.5px',transition:'all 0.15s',flexShrink:0,textTransform:'uppercase' }}
+                onMouseEnter={e=>{if(!(activeView==='home'&&homeSubView==='dashboard')){e.currentTarget.style.background='rgba(59,130,246,0.1)';e.currentTarget.style.color='#93c5fd';}}}
+                onMouseLeave={e=>{if(!(activeView==='home'&&homeSubView==='dashboard')){e.currentTarget.style.background='transparent';e.currentTarget.style.color='#6b7280';}}}>
+                <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                 HOME
             </button>
-            <div style={{ width:'1px',height:'20px',background:'rgba(59,130,246,0.15)',flexShrink:0,marginLeft:'2px',marginRight:'2px' }} />
-            {/* Other nav tabs */}
+
+            {/* Nav tabs — icon + short label */}
             {[
-                {l:'MAP',k:'map',icon:'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7',mapKey:true},
-                {l:'SCAN PLATE',k:'search',icon:'M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4'},
-                {l:'ID LOOKUP',k:'database-search',icon:'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'},
-                {l:'CALLS',k:'calls',flash:callButtonFlash,icon:'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9'},
+                {l:'MAP',    k:'map',     mapKey:true,  icon:'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7'},
+                {l:'PLATES', k:'search',  icon:'M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4'},
+                {l:'CITIZENS',k:'database-search',icon:'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'},
+                {l:'CALLS',  k:'calls',   flash:callButtonFlash, icon:'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9'},
+                {l:'OFFICERS',k:'officers',disabled:!selectedUserSession,panel:true,icon:'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'},
+                {l:'HISTORY',k:'hist',    panel:true,   icon:'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'},
                 {l:'SETTINGS',k:'settings',icon:'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z',circle:'12 12 3'},
-                {l:'OFFICERS',k:'officers',disabled:!selectedUserSession,icon:'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'},
-                {l:'HISTORY',k:'hist',icon:'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'},
-                {l:'DATA',k:'data',icon:'M4 6h16M4 10h16M4 14h16M4 18h16'},
             ].map((item,i)=>{
-                const isMapBtn=item.mapKey;
-                const isPanelBtn=item.k==='officers'||item.k==='hist'||item.k==='data';
-                const isActive=isMapBtn?(activeView==='home'&&homeSubView==='map'):isPanelBtn?(item.k==='officers'?showOfficersPanel:item.k==='hist'?showHistoryPanel:showDataPanel):(activeView===item.k);
+                const isActive = item.mapKey ? (activeView==='home'&&homeSubView==='map') :
+                    item.panel ? (item.k==='officers'?showOfficersPanel:item.k==='hist'?showHistoryPanel:showDataPanel) :
+                    activeView===item.k;
                 return (
                     <button key={i} disabled={!!item.disabled}
+                        title={item.l}
                         onClick={()=>{
                             if(item.disabled) return;
-                            if(isMapBtn){ setActiveView('home'); setHomeSubView(v=>v==='map'?'dashboard':'map'); setShowDataPanel(false); setShowOfficersPanel(false); setShowHistoryPanel(false); }
-                            else if(item.k==='officers'){ setShowOfficersPanel(p=>!p); setShowDataPanel(false); setShowHistoryPanel(false); if(activeView!=='home') setActiveView('home'); }
-                            else if(item.k==='hist'){ setShowHistoryPanel(p=>!p); setShowDataPanel(false); setShowOfficersPanel(false); if(activeView!=='home') setActiveView('home'); }
-                            else if(item.k==='data'){ setShowDataPanel(p=>!p); setShowOfficersPanel(false); setShowHistoryPanel(false); if(activeView!=='home') setActiveView('home'); }
-                            else{ setActiveView(item.k); if(item.k==='calls')setCallButtonFlash(false); setHomeSubView('dashboard'); }
+                            if(item.mapKey){ setActiveView('home'); setHomeSubView(v=>v==='map'?'dashboard':'map'); setShowDataPanel(false); setShowOfficersPanel(false); setShowHistoryPanel(false); }
+                            else if(item.k==='officers'){ setShowOfficersPanel(p=>!p); setShowDataPanel(false); setShowHistoryPanel(false); if(activeView!=='home')setActiveView('home'); }
+                            else if(item.k==='hist'){ setShowHistoryPanel(p=>!p); setShowDataPanel(false); setShowOfficersPanel(false); if(activeView!=='home')setActiveView('home'); }
+                            else{ setActiveView(item.k); if(item.k==='calls')setCallButtonFlash(false); if(item.k!=='home')setHomeSubView('dashboard'); }
                         }}
-                        style={{ display:'flex',alignItems:'center',gap:'5px',padding:'5px 10px',height:'34px',background:item.flash?'linear-gradient(135deg,#ef4444,#dc2626)':isActive?'rgba(59,130,246,0.14)':'transparent',border:item.flash?'1px solid #991b1b':isActive?'1px solid rgba(59,130,246,0.28)':'1px solid transparent',borderRadius:'6px',color:item.disabled?'#1f2937':item.flash?'white':isActive?'#60a5fa':'#6b7280',fontSize:'10px',fontWeight:'700',cursor:item.disabled?'not-allowed':'pointer',letterSpacing:'1px',textTransform:'uppercase',transition:'all 0.15s',whiteSpace:'nowrap',animation:item.flash?'flash-red 1.5s infinite':'none',opacity:item.disabled?0.4:1 }}
-                        onMouseEnter={e=>{ if(!item.disabled&&!item.flash&&!isActive){e.currentTarget.style.background='rgba(59,130,246,0.07)';e.currentTarget.style.color='#93c5fd';e.currentTarget.style.borderColor='rgba(59,130,246,0.15)';} }}
-                        onMouseLeave={e=>{ if(!item.disabled&&!item.flash&&!isActive){e.currentTarget.style.background='transparent';e.currentTarget.style.color='#6b7280';e.currentTarget.style.borderColor='transparent';} }}>
-                        <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        style={{ display:'flex',alignItems:'center',gap:'5px',padding:'0 9px',height:'32px',background:item.flash?'rgba(239,68,68,0.2)':isActive?'rgba(59,130,246,0.14)':'transparent',border:item.flash?'1px solid rgba(239,68,68,0.5)':isActive?'1px solid rgba(59,130,246,0.3)':'1px solid transparent',borderRadius:'5px',color:item.disabled?'#1f2937':item.flash?'#fca5a5':isActive?'#93c5fd':'#6b7280',fontSize:'10px',fontWeight:'700',cursor:item.disabled?'not-allowed':'pointer',letterSpacing:'0.5px',textTransform:'uppercase',transition:'all 0.15s',whiteSpace:'nowrap',animation:item.flash?'flash-red 1.5s infinite':'none',opacity:item.disabled?0.35:1 }}
+                        onMouseEnter={e=>{ if(!item.disabled&&!item.flash&&!isActive){e.currentTarget.style.background='rgba(59,130,246,0.08)';e.currentTarget.style.color='#93c5fd';} }}
+                        onMouseLeave={e=>{ if(!item.disabled&&!item.flash&&!isActive){e.currentTarget.style.background='transparent';e.currentTarget.style.color='#6b7280';} }}>
+                        <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             {item.circle?<><path d={item.icon}/><circle cx={item.circle.split(' ')[0]} cy={item.circle.split(' ')[1]} r={item.circle.split(' ')[2]}/></>:<path d={item.icon}/>}
                         </svg>
                         {item.l}
                     </button>
                 );
             })}
-            {/* Right: session pill */}
-            <div style={{ marginLeft:'auto',display:'flex',alignItems:'center',gap:'8px',flexShrink:0 }}>
-                <div style={{ display:'flex',alignItems:'center',gap:'6px',padding:'4px 10px',background:'rgba(59,130,246,0.06)',border:'1px solid rgba(59,130,246,0.18)',borderRadius:'5px' }}>
-                    <div style={{ width:'5px',height:'5px',borderRadius:'50%',background:selectedUserSession?'#10b981':'#ef4444',boxShadow:selectedUserSession?'0 0 4px rgba(16,185,129,0.7)':'0 0 4px rgba(239,68,68,0.7)',animation:selectedUserSession?'pulse 2s infinite':'none' }} />
-                    <span style={{ color:'#93c5fd',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',whiteSpace:'nowrap' }}>
-                        {selectedUserSession?`SESSION ${selectedUserSession==='1011898104670330920'?'1':selectedUserSession==='1390212294478397471'?'2':selectedUserSession==='1390212341005680650'?'3':'WL'}`:'NO SESSION'}
+
+            {/* Right side: session + officer */}
+            <div style={{ marginLeft:'auto',display:'flex',alignItems:'center',gap:'8px',paddingLeft:'8px',borderLeft:'1px solid rgba(59,130,246,0.1)',flexShrink:0 }}>
+                <div style={{ display:'flex',alignItems:'center',gap:'5px' }}>
+                    <div style={{ width:'5px',height:'5px',borderRadius:'50%',background:selectedUserSession?'#10b981':'#ef4444',boxShadow:selectedUserSession?'0 0 5px rgba(16,185,129,0.8)':'0 0 5px rgba(239,68,68,0.8)',animation:selectedUserSession?'pulse 2s infinite':'none' }} />
+                    <span style={{ color:'#4b5563',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase' }}>
+                        {selectedUserSession?`SES ${selectedUserSession==='1011898104670330920'?'1':selectedUserSession==='1390212294478397471'?'2':selectedUserSession==='1390212341005680650'?'3':'WL'}`:'NO SES'}
                     </span>
                 </div>
-                <span style={{ color:'#374151',fontSize:'9px',fontWeight:'600',whiteSpace:'nowrap' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName} · #{trooperSettings?.BadgeID}</span>
+                <div style={{ width:'1px',height:'16px',background:'rgba(59,130,246,0.1)' }} />
+                <span style={{ color:'#374151',fontSize:'9px',fontWeight:'600' }}>{trooperSettings?.FirstName?.[0]}. {trooperSettings?.LastName} <span style={{ color:'#1f2937' }}>#{trooperSettings?.BadgeID}</span></span>
             </div>
         </div>
-        {/* Spacer so content sits below top bar */}
         <div style={{ height:'48px',flexShrink:0 }} />
 
 {/* ── SHIFT HUD BAR ── */}
@@ -10883,85 +10893,83 @@ return (
 
         {/* ══ DASHBOARD SUBVIEW ══ */}
         {homeSubView === 'dashboard' && (
-            <div style={{ flex:1,overflow:'hidden',display:'flex',position:'relative' }}>
+            <div style={{ flex:1,overflow:'hidden',display:'flex',position:'relative',background:'#07090f' }}>
 
                 {/* ── MAIN CONTENT ── */}
-                <div style={{ flex:1,overflowY:'auto',padding:'32px 36px',display:'flex',flexDirection:'column',gap:'20px' }}>
+                <div style={{ flex:1,overflowY:'auto',padding:'24px 28px',display:'flex',flexDirection:'column',gap:'16px',minWidth:0 }}>
 
-                    {/* Greeting + time row */}
-                    <div style={{ display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:'20px' }}>
+                    {/* Row 1: Greeting + Clock */}
+                    <div style={{ display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:'16px',flexShrink:0 }}>
                         <div>
-                            <div style={{ color:'white',fontSize:'28px',fontWeight:'900',letterSpacing:'-0.5px',lineHeight:1 }}>
-                                {(()=>{ const h=new Date().getHours(); return h>=5&&h<12?'Good morning, ':h>=12&&h<17?'Good afternoon, ':h>=17&&h<21?'Good evening, ':'Hello, '; })()}<span style={{ color:'#3b82f6' }}>{trooperSettings?.LastName||'Officer'}</span>
+                            <div style={{ color:'white',fontSize:'26px',fontWeight:'900',letterSpacing:'-0.5px',lineHeight:'1.1' }}>
+                                {(()=>{const h=new Date().getHours();return h>=5&&h<12?'Good morning, ':h>=12&&h<17?'Good afternoon, ':h>=17&&h<21?'Good evening, ':'Hello, ';})()}<span style={{ color:'#3b82f6' }}>{trooperSettings?.LastName||'Officer'}</span>
                             </div>
-                            <div style={{ display:'flex',alignItems:'center',gap:'10px',marginTop:'8px' }}>
-                                <div style={{ display:'flex',alignItems:'center',gap:'6px',padding:'4px 10px',borderRadius:'5px',background:(!!shiftStartTime&&!shiftEndTime)?'rgba(16,185,129,0.12)':'rgba(239,68,68,0.08)',border:`1px solid ${(!!shiftStartTime&&!shiftEndTime)?'rgba(16,185,129,0.3)':'rgba(239,68,68,0.2)'}` }}>
-                                    <div style={{ width:'5px',height:'5px',borderRadius:'50%',background:(!!shiftStartTime&&!shiftEndTime)?'#10b981':'#ef4444',boxShadow:(!!shiftStartTime&&!shiftEndTime)?'0 0 4px rgba(16,185,129,0.8)':'0 0 4px rgba(239,68,68,0.8)' }} />
-                                    <span style={{ color:(!!shiftStartTime&&!shiftEndTime)?'#6ee7b7':'#fca5a5',fontSize:'10px',fontWeight:'800',letterSpacing:'2px' }}>{(!!shiftStartTime&&!shiftEndTime)?'ON DUTY':'OFF DUTY'}</span>
+                            <div style={{ display:'flex',alignItems:'center',gap:'8px',marginTop:'6px' }}>
+                                <div style={{ display:'flex',alignItems:'center',gap:'5px',padding:'3px 8px',borderRadius:'4px',background:(!!shiftStartTime&&!shiftEndTime)?'rgba(16,185,129,0.1)':'rgba(239,68,68,0.07)',border:`1px solid ${(!!shiftStartTime&&!shiftEndTime)?'rgba(16,185,129,0.25)':'rgba(239,68,68,0.18)'}` }}>
+                                    <div style={{ width:'4px',height:'4px',borderRadius:'50%',background:(!!shiftStartTime&&!shiftEndTime)?'#10b981':'#ef4444',boxShadow:(!!shiftStartTime&&!shiftEndTime)?'0 0 4px rgba(16,185,129,0.8)':'0 0 4px rgba(239,68,68,0.8)' }} />
+                                    <span style={{ color:(!!shiftStartTime&&!shiftEndTime)?'#6ee7b7':'#fca5a5',fontSize:'9px',fontWeight:'800',letterSpacing:'2px' }}>{(!!shiftStartTime&&!shiftEndTime)?'ON DUTY':'OFF DUTY'}</span>
                                 </div>
-                                {(!!shiftStartTime&&!shiftEndTime)&&<span style={{ color:'#374151',fontSize:'10px',fontFamily:'monospace',fontWeight:'600' }}>{getShiftDuration()}</span>}
+                                {(!!shiftStartTime&&!shiftEndTime)&&<span style={{ color:'#374151',fontSize:'9px',fontFamily:'monospace',fontWeight:'600',letterSpacing:'1px' }}>{getShiftDuration()}</span>}
                             </div>
                         </div>
-                        {/* Clock */}
                         <div style={{ textAlign:'right',flexShrink:0 }}>
-                            <div style={{ color:'white',fontSize:'36px',fontWeight:'900',fontFamily:'monospace',letterSpacing:'2px',lineHeight:1 }}>
-                                {currentTime.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'})}
-                            </div>
-                            <div style={{ color:'#374151',fontSize:'11px',fontWeight:'600',marginTop:'4px',letterSpacing:'1px' }}>
-                                {currentTime.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}
-                            </div>
+                            <div style={{ color:'white',fontSize:'32px',fontWeight:'900',fontFamily:'monospace',letterSpacing:'3px',lineHeight:'1' }}>{currentTime.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'})}</div>
+                            <div style={{ color:'#374151',fontSize:'10px',fontWeight:'600',marginTop:'3px',letterSpacing:'1px' }}>{currentTime.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</div>
                         </div>
                     </div>
 
-                    {/* Active calls alert */}
+                    {/* Active call alert banner */}
                     {(()=>{const ac=(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id));return ac.length>0&&(
-                        <div style={{ display:'flex',alignItems:'center',gap:'12px',padding:'12px 18px',background:'rgba(239,68,68,0.07)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'10px',cursor:'pointer' }} onClick={()=>setActiveView('calls')}>
-                            <div style={{ width:'8px',height:'8px',borderRadius:'50%',background:'#ef4444',boxShadow:'0 0 8px rgba(239,68,68,0.9)',animation:'pulse 1s infinite',flexShrink:0 }} />
-                            <span style={{ color:'#fca5a5',fontSize:'12px',fontWeight:'800',letterSpacing:'1px',flex:1 }}>{ac.length} ACTIVE CALL{ac.length>1?'S':''} — TAP TO RESPOND</span>
-                            <svg width="14" height="14" fill="none" stroke="#f87171" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                        <div onClick={()=>setActiveView('calls')} style={{ display:'flex',alignItems:'center',gap:'10px',padding:'10px 14px',background:'rgba(239,68,68,0.06)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'8px',cursor:'pointer',flexShrink:0,transition:'background 0.15s' }}
+                            onMouseEnter={e=>e.currentTarget.style.background='rgba(239,68,68,0.1)'}
+                            onMouseLeave={e=>e.currentTarget.style.background='rgba(239,68,68,0.06)'}>
+                            <div style={{ width:'7px',height:'7px',borderRadius:'50%',background:'#ef4444',boxShadow:'0 0 7px rgba(239,68,68,0.9)',animation:'pulse 1s infinite',flexShrink:0 }} />
+                            <span style={{ color:'#fca5a5',fontSize:'11px',fontWeight:'800',letterSpacing:'1px',flex:1 }}>{ac.length} ACTIVE CALL{ac.length>1?'S':''} — CLICK TO RESPOND</span>
+                            <svg width="12" height="12" fill="none" stroke="#f87171" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                         </div>
                     );})()}
 
-                    {/* 3-col stats */}
-                    <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px' }}>
+                    {/* Stats row */}
+                    <div style={{ display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'10px',flexShrink:0 }}>
                         {[
-                            {l:'ACTIVE CALLS',v:String((window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length),c:'#f87171',sub:'Live incidents',i:'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9'},
-                            {l:'OFFICERS ONLINE',v:String(onlineOfficers?.length||0),c:'#34d399',sub:'Active units',i:'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'},
-                            {l:'PLATES SEARCHED',v:String(shiftPlateSearches?.length||0),c:'#60a5fa',sub:'This shift',i:'M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4'},
-                        ].map(({l,v,c,sub,i},idx)=>(
-                            <div key={idx} style={{ background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:'12px',padding:'18px 20px',position:'relative',overflow:'hidden' }}>
-                                <div style={{ position:'absolute',bottom:0,left:0,right:0,height:'2px',background:`linear-gradient(90deg,${c}88,transparent)` }} />
-                                <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'12px' }}>
-                                    <span style={{ color:'#4b5563',fontSize:'9px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>{l}</span>
+                            {l:'ACTIVE CALLS',v:String((window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length),c:'#f87171',sub:'Live incidents',i:'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9',click:()=>setActiveView('calls')},
+                            {l:'OFFICERS ONLINE',v:String(onlineOfficers?.length||0),c:'#34d399',sub:'Active units',i:'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z',click:()=>{setShowOfficersPanel(true);setShowDataPanel(false);setShowHistoryPanel(false);}},
+                            {l:'PLATES SEARCHED',v:String(shiftPlateSearches?.length||0),c:'#60a5fa',sub:'This shift',i:'M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4',click:()=>setActiveView('search')},
+                        ].map(({l,v,c,sub,i,click},idx)=>(
+                            <div key={idx} onClick={click} style={{ background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:'10px',padding:'16px 18px',position:'relative',overflow:'hidden',cursor:'pointer',transition:'border-color 0.15s,background 0.15s' }}
+                                onMouseEnter={e=>{e.currentTarget.style.background=`${c}0a`;e.currentTarget.style.borderColor=`${c}33`;}}
+                                onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.02)';e.currentTarget.style.borderColor='rgba(255,255,255,0.06)';}}>
+                                <div style={{ position:'absolute',bottom:0,left:0,right:0,height:'2px',background:`linear-gradient(90deg,${c}99,transparent)` }} />
+                                <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px' }}>
+                                    <span style={{ color:'#374151',fontSize:'9px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>{l}</span>
                                     <svg width="13" height="13" fill="none" stroke={c} viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity:0.7 }}><path d={i}/></svg>
                                 </div>
-                                <div style={{ color:c,fontSize:'40px',fontWeight:'900',fontFamily:'monospace',lineHeight:1,marginBottom:'4px' }}>{v}</div>
-                                <div style={{ color:'#374151',fontSize:'10px',fontWeight:'600',letterSpacing:'1px' }}>{sub}</div>
+                                <div style={{ color:c,fontSize:'38px',fontWeight:'900',fontFamily:'monospace',lineHeight:1,marginBottom:'4px' }}>{v}</div>
+                                <div style={{ color:'#374151',fontSize:'9px',fontWeight:'600',letterSpacing:'1px',textTransform:'uppercase' }}>{sub}</div>
                             </div>
                         ))}
                     </div>
 
-                    {/* Two column: Calls + Activity */}
-                    <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',flex:1,minHeight:0 }}>
-
+                    {/* Main two-col: calls + activity */}
+                    <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',flex:1,minHeight:0 }}>
                         {/* Active calls */}
-                        <div style={{ background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:'12px',overflow:'hidden',display:'flex',flexDirection:'column' }}>
-                            <div style={{ padding:'14px 18px',borderBottom:'1px solid rgba(255,255,255,0.05)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
-                                <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
-                                    <div style={{ width:'6px',height:'6px',borderRadius:'50%',background:(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length>0?'#ef4444':'#374151',animation:(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length>0?'pulse 1.5s infinite':'none' }} />
-                                    <span style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>ACTIVE CALLS</span>
+                        <div style={{ background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.05)',borderRadius:'10px',display:'flex',flexDirection:'column',overflow:'hidden' }}>
+                            <div style={{ padding:'11px 14px',borderBottom:'1px solid rgba(255,255,255,0.04)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
+                                <div style={{ display:'flex',alignItems:'center',gap:'7px' }}>
+                                    <div style={{ width:'5px',height:'5px',borderRadius:'50%',background:(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length>0?'#ef4444':'#1f2937',animation:(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length>0?'pulse 1.5s infinite':'none' }} />
+                                    <span style={{ color:'#e2e8f0',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>ACTIVE CALLS</span>
                                 </div>
-                                <button onClick={()=>setActiveView('calls')} style={{ padding:'3px 10px',background:'rgba(59,130,246,0.1)',border:'1px solid rgba(59,130,246,0.2)',borderRadius:'4px',color:'#60a5fa',fontSize:'9px',fontWeight:'800',cursor:'pointer',letterSpacing:'1px',textTransform:'uppercase' }}>VIEW ALL</button>
+                                <button onClick={()=>setActiveView('calls')} style={{ padding:'2px 8px',background:'rgba(59,130,246,0.08)',border:'1px solid rgba(59,130,246,0.18)',borderRadius:'3px',color:'#60a5fa',fontSize:'8px',fontWeight:'800',cursor:'pointer',letterSpacing:'1px',textTransform:'uppercase' }}>VIEW ALL</button>
                             </div>
-                            <div style={{ flex:1,overflowY:'auto',padding:'8px' }}>
+                            <div style={{ flex:1,overflowY:'auto',padding:'6px' }}>
                                 {(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length===0
-                                    ?<div style={{ padding:'24px',textAlign:'center',color:'#374151',fontSize:'11px',fontWeight:'600' }}>No active calls</div>
+                                    ?<div style={{ padding:'20px',textAlign:'center',color:'#374151',fontSize:'10px',fontWeight:'600' }}>No active calls</div>
                                     :(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).slice(0,6).map((call,i)=>(
-                                        <div key={i} style={{ display:'flex',gap:'10px',padding:'9px 10px',background:'rgba(239,68,68,0.04)',border:'1px solid rgba(239,68,68,0.08)',borderRadius:'7px',marginBottom:'5px',alignItems:'flex-start' }}>
-                                            <div style={{ width:'5px',height:'5px',borderRadius:'50%',background:'#ef4444',marginTop:'4px',flexShrink:0 }} />
+                                        <div key={i} style={{ display:'flex',gap:'8px',padding:'8px 9px',background:'rgba(239,68,68,0.04)',border:'1px solid rgba(239,68,68,0.08)',borderRadius:'6px',marginBottom:'4px',alignItems:'flex-start' }}>
+                                            <div style={{ width:'4px',height:'4px',borderRadius:'50%',background:'#ef4444',marginTop:'4px',flexShrink:0 }} />
                                             <div style={{ flex:1,minWidth:0 }}>
-                                                <div style={{ color:'#fca5a5',fontSize:'11px',fontWeight:'700',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{call.type||call.content?.slice(0,50)||'Unknown'}</div>
-                                                <div style={{ color:'#4b5563',fontSize:'9px',marginTop:'2px' }}>{call.author||'Unknown'} · {call.timestamp?new Date(call.timestamp).toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit'}):'—'}</div>
+                                                <div style={{ color:'#fca5a5',fontSize:'10px',fontWeight:'700',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{call.type||call.content?.slice(0,50)||'Unknown'}</div>
+                                                <div style={{ color:'#374151',fontSize:'8px',marginTop:'1px' }}>{call.author||'Unknown'} · {call.timestamp?new Date(call.timestamp).toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit'}):'—'}</div>
                                             </div>
                                         </div>
                                     ))
@@ -10970,26 +10978,26 @@ return (
                         </div>
 
                         {/* Recent activity */}
-                        <div style={{ background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:'12px',overflow:'hidden',display:'flex',flexDirection:'column' }}>
-                            <div style={{ padding:'14px 18px',borderBottom:'1px solid rgba(255,255,255,0.05)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
-                                <span style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>RECENT ACTIVITY</span>
-                                <button onClick={()=>setShowHistoryPanel(p=>!p)} style={{ padding:'3px 10px',background:'rgba(59,130,246,0.1)',border:'1px solid rgba(59,130,246,0.2)',borderRadius:'4px',color:'#60a5fa',fontSize:'9px',fontWeight:'800',cursor:'pointer',letterSpacing:'1px',textTransform:'uppercase' }}>HISTORY</button>
+                        <div style={{ background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.05)',borderRadius:'10px',display:'flex',flexDirection:'column',overflow:'hidden' }}>
+                            <div style={{ padding:'11px 14px',borderBottom:'1px solid rgba(255,255,255,0.04)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
+                                <span style={{ color:'#e2e8f0',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>RECENT ACTIVITY</span>
+                                <button onClick={()=>setShowHistoryPanel(p=>!p)} style={{ padding:'2px 8px',background:'rgba(59,130,246,0.08)',border:'1px solid rgba(59,130,246,0.18)',borderRadius:'3px',color:'#60a5fa',fontSize:'8px',fontWeight:'800',cursor:'pointer',letterSpacing:'1px',textTransform:'uppercase' }}>HISTORY</button>
                             </div>
-                            <div style={{ flex:1,overflowY:'auto',padding:'8px' }}>
-                                {activityLog.length===0?<div style={{ padding:'24px',textAlign:'center',color:'#374151',fontSize:'11px',fontWeight:'600' }}>No activity yet</div>
+                            <div style={{ flex:1,overflowY:'auto',padding:'6px' }}>
+                                {activityLog.length===0?<div style={{ padding:'20px',textAlign:'center',color:'#374151',fontSize:'10px',fontWeight:'600' }}>No activity yet</div>
                                 :activityLog.slice(0,8).map(entry=>{
                                     const iw=entry.msg.includes('WARRANT'),ie=entry.msg.includes('Export'),ip=entry.msg.includes('Plate'),ic=entry.msg.includes('Citizen');
                                     const col=iw?'#f87171':ie?'#34d399':ip?'#60a5fa':ic?'#a78bfa':'#4b5563';
-                                    return <div key={entry.id} style={{ display:'flex',gap:'8px',padding:'6px 8px',borderBottom:'1px solid rgba(255,255,255,0.03)',alignItems:'flex-start' }}>
-                                        <span style={{ color:'#374151',fontSize:'9px',fontFamily:'monospace',whiteSpace:'nowrap',flexShrink:0,marginTop:'2px' }}>[{entry.ts}]</span>
-                                        <span style={{ color:col,fontSize:'10px',fontWeight:'600',lineHeight:'1.4' }}>{entry.msg}</span>
+                                    return <div key={entry.id} style={{ display:'flex',gap:'7px',padding:'5px 7px',borderBottom:'1px solid rgba(255,255,255,0.03)',alignItems:'flex-start' }}>
+                                        <span style={{ color:'#1f2937',fontSize:'8px',fontFamily:'monospace',whiteSpace:'nowrap',flexShrink:0,marginTop:'1px' }}>[{entry.ts}]</span>
+                                        <span style={{ color:col,fontSize:'9px',fontWeight:'600',lineHeight:'1.4' }}>{entry.msg}</span>
                                     </div>;
                                 })}
                             </div>
                         </div>
                     </div>
 
-                    {/* Modal buttons row */}
+                    {/* Bottom action buttons */}
                     <div style={{ display:'flex',gap:'8px',flexShrink:0 }}>
                         {[
                             {l:'UPDATES',fn:()=>setShowUpdateLog(true),c:'#60a5fa',i:'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'},
@@ -10998,10 +11006,10 @@ return (
                             {l:'BOLO',fn:()=>setShowBoloModal(true),c:'#f59e0b',i:'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'},
                         ].map((b,i)=>(
                             <button key={i} onClick={b.fn}
-                                style={{ flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:'7px',padding:'10px',background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:'8px',color:'#6b7280',fontSize:'10px',fontWeight:'700',cursor:'pointer',letterSpacing:'1px',textTransform:'uppercase',transition:'all 0.15s' }}
-                                onMouseEnter={e=>{e.currentTarget.style.background=`${b.c}14`;e.currentTarget.style.borderColor=`${b.c}44`;e.currentTarget.style.color=b.c;}}
-                                onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.02)';e.currentTarget.style.borderColor='rgba(255,255,255,0.06)';e.currentTarget.style.color='#6b7280';}}>
-                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={b.i}/></svg>
+                                style={{ flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:'6px',padding:'9px 8px',background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:'7px',color:'#4b5563',fontSize:'9px',fontWeight:'700',cursor:'pointer',letterSpacing:'1px',textTransform:'uppercase',transition:'all 0.15s' }}
+                                onMouseEnter={e=>{e.currentTarget.style.background=`${b.c}14`;e.currentTarget.style.borderColor=`${b.c}40`;e.currentTarget.style.color=b.c;}}
+                                onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.02)';e.currentTarget.style.borderColor='rgba(255,255,255,0.06)';e.currentTarget.style.color='#4b5563';}}>
+                                <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={b.i}/></svg>
                                 {b.l}
                             </button>
                         ))}
@@ -11009,75 +11017,75 @@ return (
 
                 </div>
 
-                {/* ── RIGHT PANEL TOGGLE ── */}
+                {/* ── RIGHT PANEL TOGGLE ARROW ── */}
                 <button onClick={()=>setShowRightPanel(p=>!p)}
-                    style={{ position:'absolute',right:showRightPanel?'280px':'0',top:'50%',transform:'translateY(-50%)',width:'18px',height:'48px',background:'rgba(30,58,138,0.4)',border:'1px solid rgba(59,130,246,0.25)',borderRadius:'4px 0 0 4px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'right 0.25s',zIndex:20,color:'#60a5fa' }}>
-                    <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    style={{ position:'absolute',right:showRightPanel?'260px':'0',top:'50%',transform:'translateY(-50%)',width:'16px',height:'44px',background:'rgba(15,23,42,0.85)',border:'1px solid rgba(59,130,246,0.2)',borderRight:'none',borderRadius:'4px 0 0 4px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'right 0.2s ease',zIndex:20 }}>
+                    <svg width="8" height="8" fill="none" stroke="#60a5fa" viewBox="0 0 24 24" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                         <path d={showRightPanel?'M9 18l6-6-6-6':'M15 18l-6-6 6-6'}/>
                     </svg>
                 </button>
 
                 {/* ── RIGHT PANEL ── */}
                 {showRightPanel && (
-                    <div style={{ width:'280px',flexShrink:0,borderLeft:'1px solid rgba(59,130,246,0.1)',overflowY:'auto',padding:'16px',background:'rgba(7,9,15,0.6)',display:'flex',flexDirection:'column',gap:'10px' }}>
-                        {/* Officer */}
-                        <div style={{ background:'rgba(30,58,138,0.1)',border:'1px solid rgba(59,130,246,0.14)',borderRadius:'10px',padding:'12px',position:'relative',overflow:'hidden' }}>
-                            <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:'linear-gradient(90deg,transparent,rgba(59,130,246,0.5),transparent)' }} />
-                            <div style={{ color:'#374151',fontSize:'9px',fontWeight:'800',letterSpacing:'2px',marginBottom:'8px' }}>OFFICER</div>
-                            <div style={{ color:'white',fontSize:'14px',fontWeight:'800',marginBottom:'8px' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName}</div>
+                    <div style={{ width:'260px',flexShrink:0,borderLeft:'1px solid rgba(59,130,246,0.1)',overflowY:'auto',padding:'14px',background:'rgba(8,11,20,0.7)',display:'flex',flexDirection:'column',gap:'8px' }}>
+                        {/* Officer card */}
+                        <div style={{ background:'rgba(30,58,138,0.1)',border:'1px solid rgba(59,130,246,0.12)',borderRadius:'8px',padding:'11px',position:'relative',overflow:'hidden' }}>
+                            <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:'linear-gradient(90deg,transparent,rgba(59,130,246,0.4),transparent)' }} />
+                            <div style={{ color:'#1f2937',fontSize:'8px',fontWeight:'800',letterSpacing:'2px',marginBottom:'6px',textTransform:'uppercase' }}>Officer</div>
+                            <div style={{ color:'white',fontSize:'13px',fontWeight:'800',marginBottom:'7px' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName}</div>
                             <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px' }}>
                                 {[{l:'BADGE',v:`#${trooperSettings?.BadgeID||'—'}`},{l:'ZONE',v:trooperSettings?.Zone||'—'},{l:'USER',v:trooperSettings?.Username||'—'},{l:'DEPT',v:trooperSettings?.Department||'—'}].map(({l,v},i)=>(
-                                    <div key={i} style={{ background:'rgba(59,130,246,0.05)',borderRadius:'5px',padding:'5px 7px' }}>
-                                        <div style={{ color:'#1f2937',fontSize:'8px',fontWeight:'700',letterSpacing:'1px',marginBottom:'1px' }}>{l}</div>
+                                    <div key={i} style={{ background:'rgba(59,130,246,0.05)',borderRadius:'4px',padding:'4px 7px' }}>
+                                        <div style={{ color:'#1f2937',fontSize:'7px',fontWeight:'800',letterSpacing:'1px',marginBottom:'1px',textTransform:'uppercase' }}>{l}</div>
                                         <div style={{ color:'#e2e8f0',fontSize:'10px',fontWeight:'700',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{v}</div>
                                     </div>
                                 ))}
                             </div>
                         </div>
-                        {/* System */}
-                        <div style={{ background:'rgba(16,185,129,0.06)',border:'1px solid rgba(16,185,129,0.12)',borderRadius:'10px',padding:'12px',position:'relative',overflow:'hidden' }}>
+                        {/* System status */}
+                        <div style={{ background:'rgba(16,185,129,0.06)',border:'1px solid rgba(16,185,129,0.1)',borderRadius:'8px',padding:'11px',position:'relative',overflow:'hidden' }}>
                             <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:'linear-gradient(90deg,transparent,rgba(16,185,129,0.4),transparent)' }} />
-                            <div style={{ color:'#374151',fontSize:'9px',fontWeight:'800',letterSpacing:'2px',marginBottom:'8px' }}>SYSTEM</div>
+                            <div style={{ color:'#1f2937',fontSize:'8px',fontWeight:'800',letterSpacing:'2px',marginBottom:'7px',textTransform:'uppercase' }}>System</div>
                             {[{l:'Discord API',ok:tokenSaved},{l:'Session',ok:!!selectedUserSession},{l:'Groq AI',ok:!!(window.GROQ_CONSOLE_API_KEY||localStorage.getItem('groqConsoleAPIKey'))},{l:'Sounds',ok:!!(window.SOUNDS&&Object.keys(window.SOUNDS).length>0)}].map(({l,ok},i,arr)=>(
-                                <div key={i} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'4px 0',borderBottom:i<arr.length-1?'1px solid rgba(255,255,255,0.04)':'none' }}>
+                                <div key={i} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'4px 0',borderBottom:i<arr.length-1?'1px solid rgba(255,255,255,0.03)':'none' }}>
                                     <span style={{ color:'#9ca3af',fontSize:'10px',fontWeight:'600' }}>{l}</span>
-                                    <span style={{ fontSize:'8px',fontWeight:'800',color:ok?'#10b981':'#ef4444',background:ok?'rgba(16,185,129,0.1)':'rgba(239,68,68,0.1)',padding:'2px 6px',borderRadius:'3px',letterSpacing:'1px' }}>{ok?'ONLINE':'OFFLINE'}</span>
+                                    <span style={{ fontSize:'8px',fontWeight:'800',color:ok?'#10b981':'#ef4444',background:ok?'rgba(16,185,129,0.1)':'rgba(239,68,68,0.1)',padding:'2px 6px',borderRadius:'3px',letterSpacing:'1px',textTransform:'uppercase' }}>{ok?'ONLINE':'OFFLINE'}</span>
                                 </div>
                             ))}
                         </div>
                         {/* Shift */}
-                        <div style={{ background:'rgba(245,158,11,0.06)',border:'1px solid rgba(245,158,11,0.12)',borderRadius:'10px',padding:'12px',position:'relative',overflow:'hidden' }}>
+                        <div style={{ background:'rgba(245,158,11,0.06)',border:'1px solid rgba(245,158,11,0.1)',borderRadius:'8px',padding:'11px',position:'relative',overflow:'hidden' }}>
                             <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:'linear-gradient(90deg,transparent,rgba(245,158,11,0.4),transparent)' }} />
-                            <div style={{ color:'#374151',fontSize:'9px',fontWeight:'800',letterSpacing:'2px',marginBottom:'8px' }}>SHIFT</div>
+                            <div style={{ color:'#1f2937',fontSize:'8px',fontWeight:'800',letterSpacing:'2px',marginBottom:'7px',textTransform:'uppercase' }}>Shift</div>
                             {(!!shiftStartTime&&!shiftEndTime)?(<>
-                                <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px',marginBottom:'8px' }}>
+                                <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px',marginBottom:'7px' }}>
                                     {[{l:'TIME',v:getShiftDuration()},{l:'STATUS',v:shiftPaused?'PAUSED':'ACTIVE'},{l:'PLATES',v:String(shiftPlateSearches.length)},{l:'CITIZENS',v:String(shiftSearchHistory.length)}].map(({l,v},i)=>(
-                                        <div key={i} style={{ background:'rgba(245,158,11,0.06)',borderRadius:'5px',padding:'5px 7px' }}>
-                                            <div style={{ color:'#1f2937',fontSize:'8px',fontWeight:'700',letterSpacing:'1px',marginBottom:'1px' }}>{l}</div>
+                                        <div key={i} style={{ background:'rgba(245,158,11,0.06)',borderRadius:'4px',padding:'4px 7px' }}>
+                                            <div style={{ color:'#1f2937',fontSize:'7px',fontWeight:'800',letterSpacing:'1px',marginBottom:'1px',textTransform:'uppercase' }}>{l}</div>
                                             <div style={{ color:'#fbbf24',fontSize:'10px',fontWeight:'800',fontFamily:'monospace' }}>{v}</div>
                                         </div>
                                     ))}
                                 </div>
-                                <div style={{ display:'flex',gap:'5px' }}>
-                                    <button onClick={()=>{if(shiftPaused){const d=new Date()-pauseStartTime;setPausedTime(p=>p+d);setPauseStartTime(null);setShiftPaused(false);}else{setPauseStartTime(new Date());setShiftPaused(true);}}} style={{ flex:1,padding:'6px',background:shiftPaused?'rgba(16,185,129,0.12)':'rgba(245,158,11,0.12)',border:`1px solid ${shiftPaused?'rgba(16,185,129,0.25)':'rgba(245,158,11,0.25)'}`,borderRadius:'5px',color:shiftPaused?'#6ee7b7':'#fbbf24',fontSize:'9px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px' }}>{shiftPaused?'RESUME':'PAUSE'}</button>
-                                    <button onClick={()=>setShowEndShiftConfirm(true)} style={{ flex:1,padding:'6px',background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'5px',color:'#fca5a5',fontSize:'9px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px' }}>END</button>
+                                <div style={{ display:'flex',gap:'4px' }}>
+                                    <button onClick={()=>{if(shiftPaused){const d=new Date()-pauseStartTime;setPausedTime(p=>p+d);setPauseStartTime(null);setShiftPaused(false);}else{setPauseStartTime(new Date());setShiftPaused(true);}}} style={{ flex:1,padding:'5px',background:shiftPaused?'rgba(16,185,129,0.1)':'rgba(245,158,11,0.1)',border:`1px solid ${shiftPaused?'rgba(16,185,129,0.22)':'rgba(245,158,11,0.22)'}`,borderRadius:'4px',color:shiftPaused?'#6ee7b7':'#fbbf24',fontSize:'8px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px' }}>{shiftPaused?'RESUME':'PAUSE'}</button>
+                                    <button onClick={()=>setShowEndShiftConfirm(true)} style={{ flex:1,padding:'5px',background:'rgba(239,68,68,0.07)',border:'1px solid rgba(239,68,68,0.18)',borderRadius:'4px',color:'#fca5a5',fontSize:'8px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px' }}>END</button>
                                 </div>
-                            </>):(<button onClick={()=>{setShiftStartTime(new Date());setShiftEndTime(null);setShiftPlateSearches([]);setShiftSearchHistory([]);setPausedTime(0);setShiftPaused(false);setPauseStartTime(null);setShiftBreaks([]);logActivity('Shift started');}} style={{ width:'100%',padding:'8px',background:'linear-gradient(135deg,rgba(245,158,11,0.15),rgba(217,119,6,0.08))',border:'1px solid rgba(245,158,11,0.28)',borderRadius:'6px',color:'#fbbf24',fontSize:'10px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1.5px' }}>START SHIFT</button>)}
+                            </>):(<button onClick={()=>{setShiftStartTime(new Date());setShiftEndTime(null);setShiftPlateSearches([]);setShiftSearchHistory([]);setPausedTime(0);setShiftPaused(false);setPauseStartTime(null);setShiftBreaks([]);logActivity('Shift started');}} style={{ width:'100%',padding:'7px',background:'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,0.22)',borderRadius:'5px',color:'#fbbf24',fontSize:'9px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'2px' }}>START SHIFT</button>)}
                         </div>
-                        {/* Units */}
-                        <div style={{ background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.05)',borderRadius:'10px',overflow:'hidden',flex:1,minHeight:0 }}>
-                            <div style={{ padding:'9px 12px',borderBottom:'1px solid rgba(255,255,255,0.04)',display:'flex',alignItems:'center',justifyContent:'space-between' }}>
-                                <span style={{ color:'#e2e8f0',fontSize:'9px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>UNITS ONLINE</span>
-                                <span style={{ color:'#374151',fontSize:'10px',fontWeight:'700' }}>{onlineOfficers?.length||0}</span>
+                        {/* Units online */}
+                        <div style={{ background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.05)',borderRadius:'8px',overflow:'hidden' }}>
+                            <div style={{ padding:'8px 11px',borderBottom:'1px solid rgba(255,255,255,0.04)',display:'flex',alignItems:'center',justifyContent:'space-between' }}>
+                                <span style={{ color:'#e2e8f0',fontSize:'9px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>Units Online</span>
+                                <span style={{ color:'#374151',fontSize:'9px',fontWeight:'700',fontFamily:'monospace' }}>{onlineOfficers?.length||0}</span>
                             </div>
-                            <div style={{ padding:'5px',maxHeight:'150px',overflowY:'auto' }}>
-                                {(!onlineOfficers||onlineOfficers.length===0)?<div style={{ padding:'12px',textAlign:'center',color:'#374151',fontSize:'10px' }}>No officers online</div>
-                                :onlineOfficers.slice(0,6).map((o,i)=>{
+                            <div style={{ padding:'4px',maxHeight:'130px',overflowY:'auto' }}>
+                                {(!onlineOfficers||onlineOfficers.length===0)?<div style={{ padding:'10px',textAlign:'center',color:'#374151',fontSize:'9px' }}>No officers online</div>
+                                :onlineOfficers.slice(0,5).map((o,i)=>{
                                     const isMe=String(o.badge)===String(trooperSettings?.BadgeID);
-                                    return <div key={i} style={{ display:'flex',alignItems:'center',gap:'6px',padding:'5px 6px',borderRadius:'5px',background:isMe?'rgba(16,185,129,0.05)':'transparent',marginBottom:'2px' }}>
+                                    return <div key={i} style={{ display:'flex',alignItems:'center',gap:'5px',padding:'5px 6px',borderRadius:'4px',background:isMe?'rgba(16,185,129,0.05)':'transparent',marginBottom:'1px' }}>
                                         <div style={{ width:'4px',height:'4px',borderRadius:'50%',background:o.status==='10-9'?'#10b981':o.status==='10-10'?'#ef4444':'#f59e0b',flexShrink:0 }} />
-                                        <span style={{ color:isMe?'#6ee7b7':'#93c5fd',fontSize:'10px',fontWeight:'700',fontFamily:'monospace',flexShrink:0,minWidth:'36px' }}>{o.callSign||'—'}</span>
-                                        <span style={{ color:'#4b5563',fontSize:'9px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1 }}>{o.name||'Unknown'}</span>
+                                        <span style={{ color:isMe?'#6ee7b7':'#93c5fd',fontSize:'9px',fontWeight:'700',fontFamily:'monospace',flexShrink:0,minWidth:'32px' }}>{o.callSign||'—'}</span>
+                                        <span style={{ color:'#374151',fontSize:'8px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1 }}>{o.name||'Unknown'}</span>
                                     </div>;
                                 })}
                             </div>
@@ -11085,31 +11093,31 @@ return (
                     </div>
                 )}
 
-                {/* Slide-in panels */}
+                {/* Slide-in overlay panels */}
                 {showHistoryPanel && (
-                    <div style={{ position:'absolute',top:0,right:0,bottom:0,width:'360px',background:'rgba(7,9,15,0.97)',borderLeft:'1px solid rgba(59,130,246,0.15)',zIndex:50,display:'flex',flexDirection:'column',backdropFilter:'blur(16px)',animation:'fadeIn 0.15s ease-out' }}>
-                        <div style={{ padding:'14px',borderBottom:'1px solid rgba(59,130,246,0.08)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
-                            <span style={{ color:'#60a5fa',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>ACTIVITY HISTORY</span>
-                            <div style={{ display:'flex',gap:'8px' }}>
-                                <button onClick={()=>setActivityLog([])} style={{ background:'rgba(239,68,68,0.07)',border:'1px solid rgba(239,68,68,0.15)',borderRadius:'4px',color:'#f87171',cursor:'pointer',padding:'3px 8px',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase' }}>CLEAR</button>
-                                <button onClick={()=>setShowHistoryPanel(false)} style={{ background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'5px',color:'#f87171',cursor:'pointer',width:'24px',height:'24px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px' }}>✕</button>
+                    <div style={{ position:'absolute',top:0,right:0,bottom:0,width:'340px',background:'rgba(7,9,15,0.97)',borderLeft:'1px solid rgba(59,130,246,0.14)',zIndex:50,display:'flex',flexDirection:'column',backdropFilter:'blur(16px)',animation:'fadeIn 0.15s ease-out' }}>
+                        <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(59,130,246,0.08)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
+                            <span style={{ color:'#60a5fa',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>Activity History</span>
+                            <div style={{ display:'flex',gap:'6px' }}>
+                                <button onClick={()=>setActivityLog([])} style={{ background:'rgba(239,68,68,0.07)',border:'1px solid rgba(239,68,68,0.14)',borderRadius:'3px',color:'#f87171',cursor:'pointer',padding:'2px 7px',fontSize:'8px',fontWeight:'800',letterSpacing:'1px',textTransform:'uppercase' }}>CLEAR</button>
+                                <button onClick={()=>setShowHistoryPanel(false)} style={{ background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'4px',color:'#f87171',cursor:'pointer',width:'22px',height:'22px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px' }}>✕</button>
                             </div>
                         </div>
-                        <div style={{ padding:'8px 14px',borderBottom:'1px solid rgba(59,130,246,0.06)',flexShrink:0 }}>
-                            <input value={historySearch} onChange={e=>setHistorySearch(e.target.value)} placeholder="Search..." style={{ width:'100%',padding:'6px 10px',background:'rgba(255,255,255,0.04)',border:'1px solid rgba(59,130,246,0.18)',borderRadius:'6px',color:'#e2e8f0',fontSize:'11px',outline:'none',boxSizing:'border-box',fontFamily:'inherit' }}
-                                onFocus={e=>e.target.style.borderColor='rgba(59,130,246,0.45)'}
-                                onBlur={e=>e.target.style.borderColor='rgba(59,130,246,0.18)'} />
+                        <div style={{ padding:'7px 12px',borderBottom:'1px solid rgba(59,130,246,0.06)',flexShrink:0 }}>
+                            <input value={historySearch} onChange={e=>setHistorySearch(e.target.value)} placeholder="Search history..." style={{ width:'100%',padding:'5px 9px',background:'rgba(255,255,255,0.04)',border:'1px solid rgba(59,130,246,0.16)',borderRadius:'5px',color:'#e2e8f0',fontSize:'10px',outline:'none',boxSizing:'border-box',fontFamily:'inherit' }}
+                                onFocus={e=>e.target.style.borderColor='rgba(59,130,246,0.4)'}
+                                onBlur={e=>e.target.style.borderColor='rgba(59,130,246,0.16)'} />
                         </div>
-                        <div style={{ flex:1,overflowY:'auto',padding:'8px' }}>
+                        <div style={{ flex:1,overflowY:'auto',padding:'6px' }}>
                             {(()=>{
                                 const filtered=historySearch?activityLog.filter(e=>e.msg.toLowerCase().includes(historySearch.toLowerCase())||e.ts.includes(historySearch)):activityLog;
-                                if(filtered.length===0) return <div style={{ color:'#374151',fontSize:'11px',textAlign:'center',padding:'24px' }}>{activityLog.length===0?'No activity yet':'No matches'}</div>;
+                                if(filtered.length===0) return <div style={{ color:'#374151',fontSize:'10px',textAlign:'center',padding:'20px' }}>{activityLog.length===0?'No activity yet':'No matches'}</div>;
                                 return filtered.map(entry=>{
                                     const iw=entry.msg.includes('WARRANT'),ie=entry.msg.includes('Export'),ip=entry.msg.includes('Plate'),ic=entry.msg.includes('Citizen');
                                     const color=iw?'#f87171':ie?'#34d399':ip?'#60a5fa':ic?'#a78bfa':'#4b5563';
-                                    return <div key={entry.id} style={{ display:'flex',gap:'9px',padding:'6px 8px',borderBottom:'1px solid rgba(255,255,255,0.03)',alignItems:'flex-start' }}>
-                                        <span style={{ color:'#374151',fontSize:'9px',fontFamily:'monospace',fontWeight:'600',whiteSpace:'nowrap',flexShrink:0,marginTop:'1px' }}>[{entry.ts}]</span>
-                                        <span style={{ color,fontSize:'10px',fontWeight:'600',lineHeight:'1.4' }}>{entry.msg}</span>
+                                    return <div key={entry.id} style={{ display:'flex',gap:'8px',padding:'5px 7px',borderBottom:'1px solid rgba(255,255,255,0.03)',alignItems:'flex-start' }}>
+                                        <span style={{ color:'#374151',fontSize:'8px',fontFamily:'monospace',fontWeight:'600',whiteSpace:'nowrap',flexShrink:0,marginTop:'1px' }}>[{entry.ts}]</span>
+                                        <span style={{ color,fontSize:'9px',fontWeight:'600',lineHeight:'1.4' }}>{entry.msg}</span>
                                     </div>;
                                 });
                             })()}
@@ -11117,64 +11125,64 @@ return (
                     </div>
                 )}
                 {showOfficersPanel && (
-                    <div style={{ position:'absolute',top:0,right:0,bottom:0,width:'300px',background:'rgba(7,9,15,0.97)',borderLeft:'1px solid rgba(59,130,246,0.15)',zIndex:50,overflowY:'auto',backdropFilter:'blur(16px)',animation:'fadeIn 0.15s ease-out' }}>
-                        <div style={{ padding:'14px' }}>
-                            <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px' }}>
+                    <div style={{ position:'absolute',top:0,right:0,bottom:0,width:'280px',background:'rgba(7,9,15,0.97)',borderLeft:'1px solid rgba(59,130,246,0.14)',zIndex:50,overflowY:'auto',backdropFilter:'blur(16px)',animation:'fadeIn 0.15s ease-out' }}>
+                        <div style={{ padding:'12px 14px' }}>
+                            <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'12px' }}>
                                 <div>
-                                    <div style={{ color:'#60a5fa',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>AVAILABLE OFFICERS</div>
-                                    <div style={{ color:'#374151',fontSize:'9px',marginTop:'2px',fontFamily:'monospace' }}>{officerNextUpdate?`Updating at ${officerNextUpdate.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'})}`:'Pending sync...'}</div>
+                                    <div style={{ color:'#60a5fa',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>Available Officers</div>
+                                    <div style={{ color:'#374151',fontSize:'8px',marginTop:'1px',fontFamily:'monospace' }}>{officerNextUpdate?`Updates: ${officerNextUpdate.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'})}`:'Pending sync...'}</div>
                                 </div>
-                                <button onClick={()=>setShowOfficersPanel(false)} style={{ background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'5px',color:'#f87171',cursor:'pointer',width:'24px',height:'24px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px' }}>✕</button>
+                                <button onClick={()=>setShowOfficersPanel(false)} style={{ background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'4px',color:'#f87171',cursor:'pointer',width:'22px',height:'22px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px' }}>✕</button>
                             </div>
                             <div style={{ display:'flex',gap:'4px',marginBottom:'10px' }}>
                                 {['10-9','10-10','10-5'].map(s=>(
-                                    <button key={s} onClick={()=>setOfficerStatus(s)} style={{ flex:1,padding:'5px',background:officerStatus===s?'rgba(59,130,246,0.15)':'rgba(255,255,255,0.03)',border:`1px solid ${officerStatus===s?'rgba(59,130,246,0.35)':'rgba(255,255,255,0.06)'}`,borderRadius:'5px',color:officerStatus===s?'#93c5fd':'#4b5563',fontSize:'9px',fontWeight:'700',cursor:'pointer' }}>{s}</button>
+                                    <button key={s} onClick={()=>setOfficerStatus(s)} style={{ flex:1,padding:'4px',background:officerStatus===s?'rgba(59,130,246,0.14)':'rgba(255,255,255,0.02)',border:`1px solid ${officerStatus===s?'rgba(59,130,246,0.3)':'rgba(255,255,255,0.05)'}`,borderRadius:'4px',color:officerStatus===s?'#93c5fd':'#4b5563',fontSize:'8px',fontWeight:'800',cursor:'pointer',letterSpacing:'0.5px' }}>{s}</button>
                                 ))}
                             </div>
-                            {onlineOfficers.length===0?<div style={{ color:'#374151',fontSize:'11px',textAlign:'center',padding:'20px 0' }}>No officers online</div>
+                            {onlineOfficers.length===0?<div style={{ color:'#374151',fontSize:'10px',textAlign:'center',padding:'16px 0' }}>No officers online</div>
                             :onlineOfficers.map((o,i)=>{
                                 const isMe=String(o.badge)===String(trooperSettings?.BadgeID);
                                 const isPanic=panicFlickerOfficer===o.badge||activePanic?.badge===o.badge;
-                                return <div key={i} className={isPanic?(panicFlickerOfficer===o.badge?'panic-officer':'panic-officer-steady'):''} style={{ padding:'9px 11px',background:isMe?'rgba(16,185,129,0.06)':'rgba(255,255,255,0.02)',border:`1px solid ${isMe?'rgba(16,185,129,0.18)':'rgba(255,255,255,0.05)'}`,borderRadius:'8px',marginBottom:'5px',position:'relative',overflow:'hidden' }}>
+                                return <div key={i} className={isPanic?(panicFlickerOfficer===o.badge?'panic-officer':'panic-officer-steady'):''} style={{ padding:'8px 10px',background:isMe?'rgba(16,185,129,0.06)':'rgba(255,255,255,0.02)',border:`1px solid ${isMe?'rgba(16,185,129,0.16)':'rgba(255,255,255,0.04)'}`,borderRadius:'7px',marginBottom:'4px',position:'relative',overflow:'hidden' }}>
                                     {isMe&&<div style={{ position:'absolute',left:0,top:0,bottom:0,width:'2px',background:'linear-gradient(180deg,#059669,#10b981)' }} />}
-                                    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'4px' }}>
-                                        <span style={{ color:isMe?'#6ee7b7':'#93c5fd',fontSize:'13px',fontWeight:'900',fontFamily:'monospace' }}>{o.callSign||'—'}</span>
-                                        <span style={{ fontSize:'8px',fontWeight:'700',padding:'2px 6px',borderRadius:'3px',background:o.status==='10-9'?'rgba(16,185,129,0.1)':o.status==='10-10'?'rgba(239,68,68,0.1)':'rgba(245,158,11,0.1)',color:o.status==='10-9'?'#10b981':o.status==='10-10'?'#ef4444':'#f59e0b' }}>{o.status}</span>
+                                    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'3px' }}>
+                                        <span style={{ color:isMe?'#6ee7b7':'#93c5fd',fontSize:'12px',fontWeight:'900',fontFamily:'monospace' }}>{o.callSign||'—'}</span>
+                                        <span style={{ fontSize:'7px',fontWeight:'800',padding:'2px 5px',borderRadius:'3px',background:o.status==='10-9'?'rgba(16,185,129,0.1)':o.status==='10-10'?'rgba(239,68,68,0.1)':'rgba(245,158,11,0.1)',color:o.status==='10-9'?'#10b981':o.status==='10-10'?'#ef4444':'#f59e0b',textTransform:'uppercase',letterSpacing:'0.5px' }}>{o.status}</span>
                                     </div>
-                                    <div style={{ color:'#e2e8f0',fontSize:'10px',fontWeight:'600',marginBottom:'3px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{o.name||'Unknown'}</div>
-                                    <div style={{ color:'#374151',fontSize:'9px' }}>#{o.badge} · Zone {o.zone||'—'}</div>
+                                    <div style={{ color:'#e2e8f0',fontSize:'9px',fontWeight:'600',marginBottom:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{o.name||'Unknown'}</div>
+                                    <div style={{ color:'#374151',fontSize:'8px' }}>#{o.badge} · Zone {o.zone||'—'}</div>
                                 </div>;
                             })}
                         </div>
                     </div>
                 )}
                 {showDataPanel && (
-                    <div style={{ position:'absolute',top:0,right:0,bottom:0,width:'300px',background:'rgba(7,9,15,0.97)',borderLeft:'1px solid rgba(59,130,246,0.15)',zIndex:50,overflowY:'auto',backdropFilter:'blur(16px)',animation:'fadeIn 0.15s ease-out' }}>
-                        <div style={{ padding:'14px' }}>
-                            <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px' }}>
-                                <span style={{ color:'#60a5fa',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>DATA</span>
-                                <button onClick={()=>setShowDataPanel(false)} style={{ background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'5px',color:'#f87171',cursor:'pointer',width:'24px',height:'24px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px' }}>✕</button>
+                    <div style={{ position:'absolute',top:0,right:0,bottom:0,width:'280px',background:'rgba(7,9,15,0.97)',borderLeft:'1px solid rgba(59,130,246,0.14)',zIndex:50,overflowY:'auto',backdropFilter:'blur(16px)',animation:'fadeIn 0.15s ease-out' }}>
+                        <div style={{ padding:'12px 14px' }}>
+                            <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'12px' }}>
+                                <span style={{ color:'#60a5fa',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>Data</span>
+                                <button onClick={()=>setShowDataPanel(false)} style={{ background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'4px',color:'#f87171',cursor:'pointer',width:'22px',height:'22px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px' }}>✕</button>
                             </div>
-                            <div style={{ background:'rgba(30,58,138,0.1)',border:'1px solid rgba(59,130,246,0.14)',borderRadius:'10px',padding:'12px',marginBottom:'8px',position:'relative',overflow:'hidden' }}>
-                                <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:'linear-gradient(90deg,transparent,rgba(59,130,246,0.4),transparent)' }} />
-                                <div style={{ color:'#374151',fontSize:'9px',fontWeight:'800',letterSpacing:'2px',marginBottom:'8px' }}>OFFICER</div>
-                                <div style={{ color:'white',fontSize:'14px',fontWeight:'800',marginBottom:'8px' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName}</div>
+                            <div style={{ background:'rgba(30,58,138,0.08)',border:'1px solid rgba(59,130,246,0.12)',borderRadius:'8px',padding:'10px',marginBottom:'7px',position:'relative',overflow:'hidden' }}>
+                                <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:'linear-gradient(90deg,transparent,rgba(59,130,246,0.35),transparent)' }} />
+                                <div style={{ color:'#1f2937',fontSize:'8px',fontWeight:'800',letterSpacing:'2px',marginBottom:'7px',textTransform:'uppercase' }}>Officer</div>
+                                <div style={{ color:'white',fontSize:'13px',fontWeight:'800',marginBottom:'7px' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName}</div>
                                 <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px' }}>
                                     {[{l:'BADGE',v:`#${trooperSettings?.BadgeID||'—'}`},{l:'ZONE',v:trooperSettings?.Zone||'—'},{l:'USERNAME',v:trooperSettings?.Username||'—'},{l:'DEPT',v:trooperSettings?.Department||'—'}].map(({l,v},i)=>(
-                                        <div key={i} style={{ background:'rgba(59,130,246,0.05)',borderRadius:'5px',padding:'5px 7px' }}>
-                                            <div style={{ color:'#1f2937',fontSize:'8px',fontWeight:'700',letterSpacing:'1px',marginBottom:'1px' }}>{l}</div>
+                                        <div key={i} style={{ background:'rgba(59,130,246,0.05)',borderRadius:'4px',padding:'4px 7px' }}>
+                                            <div style={{ color:'#1f2937',fontSize:'7px',fontWeight:'800',letterSpacing:'1px',marginBottom:'1px',textTransform:'uppercase' }}>{l}</div>
                                             <div style={{ color:'#e2e8f0',fontSize:'10px',fontWeight:'700',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{v}</div>
                                         </div>
                                     ))}
                                 </div>
                             </div>
-                            <div style={{ background:'rgba(16,185,129,0.06)',border:'1px solid rgba(16,185,129,0.12)',borderRadius:'10px',padding:'12px',position:'relative',overflow:'hidden' }}>
-                                <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:'linear-gradient(90deg,transparent,rgba(16,185,129,0.4),transparent)' }} />
-                                <div style={{ color:'#374151',fontSize:'9px',fontWeight:'800',letterSpacing:'2px',marginBottom:'8px' }}>SYSTEM STATUS</div>
+                            <div style={{ background:'rgba(16,185,129,0.06)',border:'1px solid rgba(16,185,129,0.1)',borderRadius:'8px',padding:'10px',position:'relative',overflow:'hidden' }}>
+                                <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:'linear-gradient(90deg,transparent,rgba(16,185,129,0.35),transparent)' }} />
+                                <div style={{ color:'#1f2937',fontSize:'8px',fontWeight:'800',letterSpacing:'2px',marginBottom:'7px',textTransform:'uppercase' }}>System Status</div>
                                 {[{label:'Discord API',ok:tokenSaved},{label:'Session',ok:!!selectedUserSession},{label:'Groq AI',ok:!!(window.GROQ_CONSOLE_API_KEY||localStorage.getItem('groqConsoleAPIKey'))},{label:'Sounds',ok:!!(window.SOUNDS&&Object.keys(window.SOUNDS).length>0)}].map(({label,ok},i,arr)=>(
-                                    <div key={i} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'4px 0',borderBottom:i<arr.length-1?'1px solid rgba(255,255,255,0.04)':'none' }}>
-                                        <span style={{ color:'#9ca3af',fontSize:'10px',fontWeight:'600' }}>{label}</span>
-                                        <span style={{ fontSize:'8px',fontWeight:'800',color:ok?'#10b981':'#ef4444',background:ok?'rgba(16,185,129,0.1)':'rgba(239,68,68,0.1)',padding:'2px 6px',borderRadius:'3px',letterSpacing:'1px' }}>{ok?'ONLINE':'OFFLINE'}</span>
+                                    <div key={i} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'3px 0',borderBottom:i<arr.length-1?'1px solid rgba(255,255,255,0.04)':'none' }}>
+                                        <span style={{ color:'#9ca3af',fontSize:'9px',fontWeight:'600' }}>{label}</span>
+                                        <span style={{ fontSize:'7px',fontWeight:'800',color:ok?'#10b981':'#ef4444',background:ok?'rgba(16,185,129,0.1)':'rgba(239,68,68,0.1)',padding:'2px 5px',borderRadius:'3px',letterSpacing:'1px',textTransform:'uppercase' }}>{ok?'ONLINE':'OFFLINE'}</span>
                                     </div>
                                 ))}
                             </div>
