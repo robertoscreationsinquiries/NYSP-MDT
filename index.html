@@ -1800,33 +1800,32 @@ const [mapZoom, setMapZoom] = useState(2);
 const [mapOffset, setMapOffset] = useState({ x: 0, y: 0 });
 const [mapDragging, setMapDragging] = useState(false);
 const [mapDragStart, setMapDragStart] = useState(null);
-const [mapUrl, setMapUrl] = useState(null);
-const [homeSubView, setHomeSubView] = useState('dashboard'); // 'dashboard' | 'map'
 const [showDataPanel, setShowDataPanel] = useState(false);
 const [showOfficersPanel, setShowOfficersPanel] = useState(false);
 const [showHistoryPanel, setShowHistoryPanel] = useState(false);
 const [activityLog, setActivityLog] = useState([]);
+const [mapUrl, setMapUrl] = useState(null);
+const [homeSubView, setHomeSubView] = useState('dashboard');
+const [historySearch, setHistorySearch] = useState('');
 const [streamingActive, setStreamingActive] = useState(false);
 const [streamingAddress, setStreamingAddress] = useState('');
 const [streamingCooldown, setStreamingCooldown] = useState(false);
 const isDispatcher = (trooperSettings?.Department || selectedDepartment) === 'DISPATCHER';
-
-// Preload map image once at startup
 React.useEffect(() => {
-    const MAP_SRC = 'https://raw.githubusercontent.com/robertoscreationsinquiries/NYSP-MDT/main/MAPRC1.0.png';
+    const src = 'https://raw.githubusercontent.com/robertoscreationsinquiries/NYSP-MDT/main/MAPRC1.0.png';
     if (mapUrl) return;
     const img = new window.Image();
-    img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        try { setMapUrl(canvas.toDataURL('image/png')); } catch(e) { setMapUrl(MAP_SRC); }
-    };
-    img.onerror = () => setMapUrl(MAP_SRC);
     img.crossOrigin = 'anonymous';
-    img.src = MAP_SRC;
+    img.onload = () => {
+        try {
+            const c = document.createElement('canvas');
+            c.width = img.naturalWidth; c.height = img.naturalHeight;
+            c.getContext('2d').drawImage(img, 0, 0);
+            setMapUrl(c.toDataURL('image/png'));
+        } catch(e) { setMapUrl(src); }
+    };
+    img.onerror = () => setMapUrl(src);
+    img.src = src;
 }, []);
 const logActivity = React.useCallback((msg) => {
     const ts = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -10791,428 +10790,88 @@ return (
 )}
 
 {activeView === 'home' ? (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#07090f', zIndex: 1 }}>
+    <div style={{ position:'fixed',top:0,left:0,right:0,bottom:0,display:'flex',flexDirection:'column',overflow:'hidden',background:'#07090f',zIndex:1 }}>
 
         {/* ══ UNIVERSAL TOP BAR ══ */}
-        <div style={{ display: 'flex', alignItems: 'center', background: 'linear-gradient(180deg, #0d1628, #0a1020)', borderBottom: '2px solid rgba(59,130,246,0.3)', flexShrink: 0, height: '56px', paddingLeft: '14px', paddingRight: '14px', gap: '8px', zIndex: 100 }}>
-            {/* Left: HOME button + session/officer info */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                <button onClick={() => setHomeSubView('dashboard')}
-                    style={{ display:'flex',alignItems:'center',gap:'5px',padding:'5px 10px',height:'36px',background:homeSubView==='dashboard'?'rgba(59,130,246,0.14)':'transparent',border:homeSubView==='dashboard'?'1px solid rgba(59,130,246,0.3)':'1px solid transparent',borderRadius:'6px',color:homeSubView==='dashboard'?'#60a5fa':'#6b7280',fontSize:'11px',fontWeight:'700',cursor:'pointer',letterSpacing:'1px',textTransform:'uppercase',transition:'all 0.15s',flexShrink:0 }}
-                    onMouseEnter={e=>{if(homeSubView!=='dashboard'){e.currentTarget.style.background='rgba(59,130,246,0.07)';e.currentTarget.style.color='#93c5fd';e.currentTarget.style.borderColor='rgba(59,130,246,0.18)';}}}
-                    onMouseLeave={e=>{if(homeSubView!=='dashboard'){e.currentTarget.style.background='transparent';e.currentTarget.style.color='#6b7280';e.currentTarget.style.borderColor='transparent';}}}>
-                    <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    HOME
-                </button>
-                <div style={{ width:'1px',height:'24px',background:'rgba(59,130,246,0.15)',flexShrink:0 }} />
-                <div style={{ display:'flex',alignItems:'center',gap:'7px',padding:'5px 11px',background:'rgba(59,130,246,0.08)',border:'1px solid rgba(59,130,246,0.22)',borderRadius:'6px',flexShrink:0 }}>
-                    <div style={{ width:'6px',height:'6px',borderRadius:'50%',background:selectedUserSession?'#10b981':'#ef4444',boxShadow:selectedUserSession?'0 0 5px rgba(16,185,129,0.7)':'0 0 5px rgba(239,68,68,0.7)',animation:selectedUserSession?'pulse 2s infinite':'none' }} />
-                    <span style={{ color:'#93c5fd',fontSize:'10px',fontWeight:'700',letterSpacing:'1px',whiteSpace:'nowrap' }}>
-                        {selectedUserSession?`SESSION ${selectedUserSession==='1011898104670330920'?'1':selectedUserSession==='1390212294478397471'?'2':selectedUserSession==='1390212341005680650'?'3':'WL'}`:'NO SESSION'}
-                    </span>
-                </div>
-                <span style={{ color:'#374151',fontSize:'10px',fontWeight:'600',letterSpacing:'1px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis' }}>
-                    {trooperSettings?.FirstName} {trooperSettings?.LastName} · #{trooperSettings?.BadgeID}
-                </span>
-            </div>
-
-            {/* Right: nav tabs */}
-            <div style={{ display:'flex',alignItems:'center',gap:'2px',flexShrink:0 }}>
-                {[
-                    { label:'MAP', key:'map', icon:'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7' },
-                    { label:'SETTINGS', key:'settings', icon:'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z', circle:'12 12 3' },
-                    { label:'HISTORY', key:'history', icon:'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
-                    { label:'DATA', key:'data', icon:'M4 6h16M4 10h16M4 14h16M4 18h16' },
-                    { label:'OFFICERS', key:'officers', disabled:!selectedUserSession, icon:'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
-                    { label:'CALLS', key:'calls', flash:callButtonFlash, icon:'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' },
-                    { label:'ID LOOKUP', key:'database-search', icon:'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
-                    { label:'SCAN PLATE', key:'search', icon:'M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4' },
-                ].map((item, i) => {
-                    const isData = item.key === 'data';
-                    const isOfficers = item.key === 'officers';
-                    const isHistoryTab = item.key === 'history';
-                    const isMap = item.key === 'map';
-                    const active = isData ? showDataPanel : isOfficers ? showOfficersPanel : isHistoryTab ? showHistoryPanel : isMap ? homeSubView==='map' : false;
-                    return (
-                        <button key={i}
-                            disabled={!!item.disabled}
-                            onClick={() => {
-                                if (item.disabled) return;
-                                if (isMap) { setHomeSubView(v => v==='map'?'dashboard':'map'); setShowDataPanel(false); setShowOfficersPanel(false); setShowHistoryPanel(false); }
-                                else if (isData) { setShowDataPanel(p=>!p); setShowOfficersPanel(false); setShowHistoryPanel(false); }
-                                else if (isOfficers) { setShowOfficersPanel(p=>!p); setShowDataPanel(false); setShowHistoryPanel(false); }
-                                else if (isHistoryTab) { setShowHistoryPanel(p=>!p); setShowDataPanel(false); setShowOfficersPanel(false); }
-                                else { setActiveView(item.key); if(item.key==='calls') setCallButtonFlash(false); }
-                            }}
-                            style={{ display:'flex',alignItems:'center',gap:'6px',padding:'6px 14px',height:'40px',background:item.flash?'linear-gradient(135deg,#ef4444,#dc2626)':active?'rgba(59,130,246,0.14)':'transparent',border:item.flash?'1px solid #991b1b':active?'1px solid rgba(59,130,246,0.3)':'1px solid transparent',borderRadius:'6px',color:item.disabled?'#1f2937':item.flash?'white':active?'#60a5fa':'#6b7280',fontSize:'11px',fontWeight:'700',cursor:item.disabled?'not-allowed':'pointer',letterSpacing:'1px',textTransform:'uppercase',transition:'all 0.15s',whiteSpace:'nowrap',animation:item.flash?'flash-red 1.5s infinite':'none',opacity:item.disabled?0.4:1 }}
-                            onMouseEnter={e=>{if(!item.disabled&&!item.flash&&!active){e.currentTarget.style.background='rgba(59,130,246,0.07)';e.currentTarget.style.color='#93c5fd';e.currentTarget.style.borderColor='rgba(59,130,246,0.18)';}}}
-                            onMouseLeave={e=>{if(!item.disabled&&!item.flash&&!active){e.currentTarget.style.background='transparent';e.currentTarget.style.color='#6b7280';e.currentTarget.style.borderColor='transparent';}}}>
-                            <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                {item.circle?<><path d={item.icon}/><circle cx={item.circle.split(' ')[0]} cy={item.circle.split(' ')[1]} r={item.circle.split(' ')[2]}/></>:<path d={item.icon}/>}
-                            </svg>
-                            {item.label}
-                        </button>
-                    );
-                })}
-            </div>
-        </div>
-
-        {/* ══ SUBVIEW: DASHBOARD ══ */}
-        {homeSubView === 'dashboard' && (() => {
-            const hour = new Date().getHours();
-            const greeting = hour >= 5 && hour < 12 ? 'Good morning' : hour >= 12 && hour < 17 ? 'Good afternoon' : hour >= 17 && hour < 21 ? 'Good evening' : 'Hello';
-            const activeCalls = (window._currentCalls || []).filter(c => !acknowledgedCalls.includes(c.id) && !dismissedCalls.includes(c.id));
-            const onDuty = !!shiftStartTime && !shiftEndTime;
+        {(()=>{
+            const TAB_STYLE = (active, flash) => ({ display:'flex',alignItems:'center',gap:'6px',padding:'6px 14px',height:'40px',background:flash?'linear-gradient(135deg,#ef4444,#dc2626)':active?'rgba(59,130,246,0.14)':'transparent',border:flash?'1px solid #991b1b':active?'1px solid rgba(59,130,246,0.3)':'1px solid transparent',borderRadius:'6px',color:flash?'white':active?'#60a5fa':'#6b7280',fontSize:'11px',fontWeight:'700',cursor:'pointer',letterSpacing:'1px',textTransform:'uppercase',transition:'all 0.15s',whiteSpace:'nowrap',animation:flash?'flash-red 1.5s infinite':'none' });
+            const hoverOn = e => { if(!e.currentTarget.dataset.active && !e.currentTarget.dataset.flash){ e.currentTarget.style.background='rgba(59,130,246,0.07)';e.currentTarget.style.color='#93c5fd';e.currentTarget.style.borderColor='rgba(59,130,246,0.18)'; }};
+            const hoverOff = e => { if(!e.currentTarget.dataset.active && !e.currentTarget.dataset.flash){ e.currentTarget.style.background='transparent';e.currentTarget.style.color='#6b7280';e.currentTarget.style.borderColor='transparent'; }};
+            const isMap = homeSubView==='map';
             return (
-                <div style={{ flex:1,overflow:'hidden',display:'grid',gridTemplateColumns:'1fr 340px',gridTemplateRows:'auto 1fr',gap:0 }}>
-
-                    {/* ── TOP GREETING STRIP ── */}
-                    <div style={{ gridColumn:'1/3',padding:'18px 28px 16px',borderBottom:'1px solid rgba(59,130,246,0.1)',display:'flex',alignItems:'center',justifyContent:'space-between',background:'rgba(8,12,22,0.6)',flexShrink:0 }}>
-                        <div>
-                            <div style={{ color:'white',fontSize:'22px',fontWeight:'800',letterSpacing:'0.5px' }}>
-                                {greeting}, <span style={{ color:'#60a5fa' }}>{trooperSettings?.LastName || 'Officer'}</span>.
-                            </div>
-                            <div style={{ color:'#374151',fontSize:'11px',fontWeight:'600',marginTop:'3px',letterSpacing:'1px' }}>
-                                {new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})} · {onDuty ? <span style={{ color:'#10b981' }}>ON DUTY · {getShiftDuration()}</span> : <span style={{ color:'#ef4444' }}>OFF DUTY</span>}
-                            </div>
-                        </div>
-                        <div style={{ display:'flex',alignItems:'center',gap:'10px' }}>
-                            {activeCalls.length > 0 && (
-                                <div style={{ display:'flex',alignItems:'center',gap:'7px',padding:'8px 14px',background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:'8px',animation:'flash-red 2s infinite' }}>
-                                    <div style={{ width:'7px',height:'7px',borderRadius:'50%',background:'#ef4444',boxShadow:'0 0 6px rgba(239,68,68,0.8)' }} />
-                                    <span style={{ color:'#fca5a5',fontSize:'11px',fontWeight:'800',letterSpacing:'1px' }}>{activeCalls.length} ACTIVE CALL{activeCalls.length>1?'S':''}</span>
-                                    <button onClick={()=>setActiveView('calls')} style={{ padding:'3px 8px',background:'rgba(239,68,68,0.2)',border:'1px solid rgba(239,68,68,0.4)',borderRadius:'4px',color:'#fca5a5',fontSize:'10px',fontWeight:'700',cursor:'pointer',letterSpacing:'1px' }}>VIEW</button>
-                                </div>
-                            )}
-                            {!onDuty && (
-                                <button onClick={()=>{setShiftStartTime(new Date());setShiftEndTime(null);setShiftPlateSearches([]);setShiftSearchHistory([]);setPausedTime(0);setShiftPaused(false);setPauseStartTime(null);setShiftBreaks([]);logActivity('Shift started');}}
-                                    style={{ padding:'8px 18px',background:'linear-gradient(135deg,rgba(16,185,129,0.2),rgba(5,150,105,0.1))',border:'1px solid rgba(16,185,129,0.35)',borderRadius:'8px',color:'#6ee7b7',fontSize:'11px',fontWeight:'800',cursor:'pointer',letterSpacing:'1px',textTransform:'uppercase' }}>
-                                    START SHIFT
+                <div style={{ display:'flex',alignItems:'center',background:'linear-gradient(180deg,#0d1628,#0a1020)',borderBottom:'2px solid rgba(59,130,246,0.3)',flexShrink:0,height:'56px',paddingLeft:'14px',paddingRight:'14px',gap:'6px',zIndex:100 }}>
+                    {/* HOME button */}
+                    <button onClick={()=>setHomeSubView('dashboard')} data-active={homeSubView==='dashboard'?'1':undefined}
+                        style={TAB_STYLE(homeSubView==='dashboard',false)} onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
+                        <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                        HOME
+                    </button>
+                    <div style={{ width:'1px',height:'24px',background:'rgba(59,130,246,0.15)',flexShrink:0 }} />
+                    {/* Session pill */}
+                    <div style={{ display:'flex',alignItems:'center',gap:'7px',padding:'5px 11px',background:'rgba(59,130,246,0.08)',border:'1px solid rgba(59,130,246,0.22)',borderRadius:'6px',flexShrink:0 }}>
+                        <div style={{ width:'6px',height:'6px',borderRadius:'50%',background:selectedUserSession?'#10b981':'#ef4444',boxShadow:selectedUserSession?'0 0 5px rgba(16,185,129,0.7)':'0 0 5px rgba(239,68,68,0.7)',animation:selectedUserSession?'pulse 2s infinite':'none' }} />
+                        <span style={{ color:'#93c5fd',fontSize:'10px',fontWeight:'700',letterSpacing:'1px',whiteSpace:'nowrap' }}>
+                            {selectedUserSession?`SESSION ${selectedUserSession==='1011898104670330920'?'1':selectedUserSession==='1390212294478397471'?'2':selectedUserSession==='1390212341005680650'?'3':'WL'}`:'NO SESSION'}
+                        </span>
+                    </div>
+                    <span style={{ color:'#374151',fontSize:'10px',fontWeight:'600',letterSpacing:'1px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',flex:1,minWidth:0 }}>
+                        {trooperSettings?.FirstName} {trooperSettings?.LastName} · #{trooperSettings?.BadgeID}
+                    </span>
+                    {/* Nav tabs */}
+                    <div style={{ display:'flex',alignItems:'center',gap:'2px',flexShrink:0 }}>
+                        {[
+                            {label:'MAP',key:'map',icon:'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7'},
+                            {label:'SETTINGS',key:'settings',icon:'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z',circle:'12 12 3'},
+                            {label:'HISTORY',key:'historyPanel',icon:'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'},
+                            {label:'DATA',key:'dataPanel',icon:'M4 6h16M4 10h16M4 14h16M4 18h16'},
+                            {label:'OFFICERS',key:'officersPanel',disabled:!selectedUserSession,icon:'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'},
+                            {label:'CALLS',key:'calls',flash:callButtonFlash,icon:'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9'},
+                            {label:'ID LOOKUP',key:'database-search',icon:'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'},
+                            {label:'SCAN PLATE',key:'search',icon:'M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4'},
+                        ].map((item,i)=>{
+                            const isPanelKey = item.key==='historyPanel'||item.key==='dataPanel'||item.key==='officersPanel';
+                            const isMapKey = item.key==='map';
+                            const isActive = isMapKey ? homeSubView==='map' : item.key==='historyPanel' ? showHistoryPanel : item.key==='dataPanel' ? showDataPanel : item.key==='officersPanel' ? showOfficersPanel : false;
+                            return (
+                                <button key={i} disabled={!!item.disabled}
+                                    data-active={isActive?'1':undefined} data-flash={item.flash?'1':undefined}
+                                    onClick={()=>{
+                                        if(item.disabled) return;
+                                        if(isMapKey){ setHomeSubView(v=>v==='map'?'dashboard':'map'); setShowDataPanel(false); setShowOfficersPanel(false); setShowHistoryPanel(false); }
+                                        else if(item.key==='dataPanel'){ setShowDataPanel(p=>!p); setShowOfficersPanel(false); setShowHistoryPanel(false); }
+                                        else if(item.key==='officersPanel'){ setShowOfficersPanel(p=>!p); setShowDataPanel(false); setShowHistoryPanel(false); }
+                                        else if(item.key==='historyPanel'){ setShowHistoryPanel(p=>!p); setShowDataPanel(false); setShowOfficersPanel(false); }
+                                        else{ setActiveView(item.key); if(item.key==='calls') setCallButtonFlash(false); }
+                                    }}
+                                    style={{...TAB_STYLE(isActive,item.flash),opacity:item.disabled?0.4:1,cursor:item.disabled?'not-allowed':'pointer'}}
+                                    onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
+                                    <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        {item.circle?<><path d={item.icon}/><circle cx={item.circle.split(' ')[0]} cy={item.circle.split(' ')[1]} r={item.circle.split(' ')[2]}/></>:<path d={item.icon}/>}
+                                    </svg>
+                                    {item.label}
                                 </button>
-                            )}
-                        </div>
+                            );
+                        })}
                     </div>
-
-                    {/* ── LEFT: MAIN CONTENT ── */}
-                    <div style={{ overflowY:'auto',padding:'20px 24px',display:'flex',flexDirection:'column',gap:'16px' }}>
-
-                        {/* Active Calls Widget */}
-                        <div style={{ background:'linear-gradient(135deg,rgba(15,23,42,0.9),rgba(30,41,59,0.7))',border:'1px solid rgba(59,130,246,0.18)',borderRadius:'12px',overflow:'hidden' }}>
-                            <div style={{ padding:'12px 16px',borderBottom:'1px solid rgba(59,130,246,0.1)',display:'flex',alignItems:'center',justifyContent:'space-between' }}>
-                                <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
-                                    <div style={{ width:'8px',height:'8px',borderRadius:'50%',background:activeCalls.length>0?'#ef4444':'#374151',boxShadow:activeCalls.length>0?'0 0 6px rgba(239,68,68,0.7)':'none',animation:activeCalls.length>0?'pulse 1.5s infinite':'none' }} />
-                                    <span style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>ACTIVE CALLS</span>
-                                    <span style={{ padding:'2px 8px',background:activeCalls.length>0?'rgba(239,68,68,0.15)':'rgba(255,255,255,0.04)',border:`1px solid ${activeCalls.length>0?'rgba(239,68,68,0.3)':'rgba(255,255,255,0.08)'}`,borderRadius:'4px',color:activeCalls.length>0?'#fca5a5':'#374151',fontSize:'10px',fontWeight:'700' }}>{activeCalls.length}</span>
-                                </div>
-                                <button onClick={()=>setActiveView('calls')} style={{ padding:'4px 10px',background:'rgba(59,130,246,0.08)',border:'1px solid rgba(59,130,246,0.2)',borderRadius:'5px',color:'#60a5fa',fontSize:'10px',fontWeight:'700',cursor:'pointer',letterSpacing:'1px' }}>OPEN CAD</button>
-                            </div>
-                            <div style={{ padding:'10px' }}>
-                                {activeCalls.length === 0 ? (
-                                    <div style={{ padding:'20px',textAlign:'center',color:'#1f2937',fontSize:'11px' }}>No active calls in this session</div>
-                                ) : activeCalls.slice(0,4).map((call,i) => (
-                                    <div key={i} style={{ display:'flex',alignItems:'flex-start',gap:'10px',padding:'9px 10px',background:'rgba(239,68,68,0.04)',border:'1px solid rgba(239,68,68,0.12)',borderRadius:'8px',marginBottom:i<activeCalls.length-1?'5px':'0' }}>
-                                        <div style={{ width:'6px',height:'6px',borderRadius:'50%',background:'#ef4444',marginTop:'4px',flexShrink:0 }} />
-                                        <div style={{ flex:1,minWidth:0 }}>
-                                            <div style={{ color:'#fca5a5',fontSize:'11px',fontWeight:'700',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{call.type||call.content?.slice(0,60)||'Unknown Call'}</div>
-                                            <div style={{ color:'#374151',fontSize:'9px',fontWeight:'600',marginTop:'2px' }}>{call.author||'Unknown'} · {call.timestamp ? new Date(call.timestamp).toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit'}) : '—'}</div>
-                                        </div>
-                                    </div>
-                                ))}
-                                {activeCalls.length > 4 && <div style={{ textAlign:'center',color:'#374151',fontSize:'10px',padding:'6px',fontWeight:'600' }}>+{activeCalls.length-4} more calls</div>}
-                            </div>
-                        </div>
-
-                        {/* Stats row */}
-                        <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px' }}>
-                            {[
-                                { label:'PLATES TODAY', value: String(shiftPlateSearches?.length||0), color:'#60a5fa', icon:'M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4' },
-                                { label:'CITIZENS TODAY', value: String(shiftSearchHistory?.length||0), color:'#a78bfa', icon:'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
-                                { label:'OFFICERS ONLINE', value: String(onlineOfficers?.length||0), color:'#34d399', icon:'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
-                            ].map(({label,value,color,icon},i) => (
-                                <div key={i} style={{ background:'rgba(15,23,42,0.8)',border:'1px solid rgba(59,130,246,0.12)',borderRadius:'10px',padding:'14px',display:'flex',flexDirection:'column',gap:'6px',position:'relative',overflow:'hidden' }}>
-                                    <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:`linear-gradient(90deg,transparent,${color}55,transparent)` }} />
-                                    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between' }}>
-                                        <span style={{ color:'#374151',fontSize:'9px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase' }}>{label}</span>
-                                        <svg width="12" height="12" fill="none" stroke={color} viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity:0.6 }}><path d={icon}/></svg>
-                                    </div>
-                                    <span style={{ color,fontSize:'28px',fontWeight:'900',fontFamily:'monospace',lineHeight:1 }}>{value}</span>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Quick actions */}
-                        <div style={{ background:'rgba(15,23,42,0.8)',border:'1px solid rgba(59,130,246,0.12)',borderRadius:'12px',padding:'14px' }}>
-                            <div style={{ color:'#374151',fontSize:'9px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase',marginBottom:'10px' }}>QUICK ACTIONS</div>
-                            <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px' }}>
-                                {[
-                                    { label:'SCAN PLATE', icon:'M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4', color:'#60a5fa', view:'search' },
-                                    { label:'ID LOOKUP', icon:'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', color:'#a78bfa', view:'database-search' },
-                                    { label:'ACTIVE CALLS', icon:'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9', color:'#f87171', view:'calls' },
-                                    { label:'SETTINGS', icon:'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z', color:'#94a3b8', view:'settings' },
-                                ].map((a,i) => (
-                                    <button key={i} onClick={()=>setActiveView(a.view)}
-                                        style={{ display:'flex',alignItems:'center',gap:'8px',padding:'11px 14px',background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:'8px',color:'#9ca3af',fontSize:'11px',fontWeight:'700',cursor:'pointer',letterSpacing:'1px',textTransform:'uppercase',transition:'all 0.15s' }}
-                                        onMouseEnter={e=>{e.currentTarget.style.background=`rgba(${a.color==='#60a5fa'?'96,165,250':a.color==='#a78bfa'?'167,139,250':a.color==='#f87171'?'248,113,113':'148,163,184'},0.1)`;e.currentTarget.style.borderColor=`${a.color}44`;e.currentTarget.style.color=a.color;}}
-                                        onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.02)';e.currentTarget.style.borderColor='rgba(255,255,255,0.06)';e.currentTarget.style.color='#9ca3af';}}>
-                                        <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={a.icon}/></svg>
-                                        {a.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Recent activity */}
-                        <div style={{ background:'rgba(15,23,42,0.8)',border:'1px solid rgba(59,130,246,0.12)',borderRadius:'12px',overflow:'hidden' }}>
-                            <div style={{ padding:'12px 16px',borderBottom:'1px solid rgba(59,130,246,0.08)',display:'flex',alignItems:'center',justifyContent:'space-between' }}>
-                                <span style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>RECENT ACTIVITY</span>
-                                <button onClick={()=>setShowHistoryPanel(p=>!p)} style={{ padding:'3px 8px',background:'rgba(59,130,246,0.08)',border:'1px solid rgba(59,130,246,0.2)',borderRadius:'4px',color:'#60a5fa',fontSize:'10px',fontWeight:'700',cursor:'pointer' }}>VIEW ALL</button>
-                            </div>
-                            <div style={{ padding:'6px' }}>
-                                {activityLog.length === 0 ? (
-                                    <div style={{ padding:'16px',textAlign:'center',color:'#1f2937',fontSize:'11px' }}>No activity yet</div>
-                                ) : activityLog.slice(0,6).map((entry,i) => {
-                                    const isWarn=entry.msg.includes('WARRANT');const isExp=entry.msg.includes('Export');const isPlate=entry.msg.includes('Plate');const isCit=entry.msg.includes('Citizen');
-                                    const col=isWarn?'#f87171':isExp?'#34d399':isPlate?'#60a5fa':isCit?'#a78bfa':'#4b5563';
-                                    return (
-                                        <div key={entry.id} style={{ display:'flex',gap:'8px',padding:'6px 8px',borderBottom:i<5?'1px solid rgba(255,255,255,0.03)':'none',alignItems:'flex-start' }}>
-                                            <span style={{ color:'#1f2937',fontSize:'9px',fontFamily:'monospace',whiteSpace:'nowrap',flexShrink:0,marginTop:'2px' }}>[{entry.ts}]</span>
-                                            <span style={{ color:col,fontSize:'10px',fontWeight:'600',lineHeight:'1.4' }}>{entry.msg}</span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                    </div>
-
-                    {/* ── RIGHT SIDEBAR: OFFICER INFO + SYSTEM ── */}
-                    <div style={{ borderLeft:'1px solid rgba(59,130,246,0.1)',overflowY:'auto',padding:'16px',display:'flex',flexDirection:'column',gap:'10px',background:'rgba(7,9,15,0.4)' }}>
-
-                        {/* Officer card */}
-                        <div style={{ background:'linear-gradient(135deg,rgba(30,58,138,0.18),rgba(59,130,246,0.06))',border:'1px solid rgba(59,130,246,0.18)',borderRadius:'10px',padding:'12px',position:'relative',overflow:'hidden' }}>
-                            <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:'linear-gradient(90deg,transparent,rgba(59,130,246,0.5),transparent)' }} />
-                            <div style={{ color:'#374151',fontSize:'9px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase',marginBottom:'8px' }}>OFFICER</div>
-                            <div style={{ color:'white',fontSize:'15px',fontWeight:'800',marginBottom:'8px' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName}</div>
-                            <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px' }}>
-                                {[{l:'BADGE',v:`#${trooperSettings?.BadgeID||'—'}`,mono:true},{l:'ZONE',v:`ZONE ${trooperSettings?.Zone||'—'}`},{l:'USERNAME',v:trooperSettings?.Username||'—'},{l:'DEPT',v:trooperSettings?.Department||'—'}].map(({l,v,mono},i)=>(
-                                    <div key={i} style={{ background:'rgba(59,130,246,0.05)',border:'1px solid rgba(59,130,246,0.08)',borderRadius:'6px',padding:'6px 8px' }}>
-                                        <div style={{ color:'#1f2937',fontSize:'8px',fontWeight:'700',letterSpacing:'1px',marginBottom:'2px' }}>{l}</div>
-                                        <div style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'700',fontFamily:mono?'monospace':'inherit',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{v}</div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* System status */}
-                        <div style={{ background:'linear-gradient(135deg,rgba(16,185,129,0.08),rgba(5,150,105,0.04))',border:'1px solid rgba(16,185,129,0.14)',borderRadius:'10px',padding:'12px',position:'relative',overflow:'hidden' }}>
-                            <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:'linear-gradient(90deg,transparent,rgba(16,185,129,0.5),transparent)' }} />
-                            <div style={{ color:'#374151',fontSize:'9px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase',marginBottom:'8px' }}>SYSTEM</div>
-                            {[{label:'Discord API',ok:tokenSaved},{label:'Session',ok:!!selectedUserSession},{label:'Groq AI',ok:!!(window.GROQ_CONSOLE_API_KEY||localStorage.getItem('groqConsoleAPIKey'))},{label:'Sounds',ok:!!(window.SOUNDS&&Object.keys(window.SOUNDS).length>0)}].map(({label,ok},i,arr)=>(
-                                <div key={i} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'5px 0',borderBottom:i<arr.length-1?'1px solid rgba(255,255,255,0.04)':'none' }}>
-                                    <span style={{ color:'#9ca3af',fontSize:'11px',fontWeight:'600' }}>{label}</span>
-                                    <span style={{ fontSize:'9px',fontWeight:'700',color:ok?'#10b981':'#ef4444',background:ok?'rgba(16,185,129,0.1)':'rgba(239,68,68,0.1)',padding:'2px 7px',borderRadius:'4px',letterSpacing:'1px' }}>{ok?'ONLINE':'OFFLINE'}</span>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Shift */}
-                        <div style={{ background:'linear-gradient(135deg,rgba(245,158,11,0.08),rgba(217,119,6,0.04))',border:'1px solid rgba(245,158,11,0.14)',borderRadius:'10px',padding:'12px',position:'relative',overflow:'hidden' }}>
-                            <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:'linear-gradient(90deg,transparent,rgba(245,158,11,0.5),transparent)' }} />
-                            <div style={{ color:'#374151',fontSize:'9px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase',marginBottom:'8px' }}>SHIFT</div>
-                            {onDuty ? (<>
-                                <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px',marginBottom:'8px' }}>
-                                    {[{l:'TIME',v:getShiftDuration()},{l:'STATUS',v:shiftPaused?'PAUSED':'ACTIVE'},{l:'PLATES',v:String(shiftPlateSearches.length)},{l:'CITIZENS',v:String(shiftSearchHistory.length)}].map(({l,v},i)=>(
-                                        <div key={i} style={{ background:'rgba(245,158,11,0.05)',border:'1px solid rgba(245,158,11,0.1)',borderRadius:'6px',padding:'6px 8px' }}>
-                                            <div style={{ color:'#1f2937',fontSize:'8px',fontWeight:'700',letterSpacing:'1px',marginBottom:'2px' }}>{l}</div>
-                                            <div style={{ color:'#fbbf24',fontSize:'11px',fontWeight:'800',fontFamily:'monospace' }}>{v}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div style={{ display:'flex',gap:'6px' }}>
-                                    <button onClick={()=>{if(shiftPaused){const d=new Date()-pauseStartTime;setPausedTime(p=>p+d);setPauseStartTime(null);setShiftPaused(false);}else{setPauseStartTime(new Date());setShiftPaused(true);}}} style={{ flex:1,padding:'7px',background:shiftPaused?'rgba(16,185,129,0.14)':'rgba(245,158,11,0.14)',border:`1px solid ${shiftPaused?'rgba(16,185,129,0.28)':'rgba(245,158,11,0.28)'}`,borderRadius:'6px',color:shiftPaused?'#6ee7b7':'#fbbf24',fontSize:'9px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px' }}>{shiftPaused?'RESUME':'PAUSE'}</button>
-                                    <button onClick={()=>setShowEndShiftConfirm(true)} style={{ flex:1,padding:'7px',background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.22)',borderRadius:'6px',color:'#fca5a5',fontSize:'9px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px' }}>END SHIFT</button>
-                                </div>
-                            </>) : (
-                                <button onClick={()=>{setShiftStartTime(new Date());setShiftEndTime(null);setShiftPlateSearches([]);setShiftSearchHistory([]);setPausedTime(0);setShiftPaused(false);setPauseStartTime(null);setShiftBreaks([]);}} style={{ width:'100%',padding:'9px',background:'linear-gradient(135deg,rgba(245,158,11,0.18),rgba(217,119,6,0.09))',border:'1px solid rgba(245,158,11,0.32)',borderRadius:'7px',color:'#fbbf24',fontSize:'10px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1.5px' }}>START SHIFT</button>
-                            )}
-                        </div>
-
-                        {/* Online officers mini-list */}
-                        <div style={{ background:'rgba(15,23,42,0.8)',border:'1px solid rgba(59,130,246,0.12)',borderRadius:'10px',overflow:'hidden' }}>
-                            <div style={{ padding:'10px 12px',borderBottom:'1px solid rgba(59,130,246,0.08)',display:'flex',alignItems:'center',justifyContent:'space-between' }}>
-                                <span style={{ color:'#e2e8f0',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>UNITS ONLINE</span>
-                                <span style={{ fontSize:'10px',fontWeight:'700',color:'#374151' }}>{onlineOfficers?.length||0}</span>
-                            </div>
-                            <div style={{ padding:'6px',maxHeight:'160px',overflowY:'auto' }}>
-                                {(!onlineOfficers||onlineOfficers.length===0) ? (
-                                    <div style={{ padding:'12px',textAlign:'center',color:'#1f2937',fontSize:'10px' }}>No officers online</div>
-                                ) : onlineOfficers.slice(0,6).map((o,i)=>{
-                                    const isMe=String(o.badge)===String(trooperSettings?.BadgeID);
-                                    return (
-                                        <div key={i} style={{ display:'flex',alignItems:'center',gap:'7px',padding:'6px 7px',borderRadius:'6px',background:isMe?'rgba(16,185,129,0.06)':'transparent',marginBottom:'2px' }}>
-                                            <div style={{ width:'5px',height:'5px',borderRadius:'50%',background:o.status==='10-9'?'#10b981':o.status==='10-10'?'#ef4444':'#f59e0b',flexShrink:0 }} />
-                                            <span style={{ color:isMe?'#6ee7b7':'#9ca3af',fontSize:'11px',fontWeight:'700',fontFamily:'monospace',flexShrink:0 }}>{o.callSign||'—'}</span>
-                                            <span style={{ color:'#374151',fontSize:'10px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1 }}>{o.name||'Unknown'}</span>
-                                            <span style={{ color:'#1f2937',fontSize:'9px',fontWeight:'700',flexShrink:0 }}>#{o.badge}</span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                    </div>
-
-                    {/* Slide-in panels */}
-                    {showDataPanel && (
-                        <div style={{ position:'absolute',top:'0',right:0,bottom:0,width:'320px',background:'rgba(7,9,15,0.97)',borderLeft:'1px solid rgba(59,130,246,0.18)',zIndex:50,overflowY:'auto',backdropFilter:'blur(16px)',animation:'fadeIn 0.15s ease-out' }}>
-                            <div style={{ padding:'14px' }}>
-                                <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px' }}>
-                                    <span style={{ color:'#60a5fa',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>DATA</span>
-                                    <button onClick={()=>setShowDataPanel(false)} style={{ background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'5px',color:'#f87171',cursor:'pointer',width:'24px',height:'24px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px' }}>✕</button>
-                                </div>
-                                <div style={{ background:'linear-gradient(135deg,rgba(30,58,138,0.18),rgba(59,130,246,0.06))',border:'1px solid rgba(59,130,246,0.18)',borderRadius:'10px',padding:'12px',marginBottom:'8px',position:'relative',overflow:'hidden' }}>
-                                    <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:'linear-gradient(90deg,transparent,rgba(59,130,246,0.5),transparent)' }} />
-                                    <div style={{ color:'#374151',fontSize:'9px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase',marginBottom:'8px' }}>OFFICER</div>
-                                    <div style={{ color:'white',fontSize:'15px',fontWeight:'800',marginBottom:'8px' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName}</div>
-                                    <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px' }}>
-                                        {[{l:'BADGE',v:`#${trooperSettings?.BadgeID||'—'}`,mono:true},{l:'ZONE',v:`ZONE ${trooperSettings?.Zone||'—'}`},{l:'USERNAME',v:trooperSettings?.Username||'—'},{l:'DEPT',v:trooperSettings?.Department||'—'}].map(({l,v,mono},i)=>(
-                                            <div key={i} style={{ background:'rgba(59,130,246,0.05)',border:'1px solid rgba(59,130,246,0.08)',borderRadius:'6px',padding:'6px 9px' }}>
-                                                <div style={{ color:'#1f2937',fontSize:'8px',fontWeight:'700',letterSpacing:'1px',marginBottom:'2px' }}>{l}</div>
-                                                <div style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'700',fontFamily:mono?'monospace':'inherit',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{v}</div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div style={{ background:'linear-gradient(135deg,rgba(16,185,129,0.08),rgba(5,150,105,0.04))',border:'1px solid rgba(16,185,129,0.14)',borderRadius:'10px',padding:'12px',marginBottom:'8px',position:'relative',overflow:'hidden' }}>
-                                    <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:'linear-gradient(90deg,transparent,rgba(16,185,129,0.5),transparent)' }} />
-                                    <div style={{ color:'#374151',fontSize:'9px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase',marginBottom:'8px' }}>SYSTEM STATUS</div>
-                                    {[{label:'Discord API',ok:tokenSaved},{label:'Session',ok:!!selectedUserSession},{label:'Groq AI',ok:!!(window.GROQ_CONSOLE_API_KEY||localStorage.getItem('groqConsoleAPIKey'))},{label:'Sounds',ok:!!(window.SOUNDS&&Object.keys(window.SOUNDS).length>0)}].map(({label,ok},i,arr)=>(
-                                        <div key={i} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'5px 0',borderBottom:i<arr.length-1?'1px solid rgba(255,255,255,0.04)':'none' }}>
-                                            <span style={{ color:'#9ca3af',fontSize:'11px',fontWeight:'600' }}>{label}</span>
-                                            <span style={{ fontSize:'9px',fontWeight:'700',color:ok?'#10b981':'#ef4444',background:ok?'rgba(16,185,129,0.1)':'rgba(239,68,68,0.1)',padding:'2px 7px',borderRadius:'4px',letterSpacing:'1px' }}>{ok?'ONLINE':'OFFLINE'}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    {showOfficersPanel && (
-                        <div style={{ position:'absolute',top:'0',right:0,bottom:0,width:'320px',background:'rgba(7,9,15,0.97)',borderLeft:'1px solid rgba(59,130,246,0.18)',zIndex:50,overflowY:'auto',backdropFilter:'blur(16px)',animation:'fadeIn 0.15s ease-out' }}>
-                            <div style={{ padding:'14px' }}>
-                                <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px' }}>
-                                    <div>
-                                        <span style={{ color:'#60a5fa',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>AVAILABLE OFFICERS</span>
-                                        <div style={{ color:'#1f2937',fontSize:'9px',marginTop:'2px',fontFamily:'monospace' }}>
-                                            {officerNextUpdate?`Updating at ${officerNextUpdate.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'})}`:'Pending sync...'}
-                                        </div>
-                                    </div>
-                                    <button onClick={()=>setShowOfficersPanel(false)} style={{ background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'5px',color:'#f87171',cursor:'pointer',width:'24px',height:'24px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px' }}>✕</button>
-                                </div>
-                                <div style={{ display:'flex',gap:'5px',marginBottom:'12px' }}>
-                                    {['10-9','10-10','10-5'].map(s=>(
-                                        <button key={s} onClick={()=>setOfficerStatus(s)} style={{ flex:1,padding:'6px',background:officerStatus===s?'rgba(59,130,246,0.18)':'rgba(255,255,255,0.03)',border:`1px solid ${officerStatus===s?'rgba(59,130,246,0.4)':'rgba(255,255,255,0.06)'}`,borderRadius:'6px',color:officerStatus===s?'#93c5fd':'#4b5563',fontSize:'10px',fontWeight:'700',cursor:'pointer',transition:'all 0.15s' }}>{s}</button>
-                                    ))}
-                                </div>
-                                <div style={{ display:'flex',flexDirection:'column',gap:'5px' }}>
-                                    {onlineOfficers.length===0 ? (
-                                        <div style={{ color:'#1f2937',fontSize:'11px',textAlign:'center',padding:'20px 0' }}>No officers online</div>
-                                    ) : onlineOfficers.map((o,i)=>{
-                                        const isMe=String(o.badge)===String(trooperSettings?.BadgeID);
-                                        const isPanic=panicFlickerOfficer===o.badge||activePanic?.badge===o.badge;
-                                        return (
-                                            <div key={i} className={isPanic?(panicFlickerOfficer===o.badge?'panic-officer':'panic-officer-steady'):''} style={{ padding:'10px 12px',background:isMe?'rgba(16,185,129,0.07)':'rgba(255,255,255,0.02)',border:`1px solid ${isMe?'rgba(16,185,129,0.2)':'rgba(255,255,255,0.05)'}`,borderRadius:'9px',position:'relative',overflow:'hidden' }}>
-                                                {isMe&&<div style={{ position:'absolute',left:0,top:0,bottom:0,width:'3px',background:'linear-gradient(180deg,#059669,#10b981)',borderRadius:'3px 0 0 3px' }} />}
-                                                <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'5px' }}>
-                                                    <div style={{ display:'flex',alignItems:'center',gap:'6px' }}>
-                                                        <span style={{ color:isMe?'#6ee7b7':'#93c5fd',fontSize:'14px',fontWeight:'900',letterSpacing:'1px',fontFamily:'monospace' }}>{o.callSign||'—'}</span>
-                                                        {isMe&&<span style={{ fontSize:'8px',fontWeight:'700',color:'#10b981',background:'rgba(16,185,129,0.1)',border:'1px solid rgba(16,185,129,0.2)',borderRadius:'3px',padding:'1px 5px',letterSpacing:'1px' }}>YOU</span>}
-                                                    </div>
-                                                    <span style={{ fontSize:'9px',fontWeight:'700',padding:'3px 8px',borderRadius:'4px',background:o.status==='10-9'?'rgba(16,185,129,0.1)':o.status==='10-10'?'rgba(239,68,68,0.1)':'rgba(245,158,11,0.1)',color:o.status==='10-9'?'#10b981':o.status==='10-10'?'#ef4444':'#f59e0b',border:`1px solid ${o.status==='10-9'?'rgba(16,185,129,0.25)':o.status==='10-10'?'rgba(239,68,68,0.25)':'rgba(245,158,11,0.25)'}` }}>{o.status}</span>
-                                                </div>
-                                                <div style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'600',marginBottom:'4px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{o.name||'Unknown'}</div>
-                                                <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
-                                                    <span style={{ color:'#374151',fontSize:'9px',fontWeight:'700',fontFamily:'monospace' }}>#{o.badge}</span>
-                                                    <span style={{ width:'3px',height:'3px',borderRadius:'50%',background:'#1f2937',flexShrink:0 }} />
-                                                    <span style={{ color:'#374151',fontSize:'9px',fontWeight:'600' }}>Zone {o.zone||'—'}</span>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    {showHistoryPanel && (
-                        <div style={{ position:'absolute',top:'0',right:0,bottom:0,width:'360px',background:'rgba(7,9,15,0.97)',borderLeft:'1px solid rgba(59,130,246,0.18)',zIndex:50,display:'flex',flexDirection:'column',backdropFilter:'blur(16px)',animation:'fadeIn 0.15s ease-out' }}>
-                            <div style={{ padding:'14px',borderBottom:'1px solid rgba(59,130,246,0.1)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
-                                <span style={{ color:'#60a5fa',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>ACTIVITY HISTORY</span>
-                                <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
-                                    <button onClick={()=>setActivityLog([])} style={{ background:'rgba(239,68,68,0.07)',border:'1px solid rgba(239,68,68,0.18)',borderRadius:'4px',color:'#f87171',cursor:'pointer',padding:'3px 8px',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase' }}>CLEAR</button>
-                                    <button onClick={()=>setShowHistoryPanel(false)} style={{ background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'5px',color:'#f87171',cursor:'pointer',width:'24px',height:'24px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px' }}>✕</button>
-                                </div>
-                            </div>
-                            <div style={{ padding:'8px 14px 8px',borderBottom:'1px solid rgba(59,130,246,0.08)',flexShrink:0 }}>
-                                <input type="text" id="historySearchInput" placeholder="Search history..." style={{ width:'100%',padding:'6px 10px',background:'rgba(255,255,255,0.04)',border:'1px solid rgba(59,130,246,0.2)',borderRadius:'6px',color:'#e2e8f0',fontSize:'11px',outline:'none',boxSizing:'border-box',fontFamily:'inherit' }}
-                                    onFocus={e=>e.target.style.borderColor='rgba(59,130,246,0.5)'}
-                                    onBlur={e=>e.target.style.borderColor='rgba(59,130,246,0.2)'}
-                                    onChange={()=>{ /* triggers re-render via controlled approach */ }}
-                                />
-                            </div>
-                            <div style={{ flex:1,overflowY:'auto',padding:'8px' }}>
-                                {(()=>{
-                                    const q=(document.getElementById('historySearchInput')?.value||'').toLowerCase();
-                                    const filtered=q?activityLog.filter(e=>e.msg.toLowerCase().includes(q)||e.ts.includes(q)):activityLog;
-                                    if(filtered.length===0) return <div style={{ color:'#1f2937',fontSize:'11px',textAlign:'center',padding:'32px 16px' }}>{activityLog.length===0?'No activity yet':'No matching entries'}</div>;
-                                    return filtered.map((entry)=>{
-                                        const isWarn=entry.msg.includes('WARRANT');const isExp=entry.msg.includes('Export');const isPlate=entry.msg.includes('Plate');const isCit=entry.msg.includes('Citizen');
-                                        const color=isWarn?'#f87171':isExp?'#34d399':isPlate?'#60a5fa':isCit?'#a78bfa':'#4b5563';
-                                        return (
-                                            <div key={entry.id} style={{ display:'flex',gap:'10px',padding:'7px 8px',borderBottom:'1px solid rgba(255,255,255,0.03)',alignItems:'flex-start' }}>
-                                                <span style={{ color:'#1f2937',fontSize:'10px',fontFamily:'monospace',fontWeight:'600',whiteSpace:'nowrap',flexShrink:0,marginTop:'1px' }}>[{entry.ts}]</span>
-                                                <span style={{ color,fontSize:'11px',fontWeight:'600',lineHeight:'1.4' }}>{entry.msg}</span>
-                                            </div>
-                                        );
-                                    });
-                                })()}
-                            </div>
-                        </div>
-                    )}
-
                 </div>
             );
         })()}
 
-        {/* ══ SUBVIEW: MAP ══ */}
+        {/* ══ MAP SUBVIEW ══ */}
         {homeSubView === 'map' && (
             <div style={{ flex:1,position:'relative',overflow:'hidden',background:'#050810',cursor:mapDragging?'grabbing':'grab',userSelect:'none' }}
                 onMouseDown={e=>{setMapDragging(true);setMapDragStart({x:e.clientX-mapOffset.x,y:e.clientY-mapOffset.y});}}
                 onMouseMove={e=>{
                     if(!mapDragging||!mapDragStart) return;
-                    const container=e.currentTarget.getBoundingClientRect();
-                    const maxPanX=Math.max(0,(container.width*mapZoom-container.width)/2);
-                    const maxPanY=Math.max(0,(container.height*mapZoom-container.height)/2);
-                    const nx=e.clientX-mapDragStart.x;
-                    const ny=e.clientY-mapDragStart.y;
-                    setMapOffset({x:Math.max(-maxPanX,Math.min(maxPanX,nx)),y:Math.max(-maxPanY,Math.min(maxPanY,ny))});
+                    const el=e.currentTarget; const cw=el.clientWidth; const ch=el.clientHeight;
+                    const maxX=Math.max(0,(cw*mapZoom-cw)/2); const maxY=Math.max(0,(ch*mapZoom-ch)/2);
+                    setMapOffset({x:Math.max(-maxX,Math.min(maxX,e.clientX-mapDragStart.x)),y:Math.max(-maxY,Math.min(maxY,e.clientY-mapDragStart.y))});
                 }}
                 onMouseUp={()=>{setMapDragging(false);setMapDragStart(null);}}
                 onMouseLeave={()=>{setMapDragging(false);setMapDragStart(null);}}
-                onWheel={e=>{
-                    e.preventDefault();
-                    setMapZoom(z=>{
-                        const nz=Math.min(4,Math.max(1,z-e.deltaY*0.001));
-                        if(nz<=1) setMapOffset({x:0,y:0});
-                        return nz;
-                    });
-                }}>
+                onWheel={e=>{e.preventDefault();setMapZoom(z=>{const nz=Math.min(4,Math.max(1,z-e.deltaY*0.001));if(nz<=1)setMapOffset({x:0,y:0});return nz;});}}>
                 <div style={{ position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center' }}>
-                    {mapUrl ? (
-                        <img src={mapUrl} alt="MAP" draggable={false}
-                            style={{ transform:`translate(${mapOffset.x}px,${mapOffset.y}px) scale(${mapZoom})`,transformOrigin:'center center',maxWidth:'none',width:'100%',height:'100%',objectFit:'contain',pointerEvents:'none',transition:mapDragging?'none':'transform 0.05s' }}
-                        />
-                    ) : (
-                        <div style={{ color:'#374151',fontSize:'12px',fontWeight:'600' }}>Loading map...</div>
-                    )}
+                    {mapUrl?<img src={mapUrl} alt="MAP" draggable={false} style={{ transform:`translate(${mapOffset.x}px,${mapOffset.y}px) scale(${mapZoom})`,transformOrigin:'center center',width:'100%',height:'100%',objectFit:'contain',pointerEvents:'none',transition:mapDragging?'none':'transform 0.05s' }}/>:<div style={{ color:'#374151',fontSize:'12px' }}>Loading map...</div>}
                 </div>
                 <div style={{ position:'absolute',top:'12px',right:'12px',display:'flex',flexDirection:'column',gap:'3px',zIndex:10 }}>
                     {[{l:'+',fn:()=>setMapZoom(z=>Math.min(4,z+0.25))},{l:'−',fn:()=>setMapZoom(z=>{const nz=Math.max(1,z-0.25);if(nz<=1)setMapOffset({x:0,y:0});return nz;})},{l:'⊙',fn:()=>{setMapZoom(2);setMapOffset({x:0,y:0});}}].map((b,i)=>(
@@ -11221,15 +10880,307 @@ return (
                             onMouseLeave={e=>{e.currentTarget.style.background='rgba(8,12,22,0.88)';e.currentTarget.style.borderColor='rgba(59,130,246,0.28)';}}>{b.l}</button>
                     ))}
                 </div>
-                <div style={{ position:'absolute',bottom:'12px',right:'12px',padding:'3px 9px',background:'rgba(8,12,22,0.82)',border:'1px solid rgba(59,130,246,0.18)',borderRadius:'4px',color:'#374151',fontSize:'10px',fontWeight:'700',fontFamily:'monospace',backdropFilter:'blur(6px)' }}>
-                    {Math.round(mapZoom*100)}%
+                <div style={{ position:'absolute',bottom:'12px',right:'12px',padding:'3px 9px',background:'rgba(8,12,22,0.82)',border:'1px solid rgba(59,130,246,0.18)',borderRadius:'4px',color:'#374151',fontSize:'10px',fontWeight:'700',fontFamily:'monospace',backdropFilter:'blur(6px)' }}>{Math.round(mapZoom*100)}%</div>
+            </div>
+        )}
+
+        {/* ══ DASHBOARD SUBVIEW ══ */}
+        {homeSubView === 'dashboard' && (
+            <div style={{ flex:1,overflow:'hidden',display:'grid',gridTemplateColumns:'1fr 320px',position:'relative' }}>
+                {/* Left main content */}
+                <div style={{ overflowY:'auto',padding:'20px 22px',display:'flex',flexDirection:'column',gap:'14px',borderRight:'1px solid rgba(59,130,246,0.08)' }}>
+                    {/* Greeting */}
+                    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
+                        <div>
+                            <div style={{ color:'white',fontSize:'24px',fontWeight:'800',letterSpacing:'0.5px',lineHeight:1 }}>
+                                {(()=>{ const h=new Date().getHours(); return h>=5&&h<12?'Good morning':h>=12&&h<17?'Good afternoon':h>=17&&h<21?'Good evening':'Hello'; })()}{', '}
+                                <span style={{ color:'#60a5fa' }}>{trooperSettings?.LastName||'Officer'}</span>.
+                            </div>
+                            <div style={{ color:'#374151',fontSize:'11px',fontWeight:'600',marginTop:'5px',letterSpacing:'1px' }}>
+                                {new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}
+                                {' · '}
+                                {(!!shiftStartTime&&!shiftEndTime)?<span style={{ color:'#10b981' }}>ON DUTY · {getShiftDuration()}</span>:<span style={{ color:'#ef4444' }}>OFF DUTY</span>}
+                            </div>
+                        </div>
+                        {(!shiftStartTime||shiftEndTime) && (
+                            <button onClick={()=>{setShiftStartTime(new Date());setShiftEndTime(null);setShiftPlateSearches([]);setShiftSearchHistory([]);setPausedTime(0);setShiftPaused(false);setPauseStartTime(null);setShiftBreaks([]);logActivity('Shift started');}}
+                                style={{ padding:'9px 20px',background:'linear-gradient(135deg,rgba(16,185,129,0.2),rgba(5,150,105,0.1))',border:'1px solid rgba(16,185,129,0.35)',borderRadius:'8px',color:'#6ee7b7',fontSize:'11px',fontWeight:'800',cursor:'pointer',letterSpacing:'1px',textTransform:'uppercase',flexShrink:0 }}>
+                                START SHIFT
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Active calls banner */}
+                    {(()=>{ const ac=(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)); return ac.length>0&&(
+                        <div style={{ display:'flex',alignItems:'center',gap:'12px',padding:'12px 16px',background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.25)',borderRadius:'10px',animation:'flash-red 2s infinite',flexShrink:0 }}>
+                            <div style={{ width:'8px',height:'8px',borderRadius:'50%',background:'#ef4444',boxShadow:'0 0 8px rgba(239,68,68,0.8)',animation:'pulse 1s infinite',flexShrink:0 }} />
+                            <span style={{ color:'#fca5a5',fontSize:'12px',fontWeight:'800',letterSpacing:'1px',flex:1 }}>{ac.length} ACTIVE CALL{ac.length>1?'S':''} PENDING RESPONSE</span>
+                            <button onClick={()=>setActiveView('calls')} style={{ padding:'5px 12px',background:'rgba(239,68,68,0.2)',border:'1px solid rgba(239,68,68,0.4)',borderRadius:'5px',color:'#fca5a5',fontSize:'10px',fontWeight:'700',cursor:'pointer',letterSpacing:'1px',flexShrink:0 }}>VIEW CALLS</button>
+                        </div>
+                    );})()}
+
+                    {/* Stats row */}
+                    <div style={{ display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'10px',flexShrink:0 }}>
+                        {[
+                            {l:'PLATES',v:String(shiftPlateSearches?.length||0),c:'#60a5fa',i:'M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4'},
+                            {l:'CITIZENS',v:String(shiftSearchHistory?.length||0),c:'#a78bfa',i:'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'},
+                            {l:'OFFICERS ONLINE',v:String(onlineOfficers?.length||0),c:'#34d399',i:'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'},
+                            {l:'ACTIVE CALLS',v:String((window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length),c:'#f87171',i:'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9'},
+                        ].map(({l,v,c,i},idx)=>(
+                            <div key={idx} style={{ background:'rgba(15,23,42,0.8)',border:'1px solid rgba(59,130,246,0.1)',borderRadius:'10px',padding:'14px',position:'relative',overflow:'hidden' }}>
+                                <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:`linear-gradient(90deg,transparent,${c}66,transparent)` }} />
+                                <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'8px' }}>
+                                    <span style={{ color:'#374151',fontSize:'9px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase' }}>{l}</span>
+                                    <svg width="12" height="12" fill="none" stroke={c} viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity:0.6 }}><path d={i}/></svg>
+                                </div>
+                                <span style={{ color:c,fontSize:'30px',fontWeight:'900',fontFamily:'monospace',lineHeight:1 }}>{v}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Active calls list */}
+                    <div style={{ background:'rgba(15,23,42,0.8)',border:'1px solid rgba(59,130,246,0.12)',borderRadius:'12px',overflow:'hidden',flexShrink:0 }}>
+                        <div style={{ padding:'11px 16px',borderBottom:'1px solid rgba(59,130,246,0.08)',display:'flex',alignItems:'center',justifyContent:'space-between' }}>
+                            <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
+                                <div style={{ width:'7px',height:'7px',borderRadius:'50%',background:(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length>0?'#ef4444':'#1f2937',boxShadow:(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length>0?'0 0 6px rgba(239,68,68,0.7)':'none',animation:(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length>0?'pulse 1.5s infinite':'none' }} />
+                                <span style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>ACTIVE CALLS</span>
+                            </div>
+                            <button onClick={()=>setActiveView('calls')} style={{ padding:'4px 10px',background:'rgba(59,130,246,0.08)',border:'1px solid rgba(59,130,246,0.2)',borderRadius:'5px',color:'#60a5fa',fontSize:'10px',fontWeight:'700',cursor:'pointer' }}>OPEN CAD</button>
+                        </div>
+                        <div style={{ padding:'8px',maxHeight:'180px',overflowY:'auto' }}>
+                            {(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length===0
+                                ? <div style={{ padding:'18px',textAlign:'center',color:'#1f2937',fontSize:'11px' }}>No active calls</div>
+                                : (window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).slice(0,5).map((call,i)=>(
+                                    <div key={i} style={{ display:'flex',alignItems:'flex-start',gap:'9px',padding:'8px 9px',background:'rgba(239,68,68,0.04)',border:'1px solid rgba(239,68,68,0.1)',borderRadius:'7px',marginBottom:'4px' }}>
+                                        <div style={{ width:'5px',height:'5px',borderRadius:'50%',background:'#ef4444',marginTop:'4px',flexShrink:0 }} />
+                                        <div style={{ flex:1,minWidth:0 }}>
+                                            <div style={{ color:'#fca5a5',fontSize:'11px',fontWeight:'700',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{call.type||call.content?.slice(0,60)||'Unknown Call'}</div>
+                                            <div style={{ color:'#374151',fontSize:'9px',marginTop:'2px' }}>{call.author||'Unknown'} · {call.timestamp?new Date(call.timestamp).toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit'}):'—'}</div>
+                                        </div>
+                                    </div>
+                                ))
+                            }
+                        </div>
+                    </div>
+
+                    {/* Quick actions */}
+                    <div style={{ background:'rgba(15,23,42,0.8)',border:'1px solid rgba(59,130,246,0.12)',borderRadius:'12px',padding:'14px',flexShrink:0 }}>
+                        <div style={{ color:'#374151',fontSize:'9px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase',marginBottom:'10px' }}>QUICK ACTIONS</div>
+                        <div style={{ display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'8px' }}>
+                            {[
+                                {l:'SCAN PLATE',c:'#60a5fa',v:'search',i:'M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4'},
+                                {l:'ID LOOKUP',c:'#a78bfa',v:'database-search',i:'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'},
+                                {l:'CALLS',c:'#f87171',v:'calls',i:'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9'},
+                                {l:'SETTINGS',c:'#94a3b8',v:'settings',i:'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z'},
+                            ].map((a,i)=>(
+                                <button key={i} onClick={()=>setActiveView(a.v)}
+                                    style={{ display:'flex',alignItems:'center',gap:'7px',padding:'10px 12px',background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:'8px',color:'#9ca3af',fontSize:'10px',fontWeight:'700',cursor:'pointer',letterSpacing:'1px',textTransform:'uppercase',transition:'all 0.15s' }}
+                                    onMouseEnter={e=>{e.currentTarget.style.background=`${a.c}18`;e.currentTarget.style.borderColor=`${a.c}44`;e.currentTarget.style.color=a.c;}}
+                                    onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.02)';e.currentTarget.style.borderColor='rgba(255,255,255,0.06)';e.currentTarget.style.color='#9ca3af';}}>
+                                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={a.i}/></svg>
+                                    {a.l}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Recent activity */}
+                    <div style={{ background:'rgba(15,23,42,0.8)',border:'1px solid rgba(59,130,246,0.12)',borderRadius:'12px',overflow:'hidden',flex:1,minHeight:'120px' }}>
+                        <div style={{ padding:'11px 16px',borderBottom:'1px solid rgba(59,130,246,0.08)',display:'flex',alignItems:'center',justifyContent:'space-between' }}>
+                            <span style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>RECENT ACTIVITY</span>
+                            <button onClick={()=>setShowHistoryPanel(p=>!p)} style={{ padding:'3px 8px',background:'rgba(59,130,246,0.08)',border:'1px solid rgba(59,130,246,0.2)',borderRadius:'4px',color:'#60a5fa',fontSize:'10px',fontWeight:'700',cursor:'pointer' }}>ALL</button>
+                        </div>
+                        <div style={{ padding:'4px 6px',overflowY:'auto',maxHeight:'200px' }}>
+                            {activityLog.length===0?<div style={{ padding:'16px',textAlign:'center',color:'#1f2937',fontSize:'11px' }}>No activity yet</div>
+                            :activityLog.slice(0,8).map(entry=>{
+                                const iw=entry.msg.includes('WARRANT'),ie=entry.msg.includes('Export'),ip=entry.msg.includes('Plate'),ic=entry.msg.includes('Citizen');
+                                const col=iw?'#f87171':ie?'#34d399':ip?'#60a5fa':ic?'#a78bfa':'#4b5563';
+                                return <div key={entry.id} style={{ display:'flex',gap:'8px',padding:'5px 7px',borderBottom:'1px solid rgba(255,255,255,0.03)',alignItems:'flex-start' }}>
+                                    <span style={{ color:'#1f2937',fontSize:'9px',fontFamily:'monospace',whiteSpace:'nowrap',flexShrink:0,marginTop:'2px' }}>[{entry.ts}]</span>
+                                    <span style={{ color:col,fontSize:'10px',fontWeight:'600',lineHeight:'1.4' }}>{entry.msg}</span>
+                                </div>;
+                            })}
+                        </div>
+                    </div>
                 </div>
+
+                {/* Right sidebar */}
+                <div style={{ overflowY:'auto',padding:'16px',display:'flex',flexDirection:'column',gap:'10px',background:'rgba(7,9,15,0.5)' }}>
+                    {/* Officer card */}
+                    <div style={{ background:'linear-gradient(135deg,rgba(30,58,138,0.18),rgba(59,130,246,0.06))',border:'1px solid rgba(59,130,246,0.18)',borderRadius:'10px',padding:'12px',position:'relative',overflow:'hidden',flexShrink:0 }}>
+                        <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:'linear-gradient(90deg,transparent,rgba(59,130,246,0.5),transparent)' }} />
+                        <div style={{ color:'#374151',fontSize:'9px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase',marginBottom:'8px' }}>OFFICER</div>
+                        <div style={{ color:'white',fontSize:'15px',fontWeight:'800',marginBottom:'8px' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName}</div>
+                        <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px' }}>
+                            {[{l:'BADGE',v:`#${trooperSettings?.BadgeID||'—'}`,m:true},{l:'ZONE',v:`ZONE ${trooperSettings?.Zone||'—'}`},{l:'USERNAME',v:trooperSettings?.Username||'—'},{l:'DEPT',v:trooperSettings?.Department||'—'}].map(({l,v,m},i)=>(
+                                <div key={i} style={{ background:'rgba(59,130,246,0.05)',border:'1px solid rgba(59,130,246,0.08)',borderRadius:'6px',padding:'6px 8px' }}>
+                                    <div style={{ color:'#1f2937',fontSize:'8px',fontWeight:'700',letterSpacing:'1px',marginBottom:'2px' }}>{l}</div>
+                                    <div style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'700',fontFamily:m?'monospace':'inherit',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{v}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    {/* System status */}
+                    <div style={{ background:'linear-gradient(135deg,rgba(16,185,129,0.08),rgba(5,150,105,0.04))',border:'1px solid rgba(16,185,129,0.14)',borderRadius:'10px',padding:'12px',position:'relative',overflow:'hidden',flexShrink:0 }}>
+                        <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:'linear-gradient(90deg,transparent,rgba(16,185,129,0.5),transparent)' }} />
+                        <div style={{ color:'#374151',fontSize:'9px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase',marginBottom:'8px' }}>SYSTEM</div>
+                        {[{label:'Discord API',ok:tokenSaved},{label:'Session',ok:!!selectedUserSession},{label:'Groq AI',ok:!!(window.GROQ_CONSOLE_API_KEY||localStorage.getItem('groqConsoleAPIKey'))},{label:'Sounds',ok:!!(window.SOUNDS&&Object.keys(window.SOUNDS).length>0)}].map(({label,ok},i,arr)=>(
+                            <div key={i} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'5px 0',borderBottom:i<arr.length-1?'1px solid rgba(255,255,255,0.04)':'none' }}>
+                                <span style={{ color:'#9ca3af',fontSize:'11px',fontWeight:'600' }}>{label}</span>
+                                <span style={{ fontSize:'9px',fontWeight:'700',color:ok?'#10b981':'#ef4444',background:ok?'rgba(16,185,129,0.1)':'rgba(239,68,68,0.1)',padding:'2px 7px',borderRadius:'4px',letterSpacing:'1px' }}>{ok?'ONLINE':'OFFLINE'}</span>
+                            </div>
+                        ))}
+                    </div>
+                    {/* Shift */}
+                    <div style={{ background:'linear-gradient(135deg,rgba(245,158,11,0.08),rgba(217,119,6,0.04))',border:'1px solid rgba(245,158,11,0.14)',borderRadius:'10px',padding:'12px',position:'relative',overflow:'hidden',flexShrink:0 }}>
+                        <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:'linear-gradient(90deg,transparent,rgba(245,158,11,0.5),transparent)' }} />
+                        <div style={{ color:'#374151',fontSize:'9px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase',marginBottom:'8px' }}>SHIFT</div>
+                        {(!!shiftStartTime&&!shiftEndTime)?(<>
+                            <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px',marginBottom:'8px' }}>
+                                {[{l:'TIME',v:getShiftDuration()},{l:'STATUS',v:shiftPaused?'PAUSED':'ACTIVE'},{l:'PLATES',v:String(shiftPlateSearches.length)},{l:'CITIZENS',v:String(shiftSearchHistory.length)}].map(({l,v},i)=>(
+                                    <div key={i} style={{ background:'rgba(245,158,11,0.05)',border:'1px solid rgba(245,158,11,0.1)',borderRadius:'6px',padding:'6px 8px' }}>
+                                        <div style={{ color:'#1f2937',fontSize:'8px',fontWeight:'700',letterSpacing:'1px',marginBottom:'2px' }}>{l}</div>
+                                        <div style={{ color:'#fbbf24',fontSize:'11px',fontWeight:'800',fontFamily:'monospace' }}>{v}</div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div style={{ display:'flex',gap:'6px' }}>
+                                <button onClick={()=>{if(shiftPaused){const d=new Date()-pauseStartTime;setPausedTime(p=>p+d);setPauseStartTime(null);setShiftPaused(false);}else{setPauseStartTime(new Date());setShiftPaused(true);}}} style={{ flex:1,padding:'7px',background:shiftPaused?'rgba(16,185,129,0.14)':'rgba(245,158,11,0.14)',border:`1px solid ${shiftPaused?'rgba(16,185,129,0.28)':'rgba(245,158,11,0.28)'}`,borderRadius:'6px',color:shiftPaused?'#6ee7b7':'#fbbf24',fontSize:'9px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px' }}>{shiftPaused?'RESUME':'PAUSE'}</button>
+                                <button onClick={()=>setShowEndShiftConfirm(true)} style={{ flex:1,padding:'7px',background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.22)',borderRadius:'6px',color:'#fca5a5',fontSize:'9px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px' }}>END SHIFT</button>
+                            </div>
+                        </>):(<button onClick={()=>{setShiftStartTime(new Date());setShiftEndTime(null);setShiftPlateSearches([]);setShiftSearchHistory([]);setPausedTime(0);setShiftPaused(false);setPauseStartTime(null);setShiftBreaks([]);logActivity('Shift started');}} style={{ width:'100%',padding:'9px',background:'linear-gradient(135deg,rgba(245,158,11,0.18),rgba(217,119,6,0.09))',border:'1px solid rgba(245,158,11,0.32)',borderRadius:'7px',color:'#fbbf24',fontSize:'10px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1.5px' }}>START SHIFT</button>)}
+                    </div>
+                    {/* Units online */}
+                    <div style={{ background:'rgba(15,23,42,0.8)',border:'1px solid rgba(59,130,246,0.12)',borderRadius:'10px',overflow:'hidden',flex:1,minHeight:0 }}>
+                        <div style={{ padding:'10px 12px',borderBottom:'1px solid rgba(59,130,246,0.08)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
+                            <span style={{ color:'#e2e8f0',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>UNITS ONLINE</span>
+                            <span style={{ color:'#374151',fontSize:'10px',fontWeight:'700' }}>{onlineOfficers?.length||0}</span>
+                        </div>
+                        <div style={{ padding:'5px',overflowY:'auto',maxHeight:'220px' }}>
+                            {(!onlineOfficers||onlineOfficers.length===0)?<div style={{ padding:'12px',textAlign:'center',color:'#1f2937',fontSize:'10px' }}>No officers online</div>
+                            :onlineOfficers.slice(0,8).map((o,i)=>{
+                                const isMe=String(o.badge)===String(trooperSettings?.BadgeID);
+                                return <div key={i} style={{ display:'flex',alignItems:'center',gap:'7px',padding:'6px 7px',borderRadius:'6px',background:isMe?'rgba(16,185,129,0.06)':'transparent',marginBottom:'2px' }}>
+                                    <div style={{ width:'5px',height:'5px',borderRadius:'50%',background:o.status==='10-9'?'#10b981':o.status==='10-10'?'#ef4444':'#f59e0b',flexShrink:0 }} />
+                                    <span style={{ color:isMe?'#6ee7b7':'#93c5fd',fontSize:'11px',fontWeight:'700',fontFamily:'monospace',flexShrink:0,minWidth:'40px' }}>{o.callSign||'—'}</span>
+                                    <span style={{ color:'#6b7280',fontSize:'10px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1 }}>{o.name||'Unknown'}</span>
+                                    <span style={{ color:'#1f2937',fontSize:'9px',fontWeight:'700',flexShrink:0 }}>#{o.badge}</span>
+                                </div>;
+                            })}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Slide-in panels (DATA, OFFICERS, HISTORY) */}
+                {showDataPanel && (
+                    <div style={{ position:'absolute',top:0,right:0,bottom:0,width:'320px',background:'rgba(7,9,15,0.97)',borderLeft:'1px solid rgba(59,130,246,0.18)',zIndex:50,overflowY:'auto',backdropFilter:'blur(16px)',animation:'fadeIn 0.15s ease-out' }}>
+                        <div style={{ padding:'14px' }}>
+                            <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px' }}>
+                                <span style={{ color:'#60a5fa',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>DATA</span>
+                                <button onClick={()=>setShowDataPanel(false)} style={{ background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'5px',color:'#f87171',cursor:'pointer',width:'24px',height:'24px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px' }}>✕</button>
+                            </div>
+                            <div style={{ background:'linear-gradient(135deg,rgba(30,58,138,0.18),rgba(59,130,246,0.06))',border:'1px solid rgba(59,130,246,0.18)',borderRadius:'10px',padding:'12px',marginBottom:'8px',position:'relative',overflow:'hidden' }}>
+                                <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:'linear-gradient(90deg,transparent,rgba(59,130,246,0.5),transparent)' }} />
+                                <div style={{ color:'#374151',fontSize:'9px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase',marginBottom:'8px' }}>OFFICER</div>
+                                <div style={{ color:'white',fontSize:'15px',fontWeight:'800',marginBottom:'8px' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName}</div>
+                                <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px' }}>
+                                    {[{l:'BADGE',v:`#${trooperSettings?.BadgeID||'—'}`,m:true},{l:'ZONE',v:`ZONE ${trooperSettings?.Zone||'—'}`},{l:'USERNAME',v:trooperSettings?.Username||'—'},{l:'DEPT',v:trooperSettings?.Department||'—'}].map(({l,v,m},i)=>(
+                                        <div key={i} style={{ background:'rgba(59,130,246,0.05)',border:'1px solid rgba(59,130,246,0.08)',borderRadius:'6px',padding:'6px 9px' }}>
+                                            <div style={{ color:'#1f2937',fontSize:'8px',fontWeight:'700',letterSpacing:'1px',marginBottom:'2px' }}>{l}</div>
+                                            <div style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'700',fontFamily:m?'monospace':'inherit',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{v}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div style={{ background:'linear-gradient(135deg,rgba(16,185,129,0.08),rgba(5,150,105,0.04))',border:'1px solid rgba(16,185,129,0.14)',borderRadius:'10px',padding:'12px',position:'relative',overflow:'hidden' }}>
+                                <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:'linear-gradient(90deg,transparent,rgba(16,185,129,0.5),transparent)' }} />
+                                <div style={{ color:'#374151',fontSize:'9px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase',marginBottom:'8px' }}>SYSTEM STATUS</div>
+                                {[{label:'Discord API',ok:tokenSaved},{label:'Session',ok:!!selectedUserSession},{label:'Groq AI',ok:!!(window.GROQ_CONSOLE_API_KEY||localStorage.getItem('groqConsoleAPIKey'))},{label:'Sounds',ok:!!(window.SOUNDS&&Object.keys(window.SOUNDS).length>0)}].map(({label,ok},i,arr)=>(
+                                    <div key={i} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'5px 0',borderBottom:i<arr.length-1?'1px solid rgba(255,255,255,0.04)':'none' }}>
+                                        <span style={{ color:'#9ca3af',fontSize:'11px',fontWeight:'600' }}>{label}</span>
+                                        <span style={{ fontSize:'9px',fontWeight:'700',color:ok?'#10b981':'#ef4444',background:ok?'rgba(16,185,129,0.1)':'rgba(239,68,68,0.1)',padding:'2px 7px',borderRadius:'4px',letterSpacing:'1px' }}>{ok?'ONLINE':'OFFLINE'}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {showOfficersPanel && (
+                    <div style={{ position:'absolute',top:0,right:0,bottom:0,width:'320px',background:'rgba(7,9,15,0.97)',borderLeft:'1px solid rgba(59,130,246,0.18)',zIndex:50,overflowY:'auto',backdropFilter:'blur(16px)',animation:'fadeIn 0.15s ease-out' }}>
+                        <div style={{ padding:'14px' }}>
+                            <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px' }}>
+                                <div>
+                                    <span style={{ color:'#60a5fa',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>AVAILABLE OFFICERS</span>
+                                    <div style={{ color:'#1f2937',fontSize:'9px',marginTop:'2px',fontFamily:'monospace' }}>{officerNextUpdate?`Updating at ${officerNextUpdate.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'})}`:'Pending sync...'}</div>
+                                </div>
+                                <button onClick={()=>setShowOfficersPanel(false)} style={{ background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'5px',color:'#f87171',cursor:'pointer',width:'24px',height:'24px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px' }}>✕</button>
+                            </div>
+                            <div style={{ display:'flex',gap:'5px',marginBottom:'12px' }}>
+                                {['10-9','10-10','10-5'].map(s=>(
+                                    <button key={s} onClick={()=>setOfficerStatus(s)} style={{ flex:1,padding:'6px',background:officerStatus===s?'rgba(59,130,246,0.18)':'rgba(255,255,255,0.03)',border:`1px solid ${officerStatus===s?'rgba(59,130,246,0.4)':'rgba(255,255,255,0.06)'}`,borderRadius:'6px',color:officerStatus===s?'#93c5fd':'#4b5563',fontSize:'10px',fontWeight:'700',cursor:'pointer',transition:'all 0.15s' }}>{s}</button>
+                                ))}
+                            </div>
+                            <div style={{ display:'flex',flexDirection:'column',gap:'5px' }}>
+                                {onlineOfficers.length===0?<div style={{ color:'#1f2937',fontSize:'11px',textAlign:'center',padding:'20px 0' }}>No officers online</div>
+                                :onlineOfficers.map((o,i)=>{
+                                    const isMe=String(o.badge)===String(trooperSettings?.BadgeID);
+                                    const isPanic=panicFlickerOfficer===o.badge||activePanic?.badge===o.badge;
+                                    return <div key={i} className={isPanic?(panicFlickerOfficer===o.badge?'panic-officer':'panic-officer-steady'):''} style={{ padding:'10px 12px',background:isMe?'rgba(16,185,129,0.07)':'rgba(255,255,255,0.02)',border:`1px solid ${isMe?'rgba(16,185,129,0.2)':'rgba(255,255,255,0.05)'}`,borderRadius:'9px',position:'relative',overflow:'hidden' }}>
+                                        {isMe&&<div style={{ position:'absolute',left:0,top:0,bottom:0,width:'3px',background:'linear-gradient(180deg,#059669,#10b981)',borderRadius:'3px 0 0 3px' }} />}
+                                        <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'5px' }}>
+                                            <div style={{ display:'flex',alignItems:'center',gap:'6px' }}>
+                                                <span style={{ color:isMe?'#6ee7b7':'#93c5fd',fontSize:'14px',fontWeight:'900',letterSpacing:'1px',fontFamily:'monospace' }}>{o.callSign||'—'}</span>
+                                                {isMe&&<span style={{ fontSize:'8px',fontWeight:'700',color:'#10b981',background:'rgba(16,185,129,0.1)',border:'1px solid rgba(16,185,129,0.2)',borderRadius:'3px',padding:'1px 5px',letterSpacing:'1px' }}>YOU</span>}
+                                            </div>
+                                            <span style={{ fontSize:'9px',fontWeight:'700',padding:'3px 8px',borderRadius:'4px',background:o.status==='10-9'?'rgba(16,185,129,0.1)':o.status==='10-10'?'rgba(239,68,68,0.1)':'rgba(245,158,11,0.1)',color:o.status==='10-9'?'#10b981':o.status==='10-10'?'#ef4444':'#f59e0b',border:`1px solid ${o.status==='10-9'?'rgba(16,185,129,0.25)':o.status==='10-10'?'rgba(239,68,68,0.25)':'rgba(245,158,11,0.25)'}` }}>{o.status}</span>
+                                        </div>
+                                        <div style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'600',marginBottom:'4px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{o.name||'Unknown'}</div>
+                                        <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
+                                            <span style={{ color:'#374151',fontSize:'9px',fontWeight:'700',fontFamily:'monospace' }}>#{o.badge}</span>
+                                            <span style={{ width:'3px',height:'3px',borderRadius:'50%',background:'#1f2937',flexShrink:0 }} />
+                                            <span style={{ color:'#374151',fontSize:'9px',fontWeight:'600' }}>Zone {o.zone||'—'}</span>
+                                        </div>
+                                    </div>;
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {showHistoryPanel && (
+                    <div style={{ position:'absolute',top:0,right:0,bottom:0,width:'360px',background:'rgba(7,9,15,0.97)',borderLeft:'1px solid rgba(59,130,246,0.18)',zIndex:50,display:'flex',flexDirection:'column',backdropFilter:'blur(16px)',animation:'fadeIn 0.15s ease-out' }}>
+                        <div style={{ padding:'14px',borderBottom:'1px solid rgba(59,130,246,0.1)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
+                            <span style={{ color:'#60a5fa',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase' }}>ACTIVITY HISTORY</span>
+                            <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
+                                <button onClick={()=>setActivityLog([])} style={{ background:'rgba(239,68,68,0.07)',border:'1px solid rgba(239,68,68,0.18)',borderRadius:'4px',color:'#f87171',cursor:'pointer',padding:'3px 8px',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase' }}>CLEAR</button>
+                                <button onClick={()=>setShowHistoryPanel(false)} style={{ background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'5px',color:'#f87171',cursor:'pointer',width:'24px',height:'24px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px' }}>✕</button>
+                            </div>
+                        </div>
+                        <div style={{ padding:'8px 14px',borderBottom:'1px solid rgba(59,130,246,0.08)',flexShrink:0 }}>
+                            <input value={historySearch} onChange={e=>setHistorySearch(e.target.value)} placeholder="Search history..." style={{ width:'100%',padding:'6px 10px',background:'rgba(255,255,255,0.04)',border:'1px solid rgba(59,130,246,0.2)',borderRadius:'6px',color:'#e2e8f0',fontSize:'11px',outline:'none',boxSizing:'border-box',fontFamily:'inherit' }}
+                                onFocus={e=>e.target.style.borderColor='rgba(59,130,246,0.5)'}
+                                onBlur={e=>e.target.style.borderColor='rgba(59,130,246,0.2)'} />
+                        </div>
+                        <div style={{ flex:1,overflowY:'auto',padding:'8px' }}>
+                            {(()=>{
+                                const filtered=historySearch?activityLog.filter(e=>e.msg.toLowerCase().includes(historySearch.toLowerCase())||e.ts.includes(historySearch)):activityLog;
+                                if(filtered.length===0) return <div style={{ color:'#1f2937',fontSize:'11px',textAlign:'center',padding:'32px 16px' }}>{activityLog.length===0?'No activity yet':'No matching entries'}</div>;
+                                return filtered.map(entry=>{
+                                    const iw=entry.msg.includes('WARRANT'),ie=entry.msg.includes('Export'),ip=entry.msg.includes('Plate'),ic=entry.msg.includes('Citizen');
+                                    const color=iw?'#f87171':ie?'#34d399':ip?'#60a5fa':ic?'#a78bfa':'#4b5563';
+                                    return <div key={entry.id} style={{ display:'flex',gap:'10px',padding:'7px 8px',borderBottom:'1px solid rgba(255,255,255,0.03)',alignItems:'flex-start' }}>
+                                        <span style={{ color:'#1f2937',fontSize:'10px',fontFamily:'monospace',fontWeight:'600',whiteSpace:'nowrap',flexShrink:0,marginTop:'1px' }}>[{entry.ts}]</span>
+                                        <span style={{ color,fontSize:'11px',fontWeight:'600',lineHeight:'1.4' }}>{entry.msg}</span>
+                                    </div>;
+                                });
+                            })()}
+                        </div>
+                    </div>
+                )}
             </div>
         )}
 
     </div>
 ) : (
-
 <>
 
 <div className="main-content" style={{
@@ -11237,27 +11188,36 @@ return (
 }}>
 
 {activeView === 'search' && (
-<div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#07090f' }}>
+<div style={{ minHeight: 'calc(100vh - 40px)', background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)', padding: '20px', boxSizing: 'border-box', WebkitMaskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)', maskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)' }}>
+{/* ── HEADER ── */}
+<div style={{ marginBottom: '20px', padding: '20px 28px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,58,138,0.35))', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 4px 32px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', position: 'relative', overflow: 'hidden' }}>
 
-    {/* ── TOP BAR (matches home dash) ── */}
-    <div style={{ display: 'flex', alignItems: 'center', background: 'linear-gradient(180deg, #0d1628, #0a1020)', borderBottom: '2px solid rgba(59,130,246,0.3)', flexShrink: 0, height: '56px', paddingLeft: '14px', paddingRight: '14px', gap: '8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '5px 11px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.22)', borderRadius: '6px' }}>
-                <svg width="12" height="12" fill="none" stroke="#60a5fa" viewBox="0 0 24 24" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35" strokeLinecap="round"/></svg>
-                <span style={{ color: '#93c5fd', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>LICENSE PLATE SEARCH</span>
-            </div>
-            <span style={{ color: '#374151', fontSize: '10px', fontWeight: '600' }}>VEHICLE REGISTRY · CAD</span>
+    {/* Glow */}
+    <div style={{ position: 'absolute', top: '-40%', right: '-5%', width: '35%', height: '200%', background: 'radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)', pointerEvents: 'none' }}></div>
+
+    {/* Left: icon + text */}
+<div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: 0, position: 'relative', zIndex: 1, flexWrap: 'wrap' }}>
+        <div style={{ width: '52px', height: '52px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(59,130,246,0.5)', flexShrink: 0 }}>
+            <Car size={28} style={{ color: 'white' }} />
         </div>
-        <button onClick={() => { if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); } else { setActiveView('home'); } }}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', height: '40px', background: 'transparent', border: '1px solid transparent', borderRadius: '6px', color: '#6b7280', fontSize: '11px', fontWeight: '700', cursor: 'pointer', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.15s' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.07)'; e.currentTarget.style.color = '#93c5fd'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.18)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#6b7280'; e.currentTarget.style.borderColor = 'transparent'; }}>
+ <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+            <span style={{ color: 'white', fontSize: '22px', fontWeight: '800', letterSpacing: '2px', whiteSpace: 'nowrap' }}>LICENSE PLATE SEARCH</span>
+            <span style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '4px', padding: '2px 8px', color: '#60a5fa', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px', whiteSpace: 'nowrap' }}>VEHICLE REGISTRY</span>
+        </div>
+        <p style={{ color: '#475569', fontSize: '13px', margin: '0 0 10px', whiteSpace: 'nowrap' }}>Query active vehicle registrations · CAD</p>
+        <button
+            onClick={() => { if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); } else { setActiveView('home'); } }}
+            style={{ width: 'auto', padding: '7px 16px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '8px', color: '#93c5fd', cursor: 'pointer', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', display: 'inline-flex', alignItems: 'center', gap: '7px', transition: 'all 0.2s', whiteSpace: 'nowrap' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.2)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)'; e.currentTarget.style.color = '#fff'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; e.currentTarget.style.color = '#93c5fd'; }}
+        >
             ← DASHBOARD
         </button>
     </div>
+</div>
 
-    {/* ── CONTENT AREA ── */}
-    <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', boxSizing: 'border-box' }}>
+</div>
 
         {!tokenSaved ? (
             /* ── NO TOKEN WARNING ── */
@@ -11745,7 +11705,17 @@ return (
     </div>
 )}
 {activeView === 'database-search' && (
-    <div style={{ minHeight: 'calc(100vh - 40px)', background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)', padding: '20px', boxSizing: 'border-box', WebkitMaskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)', maskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)' }}>
+    <div style={{ position:'fixed',top:0,left:0,right:0,bottom:0,display:'flex',flexDirection:'column',background:'#07090f',overflow:'hidden' }}>
+    <div style={{ display:'flex',alignItems:'center',background:'linear-gradient(180deg,#0d1628,#0a1020)',borderBottom:'2px solid rgba(59,130,246,0.3)',flexShrink:0,height:'56px',paddingLeft:'14px',paddingRight:'14px',gap:'8px' }}>
+        <button onClick={()=>setActiveView('home')} style={{ display:'flex',alignItems:'center',gap:'6px',padding:'6px 14px',height:'40px',background:'transparent',border:'1px solid transparent',borderRadius:'6px',color:'#6b7280',fontSize:'11px',fontWeight:'700',cursor:'pointer',letterSpacing:'1px',textTransform:'uppercase',transition:'all 0.15s' }} onMouseEnter={e=>{e.currentTarget.style.background='rgba(59,130,246,0.07)';e.currentTarget.style.color='#93c5fd';e.currentTarget.style.borderColor='rgba(59,130,246,0.18)';}} onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='#6b7280';e.currentTarget.style.borderColor='transparent';}}><svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>HOME</button>
+        <div style={{ width:'1px',height:'24px',background:'rgba(59,130,246,0.15)' }} />
+        <span style={{ color:'#93c5fd',fontSize:'11px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase' }}>ID LOOKUP</span>
+        <span style={{ color:'#374151',fontSize:'10px',flex:1 }}>Citizen search · Discord database</span>
+        {[{l:'SCAN PLATE',v:'search'},{l:'CALLS',v:'calls'},{l:'SETTINGS',v:'settings'}].map((t,i)=>(
+            <button key={i} onClick={()=>setActiveView(t.v)} style={{ display:'flex',alignItems:'center',gap:'5px',padding:'6px 12px',height:'40px',background:'transparent',border:'1px solid transparent',borderRadius:'6px',color:'#6b7280',fontSize:'11px',fontWeight:'700',cursor:'pointer',letterSpacing:'1px',textTransform:'uppercase',transition:'all 0.15s' }} onMouseEnter={e=>{e.currentTarget.style.background='rgba(59,130,246,0.07)';e.currentTarget.style.color='#93c5fd';e.currentTarget.style.borderColor='rgba(59,130,246,0.18)';}} onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='#6b7280';e.currentTarget.style.borderColor='transparent';}}>{t.l}</button>
+        ))}
+    </div>
+    <div style={{ flex:1,overflowY:'auto',padding:'20px',boxSizing:'border-box' }}>
 
         {/* ── HEADER ── */}
         <div style={{ marginBottom: '20px', padding: '20px 28px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,58,138,0.35))', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 4px 32px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', position: 'relative', overflow: 'hidden' }}>
@@ -12113,11 +12083,8 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
             </div>
         )}
     </div>
+    </div>
 )}
-
-
-
-
 
 {activeView === 'settings' && (
     <div className="card" style={{ background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,58,138,0.3))', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '16px', padding: '32px' }}>
@@ -12247,7 +12214,6 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                 <div style={S.sectionSub}>Display and visual preferences</div>
                                 <ToggleRow label="Normal Font" desc="Disables the MDT-style monospace font" on={dyslexiaFont} accent="#8b5cf6" onToggle={() => { const v = !dyslexiaFont; setDyslexiaFont(v); v ? document.body.classList.add('dyslexia-font') : document.body.classList.remove('dyslexia-font'); }} />
                                 <ToggleRow label="Visual Feedback Effects" desc="Pulse animations, shake effects, glowing borders" on={visualEffects} accent="#8b5cf6" onToggle={() => setVisualEffects(!visualEffects)} />
-                                
 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: escToHome ? 'rgba(139,92,246,0.07)' : 'rgba(255,255,255,0.02)', border: `1px solid ${escToHome ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.05)'}`, borderRadius: '9px', marginBottom: '7px' }}>
     <div>
         <div style={{ color: escToHome ? '#e2e8f0' : '#6b7280', fontSize: '13px', fontWeight: '600' }}>ESC Returns to Home</div>
@@ -15455,8 +15421,6 @@ if (window.electronAPI?.quit) {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 15l7-7 7 7" />
     </svg>
 </button>
-        }
-    </>
     </React.Fragment>
 );
         }
