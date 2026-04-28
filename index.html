@@ -1811,6 +1811,8 @@ const [showRightPanel, setShowRightPanel] = useState(false);
 const [streamingActive, setStreamingActive] = useState(false);
 const [streamingAddress, setStreamingAddress] = useState('');
 const [streamingCooldown, setStreamingCooldown] = useState(false);
+const [streamingStatus, setStreamingStatus] = useState('');
+const [showStreamingGuide, setShowStreamingGuide] = useState(false);
 const isDispatcher = (trooperSettings?.Department || selectedDepartment) === 'DISPATCHER';
 React.useEffect(() => {
     const src = 'https://raw.githubusercontent.com/robertoscreationsinquiries/NYSP-MDT/main/MAPRC1.0.png';
@@ -10489,178 +10491,147 @@ return (
 {!maintenanceActive && !showUpdateScreen && !showLoginScreen && !showLoader && (
         <div className="app-container">
 
-        {/* ══════════════════════════════════════
-            UNIVERSAL TOP BAR — ALL VIEWS
+UNIVERSAL TOP BAR — ALL VIEWS
             ══════════════════════════════════════ */}
-        <div style={{ position:'fixed',top:0,left:0,right:0,height:'52px',display:'flex',alignItems:'stretch',background:'linear-gradient(180deg,#0c1422 0%,#09101a 100%)',borderBottom:'1px solid rgba(59,130,246,0.12)',zIndex:9999,overflow:'hidden' }}>
+        <div style={{ position:'fixed',top:0,left:0,right:0,height:'44px',display:'flex',alignItems:'center',background:'linear-gradient(180deg,#0b1120 0%,#080e18 100%)',borderBottom:'1px solid rgba(59,130,246,0.14)',zIndex:9999,gap:'0',paddingRight:'12px' }}>
 
-            {/* Shield + title */}
-            <div style={{ display:'flex',alignItems:'center',gap:'9px',padding:'0 14px',borderRight:'1px solid rgba(59,130,246,0.1)',flexShrink:0 }}>
-                <div style={{ width:'30px',height:'30px',background:'linear-gradient(135deg,#1e3a8a,#3b82f6)',borderRadius:'7px',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 0 10px rgba(59,130,246,0.25)',flexShrink:0 }}>
-                    <svg width="15" height="15" fill="white" viewBox="0 0 24 24"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/></svg>
+            {/* Logo block */}
+            <div style={{ display:'flex',alignItems:'center',gap:'8px',padding:'0 14px',height:'100%',borderRight:'1px solid rgba(59,130,246,0.1)',flexShrink:0,background:'linear-gradient(135deg,rgba(30,58,138,0.15),transparent)' }}>
+                <div style={{ width:'26px',height:'26px',background:'linear-gradient(135deg,#1e3a8a,#3b82f6)',borderRadius:'6px',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 0 8px rgba(59,130,246,0.3)',flexShrink:0 }}>
+                    <svg width="13" height="13" fill="white" viewBox="0 0 24 24"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/></svg>
                 </div>
-                <div>
-                    <div style={{ color:'white',fontSize:'12px',fontWeight:'900',letterSpacing:'1.5px',lineHeight:'1' }}>NYSP MDT</div>
-                    <div style={{ color:'#1f2937',fontSize:'8px',fontWeight:'600',letterSpacing:'1px',marginTop:'1px' }}>
+                <div style={{ lineHeight:'1' }}>
+                    <div style={{ color:'white',fontSize:'11px',fontWeight:'900',letterSpacing:'1.5px' }}>NYSP MDT</div>
+                    <div style={{ fontSize:'7px',fontWeight:'600',letterSpacing:'1px',marginTop:'1px' }}>
                         {selectedUserSession?<span style={{ color:'#10b981' }}>● ONLINE</span>:<span style={{ color:'#ef4444' }}>● NO SESSION</span>}
                     </div>
                 </div>
             </div>
 
-            {/* Nav groups */}
-            <div style={{ display:'flex',alignItems:'stretch',flex:1,overflow:'hidden' }}>
+            {/* Nav buttons */}
+            <div style={{ display:'flex',alignItems:'center',height:'100%',flex:1,overflow:'hidden' }}>
 
                 {/* HOME */}
-                <div style={{ display:'flex',alignItems:'stretch',borderRight:'1px solid rgba(59,130,246,0.07)',flexShrink:0 }}>
-                    <button onClick={()=>{setActiveView('home');setHomeSubView('dashboard');}}
-                        style={{ display:'flex',alignItems:'center',gap:'5px',padding:'0 12px',background:activeView==='home'&&homeSubView==='dashboard'?'rgba(59,130,246,0.14)':'transparent',border:'none',color:activeView==='home'&&homeSubView==='dashboard'?'#93c5fd':'#6b7280',fontSize:'10px',fontWeight:'800',cursor:'pointer',letterSpacing:'0.5px',textTransform:'uppercase',transition:'all 0.15s',whiteSpace:'nowrap',outline:'none' }}
-                        onMouseEnter={e=>{if(!(activeView==='home'&&homeSubView==='dashboard')){e.currentTarget.style.background='rgba(59,130,246,0.08)';e.currentTarget.style.color='#93c5fd';}}}
-                        onMouseLeave={e=>{if(!(activeView==='home'&&homeSubView==='dashboard')){e.currentTarget.style.background='transparent';e.currentTarget.style.color='#6b7280';}}}>
+                {(()=>{
+                    const on = activeView==='home'&&homeSubView==='dashboard';
+                    return <button onClick={()=>{setActiveView('home');setHomeSubView('dashboard');}}
+                        style={{ display:'flex',alignItems:'center',gap:'5px',padding:'0 14px',height:'100%',background:on?'rgba(59,130,246,0.16)':'transparent',border:'none',borderRight:'1px solid rgba(59,130,246,0.07)',color:on?'#93c5fd':'#6b7280',fontSize:'10px',fontWeight:'800',cursor:'pointer',letterSpacing:'0.5px',textTransform:'uppercase',transition:'background 0.15s,color 0.15s',whiteSpace:'nowrap',outline:'none' }}
+                        onMouseEnter={e=>{if(!on){e.currentTarget.style.background='rgba(59,130,246,0.08)';e.currentTarget.style.color='#93c5fd';}}}
+                        onMouseLeave={e=>{if(!on){e.currentTarget.style.background='transparent';e.currentTarget.style.color='#6b7280';}}}>
                         <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                         HOME
-                    </button>
-                </div>
+                    </button>;
+                })()}
 
-                {/* GROUP: SEARCH & DISPATCH */}
-                {(()=>{
-                    const groupTabs = [
+                {/* SEARCH & DISPATCH group */}
+                <div style={{ display:'flex',alignItems:'center',height:'100%',borderRight:'1px solid rgba(59,130,246,0.07)',flexShrink:0 }}>
+                    <div style={{ display:'flex',alignItems:'center',height:'100%',paddingLeft:'6px',paddingRight:'2px',borderRight:'1px solid rgba(59,130,246,0.05)' }}>
+                        <span style={{ color:'#1f2937',fontSize:'7px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',writingMode:'horizontal-tb',whiteSpace:'nowrap' }}>DISPATCH</span>
+                    </div>
+                    {[
                         {l:'CALLS',k:'calls',flash:callButtonFlash,icon:'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9'},
                         {l:'PLATES',k:'search',icon:'M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4'},
                         {l:'CITIZENS',k:'database-search',icon:'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'},
-                    ];
-                    return (
-                        <div style={{ display:'flex',alignItems:'stretch',borderRight:'1px solid rgba(59,130,246,0.07)',flexShrink:0 }}>
-                            <div style={{ display:'flex',flexDirection:'column',justifyContent:'center',padding:'0 6px 0 8px',borderRight:'1px solid rgba(59,130,246,0.07)' }}>
-                                <span style={{ color:'#1f2937',fontSize:'7px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',whiteSpace:'nowrap' }}>SEARCH & DISPATCH</span>
-                            </div>
-                            {groupTabs.map((item,i)=>{
-                                const isActive = activeView===item.k;
-                                return (
-                                    <button key={i} onClick={()=>{setActiveView(item.k);if(item.k==='calls')setCallButtonFlash(false);}}
-                                        style={{ display:'flex',alignItems:'center',gap:'5px',padding:'0 10px',background:item.flash?'rgba(239,68,68,0.15)':isActive?'rgba(59,130,246,0.12)':'transparent',border:'none',color:item.disabled?'#1f2937':item.flash?'#fca5a5':isActive?'#93c5fd':'#6b7280',fontSize:'10px',fontWeight:'700',cursor:'pointer',letterSpacing:'0.5px',textTransform:'uppercase',transition:'all 0.15s',whiteSpace:'nowrap',animation:item.flash?'flash-red 1.5s infinite':'none',outline:'none',borderLeft:i>0?'1px solid rgba(59,130,246,0.05)':'none' }}
-                                        onMouseEnter={e=>{if(!item.flash&&!isActive){e.currentTarget.style.background='rgba(59,130,246,0.08)';e.currentTarget.style.color='#93c5fd';}}}
-                                        onMouseLeave={e=>{if(!item.flash&&!isActive){e.currentTarget.style.background='transparent';e.currentTarget.style.color='#6b7280';}}}>
-                                        <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={item.icon}/></svg>
-                                        {item.l}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    );
-                })()}
+                    ].map((item,i)=>{
+                        const on=activeView===item.k;
+                        return <button key={i} onClick={()=>{setActiveView(item.k);if(item.k==='calls')setCallButtonFlash(false);}}
+                            style={{ display:'flex',alignItems:'center',gap:'5px',padding:'0 11px',height:'100%',background:item.flash?'rgba(239,68,68,0.14)':on?'rgba(59,130,246,0.14)':'transparent',border:'none',borderRight:'1px solid rgba(59,130,246,0.05)',color:item.flash?'#fca5a5':on?'#93c5fd':'#6b7280',fontSize:'10px',fontWeight:'700',cursor:'pointer',letterSpacing:'0.5px',textTransform:'uppercase',transition:'background 0.15s,color 0.15s',whiteSpace:'nowrap',animation:item.flash?'flash-red 1.5s infinite':'none',outline:'none' }}
+                            onMouseEnter={e=>{if(!item.flash&&!on){e.currentTarget.style.background='rgba(59,130,246,0.08)';e.currentTarget.style.color='#93c5fd';}}}
+                            onMouseLeave={e=>{if(!item.flash&&!on){e.currentTarget.style.background='transparent';e.currentTarget.style.color='#6b7280';}}}>
+                            <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={item.icon}/></svg>
+                            {item.l}
+                        </button>;
+                    })}
+                </div>
 
-                {/* GROUP: MAP & INTEL */}
-                {(()=>{
-                    const groupTabs = [
+                {/* MAP & INTEL group */}
+                <div style={{ display:'flex',alignItems:'center',height:'100%',borderRight:'1px solid rgba(59,130,246,0.07)',flexShrink:0 }}>
+                    <div style={{ display:'flex',alignItems:'center',height:'100%',paddingLeft:'6px',paddingRight:'2px',borderRight:'1px solid rgba(59,130,246,0.05)' }}>
+                        <span style={{ color:'#1f2937',fontSize:'7px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',whiteSpace:'nowrap' }}>INTEL</span>
+                    </div>
+                    {[
                         {l:'MAP',k:'map',mapKey:true,icon:'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7'},
                         {l:'OFFICERS',k:'officers',disabled:!selectedUserSession,panel:true,icon:'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'},
-                    ];
-                    return (
-                        <div style={{ display:'flex',alignItems:'stretch',borderRight:'1px solid rgba(59,130,246,0.07)',flexShrink:0 }}>
-                            <div style={{ display:'flex',flexDirection:'column',justifyContent:'center',padding:'0 6px 0 8px',borderRight:'1px solid rgba(59,130,246,0.07)' }}>
-                                <span style={{ color:'#1f2937',fontSize:'7px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',whiteSpace:'nowrap' }}>MAP & INTEL</span>
-                            </div>
-                            {groupTabs.map((item,i)=>{
-                                const isActive = item.mapKey?(activeView==='home'&&homeSubView==='map'):item.panel?(item.k==='officers'?showOfficersPanel:false):activeView===item.k;
-                                return (
-                                    <button key={i} disabled={!!item.disabled}
-                                        onClick={()=>{
-                                            if(item.disabled) return;
-                                            if(item.mapKey){setActiveView('home');setHomeSubView(v=>v==='map'?'dashboard':'map');setShowDataPanel(false);setShowOfficersPanel(false);setShowHistoryPanel(false);}
-                                            else if(item.panel&&item.k==='officers'){setShowOfficersPanel(p=>!p);setShowDataPanel(false);setShowHistoryPanel(false);if(activeView!=='home')setActiveView('home');}
-                                            else{setActiveView(item.k);}
-                                        }}
-                                        style={{ display:'flex',alignItems:'center',gap:'5px',padding:'0 10px',background:isActive?'rgba(59,130,246,0.12)':'transparent',border:'none',color:item.disabled?'#1f2937':isActive?'#93c5fd':'#6b7280',fontSize:'10px',fontWeight:'700',cursor:item.disabled?'not-allowed':'pointer',letterSpacing:'0.5px',textTransform:'uppercase',transition:'all 0.15s',whiteSpace:'nowrap',outline:'none',opacity:item.disabled?0.35:1,borderLeft:i>0?'1px solid rgba(59,130,246,0.05)':'none' }}
-                                        onMouseEnter={e=>{if(!item.disabled&&!isActive){e.currentTarget.style.background='rgba(59,130,246,0.08)';e.currentTarget.style.color='#93c5fd';}}}
-                                        onMouseLeave={e=>{if(!item.disabled&&!isActive){e.currentTarget.style.background='transparent';e.currentTarget.style.color='#6b7280';}}}>
-                                        <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={item.icon}/></svg>
-                                        {item.l}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    );
-                })()}
+                    ].map((item,i)=>{
+                        const on = item.mapKey?(activeView==='home'&&homeSubView==='map'):item.panel?(item.k==='officers'?showOfficersPanel:false):false;
+                        return <button key={i} disabled={!!item.disabled}
+                            onClick={()=>{
+                                if(item.disabled) return;
+                                if(item.mapKey){setActiveView('home');setHomeSubView(v=>v==='map'?'dashboard':'map');setShowDataPanel(false);setShowOfficersPanel(false);setShowHistoryPanel(false);}
+                                else if(item.panel&&item.k==='officers'){setShowOfficersPanel(p=>!p);setShowDataPanel(false);setShowHistoryPanel(false);}
+                            }}
+                            style={{ display:'flex',alignItems:'center',gap:'5px',padding:'0 11px',height:'100%',background:on?'rgba(59,130,246,0.14)':'transparent',border:'none',borderRight:'1px solid rgba(59,130,246,0.05)',color:item.disabled?'#1f2937':on?'#93c5fd':'#6b7280',fontSize:'10px',fontWeight:'700',cursor:item.disabled?'not-allowed':'pointer',letterSpacing:'0.5px',textTransform:'uppercase',transition:'background 0.15s,color 0.15s',whiteSpace:'nowrap',outline:'none',opacity:item.disabled?0.3:1 }}
+                            onMouseEnter={e=>{if(!item.disabled&&!on){e.currentTarget.style.background='rgba(59,130,246,0.08)';e.currentTarget.style.color='#93c5fd';}}}
+                            onMouseLeave={e=>{if(!item.disabled&&!on){e.currentTarget.style.background='transparent';e.currentTarget.style.color='#6b7280';}}}>
+                            <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={item.icon}/></svg>
+                            {item.l}
+                        </button>;
+                    })}
+                </div>
 
-                {/* GROUP: ACTIVITY */}
-                {(()=>{
-                    const groupTabs = [
-                        {l:'HISTORY',k:'hist',panel:true,icon:'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'},
-                        {l:'DATA',k:'data',panel:true,icon:'M4 6h16M4 10h16M4 14h16M4 18h16'},
-                    ];
-                    return (
-                        <div style={{ display:'flex',alignItems:'stretch',borderRight:'1px solid rgba(59,130,246,0.07)',flexShrink:0 }}>
-                            <div style={{ display:'flex',flexDirection:'column',justifyContent:'center',padding:'0 6px 0 8px',borderRight:'1px solid rgba(59,130,246,0.07)' }}>
-                                <span style={{ color:'#1f2937',fontSize:'7px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',whiteSpace:'nowrap' }}>ACTIVITY</span>
-                            </div>
-                            {groupTabs.map((item,i)=>{
-                                const isActive = item.k==='hist'?showHistoryPanel:showDataPanel;
-                                return (
-                                    <button key={i}
-                                        onClick={()=>{
-                                            if(item.k==='hist'){setShowHistoryPanel(p=>!p);setShowDataPanel(false);setShowOfficersPanel(false);if(activeView!=='home')setActiveView('home');}
-                                            else{setShowDataPanel(p=>!p);setShowOfficersPanel(false);setShowHistoryPanel(false);if(activeView!=='home')setActiveView('home');}
-                                        }}
-                                        style={{ display:'flex',alignItems:'center',gap:'5px',padding:'0 10px',background:isActive?'rgba(59,130,246,0.12)':'transparent',border:'none',color:isActive?'#93c5fd':'#6b7280',fontSize:'10px',fontWeight:'700',cursor:'pointer',letterSpacing:'0.5px',textTransform:'uppercase',transition:'all 0.15s',whiteSpace:'nowrap',outline:'none',borderLeft:i>0?'1px solid rgba(59,130,246,0.05)':'none' }}
-                                        onMouseEnter={e=>{if(!isActive){e.currentTarget.style.background='rgba(59,130,246,0.08)';e.currentTarget.style.color='#93c5fd';}}}
-                                        onMouseLeave={e=>{if(!isActive){e.currentTarget.style.background='transparent';e.currentTarget.style.color='#6b7280';}}}>
-                                        <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={item.icon}/></svg>
-                                        {item.l}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    );
-                })()}
+                {/* ACTIVITY group — HISTORY & DATA work in any view */}
+                <div style={{ display:'flex',alignItems:'center',height:'100%',borderRight:'1px solid rgba(59,130,246,0.07)',flexShrink:0 }}>
+                    <div style={{ display:'flex',alignItems:'center',height:'100%',paddingLeft:'6px',paddingRight:'2px',borderRight:'1px solid rgba(59,130,246,0.05)' }}>
+                        <span style={{ color:'#1f2937',fontSize:'7px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',whiteSpace:'nowrap' }}>ACTIVITY</span>
+                    </div>
+                    {[
+                        {l:'HISTORY',k:'hist',icon:'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'},
+                        {l:'DATA',k:'data',icon:'M4 6h16M4 10h16M4 14h16M4 18h16'},
+                    ].map((item,i)=>{
+                        const on = item.k==='hist'?showHistoryPanel:showDataPanel;
+                        return <button key={i}
+                            onClick={()=>{
+                                // HISTORY and DATA toggle without leaving current view
+                                if(item.k==='hist'){setShowHistoryPanel(p=>!p);setShowDataPanel(false);setShowOfficersPanel(false);}
+                                else{setShowDataPanel(p=>!p);setShowOfficersPanel(false);setShowHistoryPanel(false);}
+                            }}
+                            style={{ display:'flex',alignItems:'center',gap:'5px',padding:'0 11px',height:'100%',background:on?'rgba(59,130,246,0.14)':'transparent',border:'none',borderRight:'1px solid rgba(59,130,246,0.05)',color:on?'#93c5fd':'#6b7280',fontSize:'10px',fontWeight:'700',cursor:'pointer',letterSpacing:'0.5px',textTransform:'uppercase',transition:'background 0.15s,color 0.15s',whiteSpace:'nowrap',outline:'none' }}
+                            onMouseEnter={e=>{if(!on){e.currentTarget.style.background='rgba(59,130,246,0.08)';e.currentTarget.style.color='#93c5fd';}}}
+                            onMouseLeave={e=>{if(!on){e.currentTarget.style.background='transparent';e.currentTarget.style.color='#6b7280';}}}>
+                            <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={item.icon}/></svg>
+                            {item.l}
+                        </button>;
+                    })}
+                </div>
 
-                {/* GROUP: SYSTEM */}
-                {(()=>{
-                    const groupTabs = [
-                        {l:'SETTINGS',k:'settings',icon:'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z',circle:'12 12 3'},
-                    ];
-                    return (
-                        <div style={{ display:'flex',alignItems:'stretch',borderRight:'1px solid rgba(59,130,246,0.07)',flexShrink:0 }}>
-                            <div style={{ display:'flex',flexDirection:'column',justifyContent:'center',padding:'0 6px 0 8px',borderRight:'1px solid rgba(59,130,246,0.07)' }}>
-                                <span style={{ color:'#1f2937',fontSize:'7px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',whiteSpace:'nowrap' }}>SYSTEM</span>
-                            </div>
-                            {groupTabs.map((item,i)=>{
-                                const isActive = activeView===item.k;
-                                return (
-                                    <button key={i} onClick={()=>setActiveView(item.k)}
-                                        style={{ display:'flex',alignItems:'center',gap:'5px',padding:'0 10px',background:isActive?'rgba(59,130,246,0.12)':'transparent',border:'none',color:isActive?'#93c5fd':'#6b7280',fontSize:'10px',fontWeight:'700',cursor:'pointer',letterSpacing:'0.5px',textTransform:'uppercase',transition:'all 0.15s',whiteSpace:'nowrap',outline:'none' }}
-                                        onMouseEnter={e=>{if(!isActive){e.currentTarget.style.background='rgba(59,130,246,0.08)';e.currentTarget.style.color='#93c5fd';}}}
-                                        onMouseLeave={e=>{if(!isActive){e.currentTarget.style.background='transparent';e.currentTarget.style.color='#6b7280';}}}>
-                                        <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            {item.circle?<><path d={item.icon}/><circle cx={item.circle.split(' ')[0]} cy={item.circle.split(' ')[1]} r={item.circle.split(' ')[2]}/></>:<path d={item.icon}/>}
-                                        </svg>
-                                        {item.l}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    );
-                })()}
+                {/* SYSTEM group */}
+                <div style={{ display:'flex',alignItems:'center',height:'100%',flexShrink:0 }}>
+                    <div style={{ display:'flex',alignItems:'center',height:'100%',paddingLeft:'6px',paddingRight:'2px',borderRight:'1px solid rgba(59,130,246,0.05)' }}>
+                        <span style={{ color:'#1f2937',fontSize:'7px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',whiteSpace:'nowrap' }}>SYSTEM</span>
+                    </div>
+                    {(()=>{
+                        const on=activeView==='settings';
+                        return <button onClick={()=>setActiveView('settings')}
+                            style={{ display:'flex',alignItems:'center',gap:'5px',padding:'0 11px',height:'100%',background:on?'rgba(59,130,246,0.14)':'transparent',border:'none',color:on?'#93c5fd':'#6b7280',fontSize:'10px',fontWeight:'700',cursor:'pointer',letterSpacing:'0.5px',textTransform:'uppercase',transition:'background 0.15s,color 0.15s',whiteSpace:'nowrap',outline:'none' }}
+                            onMouseEnter={e=>{if(!on){e.currentTarget.style.background='rgba(59,130,246,0.08)';e.currentTarget.style.color='#93c5fd';}}}
+                            onMouseLeave={e=>{if(!on){e.currentTarget.style.background='transparent';e.currentTarget.style.color='#6b7280';}}}>
+                            <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                            SETTINGS
+                        </button>;
+                    })()}
+                </div>
             </div>
 
             {/* Right: officer pill */}
-            <div style={{ display:'flex',alignItems:'center',gap:'8px',padding:'0 12px',borderLeft:'1px solid rgba(59,130,246,0.1)',flexShrink:0 }}>
-                <div style={{ display:'flex',alignItems:'center',gap:'5px' }}>
-                    <div style={{ width:'5px',height:'5px',borderRadius:'50%',background:selectedUserSession?'#10b981':'#ef4444',boxShadow:selectedUserSession?'0 0 4px rgba(16,185,129,0.7)':'0 0 4px rgba(239,68,68,0.7)',animation:selectedUserSession?'pulse 2s infinite':'none' }} />
-                    <span style={{ color:'#374151',fontSize:'9px',fontWeight:'700',letterSpacing:'0.5px' }}>
-                        {selectedUserSession?`SES ${selectedUserSession==='1011898104670330920'?'1':selectedUserSession==='1390212294478397471'?'2':selectedUserSession==='1390212341005680650'?'3':'WL'}`:'OFFLINE'}
-                    </span>
-                </div>
-                <div style={{ width:'1px',height:'16px',background:'rgba(59,130,246,0.1)' }} />
+            <div style={{ display:'flex',alignItems:'center',gap:'6px',paddingLeft:'10px',borderLeft:'1px solid rgba(59,130,246,0.1)',flexShrink:0 }}>
+                <div style={{ width:'5px',height:'5px',borderRadius:'50%',background:selectedUserSession?'#10b981':'#ef4444',boxShadow:selectedUserSession?'0 0 4px rgba(16,185,129,0.7)':'0 0 4px rgba(239,68,68,0.7)',animation:selectedUserSession?'pulse 2s infinite':'none' }} />
+                <span style={{ color:'#ef4444',fontSize:'9px',fontWeight:'800',letterSpacing:'1px',textTransform:'uppercase' }}>
+                    {selectedUserSession?<span style={{ color:'#10b981' }}>ONLINE</span>:<span style={{ color:'#ef4444' }}>● OFFLINE</span>}
+                </span>
+                <div style={{ width:'1px',height:'14px',background:'rgba(59,130,246,0.1)',margin:'0 4px' }} />
                 <span style={{ color:'#4b5563',fontSize:'9px',fontWeight:'600',whiteSpace:'nowrap' }}>
-                    {trooperSettings?.FirstName?.[0]&&`${trooperSettings.FirstName[0]}. `}{trooperSettings?.LastName} <span style={{ color:'#1f2937' }}>#{trooperSettings?.BadgeID}</span>
+                    {trooperSettings?.FirstName?.[0]&&`${trooperSettings.FirstName[0]}. `}{trooperSettings?.LastName}<span style={{ color:'#1f2937' }}> #{trooperSettings?.BadgeID}</span>
                 </span>
             </div>
         </div>
-        <div style={{ height:'52px',flexShrink:0 }} />
+        <div style={{ height:'44px',flexShrink:0 }} />
 
 {/* ── SHIFT HUD BAR ── */}
 {shiftStartTime && !shiftEndTime && (
-    <div style={{ position: 'fixed', top: '52px', left: 0, width: '100vw', height: '36px', background: shiftPaused ? 'rgba(30,20,0,0.95)' : 'rgba(0,18,12,0.95)', borderBottom: `1px solid ${shiftPaused ? 'rgba(245,158,11,0.2)' : 'rgba(16,185,129,0.18)'}`, display: 'flex', alignItems: 'center', paddingLeft: '16px', paddingRight: '12px', gap: '16px', zIndex: 9990, backdropFilter: 'blur(12px)', overflow: 'hidden', boxSizing: 'border-box' }}>
+    <div style={{ position: 'fixed', top: '44px', left: 0, width: '100vw', height: '36px', background: shiftPaused ? 'rgba(30,20,0,0.95)' : 'rgba(0,18,12,0.95)', borderBottom: `1px solid ${shiftPaused ? 'rgba(245,158,11,0.2)' : 'rgba(16,185,129,0.18)'}`, display: 'flex', alignItems: 'center', paddingLeft: '16px', paddingRight: '12px', gap: '16px', zIndex: 9990, backdropFilter: 'blur(12px)', overflow: 'hidden', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: shiftPaused ? '#f59e0b' : '#10b981', boxShadow: shiftPaused ? '0 0 6px #f59e0b' : '0 0 6px #10b981', animation: shiftPaused ? 'none' : 'pulse-dot 2s infinite' }} />
             <span style={{ color: shiftPaused ? '#fbbf24' : '#34d399', fontSize: '10px', fontWeight: '700', letterSpacing: '2px' }}>{shiftPaused ? 'PAUSED' : 'ON DUTY'}</span>
@@ -10960,7 +10931,7 @@ return (
 )}
 
 {activeView === 'home' ? (
-    <div style={{ position:'fixed',top:'52px',left:0,right:0,bottom:0,display:'flex',flexDirection:'column',overflow:'hidden',background:'#07090f',zIndex:1 }}>
+    <div style={{ position:'fixed',top:'44px',left:0,right:0,bottom:0,display:'flex',flexDirection:'column',overflow:'hidden',background:'#07090f',zIndex:1 }}>
 
         {/* MAP SUBVIEW */}
         {homeSubView === 'map' && (
@@ -11841,16 +11812,7 @@ return (
     </div>
 )}
 {activeView === 'database-search' && (
-    <div style={{ position:'fixed',top:'52px',left:0,right:0,bottom:0,display:'flex',flexDirection:'column',background:'#07090f',overflow:'hidden' }}>
-    <div style={{ display:'flex',alignItems:'center',background:'linear-gradient(180deg,#0d1628,#0a1020)',borderBottom:'2px solid rgba(59,130,246,0.3)',flexShrink:0,height:'56px',paddingLeft:'14px',paddingRight:'14px',gap:'8px' }}>
-        <button onClick={()=>setActiveView('home')} style={{ display:'flex',alignItems:'center',gap:'6px',padding:'6px 14px',height:'40px',background:'transparent',border:'1px solid transparent',borderRadius:'6px',color:'#6b7280',fontSize:'11px',fontWeight:'700',cursor:'pointer',letterSpacing:'1px',textTransform:'uppercase',transition:'all 0.15s' }} onMouseEnter={e=>{e.currentTarget.style.background='rgba(59,130,246,0.07)';e.currentTarget.style.color='#93c5fd';e.currentTarget.style.borderColor='rgba(59,130,246,0.18)';}} onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='#6b7280';e.currentTarget.style.borderColor='transparent';}}><svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>HOME</button>
-        <div style={{ width:'1px',height:'24px',background:'rgba(59,130,246,0.15)' }} />
-        <span style={{ color:'#93c5fd',fontSize:'11px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase' }}>ID LOOKUP</span>
-        <span style={{ color:'#374151',fontSize:'10px',flex:1 }}>Citizen search · Discord database</span>
-        {[{l:'SCAN PLATE',v:'search'},{l:'CALLS',v:'calls'},{l:'SETTINGS',v:'settings'}].map((t,i)=>(
-            <button key={i} onClick={()=>setActiveView(t.v)} style={{ display:'flex',alignItems:'center',gap:'5px',padding:'6px 12px',height:'40px',background:'transparent',border:'1px solid transparent',borderRadius:'6px',color:'#6b7280',fontSize:'11px',fontWeight:'700',cursor:'pointer',letterSpacing:'1px',textTransform:'uppercase',transition:'all 0.15s' }} onMouseEnter={e=>{e.currentTarget.style.background='rgba(59,130,246,0.07)';e.currentTarget.style.color='#93c5fd';e.currentTarget.style.borderColor='rgba(59,130,246,0.18)';}} onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='#6b7280';e.currentTarget.style.borderColor='transparent';}}>{t.l}</button>
-        ))}
-    </div>
+    <div style={{ position:'fixed',top:'44px',left:0,right:0,bottom:0,display:'flex',flexDirection:'column',background:'#07090f',overflow:'hidden' }}>
     <div style={{ flex:1,overflowY:'auto',padding:'20px',boxSizing:'border-box' }}>
 
         {/* ── HEADER ── */}
@@ -12371,41 +12333,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                 <div style={S.sectionSub}>Configure keyboard shortcuts - conflicts are blocked automatically</div>
                                 <ToggleRow label="Panic Button" desc="Enables the panic button hotkey system. AUTOHOTKEY APPLICATION REQUIRED!" on={panicEnabled} accent="#ef4444" onToggle={() => setPanicEnabled(v => !v)} />
 
-                                {/* Streaming — not exportable */}
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', marginBottom: '8px' }}>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700' }}>Start Streaming</div>
-                                            <span style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', color: '#6b7280', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', padding: '2px 6px' }}>NOT EXPORTED</span>
-                                        </div>
-                                        <div style={{ color: '#4b5563', fontSize: '11px', marginTop: '3px' }}>
-                                            {streamingActive && streamingAddress
-                                                ? <span>Access on your phone: <span style={{ fontFamily: 'monospace', color: '#60a5fa', fontWeight: '700' }}>{streamingAddress}</span></span>
-                                                : 'View CAD live on your phone via local WiFi'}
-                                        </div>
-                                    </div>
-                                    <button
-                                        disabled={streamingCooldown}
-                                        onClick={async () => {
-                                            if (streamingCooldown) return;
-                                            setStreamingCooldown(true);
-                                            setTimeout(() => setStreamingCooldown(false), 15000);
-                                            if (!streamingActive) {
-                                                const result = await window.electron?.invoke('start-streaming');
-                                                if (result?.success) {
-                                                    setStreamingActive(true);
-                                                    setStreamingAddress(`http://${result.ip}:${result.port}`);
-                                                }
-                                            } else {
-                                                await window.electron?.invoke('stop-streaming');
-                                                setStreamingActive(false);
-                                                setStreamingAddress('');
-                                            }
-                                        }}
-                                        style={{ flexShrink: 0, marginLeft: '16px', padding: '8px 16px', background: streamingCooldown ? 'rgba(75,85,99,0.2)' : streamingActive ? 'linear-gradient(135deg, rgba(239,68,68,0.2), rgba(220,38,38,0.1))' : 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(5,150,105,0.1))', border: `1px solid ${streamingCooldown ? 'rgba(75,85,99,0.3)' : streamingActive ? 'rgba(239,68,68,0.35)' : 'rgba(16,185,129,0.35)'}`, borderRadius: '8px', color: streamingCooldown ? '#4b5563' : streamingActive ? '#fca5a5' : '#6ee7b7', fontSize: '11px', fontWeight: '700', cursor: streamingCooldown ? 'not-allowed' : 'pointer', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>
-                                        {streamingCooldown ? '⏳ COOLDOWN' : streamingActive ? 'STOP' : 'START'}
-                                    </button>
-                                </div>
+                                
 {panicEnabled && (
     <React.Fragment>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '9px', marginBottom: '7px' }}>
@@ -12437,6 +12365,84 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                             <div style={S.section('#f59e0b', 'rgba(245,158,11,0.06)')}>
                                 <div style={S.sectionHead('#fcd34d')}>⚙️ Personal Preferences</div>
                                 <div style={S.sectionSub}>Personalise how the application behaves for you</div>
+
+                                {/* ── STREAMING ── */}
+                                <div style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.14)', borderRadius: '10px', padding: '14px 16px', marginBottom: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700' }}>📡 Start Streaming</div>
+                                                <span style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', color: '#6b7280', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', padding: '2px 6px' }}>NOT EXPORTED</span>
+                                            </div>
+                                            <div style={{ color: '#4b5563', fontSize: '11px', marginBottom: '6px' }}>
+                                                View the CAD live on your phone via local WiFi — no internet needed. Your phone and PC must be on the same network.{' '}
+                                                <span onClick={() => setShowStreamingGuide(p => !p)} style={{ color: '#60a5fa', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '2px' }}>
+                                                    {showStreamingGuide ? 'Hide setup guide.' : 'Click here to get step-by-step guide on setup.'}
+                                                </span>
+                                            </div>
+                                            {showStreamingGuide && (
+                                                <div style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '8px', padding: '10px 12px', marginBottom: '8px', fontSize: '11px', lineHeight: '1.8' }}>
+                                                    <div style={{ color: '#60a5fa', fontWeight: '800', fontSize: '10px', letterSpacing: '1px', marginBottom: '6px', textTransform: 'uppercase' }}>📋 Setup Guide</div>
+                                                    {[
+                                                        '1. Make sure your phone and PC are connected to the same WiFi network.',
+                                                        '2. Click the START button to the right.',
+                                                        '3. Wait for the status to say "CONNECTION ESTABLISHED".',
+                                                        '4. The URL will appear below — copy it or type it into your phone\'s browser.',
+                                                        '5. The mobile page auto-refreshes every 5 seconds with live officer/BOLO data.',
+                                                        '6. Click STOP when done to free up the port.',
+                                                        '⚠ If it says "Failed to start" — another app may be using port 3000. Close other dev servers and try again.',
+                                                    ].map((step, i) => (
+                                                        <div key={i} style={{ color: i === 6 ? '#f59e0b' : '#9ca3af', marginBottom: '2px' }}>{step}</div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {/* Live status feedback */}
+                                            {streamingStatus && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: streamingActive ? 'rgba(16,185,129,0.08)' : streamingStatus.includes('FAILED') ? 'rgba(239,68,68,0.08)' : 'rgba(245,158,11,0.08)', border: `1px solid ${streamingActive ? 'rgba(16,185,129,0.2)' : streamingStatus.includes('FAILED') ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)'}`, borderRadius: '6px', marginBottom: '6px' }}>
+                                                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: streamingActive ? '#10b981' : streamingStatus.includes('FAILED') ? '#ef4444' : '#f59e0b', animation: streamingStatus.includes('CONNECTING') ? 'pulse 1s infinite' : 'none', flexShrink: 0 }} />
+                                                    <span style={{ color: streamingActive ? '#6ee7b7' : streamingStatus.includes('FAILED') ? '#fca5a5' : '#fbbf24', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>{streamingStatus}</span>
+                                                </div>
+                                            )}
+                                            {streamingActive && streamingAddress && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '6px' }}>
+                                                    <span style={{ color: '#374151', fontSize: '10px', fontWeight: '600' }}>Access URL:</span>
+                                                    <span style={{ fontFamily: 'monospace', color: '#60a5fa', fontWeight: '700', fontSize: '11px', letterSpacing: '1px', flex: 1 }}>{streamingAddress}</span>
+                                                    <button onClick={() => navigator.clipboard?.writeText(streamingAddress)} style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '4px', color: '#93c5fd', cursor: 'pointer', padding: '2px 8px', fontSize: '9px', fontWeight: '700', letterSpacing: '1px' }}>COPY</button>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <button
+                                            disabled={streamingCooldown}
+                                            onClick={async () => {
+                                                if (streamingCooldown) return;
+                                                setStreamingCooldown(true);
+                                                if (!streamingActive) {
+                                                    setStreamingStatus('CONNECTING TO LOCAL WIFI...');
+                                                    await new Promise(r => setTimeout(r, 800));
+                                                    setStreamingStatus('STARTING LOCAL SERVER...');
+                                                    const result = await window.electron?.invoke('start-streaming');
+                                                    if (result?.success) {
+                                                        setStreamingActive(true);
+                                                        setStreamingAddress(`http://${result.ip}:${result.port}`);
+                                                        setStreamingStatus('CONNECTION ESTABLISHED — STREAMING LIVE');
+                                                    } else {
+                                                        setStreamingStatus('FAILED TO START — PORT MAY BE IN USE');
+                                                    }
+                                                } else {
+                                                    setStreamingStatus('STOPPING SERVER...');
+                                                    await window.electron?.invoke('stop-streaming');
+                                                    setStreamingActive(false);
+                                                    setStreamingAddress('');
+                                                    setStreamingStatus('SERVER STOPPED');
+                                                    setTimeout(() => setStreamingStatus(''), 3000);
+                                                }
+                                                setTimeout(() => setStreamingCooldown(false), 15000);
+                                            }}
+                                            style={{ flexShrink: 0, padding: '9px 18px', background: streamingCooldown ? 'rgba(75,85,99,0.15)' : streamingActive ? 'linear-gradient(135deg, rgba(239,68,68,0.2), rgba(220,38,38,0.1))' : 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(5,150,105,0.1))', border: `1px solid ${streamingCooldown ? 'rgba(75,85,99,0.25)' : streamingActive ? 'rgba(239,68,68,0.35)' : 'rgba(16,185,129,0.35)'}`, borderRadius: '8px', color: streamingCooldown ? '#4b5563' : streamingActive ? '#fca5a5' : '#6ee7b7', fontSize: '11px', fontWeight: '800', cursor: streamingCooldown ? 'not-allowed' : 'pointer', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.2s', whiteSpace: 'nowrap', alignSelf: 'flex-start', marginTop: '2px' }}>
+                                            {streamingCooldown ? '⏳ COOLDOWN' : streamingActive ? '⏹ STOP' : '▶ START'}
+                                        </button>
+                                    </div>
+                                </div>
 
                                 {/* Phonetic Alphabet */}
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '9px', marginBottom: '7px' }}>
