@@ -23,6 +23,7 @@ body {
     background-repeat: no-repeat;
 }
 
+
 /* BETA watermark - rendered by JS below */
 body::before {
     content: '';
@@ -460,6 +461,10 @@ body::before {
         transform: translateY(0);
     }
 }
+        @keyframes panelSlideIn {
+            from { transform: translateX(24px); opacity: 0; }
+            to   { transform: translateX(0); opacity: 1; }
+        }
 
 @keyframes float-up {
     0%, 100% { transform: translateY(0px); }
@@ -947,6 +952,7 @@ html, body {
     box-shadow: 0 4px 20px rgba(59,130,246,0.25);
 }
 
+
 .mdt-check-row.done-ok {
     border-color: rgba(34,197,94,0.4);
     background: linear-gradient(135deg, rgba(20,83,45,0.25), rgba(15,23,42,0.7));
@@ -1256,6 +1262,8 @@ html, body {
     }
 }
 
+
+
 /* Pulse border animation for error vehicle box */
 @keyframes pulse-border-red {
     0%, 100% { 
@@ -1482,61 +1490,79 @@ const PanicCountdown = ({ onExpire, onCancel }) => {
     const urgentColor = seconds <= 3 ? '#ef4444' : seconds <= 6 ? '#f59e0b' : '#ffffff';
 
     return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 999999, background: '#0a0a0f', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '60px 32px 56px', userSelect: 'none' }}
+        <div style={{ position: 'fixed', inset: 0, zIndex: 999999, background: 'radial-gradient(ellipse at 50% 30%, #1a0a14 0%, #0a0507 60%, #000 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '64px 32px 60px', userSelect: 'none', animation: 'fadeIn 220ms cubic-bezier(0.23, 1, 0.32, 1)' }}
             onMouseMove={e => moveDrag(e.clientX)} onMouseUp={endDrag} onMouseLeave={endDrag}>
-            {/* Top section — title + description + countdown */}
-            <div style={{ textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ color: '#ffffff', fontSize: '32px', fontWeight: '800', letterSpacing: '-0.5px', marginBottom: '14px', lineHeight: 1.2 }}>
-                    DAPS detected inputs.
+
+            {/* Top — title + countdown */}
+            <div style={{ textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', maxWidth: '420px' }}>
+
+                {/* Pulsing alert badge */}
+                <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 14px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: '999px', boxShadow: '0 0 20px rgba(239,68,68,0.2)', animation: 'pulse 2s ease-in-out infinite' }}>
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px #ef4444' }} />
+                    <span style={{ color: '#fca5a5', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', fontFamily: 'monospace' }}>DAPS ACTIVE</span>
                 </div>
-                <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '16px', fontWeight: '400', marginBottom: '52px', lineHeight: 1.5, maxWidth: '280px' }}>
-                    DAPS will trigger SOS if you don't respond.
+
+                <div style={{ color: '#ffffff', fontSize: '34px', fontWeight: '800', letterSpacing: '-0.5px', marginBottom: '12px', lineHeight: 1.15 }}>
+                    Inputs detected.
                 </div>
+                <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '15px', fontWeight: '400', marginBottom: '48px', lineHeight: 1.5, maxWidth: '320px' }}>
+                    SOS will trigger automatically if you don't respond.
+                </div>
+
                 {/* Big countdown ring */}
-                <div style={{ position: 'relative', width: '130px', height: '130px', marginBottom: '12px' }}>
-                    <svg width="130" height="130" style={{ transform: 'rotate(-90deg)' }}>
-                        <circle cx="65" cy="65" r="58" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="4" />
-                        <circle cx="65" cy="65" r="58" fill="none" stroke={urgentColor} strokeWidth="4"
-                            strokeDasharray={`${2 * Math.PI * 58}`}
-                            strokeDashoffset={`${2 * Math.PI * 58 * (1 - pct)}`}
+                <div style={{ position: 'relative', width: '150px', height: '150px', marginBottom: '14px' }}>
+                    {/* Outer glow ring */}
+                    <div style={{ position: 'absolute', inset: '-8px', borderRadius: '50%', background: `radial-gradient(circle, ${urgentColor}22 0%, transparent 70%)`, opacity: seconds <= 3 ? 1 : 0.5, transition: 'opacity 300ms ease-out' }} />
+                    <svg width="150" height="150" style={{ transform: 'rotate(-90deg)', position: 'relative' }}>
+                        <circle cx="75" cy="75" r="66" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="4" />
+                        <circle cx="75" cy="75" r="66" fill="none" stroke={urgentColor} strokeWidth="4"
+                            strokeDasharray={`${2 * Math.PI * 66}`}
+                            strokeDashoffset={`${2 * Math.PI * 66 * (1 - pct)}`}
                             strokeLinecap="round"
-                            style={{ transition: 'stroke-dashoffset 1s linear, stroke 0.3s' }} />
+                            style={{ transition: 'stroke-dashoffset 1s linear, stroke 300ms ease-out', filter: `drop-shadow(0 0 8px ${urgentColor}88)` }} />
                     </svg>
                     <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ color: urgentColor, fontSize: '44px', fontWeight: '900', fontFamily: 'monospace', lineHeight: 1, transition: 'color 0.3s' }}>{seconds}</span>
+                        <span style={{ color: urgentColor, fontSize: '52px', fontWeight: '900', fontFamily: 'monospace', lineHeight: 1, transition: 'color 300ms ease-out', textShadow: `0 0 20px ${urgentColor}66` }}>{seconds}</span>
                     </div>
                 </div>
-                <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '12px', letterSpacing: '1.5px', textTransform: 'uppercase' }}>seconds to auto-activate</div>
+                <div style={{ color: 'rgba(255,255,255,0.32)', fontSize: '11px', letterSpacing: '2px', textTransform: 'uppercase', fontFamily: 'monospace' }}>seconds to auto-activate</div>
             </div>
 
-            {/* Bottom section — slide button + cancel */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px', width: '100%' }}>
+            {/* Bottom — slide button + cancel */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', width: '100%' }}>
+
                 {/* Slide-to-confirm track */}
-                <div ref={trackRef} style={{ width: `${TRACK_WIDTH}px`, height: '64px', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: '32px', position: 'relative', overflow: 'hidden', cursor: 'pointer' }}>
+                <div ref={trackRef} style={{ width: `${TRACK_WIDTH}px`, height: '64px', background: 'linear-gradient(180deg, rgba(239,68,68,0.18), rgba(239,68,68,0.08))', border: '1px solid rgba(239,68,68,0.4)', borderRadius: '32px', position: 'relative', overflow: 'hidden', cursor: 'pointer', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 24px rgba(239,68,68,0.15)' }}>
+                    {/* Progress fill behind knob */}
+                    <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${slideX + KNOB_WIDTH/2}px`, background: 'linear-gradient(90deg, rgba(239,68,68,0.4), rgba(239,68,68,0.2))', transition: isDragging ? 'none' : 'width 300ms cubic-bezier(0.23, 1, 0.32, 1)', borderRadius: '32px 0 0 32px' }} />
+
                     {/* Track label — sits to the right of knob, fades as knob slides over */}
-                    <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${KNOB_WIDTH + 16 + slideX}px`, right: '20px', display: 'flex', alignItems: 'center', color: 'rgba(255,255,255,0.45)', fontSize: '12px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase', pointerEvents: 'none', whiteSpace: 'nowrap', overflow: 'hidden', opacity: 1 - (slideX / MAX_SLIDE) * 0.85, transition: isDragging ? 'opacity 80ms linear' : 'left 300ms cubic-bezier(0.23, 1, 0.32, 1), opacity 200ms ease-out' }}>
-                        slide to activate SOS
+                    <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${KNOB_WIDTH + 16 + slideX}px`, right: '20px', display: 'flex', alignItems: 'center', color: 'rgba(255,255,255,0.5)', fontSize: '12px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase', pointerEvents: 'none', whiteSpace: 'nowrap', overflow: 'hidden', opacity: 1 - (slideX / MAX_SLIDE) * 0.85, transition: isDragging ? 'opacity 80ms linear' : 'left 300ms cubic-bezier(0.23, 1, 0.32, 1), opacity 200ms ease-out', fontFamily: 'monospace' }}>
+                        slide to activate sos →
                     </div>
+
                     {/* Sliding knob */}
                     <div
-                        style={{ position: 'absolute', top: '4px', left: `${4 + slideX}px`, width: `${KNOB_WIDTH}px`, height: '56px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', borderRadius: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(239,68,68,0.5)', cursor: 'grab', transition: isDragging ? 'none' : 'left 0.3s ease', zIndex: 2 }}
+                        style={{ position: 'absolute', top: '4px', left: `${4 + slideX}px`, width: `${KNOB_WIDTH}px`, height: '56px', background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)', borderRadius: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(239,68,68,0.5), inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 0 rgba(0,0,0,0.2)', cursor: isDragging ? 'grabbing' : 'grab', transition: isDragging ? 'none' : 'left 300ms cubic-bezier(0.23, 1, 0.32, 1)', zIndex: 2 }}
                         onMouseDown={e => { e.preventDefault(); startDrag(e.clientX); }}
                         onTouchStart={e => { startDrag(e.touches[0].clientX); }}
                         onTouchMove={e => { moveDrag(e.touches[0].clientX); }}
                         onTouchEnd={endDrag}>
-                        <div style={{ color: 'white', fontWeight: '900', fontSize: '13px', letterSpacing: '1px' }}>SOS</div>
+                        <div style={{ color: 'white', fontWeight: '900', fontSize: '13px', letterSpacing: '1.5px', fontFamily: 'monospace', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>SOS</div>
                     </div>
                 </div>
 
                 {/* Cancel button */}
                 <button
                     onClick={onCancel}
-                    style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', fontSize: '20px' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)', fontSize: '20px' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.color = 'rgba(255,255,255,0.95)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; }}
+                    onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.93)'; }}
+                    onMouseUp={e => { e.currentTarget.style.transform = ''; }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
                 </button>
-                <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '11px', letterSpacing: '0.5px', marginTop: '-12px' }}>Cancel</div>
+                <div style={{ color: 'rgba(255,255,255,0.32)', fontSize: '10px', letterSpacing: '1px', marginTop: '-12px', fontFamily: 'monospace', textTransform: 'uppercase' }}>Cancel</div>
             </div>
         </div>
     );
@@ -3529,27 +3555,31 @@ React.useEffect(() => {
         }
         if (id === 'panic-trigger' && panicEnabledRef.current && !isDispatcher && Date.now() >= panicCooldownUntilRef.current) {
             if (panicTriggerModeRef.current === 'HOLD') {
-                // Tabbed-out HOLD: globalShortcut can't detect actual key holds (no auto-repeat),
-                // so require 2 presses within 2s as deliberate confirmation. This is asymmetric
-                // by design: in-window allows true hold; out-of-window requires double-confirm.
-                const now = Date.now();
-                if (!window._panicArmedAt || (now - window._panicArmedAt) > 2000) {
-                    window._panicArmedAt = now;
-                    setPanicNotif('🔒 PANIC ARMED — Press hotkey again within 2s to activate');
-                    setPanicNotifType('warning');
-                    setTimeout(() => {
-                        if (window._panicArmedAt && (Date.now() - window._panicArmedAt) >= 1950) {
-                            window._panicArmedAt = null;
-                            setPanicNotif('');
-                        }
-                    }, 2050);
-                } else {
+                // Tabbed-out HOLD: replicate the in-window 2s hold timing.
+                // First press starts arming; pressing the hotkey again during arming cancels.
+                // Since globalShortcut can't detect physical key release, we use timer-based delay.
+                if (window._panicArmingTimer) {
+                    // Already arming → cancel
+                    clearTimeout(window._panicArmingTimer);
+                    window._panicArmingTimer = null;
                     window._panicArmedAt = null;
                     setPanicNotif('');
-                    setPanicModalOpen(true);
-                    startPanicAlarm();
-                    setPanicCooldownUntil(now + 60000);
+                    return;
                 }
+                // Start 2s arming timer
+                window._panicArmedAt = Date.now();
+                setPanicNotif('🔒 ARMING PANIC — Hold the moment, releases in 2s. Press hotkey again to cancel.');
+                setPanicNotifType('warning');
+                window._panicArmingTimer = setTimeout(() => {
+                    window._panicArmingTimer = null;
+                    window._panicArmedAt = null;
+                    if (Date.now() >= panicCooldownUntilRef.current) {
+                        setPanicNotif('');
+                        setPanicModalOpen(true);
+                        startPanicAlarm();
+                        setPanicCooldownUntil(Date.now() + 60000);
+                    }
+                }, 2000);
             } else {
                 // TRIPLE mode: count taps via ref
                 panicTapCountRef.current += 1;
@@ -10584,99 +10614,125 @@ return (
         </div>
 <div style={{ height:'48px',flexShrink:0 }} />
 
-        {/* Global overlay panels — visible in ALL views */}
+{/* Global overlay panels — visible in ALL views */}
         {activeView !== 'home' && showHistoryPanel && (
-            <div style={{ position:'fixed',top:'48px',right:0,bottom:0,width:'360px',background:'#161b22',borderLeft:'1px solid #30363d',zIndex:8000,display:'flex',flexDirection:'column' }}>
-                <div style={{ padding:'14px 16px',borderBottom:'1px solid #21262d',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
-                    <span style={{ color:'#58a6ff',fontSize:'11px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase' }}>Activity History</span>
-                    <div style={{ display:'flex',gap:'7px' }}>
-                        <button onClick={()=>setActivityLog([])} style={{ background:'rgba(248,81,73,0.08)',border:'1px solid rgba(248,81,73,0.2)',borderRadius:'4px',color:'#f85149',cursor:'pointer',padding:'3px 8px',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase' }}>CLEAR</button>
-                        <button onClick={()=>setShowHistoryPanel(false)} style={{ background:'rgba(248,81,73,0.08)',border:'1px solid rgba(248,81,73,0.2)',borderRadius:'4px',color:'#f85149',cursor:'pointer',width:'22px',height:'22px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px' }}>✕</button>
+            <>
+                {/* Backdrop dimmer */}
+                <div onClick={()=>setShowHistoryPanel(false)} style={{ position:'fixed',top:'48px',left:0,right:'360px',bottom:0,background:'rgba(0,0,0,0.4)',zIndex:7999,animation:'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }} />
+                <div style={{ position:'fixed',top:'48px',right:0,bottom:0,width:'360px',background:'linear-gradient(180deg,rgba(15,30,60,0.95) 0%,rgba(10,20,40,0.97) 100%)',backdropFilter:'blur(8px)',borderLeft:'1px solid rgba(56,189,248,0.25)',boxShadow:'-8px 0 32px rgba(0,0,0,0.5), inset 1px 0 0 rgba(56,189,248,0.1)',zIndex:8000,display:'flex',flexDirection:'column',animation:'panelSlideIn 220ms cubic-bezier(0.23, 1, 0.32, 1)' }}>
+                    {/* Slide handle indicator */}
+                    <div style={{ position:'absolute',left:'-3px',top:'50%',transform:'translateY(-50%)',width:'3px',height:'48px',background:'#22d3ee',borderRadius:'3px 0 0 3px',boxShadow:'0 0 12px rgba(34,211,238,0.5)' }} />
+                    <div style={{ padding:'14px 16px',borderBottom:'1px solid rgba(56,189,248,0.1)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0,background:'rgba(15,30,60,0.4)' }}>
+                        <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
+                            <div style={{ width:'2px',height:'12px',background:'#22d3ee',borderRadius:'2px',boxShadow:'0 0 6px #22d3ee' }} />
+                            <span style={{ color:'#22d3ee',fontSize:'11px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Activity History</span>
+                        </div>
+                        <div style={{ display:'flex',gap:'6px' }}>
+                            <button onClick={()=>setActivityLog([])} style={{ background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.25)',borderRadius:'4px',color:'#f87171',cursor:'pointer',padding:'3px 8px',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase',fontFamily:'monospace',width:'auto' }}>CLEAR</button>
+                            <button onClick={()=>setShowHistoryPanel(false)} style={{ background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.25)',borderRadius:'4px',color:'#f87171',cursor:'pointer',width:'24px',height:'24px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontFamily:'monospace',padding:0 }}>✕</button>
+                        </div>
+                    </div>
+                    <div style={{ padding:'10px 14px',borderBottom:'1px solid rgba(56,189,248,0.08)',flexShrink:0 }}>
+                        <input value={historySearch} onChange={e=>setHistorySearch(e.target.value)} placeholder="Search history..." style={{ width:'100%',padding:'7px 11px',background:'rgba(0,0,0,0.3)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'6px',color:'#e2e8f0',fontSize:'11px',outline:'none',boxSizing:'border-box',fontFamily:'monospace',transition:'border-color 160ms ease-out' }}
+                            onFocus={e=>e.target.style.borderColor='rgba(56,189,248,0.4)'}
+                            onBlur={e=>e.target.style.borderColor='rgba(56,189,248,0.15)'} />
+                    </div>
+                    <div style={{ flex:1,overflowY:'auto',padding:'6px' }}>
+                        {(()=>{
+                            const filtered=historySearch?activityLog.filter(e=>e.msg.toLowerCase().includes(historySearch.toLowerCase())||e.ts.includes(historySearch)):activityLog;
+                            if(filtered.length===0) return <div style={{ color:'#475569',fontSize:'11px',textAlign:'center',padding:'24px',fontFamily:'monospace' }}>{activityLog.length===0?'No activity yet':'No matches'}</div>;
+                            return filtered.map(entry=>{
+                                const iw=entry.msg.includes('WARRANT'),ie=entry.msg.includes('Export'),ip=entry.msg.includes('Plate'),ic=entry.msg.includes('Citizen');
+                                const color=iw?'#f87171':ie?'#34d399':ip?'#38bdf8':ic?'#a78bfa':'#64748b';
+                                return <div key={entry.id} style={{ display:'flex',gap:'8px',padding:'7px 9px',borderBottom:'1px solid rgba(56,189,248,0.05)',alignItems:'flex-start' }}>
+                                    <span style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',whiteSpace:'nowrap',flexShrink:0,marginTop:'1px' }}>[{entry.ts}]</span>
+                                    <span style={{ color,fontSize:'10px',fontWeight:'500',lineHeight:'1.4',fontFamily:'monospace' }}>{entry.msg}</span>
+                                </div>;
+                            });
+                        })()}
                     </div>
                 </div>
-                <div style={{ padding:'8px 14px',borderBottom:'1px solid #21262d',flexShrink:0 }}>
-                    <input value={historySearch} onChange={e=>setHistorySearch(e.target.value)} placeholder="Search history..." style={{ width:'100%',padding:'6px 10px',background:'#0d1117',border:'1px solid #30363d',borderRadius:'5px',color:'#e6edf3',fontSize:'11px',outline:'none',boxSizing:'border-box',fontFamily:'inherit' }}
-                        onFocus={e=>e.target.style.borderColor='#388bfd'}
-                        onBlur={e=>e.target.style.borderColor='#30363d'} />
-                </div>
-                <div style={{ flex:1,overflowY:'auto',padding:'6px' }}>
-                    {(()=>{
-                        const filtered=historySearch?activityLog.filter(e=>e.msg.toLowerCase().includes(historySearch.toLowerCase())||e.ts.includes(historySearch)):activityLog;
-                        if(filtered.length===0) return <div style={{ color:'#484f58',fontSize:'11px',textAlign:'center',padding:'24px' }}>{activityLog.length===0?'No activity yet':'No matches'}</div>;
-                        return filtered.map(entry=>{
-                            const iw=entry.msg.includes('WARRANT'),ie=entry.msg.includes('Export'),ip=entry.msg.includes('Plate'),ic=entry.msg.includes('Citizen');
-                            const color=iw?'#f85149':ie?'#3fb950':ip?'#58a6ff':ic?'#bc8cff':'#484f58';
-                            return <div key={entry.id} style={{ display:'flex',gap:'8px',padding:'6px 8px',borderBottom:'1px solid #21262d',alignItems:'flex-start' }}>
-                                <span style={{ color:'#484f58',fontSize:'9px',fontFamily:'monospace',whiteSpace:'nowrap',flexShrink:0,marginTop:'1px' }}>[{entry.ts}]</span>
-                                <span style={{ color,fontSize:'10px',fontWeight:'500',lineHeight:'1.4' }}>{entry.msg}</span>
-                            </div>;
-                        });
-                    })()}
-                </div>
-            </div>
+            </>
         )}
         {activeView !== 'home' && showDataPanel && (
-            <div style={{ position:'fixed',top:'48px',right:0,bottom:0,width:'300px',background:'#161b22',borderLeft:'1px solid #30363d',zIndex:8000,overflowY:'auto' }}>
-                <div style={{ padding:'14px 16px' }}>
-                    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'12px' }}>
-                        <span style={{ color:'#58a6ff',fontSize:'11px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase' }}>Data Panel</span>
-                        <button onClick={()=>setShowDataPanel(false)} style={{ background:'rgba(248,81,73,0.08)',border:'1px solid rgba(248,81,73,0.2)',borderRadius:'4px',color:'#f85149',cursor:'pointer',width:'22px',height:'22px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px' }}>✕</button>
-                    </div>
-                    <div style={{ background:'#0d1117',border:'1px solid #21262d',borderRadius:'7px',padding:'12px',marginBottom:'8px' }}>
-                        <div style={{ color:'#484f58',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',marginBottom:'8px',textTransform:'uppercase' }}>Officer</div>
-                        <div style={{ color:'#e6edf3',fontSize:'14px',fontWeight:'700',marginBottom:'8px' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName}</div>
-                        <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px' }}>
-                            {[{l:'BADGE',v:`#${trooperSettings?.BadgeID||'—'}`},{l:'ZONE',v:trooperSettings?.Zone||'—'},{l:'USERNAME',v:trooperSettings?.Username||'—'},{l:'DEPT',v:trooperSettings?.Department||'—'}].map(({l,v},i)=>(
-                                <div key={i} style={{ background:'#161b22',border:'1px solid #30363d',borderRadius:'4px',padding:'5px 8px' }}>
-                                    <div style={{ color:'#484f58',fontSize:'8px',fontWeight:'700',letterSpacing:'1px',marginBottom:'1px',textTransform:'uppercase' }}>{l}</div>
-                                    <div style={{ color:'#e6edf3',fontSize:'10px',fontWeight:'600',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{v}</div>
+            <>
+                <div onClick={()=>setShowDataPanel(false)} style={{ position:'fixed',top:'48px',left:0,right:'320px',bottom:0,background:'rgba(0,0,0,0.4)',zIndex:7999,animation:'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }} />
+                <div style={{ position:'fixed',top:'48px',right:0,bottom:0,width:'320px',background:'linear-gradient(180deg,rgba(15,30,60,0.95) 0%,rgba(10,20,40,0.97) 100%)',backdropFilter:'blur(8px)',borderLeft:'1px solid rgba(56,189,248,0.25)',boxShadow:'-8px 0 32px rgba(0,0,0,0.5), inset 1px 0 0 rgba(56,189,248,0.1)',zIndex:8000,overflowY:'auto',animation:'panelSlideIn 220ms cubic-bezier(0.23, 1, 0.32, 1)' }}>
+                    <div style={{ position:'absolute',left:'-3px',top:'50%',transform:'translateY(-50%)',width:'3px',height:'48px',background:'#22d3ee',borderRadius:'3px 0 0 3px',boxShadow:'0 0 12px rgba(34,211,238,0.5)' }} />
+                    <div style={{ padding:'14px 16px' }}>
+                        <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px' }}>
+                            <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
+                                <div style={{ width:'2px',height:'12px',background:'#22d3ee',borderRadius:'2px',boxShadow:'0 0 6px #22d3ee' }} />
+                                <span style={{ color:'#22d3ee',fontSize:'11px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Data Panel</span>
+                            </div>
+                            <button onClick={()=>setShowDataPanel(false)} style={{ background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.25)',borderRadius:'4px',color:'#f87171',cursor:'pointer',width:'24px',height:'24px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontFamily:'monospace',padding:0 }}>✕</button>
+                        </div>
+                        <div style={{ background:'rgba(0,0,0,0.3)',border:'1px solid rgba(56,189,248,0.12)',borderRadius:'7px',padding:'12px',marginBottom:'10px' }}>
+                            <div style={{ color:'#475569',fontSize:'9px',fontWeight:'700',letterSpacing:'1.2px',marginBottom:'8px',textTransform:'uppercase',fontFamily:'monospace' }}>Officer</div>
+                            <div style={{ color:'#e2e8f0',fontSize:'14px',fontWeight:'700',marginBottom:'10px',fontFamily:'monospace' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName}</div>
+                            <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px' }}>
+                                {[{l:'BADGE',v:`#${trooperSettings?.BadgeID||'—'}`},{l:'ZONE',v:trooperSettings?.Zone||'—'},{l:'USERNAME',v:trooperSettings?.Username||'—'},{l:'DEPT',v:trooperSettings?.Department||'—'}].map(({l,v},i)=>(
+                                    <div key={i} style={{ background:'rgba(0,0,0,0.3)',border:'1px solid rgba(56,189,248,0.08)',borderRadius:'5px',padding:'6px 9px' }}>
+                                        <div style={{ color:'#475569',fontSize:'8px',fontWeight:'700',letterSpacing:'1px',marginBottom:'2px',textTransform:'uppercase',fontFamily:'monospace' }}>{l}</div>
+                                        <div style={{ color:'#38bdf8',fontSize:'11px',fontWeight:'700',fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{v}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div style={{ background:'rgba(0,0,0,0.3)',border:'1px solid rgba(56,189,248,0.12)',borderRadius:'7px',padding:'12px' }}>
+                            <div style={{ color:'#475569',fontSize:'9px',fontWeight:'700',letterSpacing:'1.2px',marginBottom:'8px',textTransform:'uppercase',fontFamily:'monospace' }}>System Status</div>
+                            {[{label:'Discord API',ok:tokenSaved},{label:'Session',ok:!!selectedUserSession},{label:'Groq AI',ok:!!(window.GROQ_CONSOLE_API_KEY||localStorage.getItem('groqConsoleAPIKey'))},{label:'Sounds',ok:!!(window.SOUNDS&&Object.keys(window.SOUNDS).length>0)}].map(({label,ok},i,arr)=>(
+                                <div key={i} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'5px 0',borderBottom:i<arr.length-1?'1px solid rgba(56,189,248,0.08)':'none' }}>
+                                    <span style={{ color:'#94a3b8',fontSize:'10px',fontWeight:'500',fontFamily:'monospace' }}>{label}</span>
+                                    <div style={{ display:'flex',alignItems:'center',gap:'5px' }}>
+                                        <div style={{ width:'5px',height:'5px',borderRadius:'50%',background:ok?'#10b981':'#ef4444',boxShadow:ok?'0 0 5px #10b981':'0 0 5px #ef4444' }} />
+                                        <span style={{ fontSize:'9px',fontWeight:'700',color:ok?'#34d399':'#f87171',padding:'2px 6px',borderRadius:'3px',letterSpacing:'0.5px',textTransform:'uppercase',fontFamily:'monospace' }}>{ok?'ONLINE':'OFFLINE'}</span>
+                                    </div>
                                 </div>
                             ))}
                         </div>
                     </div>
-                    <div style={{ background:'#0d1117',border:'1px solid #21262d',borderRadius:'7px',padding:'12px' }}>
-                        <div style={{ color:'#484f58',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',marginBottom:'8px',textTransform:'uppercase' }}>System Status</div>
-                        {[{label:'Discord API',ok:tokenSaved},{label:'Session',ok:!!selectedUserSession},{label:'Groq AI',ok:!!(window.GROQ_CONSOLE_API_KEY||localStorage.getItem('groqConsoleAPIKey'))},{label:'Sounds',ok:!!(window.SOUNDS&&Object.keys(window.SOUNDS).length>0)}].map(({label,ok},i,arr)=>(
-                            <div key={i} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'4px 0',borderBottom:i<arr.length-1?'1px solid #21262d':'none' }}>
-                                <span style={{ color:'#8b949e',fontSize:'10px',fontWeight:'500' }}>{label}</span>
-                                <span style={{ fontSize:'9px',fontWeight:'700',color:ok?'#3fb950':'#f85149',background:ok?'rgba(63,185,80,0.1)':'rgba(248,81,73,0.1)',padding:'2px 6px',borderRadius:'3px',letterSpacing:'0.5px',textTransform:'uppercase' }}>{ok?'ONLINE':'OFFLINE'}</span>
-                            </div>
-                        ))}
-                    </div>
                 </div>
-            </div>
+            </>
         )}
         {activeView !== 'home' && showOfficersPanel && (
-            <div style={{ position:'fixed',top:'48px',right:0,bottom:0,width:'300px',background:'#161b22',borderLeft:'1px solid #30363d',zIndex:8000,overflowY:'auto' }}>
-                <div style={{ padding:'14px 16px' }}>
-                    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'12px' }}>
-                        <div>
-                            <div style={{ color:'#58a6ff',fontSize:'11px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase' }}>Available Officers</div>
-                            <div style={{ color:'#484f58',fontSize:'9px',marginTop:'1px',fontFamily:'monospace' }}>{officerNextUpdate?`Next: ${officerNextUpdate.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'})}`:'Pending sync...'}</div>
-                        </div>
-                        <button onClick={()=>setShowOfficersPanel(false)} style={{ background:'rgba(248,81,73,0.08)',border:'1px solid rgba(248,81,73,0.2)',borderRadius:'4px',color:'#f85149',cursor:'pointer',width:'22px',height:'22px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px' }}>✕</button>
-                    </div>
-                    <div style={{ display:'flex',gap:'4px',marginBottom:'10px' }}>
-                        {['10-9','10-10','10-5'].map(s=>(
-                            <button key={s} onClick={()=>setOfficerStatus(s)} style={{ flex:1,padding:'5px',background:officerStatus===s?'rgba(56,139,253,0.12)':'#0d1117',border:`1px solid ${officerStatus===s?'rgba(56,139,253,0.3)':'#21262d'}`,borderRadius:'5px',color:officerStatus===s?'#58a6ff':'#484f58',fontSize:'9px',fontWeight:'700',cursor:'pointer' }}>{s}</button>
-                        ))}
-                    </div>
-                    {onlineOfficers.length===0?<div style={{ color:'#484f58',fontSize:'11px',textAlign:'center',padding:'20px 0' }}>No officers online</div>
-                    :onlineOfficers.map((o,i)=>{
-                        const isMe=String(o.badge)===String(trooperSettings?.BadgeID);
-                        const isPanic=panicFlickerOfficer===o.badge||activePanic?.badge===o.badge;
-                        return <div key={i} className={isPanic?(panicFlickerOfficer===o.badge?'panic-officer':'panic-officer-steady'):''} style={{ padding:'9px 11px',background:isMe?'rgba(63,185,80,0.06)':'#0d1117',border:`1px solid ${isMe?'rgba(63,185,80,0.2)':'#21262d'}`,borderRadius:'6px',marginBottom:'5px',position:'relative',overflow:'hidden' }}>
-                            {isMe&&<div style={{ position:'absolute',left:0,top:0,bottom:0,width:'2px',background:'#3fb950' }} />}
-                            <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'3px' }}>
-                                <span style={{ color:isMe?'#3fb950':'#e6edf3',fontSize:'13px',fontWeight:'700',fontFamily:'monospace' }}>{o.callSign||'—'}</span>
-                                <span style={{ fontSize:'8px',fontWeight:'600',padding:'2px 6px',borderRadius:'3px',background:o.status==='10-9'?'rgba(63,185,80,0.1)':o.status==='10-10'?'rgba(248,81,73,0.1)':'rgba(245,158,11,0.1)',color:o.status==='10-9'?'#3fb950':o.status==='10-10'?'#f85149':'#f0883e' }}>{o.status}</span>
+            <>
+                <div onClick={()=>setShowOfficersPanel(false)} style={{ position:'fixed',top:'48px',left:0,right:'320px',bottom:0,background:'rgba(0,0,0,0.4)',zIndex:7999,animation:'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }} />
+                <div style={{ position:'fixed',top:'48px',right:0,bottom:0,width:'320px',background:'linear-gradient(180deg,rgba(15,30,60,0.95) 0%,rgba(10,20,40,0.97) 100%)',backdropFilter:'blur(8px)',borderLeft:'1px solid rgba(56,189,248,0.25)',boxShadow:'-8px 0 32px rgba(0,0,0,0.5), inset 1px 0 0 rgba(56,189,248,0.1)',zIndex:8000,overflowY:'auto',animation:'panelSlideIn 220ms cubic-bezier(0.23, 1, 0.32, 1)' }}>
+                    <div style={{ position:'absolute',left:'-3px',top:'50%',transform:'translateY(-50%)',width:'3px',height:'48px',background:'#22d3ee',borderRadius:'3px 0 0 3px',boxShadow:'0 0 12px rgba(34,211,238,0.5)' }} />
+                    <div style={{ padding:'14px 16px' }}>
+                        <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'12px' }}>
+                            <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
+                                <div style={{ width:'2px',height:'12px',background:'#22d3ee',borderRadius:'2px',boxShadow:'0 0 6px #22d3ee' }} />
+                                <div>
+                                    <div style={{ color:'#22d3ee',fontSize:'11px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Officers Panel</div>
+                                    <div style={{ color:'#475569',fontSize:'9px',marginTop:'2px',fontFamily:'monospace' }}>{officerNextUpdate?`Next: ${officerNextUpdate.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'})}`:'Pending sync...'}</div>
+                                </div>
                             </div>
-                            <div style={{ color:'#e6edf3',fontSize:'10px',fontWeight:'500',marginBottom:'2px' }}>{o.name||'Unknown'}</div>
-                            <div style={{ color:'#484f58',fontSize:'9px',fontFamily:'monospace' }}>#{o.badge} · Zone {o.zone||'—'}</div>
-                        </div>;
-                    })}
+                            <button onClick={()=>setShowOfficersPanel(false)} style={{ background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.25)',borderRadius:'4px',color:'#f87171',cursor:'pointer',width:'24px',height:'24px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontFamily:'monospace',padding:0 }}>✕</button>
+                        </div>
+                        <div style={{ display:'flex',gap:'4px',marginBottom:'10px' }}>
+                            {['10-9','10-10','10-5'].map(s=>(
+                                <button key={s} onClick={()=>setOfficerStatus(s)} style={{ flex:1,padding:'6px 4px',background:officerStatus===s?'rgba(56,189,248,0.12)':'rgba(0,0,0,0.3)',border:`1px solid ${officerStatus===s?'rgba(56,189,248,0.35)':'rgba(56,189,248,0.08)'}`,borderRadius:'5px',color:officerStatus===s?'#38bdf8':'#475569',fontSize:'9px',fontWeight:'700',cursor:'pointer',fontFamily:'monospace',width:'auto',transition:'all 160ms ease-out' }}>{s}</button>
+                            ))}
+                        </div>
+                        {onlineOfficers.length===0?<div style={{ color:'#475569',fontSize:'11px',textAlign:'center',padding:'20px 0',fontFamily:'monospace' }}>No officers online</div>
+                        :onlineOfficers.map((o,i)=>{
+                            const isMe=String(o.badge)===String(trooperSettings?.BadgeID);
+                            const isPanic=panicFlickerOfficer===o.badge||activePanic?.badge===o.badge;
+                            return <div key={i} className={isPanic?(panicFlickerOfficer===o.badge?'panic-officer':'panic-officer-steady'):''} style={{ padding:'9px 11px',background:isMe?'linear-gradient(90deg,rgba(16,185,129,0.12),rgba(16,185,129,0.04))':'rgba(0,0,0,0.3)',border:`1px solid ${isMe?'rgba(16,185,129,0.3)':'rgba(56,189,248,0.08)'}`,borderRadius:'6px',marginBottom:'5px',position:'relative',overflow:'hidden' }}>
+                                {isMe&&<div style={{ position:'absolute',left:0,top:0,bottom:0,width:'2px',background:'#10b981',boxShadow:'0 0 8px #10b981' }} />}
+                                <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'3px' }}>
+                                    <span style={{ color:isMe?'#34d399':'#e2e8f0',fontSize:'13px',fontWeight:'700',fontFamily:'monospace' }}>{o.callSign||'—'}</span>
+                                    <span style={{ fontSize:'8px',fontWeight:'700',padding:'2px 6px',borderRadius:'3px',background:o.status==='10-9'?'rgba(16,185,129,0.15)':o.status==='10-10'?'rgba(239,68,68,0.15)':'rgba(245,158,11,0.15)',color:o.status==='10-9'?'#34d399':o.status==='10-10'?'#f87171':'#fbbf24',fontFamily:'monospace' }}>{o.status}</span>
+                                </div>
+                                <div style={{ color:'#e2e8f0',fontSize:'10px',fontWeight:'500',marginBottom:'2px' }}>{o.name||'Unknown'}</div>
+                                <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace' }}>#{o.badge} · Zone {o.zone||'—'}</div>
+                            </div>;
+                        })}
+                    </div>
                 </div>
-            </div>
+            </>
         )}
 
 {/* ── SHIFT HUD BAR ── */}
@@ -11012,29 +11068,29 @@ return (
 
 {/* DASHBOARD SUBVIEW */}
         {homeSubView === 'dashboard' && (
-            <div style={{ flex:1,overflowY:'auto',background:'#0d1117',padding:'24px',display:'flex',flexDirection:'column',gap:'16px',position:'relative' }}>
-
-                {/* Header */}
-                <div style={{ display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:'16px',flexShrink:0 }}>
-                    <div>
-                        <div style={{ display:'flex',alignItems:'center',gap:'12px',marginBottom:'6px' }}>
-                            <div style={{ width:'38px',height:'38px',background:'linear-gradient(135deg,#1e3a8a,#2563eb)',borderRadius:'9px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0 }}>
-                                <svg width="18" height="18" fill="white" viewBox="0 0 24 24"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/></svg>
-                            </div>
-                            <div>
-                                <div style={{ color:'#e6edf3',fontSize:'20px',fontWeight:'700',letterSpacing:'0.5px',lineHeight:'1.1' }}>New York State Police</div>
-                                <div style={{ color:'#484f58',fontSize:'11px',marginTop:'2px' }}>
-                                    {currentTime.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})} — {currentTime.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'})}
-                                </div>
-                            </div>
+            <div style={{ flex:1,overflowY:'auto',background:'radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 50%, #050a14 100%)',padding:'20px',display:'flex',flexDirection:'column',gap:'14px',position:'relative' }}>
+{/* Header card */}
+                <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'16px',padding:'16px 22px',background:'linear-gradient(135deg,rgba(30,58,138,0.25) 0%,rgba(15,30,60,0.4) 100%)',border:'1px solid rgba(56,189,248,0.18)',borderRadius:'12px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 0 24px rgba(14,165,233,0.04)',flexShrink:0 }}>
+                    <div style={{ display:'flex',alignItems:'center',gap:'14px' }}>
+                        <div style={{ width:'46px',height:'46px',background:'linear-gradient(135deg,#1e40af 0%,#0ea5e9 100%)',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 14px rgba(14,165,233,0.35), inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+                            <svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/></svg>
                         </div>
-                        <div style={{ color:'#8b949e',fontSize:'13px',fontWeight:'500',marginLeft:'50px' }}>
-                            {(()=>{const h=new Date().getHours();const g=h>=5&&h<12?'Good morning':h>=12&&h<17?'Good afternoon':h>=17&&h<21?'Good evening':'Good night';const dept=(trooperSettings?.Department||'').toUpperCase();const rank=dept.includes('EGPD')?'Officer':'Trooper';const fn=trooperSettings?.FirstName?trooperSettings.FirstName[0]+'.':'';const ln=trooperSettings?.LastName||'Officer';return `${g}, ${rank} ${fn} ${ln}`;})()}
+                        <div>
+                            <div style={{ display:'flex',alignItems:'center',gap:'10px',marginBottom:'4px' }}>
+                                <div style={{ color:'#e2e8f0',fontSize:'22px',fontWeight:'700',letterSpacing:'0.3px',lineHeight:'1.1' }}>New York State Police</div>
+                                <span style={{ padding:'2px 8px',background:'rgba(34,211,238,0.1)',border:'1px solid rgba(34,211,238,0.3)',borderRadius:'5px',color:'#22d3ee',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',fontFamily:'monospace' }}>EST. 2025</span>
+                            </div>
+                            <div style={{ color:'#22d3ee',fontSize:'12px',marginTop:'2px',fontFamily:'monospace',letterSpacing:'0.3px' }}>
+                                {currentTime.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})} — {currentTime.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+                            </div>
+                            <div style={{ color:'#64748b',fontSize:'11px',marginTop:'3px' }}>
+                                {(()=>{const h=new Date().getHours();const g=h>=5&&h<12?'Good morning':h>=12&&h<17?'Good afternoon':h>=17&&h<21?'Good evening':'Good night';const dept=(trooperSettings?.Department||'').toUpperCase();const rank=dept.includes('EGPD')?'Officer':'Trooper';const fn=trooperSettings?.FirstName?trooperSettings.FirstName[0]+'.':'';const ln=trooperSettings?.LastName||'Officer';return `${g}, ${rank} ${fn} ${ln}`;})()}
+                            </div>
                         </div>
                     </div>
-                    <div style={{ display:'flex',alignItems:'center',gap:'6px',padding:'6px 12px',background:selectedUserSession?'rgba(63,185,80,0.1)':'rgba(248,81,73,0.1)',border:`1px solid ${selectedUserSession?'rgba(63,185,80,0.3)':'rgba(248,81,73,0.3)'}`,borderRadius:'6px',flexShrink:0 }}>
-                        <div style={{ width:'6px',height:'6px',borderRadius:'50%',background:selectedUserSession?'#3fb950':'#f85149',animation:selectedUserSession?'pulse 2s infinite':'none' }} />
-                        <span style={{ color:selectedUserSession?'#3fb950':'#f85149',fontSize:'11px',fontWeight:'600',letterSpacing:'0.5px' }}>{selectedUserSession?'ONLINE':'OFFLINE'}</span>
+                    <div style={{ display:'flex',alignItems:'center',gap:'7px',padding:'7px 16px',background:selectedUserSession?'rgba(16,185,129,0.12)':'rgba(239,68,68,0.12)',border:`1px solid ${selectedUserSession?'rgba(16,185,129,0.35)':'rgba(239,68,68,0.35)'}`,borderRadius:'999px',boxShadow:selectedUserSession?'0 0 16px rgba(16,185,129,0.15), inset 0 1px 0 rgba(16,185,129,0.2)':'0 0 16px rgba(239,68,68,0.15)' }}>
+                        <div style={{ width:'7px',height:'7px',borderRadius:'50%',background:selectedUserSession?'#10b981':'#ef4444',boxShadow:selectedUserSession?'0 0 8px #10b981':'0 0 8px #ef4444',animation:selectedUserSession?'pulse 2s ease-in-out infinite':'none' }} />
+                        <span style={{ color:selectedUserSession?'#34d399':'#f87171',fontSize:'11px',fontWeight:'700',letterSpacing:'1.5px',fontFamily:'monospace' }}>{selectedUserSession?'ONLINE':'OFFLINE'}</span>
                     </div>
                 </div>
 
@@ -11042,32 +11098,32 @@ return (
                 <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px',flexShrink:0 }}>
 
                     {/* Officer Information */}
-                    <div style={{ background:'#161b22',border:'1px solid #30363d',borderRadius:'8px',padding:'16px' }}>
-                        <div style={{ display:'flex',alignItems:'center',gap:'6px',marginBottom:'14px' }}>
-                            <div style={{ width:'3px',height:'12px',background:'#388bfd',borderRadius:'2px' }} />
-                            <span style={{ color:'#8b949e',fontSize:'10px',fontWeight:'600',letterSpacing:'1px',textTransform:'uppercase' }}>Officer Information</span>
+                    <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'10px',padding:'14px 16px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
+                        <div style={{ display:'flex',alignItems:'center',gap:'8px',marginBottom:'12px' }}>
+                            <div style={{ width:'2px',height:'12px',background:'#22d3ee',borderRadius:'2px',boxShadow:'0 0 6px #22d3ee' }} />
+                            <span style={{ color:'#22d3ee',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Officer Information</span>
                         </div>
-                        <div style={{ background:'#0d1117',border:'1px solid #21262d',borderRadius:'6px',padding:'10px 12px',marginBottom:'8px' }}>
-                            <div style={{ color:'#484f58',fontSize:'8px',fontWeight:'600',letterSpacing:'1px',textTransform:'uppercase',marginBottom:'4px' }}>Officer Name</div>
-                            <div style={{ color:'#e6edf3',fontSize:'15px',fontWeight:'700',fontFamily:'monospace' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName}</div>
+                        <div style={{ background:'rgba(0,0,0,0.25)',border:'1px solid rgba(56,189,248,0.1)',borderRadius:'7px',padding:'10px 12px',marginBottom:'8px' }}>
+                            <div style={{ color:'#475569',fontSize:'9px',fontWeight:'600',letterSpacing:'1.2px',textTransform:'uppercase',marginBottom:'4px',fontFamily:'monospace' }}>Officer Name</div>
+                            <div style={{ color:'#e2e8f0',fontSize:'15px',fontWeight:'700',fontFamily:'monospace',letterSpacing:'0.3px' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName}</div>
                         </div>
                         <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px' }}>
                             {[{l:'Badge ID',v:`#${trooperSettings?.BadgeID||'—'}`},{l:'Zone',v:trooperSettings?.Zone||'—'},{l:'Username',v:trooperSettings?.Username||'—'},{l:'Reg. Expiry',v:trooperSettings?.RegExpiry||'—'}].map(({l,v},i)=>(
-                                <div key={i} style={{ background:'#0d1117',border:'1px solid #21262d',borderRadius:'6px',padding:'8px 10px' }}>
-                                    <div style={{ color:'#484f58',fontSize:'8px',fontWeight:'600',letterSpacing:'1px',textTransform:'uppercase',marginBottom:'3px' }}>{l}</div>
-                                    <div style={{ color:'#58a6ff',fontSize:'12px',fontWeight:'700',fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{v}</div>
+                                <div key={i} style={{ background:'rgba(0,0,0,0.25)',border:'1px solid rgba(56,189,248,0.08)',borderRadius:'6px',padding:'8px 10px' }}>
+                                    <div style={{ color:'#475569',fontSize:'8px',fontWeight:'600',letterSpacing:'1.2px',textTransform:'uppercase',marginBottom:'3px',fontFamily:'monospace' }}>{l}</div>
+                                    <div style={{ color:'#38bdf8',fontSize:'12px',fontWeight:'700',fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{v}</div>
                                 </div>
                             ))}
                         </div>
                     </div>
 
                     {/* System Status */}
-                    <div style={{ background:'#161b22',border:'1px solid #30363d',borderRadius:'8px',padding:'16px' }}>
-                        <div style={{ display:'flex',alignItems:'center',gap:'6px',marginBottom:'14px' }}>
-                            <div style={{ width:'3px',height:'12px',background:'#3fb950',borderRadius:'2px' }} />
-                            <span style={{ color:'#8b949e',fontSize:'10px',fontWeight:'600',letterSpacing:'1px',textTransform:'uppercase' }}>System Status</span>
+                    <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'10px',padding:'14px 16px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
+                        <div style={{ display:'flex',alignItems:'center',gap:'8px',marginBottom:'12px' }}>
+                            <div style={{ width:'2px',height:'12px',background:'#22d3ee',borderRadius:'2px',boxShadow:'0 0 6px #22d3ee' }} />
+                            <span style={{ color:'#22d3ee',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>System Status</span>
                         </div>
-                        <div style={{ display:'flex',flexDirection:'column',gap:'4px' }}>
+                        <div style={{ display:'flex',flexDirection:'column',gap:'5px' }}>
                             {[
                                 {l:'CAD Status',v:'ONLINE',ok:true},
                                 {l:'Database',v:tokenSaved?'CONNECTED':'DISCONNECTED',ok:tokenSaved},
@@ -11076,85 +11132,88 @@ return (
                                 {l:'Sounds',v:!!(window.SOUNDS&&Object.keys(window.SOUNDS).length>0)?'LOADED':'MISSING',ok:!!(window.SOUNDS&&Object.keys(window.SOUNDS).length>0)},
                                 {l:'Local Time',v:currentTime.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}),ok:true,mono:true},
                             ].map(({l,v,ok,mono},i)=>(
-                                <div key={i} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'7px 10px',background:'#0d1117',border:'1px solid #21262d',borderRadius:'5px' }}>
-                                    <span style={{ color:'#484f58',fontSize:'10px',fontWeight:'600',letterSpacing:'0.5px',textTransform:'uppercase' }}>{l}</span>
-                                    <span style={{ color:ok?'#3fb950':'#f85149',fontSize:'11px',fontWeight:'700',fontFamily:mono?'monospace':'inherit',letterSpacing:'0.5px' }}>{v}</span>
+                                <div key={i} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'7px 11px',background:'rgba(0,0,0,0.25)',border:'1px solid rgba(56,189,248,0.08)',borderRadius:'6px' }}>
+                                    <span style={{ color:'#64748b',fontSize:'10px',fontWeight:'600',letterSpacing:'0.8px',textTransform:'uppercase',fontFamily:'monospace' }}>{l}</span>
+                                    <div style={{ display:'flex',alignItems:'center',gap:'5px' }}>
+                                        <div style={{ width:'5px',height:'5px',borderRadius:'50%',background:ok?'#10b981':'#ef4444',boxShadow:ok?'0 0 5px #10b981':'0 0 5px #ef4444' }} />
+                                        <span style={{ color:ok?'#34d399':'#f87171',fontSize:'11px',fontWeight:'700',fontFamily:mono?'monospace':'monospace',letterSpacing:'0.5px' }}>{v}</span>
+                                    </div>
                                 </div>
                             ))}
                         </div>
                     </div>
 
                     {/* Shift Management — disabled */}
-                    <div style={{ background:'#161b22',border:'1px solid #30363d',borderRadius:'8px',padding:'16px',opacity:0.5 }}>
-                        <div style={{ display:'flex',alignItems:'center',gap:'6px',marginBottom:'14px' }}>
-                            <div style={{ width:'3px',height:'12px',background:'#484f58',borderRadius:'2px' }} />
-                            <span style={{ color:'#8b949e',fontSize:'10px',fontWeight:'600',letterSpacing:'1px',textTransform:'uppercase' }}>Shift Management</span>
-                            <span style={{ padding:'1px 6px',background:'#21262d',border:'1px solid #30363d',borderRadius:'4px',color:'#484f58',fontSize:'8px',fontWeight:'600',letterSpacing:'1px',textTransform:'uppercase' }}>DISABLED</span>
+                    <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'10px',padding:'14px 16px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
+                        <div style={{ display:'flex',alignItems:'center',gap:'8px',marginBottom:'12px' }}>
+                            <div style={{ width:'2px',height:'12px',background:'#475569',borderRadius:'2px' }} />
+                            <span style={{ color:'#64748b',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Shift Management</span>
+                            <span style={{ padding:'2px 6px',background:'rgba(100,116,139,0.1)',border:'1px solid rgba(100,116,139,0.25)',borderRadius:'4px',color:'#475569',fontSize:'8px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase',fontFamily:'monospace' }}>DISABLED</span>
                         </div>
-                        <button disabled style={{ width:'100%',padding:'10px',background:'#21262d',border:'1px solid #30363d',borderRadius:'6px',color:'#484f58',fontSize:'12px',fontWeight:'700',cursor:'not-allowed',textTransform:'uppercase',letterSpacing:'2px' }}>▶ Start Shift</button>
+                        <button disabled style={{ width:'100%',padding:'12px',background:'rgba(0,0,0,0.25)',border:'1px solid rgba(56,189,248,0.08)',borderRadius:'7px',color:'#475569',fontSize:'12px',fontWeight:'700',cursor:'not-allowed',textTransform:'uppercase',letterSpacing:'2px',fontFamily:'monospace' }}>▶ Start Shift</button>
                     </div>
                 </div>
-
-                {/* Core functions bar */}
-                <div style={{ display:'flex',alignItems:'center',gap:'10px',padding:'12px 16px',background:'#161b22',border:'1px solid #30363d',borderRadius:'8px',flexShrink:0 }}>
-                    <div style={{ display:'flex',gap:'8px',flex:1 }}>
-                        {[
-                            {l:'🔍 Scan Plate',v:'search',c:'#388bfd',bg:'rgba(56,139,253,0.1)',bc:'rgba(56,139,253,0.2)'},
-                            {l:'👤 ID Lookup',v:'database-search',c:'#bc8cff',bg:'rgba(188,140,255,0.08)',bc:'rgba(188,140,255,0.2)'},
-                            {l:`🚨 Pending Calls${(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length>0?' ('+String((window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length)+')':''}`,v:'calls',c:'#f85149',bg:(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length>0?'rgba(248,81,73,0.12)':'rgba(248,81,73,0.06)',bc:'rgba(248,81,73,0.25)'},
+{/* Core functions — 3 pill buttons */}
+                <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px',flexShrink:0 }}>
+                    {(()=>{
+                        const activeCalls=(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length;
+                        return [
+                            {l:'Scan Plate',  v:'search',          icon:'🔎',c:'#60a5fa',bg:'linear-gradient(180deg,rgba(30,58,138,0.4),rgba(15,30,60,0.5))',bc:'rgba(96,165,250,0.3)',glow:'0 0 20px rgba(96,165,250,0.1), inset 0 1px 0 rgba(96,165,250,0.15)'},
+                            {l:'ID Lookup',   v:'database-search', icon:'👤',c:'#34d399',bg:'linear-gradient(180deg,rgba(6,78,59,0.35),rgba(15,30,30,0.5))',bc:'rgba(52,211,153,0.3)',glow:'0 0 20px rgba(52,211,153,0.08), inset 0 1px 0 rgba(52,211,153,0.15)'},
+                            {l:`Pending Calls${activeCalls>0?` (${activeCalls})`:''}`,v:'calls',icon:'🚨',c:'white',bg:'linear-gradient(180deg,#dc2626,#991b1b)',bc:'rgba(239,68,68,0.6)',glow:activeCalls>0?'0 0 28px rgba(239,68,68,0.5), inset 0 1px 0 rgba(255,255,255,0.2)':'0 0 18px rgba(239,68,68,0.2), inset 0 1px 0 rgba(255,255,255,0.1)'},
                         ].map((b,i)=>(
                             <button key={i} onClick={()=>setActiveView(b.v)}
-                                style={{ flex:1,padding:'9px 14px',background:b.bg,border:`1px solid ${b.bc}`,borderRadius:'6px',color:b.c,fontSize:'11px',fontWeight:'600',cursor:'pointer',transition:'all 0.15s' }}
-                                onMouseEnter={e=>{e.currentTarget.style.opacity='0.8';}}
-                                onMouseLeave={e=>{e.currentTarget.style.opacity='1';}}>
-                                {b.l}
+                                style={{ padding:'14px 18px',background:b.bg,border:`1px solid ${b.bc}`,borderRadius:'10px',color:b.c,fontSize:'12px',fontWeight:'700',cursor:'pointer',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',display:'flex',alignItems:'center',justifyContent:'center',gap:'10px',boxShadow:b.glow,transition:'transform 160ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 160ms ease-out, filter 160ms ease-out',width:'auto' }}
+                                onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-1px)';e.currentTarget.style.filter='brightness(1.12)';}}
+                                onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.filter='';}}
+                                onMouseDown={e=>{e.currentTarget.style.transform='translateY(0) scale(0.98)';}}
+                                onMouseUp={e=>{e.currentTarget.style.transform='translateY(-1px)';}}>
+                                <span style={{ fontSize:'13px' }}>{b.icon}</span>{b.l}
                             </button>
-                        ))}
-                    </div>
+                        ));
+                    })()}
                 </div>
 
-                {/* Bottom row: Available Officers (left) | Utilities (right) */}
-                <div style={{ display:'grid',gridTemplateColumns:'minmax(0, 460px) 1fr',gap:'12px',flex:1,minHeight:'220px',maxHeight:'320px' }}>
+                {/* Bottom row: Available Officers (compact) | Utilities (spacious) */}
+                <div style={{ display:'grid',gridTemplateColumns:'minmax(0,380px) minmax(0,1fr)',gap:'12px',flex:1,minHeight:'200px',maxHeight:'340px' }}>
 
-                    {/* Available Officers */}
-                    <div style={{ background:'#161b22',border:'1px solid #30363d',borderRadius:'8px',display:'flex',flexDirection:'column',overflow:'hidden' }}>
-                        <div style={{ padding:'12px 16px',borderBottom:'1px solid #21262d',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
+                    {/* Available Officers — compact */}
+                    <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'10px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
+                        <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(56,189,248,0.08)',display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',flexShrink:0,flexWrap:'wrap' }}>
                             <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
-                                <div style={{ width:'3px',height:'12px',background:'#3fb950',borderRadius:'2px' }} />
-                                <span style={{ color:'#8b949e',fontSize:'10px',fontWeight:'600',letterSpacing:'1px',textTransform:'uppercase' }}>Available Officers</span>
-                                <span style={{ padding:'1px 7px',background:'rgba(63,185,80,0.1)',border:'1px solid rgba(63,185,80,0.25)',borderRadius:'10px',color:'#3fb950',fontSize:'10px',fontWeight:'700' }}>{onlineOfficers?.length||0}</span>
+                                <div style={{ width:'2px',height:'12px',background:'#22d3ee',borderRadius:'2px',boxShadow:'0 0 6px #22d3ee' }} />
+                                <span style={{ color:'#22d3ee',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Available Officers</span>
+                                <span style={{ padding:'1px 7px',background:'rgba(34,211,238,0.12)',border:'1px solid rgba(34,211,238,0.25)',borderRadius:'10px',color:'#22d3ee',fontSize:'10px',fontWeight:'700',fontFamily:'monospace' }}>{onlineOfficers?.length||0}</span>
                             </div>
-                            <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
-                                <span style={{ color:'#484f58',fontSize:'9px',fontFamily:'monospace' }}>
-                                    UPDATED: {officerLastUpdated?officerLastUpdated.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}):'—'} · NEXT: {officerNextUpdate?officerNextUpdate.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}):'—'}
-                                </span>
-                                <select value={officerStatus||'10-9'} onChange={e=>setOfficerStatus(e.target.value)} style={{ background:'#21262d',border:'1px solid #30363d',borderRadius:'5px',color:'#58a6ff',fontSize:'9px',fontWeight:'600',padding:'3px 6px',cursor:'pointer',outline:'none' }}>
-                                    <option value="10-9">10-9 · AVAILABLE</option>
-                                    <option value="10-10">10-10 · BUSY</option>
-                                    <option value="10-5">10-5 · MEAL</option>
-                                </select>
-                            </div>
+                            <select value={officerStatus||'10-9'} onChange={e=>setOfficerStatus(e.target.value)} style={{ background:'rgba(0,0,0,0.3)',border:'1px solid rgba(56,189,248,0.2)',borderRadius:'5px',color:'#38bdf8',fontSize:'10px',fontWeight:'600',fontFamily:'monospace',padding:'4px 8px',cursor:'pointer',outline:'none',width:'auto' }}>
+                                <option value="10-9">10-9 · AVAILABLE</option>
+                                <option value="10-10">10-10 · BUSY</option>
+                                <option value="10-5">10-5 · MEAL</option>
+                            </select>
                         </div>
-                        <div style={{ flex:1,overflowY:'auto',padding:'8px' }}>
+                        <div style={{ padding:'4px 14px 6px',color:'#475569',fontSize:'8px',fontFamily:'monospace',letterSpacing:'0.5px',flexShrink:0 }}>
+                            UPDATED: {officerLastUpdated?officerLastUpdated.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}):'—'} · NEXT: {officerNextUpdate?officerNextUpdate.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}):'—'}
+                        </div>
+                        <div style={{ flex:1,overflowY:'auto',padding:'4px 8px 8px' }}>
                             {(!onlineOfficers||onlineOfficers.length===0)
-                                ?<div style={{ color:'#484f58',fontSize:'11px',textAlign:'center',padding:'24px' }}>No officers online</div>
+                                ?<div style={{ color:'#475569',fontSize:'11px',textAlign:'center',padding:'24px',fontFamily:'monospace' }}>No officers online</div>
                                 :onlineOfficers.map((o,i)=>{
                                     const isMe=String(o.badge)===String(trooperSettings?.BadgeID);
                                     const isPanic=panicFlickerOfficer===o.badge||activePanic?.badge===o.badge;
                                     return (
-                                        <div key={i} className={isPanic?(panicFlickerOfficer===o.badge?'panic-officer':'panic-officer-steady'):''} style={{ display:'flex',alignItems:'center',gap:'10px',padding:'8px 10px',background:isMe?'rgba(63,185,80,0.06)':'rgba(177,186,196,0.02)',border:`1px solid ${isMe?'rgba(63,185,80,0.18)':'#21262d'}`,borderRadius:'6px',marginBottom:'4px',position:'relative',overflow:'hidden' }}>
-                                            {isMe&&<div style={{ position:'absolute',left:0,top:0,bottom:0,width:'2px',background:'#3fb950' }} />}
-                                            <div style={{ width:'30px',height:'30px',background:isMe?'rgba(63,185,80,0.15)':'rgba(56,139,253,0.08)',border:`1px solid ${isMe?'rgba(63,185,80,0.3)':'rgba(56,139,253,0.2)'}`,borderRadius:'7px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0 }}>
-                                                <span style={{ color:isMe?'#3fb950':'#58a6ff',fontSize:'9px',fontWeight:'800',fontFamily:'monospace' }}>{(o.callSign||'?')[0]}</span>
+                                        <div key={i} className={isPanic?(panicFlickerOfficer===o.badge?'panic-officer':'panic-officer-steady'):''} style={{ display:'flex',alignItems:'center',gap:'10px',padding:'7px 10px',background:isMe?'linear-gradient(90deg,rgba(16,185,129,0.12),rgba(16,185,129,0.04))':'rgba(0,0,0,0.2)',border:`1px solid ${isMe?'rgba(16,185,129,0.3)':'rgba(56,189,248,0.08)'}`,borderRadius:'6px',marginBottom:'4px',position:'relative',overflow:'hidden' }}>
+                                            {isMe&&<div style={{ position:'absolute',left:0,top:0,bottom:0,width:'2px',background:'#10b981',boxShadow:'0 0 8px #10b981' }} />}
+                                            <div style={{ width:'24px',height:'24px',background:isMe?'rgba(16,185,129,0.2)':'rgba(56,189,248,0.1)',border:`1px solid ${isMe?'rgba(16,185,129,0.4)':'rgba(56,189,248,0.25)'}`,borderRadius:'5px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0 }}>
+                                                <span style={{ color:isMe?'#10b981':'#38bdf8',fontSize:'9px',fontWeight:'800',fontFamily:'monospace' }}>{(o.callSign||'?')[0]}</span>
                                             </div>
                                             <div style={{ flex:1,minWidth:0 }}>
-                                                <div style={{ color:isMe?'#3fb950':'#e6edf3',fontSize:'12px',fontWeight:'600',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>
-                                                    {o.name||'Unknown'}{isMe&&<span style={{ color:'#3fb950',fontSize:'8px',background:'rgba(63,185,80,0.1)',padding:'1px 5px',borderRadius:'3px',marginLeft:'5px',fontWeight:'700' }}>YOU</span>}
+                                                <div style={{ color:isMe?'#34d399':'#e2e8f0',fontSize:'11px',fontWeight:'600',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>
+                                                    {o.name||'Unknown'}{isMe&&<span style={{ color:'#10b981',fontSize:'8px',background:'rgba(16,185,129,0.15)',padding:'1px 5px',borderRadius:'3px',marginLeft:'5px',fontWeight:'700',fontFamily:'monospace' }}>YOU</span>}
                                                 </div>
-                                                <div style={{ color:'#484f58',fontSize:'9px',marginTop:'1px',fontFamily:'monospace' }}>#{o.badge} · Zone {o.zone||'—'} · <span style={{ color:'#484f58' }}>{isPanic?'PANIC':'pending sync'}</span></div>
+                                                <div style={{ color:'#475569',fontSize:'9px',marginTop:'1px',fontFamily:'monospace' }}>#{o.badge} · Zone {o.zone||'—'}</div>
                                             </div>
-                                            <span style={{ fontSize:'9px',fontWeight:'600',padding:'3px 8px',borderRadius:'4px',background:o.status==='10-9'?'rgba(63,185,80,0.1)':o.status==='10-10'?'rgba(248,81,73,0.1)':'rgba(245,158,11,0.1)',color:o.status==='10-9'?'#3fb950':o.status==='10-10'?'#f85149':'#f0883e',border:`1px solid ${o.status==='10-9'?'rgba(63,185,80,0.25)':o.status==='10-10'?'rgba(248,81,73,0.25)':'rgba(245,158,11,0.25)'}` }}>
-                                                {o.status==='10-9'?'AVAILABLE':o.status==='10-10'?'BUSY':'MEAL'}
+                                            <span style={{ fontSize:'8px',fontWeight:'700',padding:'2px 6px',borderRadius:'3px',background:o.status==='10-9'?'rgba(16,185,129,0.12)':o.status==='10-10'?'rgba(239,68,68,0.12)':'rgba(245,158,11,0.12)',color:o.status==='10-9'?'#34d399':o.status==='10-10'?'#f87171':'#fbbf24',border:`1px solid ${o.status==='10-9'?'rgba(16,185,129,0.3)':o.status==='10-10'?'rgba(239,68,68,0.3)':'rgba(245,158,11,0.3)'}`,fontFamily:'monospace',letterSpacing:'0.5px' }}>
+                                                {o.status==='10-9'?'AVAIL':o.status==='10-10'?'BUSY':'MEAL'}
                                             </span>
                                         </div>
                                     );
@@ -11162,46 +11221,46 @@ return (
                         </div>
                     </div>
 
-                    {/* Utilities */}
-                    <div style={{ background:'#161b22',border:'1px solid #30363d',borderRadius:'8px',display:'flex',flexDirection:'column',overflow:'hidden' }}>
-                        <div style={{ padding:'12px 16px',borderBottom:'1px solid #21262d',flexShrink:0 }}>
-                            <div style={{ display:'flex',alignItems:'center',gap:'6px' }}>
-                                <div style={{ width:'3px',height:'12px',background:'#bc8cff',borderRadius:'2px' }} />
-                                <span style={{ color:'#8b949e',fontSize:'10px',fontWeight:'600',letterSpacing:'1px',textTransform:'uppercase' }}>Utilities</span>
-                            </div>
+                    {/* Utilities — spacious 3x2 grid + active calls strip */}
+                    <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'10px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
+                        <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(56,189,248,0.08)',display:'flex',alignItems:'center',gap:'8px',flexShrink:0 }}>
+                            <div style={{ width:'2px',height:'12px',background:'#a78bfa',borderRadius:'2px',boxShadow:'0 0 6px #a78bfa' }} />
+                            <span style={{ color:'#a78bfa',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Utilities</span>
                         </div>
-                        <div style={{ padding:'8px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',flexShrink:0 }}>
+                        <div style={{ padding:'10px',display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',flexShrink:0 }}>
                             {[
-                                {l:'Settings',fn:()=>setActiveView('settings'),e:'⚙️'},
-                                {l:'Update Log',fn:()=>setShowUpdateLog(true),e:'📋'},
-                                {l:'FAQ',fn:()=>setShowFAQ(true),e:'?',color:'#f0883e'},
-                                {l:'Credits',fn:()=>setShowCredits(true),e:'♥',color:'#f472b6'},
-                                {l:'Links',fn:()=>setShowUsefulLinks(true),e:'🔗',span:2},
+                                {l:'Settings',  fn:()=>setActiveView('settings'),icon:'⚙'},
+                                {l:'Update Log',fn:()=>setShowUpdateLog(true),    icon:'📋'},
+                                {l:'FAQ',       fn:()=>setShowFAQ(true),          icon:'?',color:'#fbbf24'},
+                                {l:'Credits',   fn:()=>setShowCredits(true),      icon:'♥',color:'#f472b6'},
+                                {l:'Links',     fn:()=>setShowUsefulLinks(true),  icon:'🔗',span:2},
                             ].map((b,i)=>(
                                 <button key={i} onClick={b.fn}
-                                    style={{ gridColumn:b.span?`span ${b.span}`:'auto',padding:'10px 8px',background:'#0d1117',border:'1px solid #21262d',borderRadius:'6px',color:'#8b949e',fontSize:'10px',fontWeight:'500',cursor:'pointer',transition:'all 0.15s',display:'flex',alignItems:'center',justifyContent:'center',gap:'5px' }}
-                                    onMouseEnter={e=>{e.currentTarget.style.background='#21262d';e.currentTarget.style.color='#e6edf3';e.currentTarget.style.borderColor='#30363d';}}
-                                    onMouseLeave={e=>{e.currentTarget.style.background='#0d1117';e.currentTarget.style.color='#8b949e';e.currentTarget.style.borderColor='#21262d';}}>
-                                    <span>{b.e}</span>{b.l}
+                                    style={{ gridColumn:b.span?`span ${b.span}`:'auto',padding:'12px 10px',background:'rgba(0,0,0,0.3)',border:'1px solid rgba(56,189,248,0.1)',borderRadius:'7px',color:b.color||'#94a3b8',fontSize:'11px',fontWeight:'500',cursor:'pointer',transition:'background 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)',display:'flex',alignItems:'center',justifyContent:'center',gap:'7px',width:'auto',fontFamily:'monospace',letterSpacing:'0.5px' }}
+                                    onMouseEnter={e=>{e.currentTarget.style.background='rgba(56,189,253,0.08)';e.currentTarget.style.borderColor='rgba(56,189,248,0.25)';e.currentTarget.style.color='#e2e8f0';}}
+                                    onMouseLeave={e=>{e.currentTarget.style.background='rgba(0,0,0,0.3)';e.currentTarget.style.borderColor='rgba(56,189,248,0.1)';e.currentTarget.style.color=b.color||'#94a3b8';}}
+                                    onMouseDown={e=>{e.currentTarget.style.transform='scale(0.97)';}}
+                                    onMouseUp={e=>{e.currentTarget.style.transform='';}}>
+                                    <span style={{ fontSize:'12px' }}>{b.icon}</span>{b.l}
                                 </button>
                             ))}
                         </div>
-                        {/* Active calls mini */}
-                        <div style={{ flex:1,margin:'0 8px 8px',background:'#0d1117',border:'1px solid #21262d',borderRadius:'6px',display:'flex',flexDirection:'column',overflow:'hidden',minHeight:0 }}>
-                            <div style={{ padding:'7px 10px',borderBottom:'1px solid #21262d',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
-                                <div style={{ display:'flex',alignItems:'center',gap:'5px' }}>
-                                    <div style={{ width:'5px',height:'5px',borderRadius:'50%',background:(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length>0?'#f85149':'#484f58',animation:(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length>0?'pulse 1.5s infinite':'none' }} />
-                                    <span style={{ color:'#8b949e',fontSize:'9px',fontWeight:'600',letterSpacing:'1px',textTransform:'uppercase' }}>Active Calls</span>
+                        {/* Active calls strip */}
+                        <div style={{ flex:1,margin:'0 10px 10px',background:'rgba(0,0,0,0.3)',border:'1px solid rgba(239,68,68,0.15)',borderRadius:'7px',display:'flex',flexDirection:'column',overflow:'hidden',minHeight:0 }}>
+                            <div style={{ padding:'8px 12px',borderBottom:'1px solid rgba(239,68,68,0.1)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
+                                <div style={{ display:'flex',alignItems:'center',gap:'7px' }}>
+                                    <div style={{ width:'5px',height:'5px',borderRadius:'50%',background:(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length>0?'#ef4444':'#475569',boxShadow:(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length>0?'0 0 6px #ef4444':'none',animation:(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length>0?'pulse 1.5s ease-in-out infinite':'none' }} />
+                                    <span style={{ color:'#94a3b8',fontSize:'10px',fontWeight:'700',letterSpacing:'1.2px',textTransform:'uppercase',fontFamily:'monospace' }}>Active Calls</span>
                                 </div>
-                                <button onClick={()=>setActiveView('calls')} style={{ padding:'1px 7px',background:'rgba(56,139,253,0.1)',border:'1px solid rgba(56,139,253,0.2)',borderRadius:'3px',color:'#58a6ff',fontSize:'8px',fontWeight:'600',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px' }}>VIEW</button>
+                                <button onClick={()=>setActiveView('calls')} style={{ padding:'2px 9px',background:'rgba(56,189,248,0.1)',border:'1px solid rgba(56,189,248,0.25)',borderRadius:'4px',color:'#38bdf8',fontSize:'9px',fontWeight:'700',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px',fontFamily:'monospace',width:'auto' }}>VIEW</button>
                             </div>
-                            <div style={{ flex:1,overflowY:'auto',padding:'5px' }}>
+                            <div style={{ flex:1,overflowY:'auto',padding:'6px' }}>
                                 {(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length===0
-                                    ?<div style={{ color:'#484f58',fontSize:'9px',textAlign:'center',padding:'10px' }}>No active calls</div>
+                                    ?<div style={{ color:'#475569',fontSize:'10px',textAlign:'center',padding:'14px',fontFamily:'monospace',letterSpacing:'0.5px' }}>No active calls</div>
                                     :(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).slice(0,3).map((call,ci)=>(
-                                        <div key={ci} style={{ padding:'5px 7px',background:'rgba(248,81,73,0.04)',border:'1px solid rgba(248,81,73,0.12)',borderRadius:'4px',marginBottom:'3px' }}>
-                                            <div style={{ color:'#ffa198',fontSize:'9px',fontWeight:'600',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{call.type||call.content?.slice(0,40)||'Unknown'}</div>
-                                            <div style={{ color:'#484f58',fontSize:'8px',marginTop:'1px' }}>{call.author||'—'}</div>
+                                        <div key={ci} style={{ padding:'6px 8px',background:'rgba(239,68,68,0.06)',border:'1px solid rgba(239,68,68,0.15)',borderRadius:'5px',marginBottom:'4px' }}>
+                                            <div style={{ color:'#fca5a5',fontSize:'10px',fontWeight:'600',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontFamily:'monospace' }}>{call.type||call.content?.slice(0,40)||'Unknown'}</div>
+                                            <div style={{ color:'#475569',fontSize:'9px',marginTop:'1px',fontFamily:'monospace' }}>{call.author||'—'}</div>
                                         </div>
                                     ))
                                 }
