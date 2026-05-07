@@ -322,7 +322,7 @@ body::before {
         }
         input::placeholder { color: rgba(255, 255, 255, 0.5); }
         input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
-        button {
+        .welcome-screen button, .token-box button, .token-saved button, .input-group button, .error-box button, .login-screen button {
             width: 100%; padding: 12px 24px; border: none; border-radius: 8px;
             font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s;
             display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -1459,7 +1459,7 @@ const PanicCountdown = ({ onExpire, onCancel }) => {
     const trackRef = React.useRef(null);
     const onExpireRef = React.useRef(onExpire);
     React.useEffect(() => { onExpireRef.current = onExpire; }, [onExpire]);
-    const TRACK_WIDTH = 260;
+    const TRACK_WIDTH = 320;
     const KNOB_WIDTH = 64;
     const MAX_SLIDE = TRACK_WIDTH - KNOB_WIDTH - 8;
 
@@ -1513,8 +1513,8 @@ const PanicCountdown = ({ onExpire, onCancel }) => {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px', width: '100%' }}>
                 {/* Slide-to-confirm track */}
                 <div ref={trackRef} style={{ width: `${TRACK_WIDTH}px`, height: '64px', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: '32px', position: 'relative', overflow: 'hidden', cursor: 'pointer' }}>
-                    {/* Track label */}
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.35)', fontSize: '12px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase', pointerEvents: 'none', paddingLeft: '40px' }}>
+                    {/* Track label — sits to the right of knob, fades as knob slides over */}
+                    <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${KNOB_WIDTH + 16 + slideX}px`, right: '20px', display: 'flex', alignItems: 'center', color: 'rgba(255,255,255,0.45)', fontSize: '12px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase', pointerEvents: 'none', whiteSpace: 'nowrap', overflow: 'hidden', opacity: 1 - (slideX / MAX_SLIDE) * 0.85, transition: isDragging ? 'opacity 80ms linear' : 'left 300ms cubic-bezier(0.23, 1, 0.32, 1), opacity 200ms ease-out' }}>
                         slide to activate SOS
                     </div>
                     {/* Sliding knob */}
@@ -1995,7 +1995,7 @@ const triggerPanicActivate = React.useCallback(async () => {
         body: JSON.stringify({ badge: ts?.BadgeID, name: `${ts?.FirstName} ${ts?.LastName}`, session: sess })
     }).catch(() => {});
     try {
-        const result = await window.electron?.invoke('trigger-panic-roblox');
+        const result = await window.electron?.ipcRenderer?.invoke('trigger-panic-roblox');
         if (result?.success) {
             setPanicNotif('🚨 Panic button activated. All units have been notified. /panic sent to Roblox. Update responding units with your location.');
         } else {
@@ -3521,7 +3521,7 @@ React.useEffect(() => {
 
 React.useEffect(() => {
     if (micHotkey) {
-        window.electron?.invoke('register-global-shortcut', { key: micHotkey, id: 'mic-toggle', requireFocus: keybindsRequireFocus });
+        window.electron?.ipcRenderer?.invoke('register-global-shortcut', { key: micHotkey, id: 'mic-toggle', requireFocus: keybindsRequireFocus });
     }
     window.electron?.on('global-shortcut-fired', (id) => {
         if (id === 'mic-toggle' && activeView === 'search' && useMicrophone && !loading && !searchCooldown && !voiceCooldown) {
@@ -3529,10 +3529,27 @@ React.useEffect(() => {
         }
         if (id === 'panic-trigger' && panicEnabledRef.current && !isDispatcher && Date.now() >= panicCooldownUntilRef.current) {
             if (panicTriggerModeRef.current === 'HOLD') {
-                // HOLD mode: open countdown modal (same as keydown 2s hold)
-                setPanicModalOpen(true);
-                startPanicAlarm();
-                setPanicCooldownUntil(Date.now() + 60000);
+                // Tabbed-out HOLD: globalShortcut can't detect actual key holds (no auto-repeat),
+                // so require 2 presses within 2s as deliberate confirmation. This is asymmetric
+                // by design: in-window allows true hold; out-of-window requires double-confirm.
+                const now = Date.now();
+                if (!window._panicArmedAt || (now - window._panicArmedAt) > 2000) {
+                    window._panicArmedAt = now;
+                    setPanicNotif('🔒 PANIC ARMED — Press hotkey again within 2s to activate');
+                    setPanicNotifType('warning');
+                    setTimeout(() => {
+                        if (window._panicArmedAt && (Date.now() - window._panicArmedAt) >= 1950) {
+                            window._panicArmedAt = null;
+                            setPanicNotif('');
+                        }
+                    }, 2050);
+                } else {
+                    window._panicArmedAt = null;
+                    setPanicNotif('');
+                    setPanicModalOpen(true);
+                    startPanicAlarm();
+                    setPanicCooldownUntil(now + 60000);
+                }
             } else {
                 // TRIPLE mode: count taps via ref
                 panicTapCountRef.current += 1;
@@ -5094,13 +5111,13 @@ React.useEffect(() => {
     window.addEventListener('keyup', cancelHandler);
     // Also register as global shortcut so it works when tabbed out
     if (panicEnabled && panicHotkey && !isDispatcher) {
-        window.electron?.invoke('register-panic-shortcut', { key: panicHotkey, requireFocus: false });
+        window.electron?.ipcRenderer?.invoke('register-panic-shortcut', { key: panicHotkey, requireFocus: false });
     }
     return () => {
         window.removeEventListener('keydown', handler);
         window.removeEventListener('keyup', cancelHandler);
         if (holdTimer) clearTimeout(holdTimer);
-        window.electron?.invoke('register-panic-shortcut', { key: null });
+        window.electron?.ipcRenderer?.invoke('register-panic-shortcut', { key: null });
     };
 }, [panicEnabled, panicHotkey, panicTriggerMode, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey, panicCooldownUntil]);
 
@@ -10492,8 +10509,6 @@ return (
         <div className="app-container">
 
 
-          UNIVERSAL TOP BAR — ALL VIEWS
-            ══════════════════════════════════════ */}
         <div style={{ position:'fixed',top:0,left:0,right:0,height:'48px',display:'flex',alignItems:'center',background:'#0d1117',borderBottom:'1px solid #1c2333',zIndex:9999 }}>
 
             {/* Logo */}
@@ -11082,8 +11097,6 @@ return (
 
                 {/* Core functions bar */}
                 <div style={{ display:'flex',alignItems:'center',gap:'10px',padding:'12px 16px',background:'#161b22',border:'1px solid #30363d',borderRadius:'8px',flexShrink:0 }}>
-                    <span style={{ color:'#484f58',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',flexShrink:0 }}>CORE FUNCTIONS</span>
-                    <div style={{ width:'1px',height:'20px',background:'#21262d',flexShrink:0 }} />
                     <div style={{ display:'flex',gap:'8px',flex:1 }}>
                         {[
                             {l:'🔍 Scan Plate',v:'search',c:'#388bfd',bg:'rgba(56,139,253,0.1)',bc:'rgba(56,139,253,0.2)'},
@@ -11101,7 +11114,7 @@ return (
                 </div>
 
                 {/* Bottom row: Available Officers (left) | Utilities (right) */}
-                <div style={{ display:'grid',gridTemplateColumns:'1fr 280px',gap:'12px',flex:1,minHeight:'220px' }}>
+                <div style={{ display:'grid',gridTemplateColumns:'minmax(0, 460px) 1fr',gap:'12px',flex:1,minHeight:'220px',maxHeight:'320px' }}>
 
                     {/* Available Officers */}
                     <div style={{ background:'#161b22',border:'1px solid #30363d',borderRadius:'8px',display:'flex',flexDirection:'column',overflow:'hidden' }}>
@@ -12428,7 +12441,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                                     setStreamingStatus('CONNECTING TO LOCAL WIFI...');
                                                     await new Promise(r => setTimeout(r, 800));
                                                     setStreamingStatus('STARTING LOCAL SERVER...');
-                                                    const result = await window.electron?.invoke('start-streaming');
+                                                    const result = await window.electron?.ipcRenderer?.invoke('start-streaming');
                                                     if (result?.success) {
                                                         setStreamingActive(true);
                                                         setStreamingAddress(`http://${result.ip}:${result.port}`);
@@ -12438,7 +12451,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                                     }
                                                 } else {
                                                     setStreamingStatus('STOPPING SERVER...');
-                                                    await window.electron?.invoke('stop-streaming');
+                                                    await window.electron?.ipcRenderer?.invoke('stop-streaming');
                                                     setStreamingActive(false);
                                                     setStreamingAddress('');
                                                     setStreamingStatus('SERVER STOPPED');
