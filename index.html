@@ -1499,14 +1499,14 @@ const PanicCountdown = ({ onExpire, onCancel }) => {
                 {/* Pulsing alert badge */}
                 <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 14px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: '999px', boxShadow: '0 0 20px rgba(239,68,68,0.2)', animation: 'pulse 2s ease-in-out infinite' }}>
                     <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px #ef4444' }} />
-                    <span style={{ color: '#fca5a5', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', fontFamily: 'monospace' }}>DAPS ACTIVE</span>
+                    <span style={{ color: '#fca5a5', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', fontFamily: 'monospace' }}>Dual Activation Panic System</span>
                 </div>
 
                 <div style={{ color: '#ffffff', fontSize: '34px', fontWeight: '800', letterSpacing: '-0.5px', marginBottom: '12px', lineHeight: 1.15 }}>
-                    Inputs detected.
+                    Potential Emergency Detected.
                 </div>
                 <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '15px', fontWeight: '400', marginBottom: '48px', lineHeight: 1.5, maxWidth: '320px' }}>
-                    SOS will trigger automatically if you don't respond.
+                    Automatic SOS activation in 10 seconds.
                 </div>
 
                 {/* Big countdown ring */}
@@ -1562,7 +1562,7 @@ const PanicCountdown = ({ onExpire, onCancel }) => {
                     onMouseUp={e => { e.currentTarget.style.transform = ''; }}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
                 </button>
-                <div style={{ color: 'rgba(255,255,255,0.32)', fontSize: '10px', letterSpacing: '1px', marginTop: '-12px', fontFamily: 'monospace', textTransform: 'uppercase' }}>Cancel</div>
+                <div style={{ color: 'rgba(255,255,255,0.32)', fontSize: '10px', letterSpacing: '1px', marginTop: '-12px', fontFamily: 'monospace', textTransform: 'uppercase' }}>Cancel SOS</div>
             </div>
         </div>
     );
