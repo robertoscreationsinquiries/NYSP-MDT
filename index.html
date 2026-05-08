@@ -1829,6 +1829,8 @@ const [mapDragStart, setMapDragStart] = useState(null);
 const [showDataPanel, setShowDataPanel] = useState(false);
 const [showOfficersPanel, setShowOfficersPanel] = useState(false);
 const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+const [showQuitConfirm, setShowQuitConfirm] = useState(false);
+const [boloLightboxImage, setBoloLightboxImage] = useState(null);
 const [activityLog, setActivityLog] = useState([]);
 const [mapUrl, setMapUrl] = useState(null);
 const [homeSubView, setHomeSubView] = useState('dashboard');
@@ -11221,6 +11223,55 @@ return (
                         </div>
                     </div>
 
+                    {/* BOLOs panel — same session only */}
+                    <div style={{ background:'linear-gradient(180deg,rgba(60,15,15,0.5) 0%,rgba(40,10,10,0.6) 100%)',border:'1px solid rgba(248,113,113,0.18)',borderRadius:'10px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(248,113,113,0.08)' }}>
+                        <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(248,113,113,0.1)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
+                            <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
+                                <div style={{ width:'2px',height:'12px',background:'#f87171',borderRadius:'2px',boxShadow:'0 0 6px #f87171' }} />
+                                <span style={{ color:'#f87171',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Active BOLOs</span>
+                                {(()=>{const sessionBolos=(boloList||[]).filter(b=>b.session===selectedUserSession&&b.expiresAt>Date.now());return <span style={{ padding:'1px 7px',background:'rgba(248,113,113,0.12)',border:'1px solid rgba(248,113,113,0.25)',borderRadius:'10px',color:'#f87171',fontSize:'10px',fontWeight:'700',fontFamily:'monospace' }}>{sessionBolos.length}</span>;})()}
+                            </div>
+                            {!selectedUserSession && (
+                                <span style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px' }}>NO SESSION</span>
+                            )}
+                        </div>
+                        <div style={{ flex:1,overflowY:'auto',padding:'8px' }}>
+                            {(()=>{
+                                if(!selectedUserSession) return <div style={{ color:'#475569',fontSize:'11px',textAlign:'center',padding:'24px',fontFamily:'monospace',lineHeight:1.6 }}>Select a session to<br/>view active BOLOs</div>;
+                                const sessionBolos=(boloList||[]).filter(b=>b.session===selectedUserSession&&b.expiresAt>Date.now());
+                                if(sessionBolos.length===0) return <div style={{ color:'#475569',fontSize:'11px',textAlign:'center',padding:'24px',fontFamily:'monospace' }}>No active BOLOs</div>;
+                                return sessionBolos.map((b,i)=>{
+                                    const minsLeft=Math.max(0,Math.ceil((b.expiresAt-Date.now())/60000));
+                                    const urgent=minsLeft<=5;
+                                    return (
+                                        <div key={i} onClick={()=>{ if(b.image) setBoloLightboxImage(b.image); }} style={{ display:'flex',gap:'9px',padding:'8px 10px',background:urgent?'rgba(248,113,113,0.08)':'rgba(0,0,0,0.25)',border:`1px solid ${urgent?'rgba(248,113,113,0.3)':'rgba(248,113,113,0.1)'}`,borderRadius:'7px',marginBottom:'5px',cursor:b.image?'pointer':'default',transition:'background 160ms ease-out, border-color 160ms ease-out',position:'relative',overflow:'hidden' }}
+                                            onMouseEnter={e=>{ if(b.image){ e.currentTarget.style.background='rgba(248,113,113,0.12)'; e.currentTarget.style.borderColor='rgba(248,113,113,0.35)'; } }}
+                                            onMouseLeave={e=>{ e.currentTarget.style.background=urgent?'rgba(248,113,113,0.08)':'rgba(0,0,0,0.25)'; e.currentTarget.style.borderColor=urgent?'rgba(248,113,113,0.3)':'rgba(248,113,113,0.1)'; }}>
+                                            {b.image && <div style={{ width:'40px',height:'40px',borderRadius:'5px',background:`url(${b.image}) center/cover`,flexShrink:0,border:'1px solid rgba(248,113,113,0.25)' }} />}
+                                            <div style={{ flex:1,minWidth:0 }}>
+                                                <div style={{ display:'flex',alignItems:'center',gap:'7px',marginBottom:'2px' }}>
+                                                    {b.plate && <span style={{ color:'#fca5a5',fontSize:'12px',fontWeight:'800',fontFamily:'monospace',letterSpacing:'1px' }}>{b.plate}</span>}
+                                                    <span style={{ fontSize:'8px',fontWeight:'700',padding:'1px 5px',borderRadius:'3px',background:urgent?'rgba(248,113,113,0.18)':'rgba(245,158,11,0.12)',color:urgent?'#fca5a5':'#fbbf24',fontFamily:'monospace',letterSpacing:'0.5px',marginLeft:'auto',flexShrink:0 }}>{minsLeft}m</span>
+                                                </div>
+                                                {b.description && <div style={{ color:'#cbd5e1',fontSize:'10px',marginBottom:'1px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontFamily:'monospace' }}>{b.description}</div>}
+                                                <div style={{ color:'#64748b',fontSize:'9px',fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{b.reason||'No reason'} · {b.issuedBy||'Unknown'}</div>
+                                            </div>
+                                        </div>
+                                    );
+                                });
+                            })()}
+                        </div>
+                        {/* Issue BOLO button */}
+                        <button onClick={()=>setShowBoloModal(true)} disabled={!selectedUserSession || (boloCooldownUntil && Date.now() < boloCooldownUntil)}
+                            style={{ flexShrink:0,margin:'8px',padding:'10px',background:(!selectedUserSession || (boloCooldownUntil && Date.now() < boloCooldownUntil))?'rgba(75,85,99,0.15)':'linear-gradient(180deg,rgba(248,113,113,0.18),rgba(220,38,38,0.1))',border:`1px solid ${(!selectedUserSession || (boloCooldownUntil && Date.now() < boloCooldownUntil))?'rgba(75,85,99,0.25)':'rgba(248,113,113,0.4)'}`,borderRadius:'7px',color:(!selectedUserSession || (boloCooldownUntil && Date.now() < boloCooldownUntil))?'#475569':'#fca5a5',fontSize:'11px',fontWeight:'700',cursor:(!selectedUserSession || (boloCooldownUntil && Date.now() < boloCooldownUntil))?'not-allowed':'pointer',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',display:'flex',alignItems:'center',justifyContent:'center',gap:'7px',width:'auto',transition:'transform 100ms cubic-bezier(0.23,1,0.32,1), filter 160ms ease-out',boxShadow:(!selectedUserSession || (boloCooldownUntil && Date.now() < boloCooldownUntil))?'none':'0 0 16px rgba(248,113,113,0.12), inset 0 1px 0 rgba(248,113,113,0.15)' }}
+                            onMouseEnter={e=>{ if(!e.currentTarget.disabled){ e.currentTarget.style.filter='brightness(1.15)'; } }}
+                            onMouseLeave={e=>{ if(!e.currentTarget.disabled){ e.currentTarget.style.filter=''; } }}
+                            onMouseDown={e=>{ if(!e.currentTarget.disabled){ e.currentTarget.style.transform='scale(0.97)'; } }}
+                            onMouseUp={e=>{ e.currentTarget.style.transform=''; }}>
+                            <span>🚨</span>{boloCooldownUntil && Date.now() < boloCooldownUntil ? `COOLDOWN ${Math.ceil((boloCooldownUntil-Date.now())/60000)}M`:'Issue BOLO'}
+                        </button>
+                    </div>
+
                     {/* Utilities — spacious 3x2 grid + active calls strip */}
                     <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'10px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
                         <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(56,189,248,0.08)',display:'flex',alignItems:'center',gap:'8px',flexShrink:0 }}>
@@ -11263,13 +11314,22 @@ return (
                                             <div style={{ color:'#475569',fontSize:'9px',marginTop:'1px',fontFamily:'monospace' }}>{call.author||'—'}</div>
                                         </div>
                                     ))
-                                }
+}
                             </div>
                         </div>
+                        {/* QUIT button */}
+                        <button onClick={()=>setShowQuitConfirm(true)}
+                            style={{ flexShrink:0,margin:'0 10px 10px',padding:'9px',background:'rgba(15,15,15,0.4)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'7px',color:'#f87171',fontSize:'10px',fontWeight:'700',cursor:'pointer',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',display:'flex',alignItems:'center',justifyContent:'center',gap:'7px',width:'auto',transition:'background 160ms ease-out, color 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                            onMouseEnter={e=>{ e.currentTarget.style.background='rgba(239,68,68,0.12)'; e.currentTarget.style.color='#fca5a5'; e.currentTarget.style.borderColor='rgba(239,68,68,0.35)'; }}
+                            onMouseLeave={e=>{ e.currentTarget.style.background='rgba(15,15,15,0.4)'; e.currentTarget.style.color='#f87171'; e.currentTarget.style.borderColor='rgba(239,68,68,0.2)'; }}
+                            onMouseDown={e=>{ e.currentTarget.style.transform='scale(0.97)'; }}
+                            onMouseUp={e=>{ e.currentTarget.style.transform=''; }}>
+                            <span>⏻</span>Quit Application
+                        </button>
                     </div>
                 </div>
 
-                {/* Overlay panels — rendered here so they sit above home content */}
+                {/* Overlay panels */}
                 {showHistoryPanel && (
                     <div style={{ position:'absolute',top:0,right:0,bottom:0,width:'360px',background:'#161b22',borderLeft:'1px solid #30363d',zIndex:200,display:'flex',flexDirection:'column' }}>
                         <div style={{ padding:'14px 16px',borderBottom:'1px solid #21262d',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
@@ -11375,35 +11435,31 @@ return (
 }}>
 
 {activeView === 'search' && (
-<div style={{ minHeight: 'calc(100vh - 40px)', background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)', padding: '20px', boxSizing: 'border-box', WebkitMaskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)', maskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)' }}>
-{/* ── HEADER ── */}
-<div style={{ marginBottom: '20px', padding: '20px 28px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,58,138,0.35))', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 4px 32px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', position: 'relative', overflow: 'hidden' }}>
-
-    {/* Glow */}
-    <div style={{ position: 'absolute', top: '-40%', right: '-5%', width: '35%', height: '200%', background: 'radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)', pointerEvents: 'none' }}></div>
-
-    {/* Left: icon + text */}
-<div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: 0, position: 'relative', zIndex: 1, flexWrap: 'wrap' }}>
-        <div style={{ width: '52px', height: '52px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(59,130,246,0.5)', flexShrink: 0 }}>
-            <Car size={28} style={{ color: 'white' }} />
+<div style={{ position:'fixed',top:'48px',left:0,right:0,bottom:0,background:'radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 50%, #050a14 100%)',padding:'20px',boxSizing:'border-box',overflowY:'auto' }}>
+{/* Header card — matches home dashboard */}
+<div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'16px',padding:'14px 20px',marginBottom:'14px',background:'linear-gradient(135deg,rgba(30,58,138,0.25) 0%,rgba(15,30,60,0.4) 100%)',border:'1px solid rgba(56,189,248,0.18)',borderRadius:'12px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 0 24px rgba(14,165,233,0.04)' }}>
+    <div style={{ display:'flex',alignItems:'center',gap:'14px' }}>
+        <div style={{ width:'42px',height:'42px',background:'linear-gradient(135deg,#1e40af 0%,#0ea5e9 100%)',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 14px rgba(14,165,233,0.35), inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+            <Car size={22} style={{ color:'white' }} />
         </div>
- <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-            <span style={{ color: 'white', fontSize: '22px', fontWeight: '800', letterSpacing: '2px', whiteSpace: 'nowrap' }}>LICENSE PLATE SEARCH</span>
-            <span style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '4px', padding: '2px 8px', color: '#60a5fa', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px', whiteSpace: 'nowrap' }}>VEHICLE REGISTRY</span>
+        <div>
+            <div style={{ display:'flex',alignItems:'center',gap:'10px',marginBottom:'3px' }}>
+                <div style={{ color:'#e2e8f0',fontSize:'18px',fontWeight:'700',letterSpacing:'0.3px' }}>License Plate Search</div>
+                <span style={{ padding:'2px 8px',background:'rgba(34,211,238,0.1)',border:'1px solid rgba(34,211,238,0.3)',borderRadius:'5px',color:'#22d3ee',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',fontFamily:'monospace' }}>VEHICLE REGISTRY</span>
+            </div>
+            <div style={{ color:'#22d3ee',fontSize:'11px',fontFamily:'monospace',letterSpacing:'0.3px' }}>Query active vehicle registrations · NYSP CAD</div>
         </div>
-        <p style={{ color: '#475569', fontSize: '13px', margin: '0 0 10px', whiteSpace: 'nowrap' }}>Query active vehicle registrations · CAD</p>
-        <button
-            onClick={() => { if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); } else { setActiveView('home'); } }}
-            style={{ width: 'auto', padding: '7px 16px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '8px', color: '#93c5fd', cursor: 'pointer', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', display: 'inline-flex', alignItems: 'center', gap: '7px', transition: 'all 0.2s', whiteSpace: 'nowrap' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.2)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)'; e.currentTarget.style.color = '#fff'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; e.currentTarget.style.color = '#93c5fd'; }}
-        >
-            ← DASHBOARD
-        </button>
     </div>
-</div>
-
+    <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
+        {searchCooldown && <div style={{ display:'flex',alignItems:'center',gap:'6px',padding:'6px 12px',background:'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,0.3)',borderRadius:'999px' }}>
+            <div style={{ width:'6px',height:'6px',borderRadius:'50%',background:'#f59e0b',animation:'pulse 1.5s ease-in-out infinite' }} />
+            <span style={{ color:'#fbbf24',fontSize:'10px',fontWeight:'700',letterSpacing:'1px',fontFamily:'monospace' }}>COOLDOWN</span>
+        </div>}
+        {tokenSaved && <div style={{ display:'flex',alignItems:'center',gap:'6px',padding:'6px 12px',background:'rgba(16,185,129,0.1)',border:'1px solid rgba(16,185,129,0.3)',borderRadius:'999px',boxShadow:'0 0 16px rgba(16,185,129,0.1), inset 0 1px 0 rgba(16,185,129,0.15)' }}>
+            <div style={{ width:'6px',height:'6px',borderRadius:'50%',background:'#10b981',boxShadow:'0 0 6px #10b981' }} />
+            <span style={{ color:'#34d399',fontSize:'10px',fontWeight:'700',letterSpacing:'1.2px',fontFamily:'monospace' }}>DB CONNECTED</span>
+        </div>}
+    </div>
 </div>
 
         {!tokenSaved ? (
@@ -11426,17 +11482,17 @@ return (
                 </button>
             </div>
         ) : (
-            <div>
+            <div style={{ display:'flex',flexDirection:'column',gap:'14px',maxWidth:'1600px',margin:'0 auto' }}>
                 {/* ── SEARCH BOX ── */}
-                <div style={{ background: 'linear-gradient(135deg, rgba(30,58,138,0.15), rgba(59,130,246,0.08))', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}>
-                    <div style={{ color: '#60a5fa', fontSize: '11px', fontWeight: '700', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ width: '3px', height: '14px', background: 'linear-gradient(180deg, #60a5fa, #3b82f6)', borderRadius: '2px' }}></span>
-                        PLATE LOOKUP
+                <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'10px',padding:'16px 18px',marginBottom:'14px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
+                    <div style={{ display:'flex',alignItems:'center',gap:'8px',marginBottom:'12px' }}>
+                        <div style={{ width:'2px',height:'12px',background:'#22d3ee',borderRadius:'2px',boxShadow:'0 0 6px #22d3ee' }} />
+                        <span style={{ color:'#22d3ee',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Plate Lookup</span>
                     </div>
 
-                    <div style={{ marginBottom: '14px' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#93c5fd', fontSize: '12px', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                            <Search size={14} /> License Plate
+                    <div style={{ marginBottom: '12px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#94a3b8', fontSize: '10px', fontWeight: '700', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '1.5px',fontFamily:'monospace' }}>
+                            <Search size={12} /> License Plate
                         </label>
                         <input
                             type="text"
@@ -11450,9 +11506,9 @@ return (
                                 }
                             }}
                             placeholder="Enter License Plate..."
-                            style={{ width: '100%', padding: '14px 16px', background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '10px', color: 'white', fontSize: '15px', fontFamily: 'monospace', letterSpacing: '2px', boxSizing: 'border-box', outline: 'none', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.3)', transition: 'border-color 0.2s' }}
-                            onFocus={e => e.target.style.borderColor = 'rgba(59,130,246,0.6)'}
-                            onBlur={e => e.target.style.borderColor = 'rgba(59,130,246,0.3)'}
+                            style={{ width:'100%',padding:'12px 14px',background:'rgba(0,0,0,0.3)',border:'1px solid rgba(56,189,248,0.18)',borderRadius:'7px',color:'#e2e8f0',fontSize:'14px',fontFamily:'monospace',fontWeight:'700',letterSpacing:'2.5px',boxSizing:'border-box',outline:'none',transition:'border-color 160ms ease-out, background 160ms ease-out' }}
+                            onFocus={e => { e.target.style.borderColor = 'rgba(56,189,248,0.45)'; e.target.style.background = 'rgba(0,0,0,0.4)'; }}
+                            onBlur={e => { e.target.style.borderColor = 'rgba(56,189,248,0.18)'; e.target.style.background = 'rgba(0,0,0,0.3)'; }}
                         />
                         <p style={{ color: '#4b5563', fontSize: '11px', marginTop: '6px', fontStyle: 'italic' }}>Extracts vehicle & owner details, including warrants, records, etc.</p>
                     </div>
@@ -11461,9 +11517,11 @@ return (
                     <button
                         onClick={lookupUser}
                         disabled={loading || !tokenSaved || voiceActive}
-                        style={{ width: '100%', padding: '14px', background: loading ? 'rgba(59,130,246,0.3)' : 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '14px', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', boxShadow: loading ? 'none' : '0 4px 16px rgba(59,130,246,0.4)', transition: 'all 0.2s', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '8px' }}
-                        onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 6px 24px rgba(59,130,246,0.6)'; }}
-                        onMouseLeave={e => { if (!loading) e.currentTarget.style.boxShadow = '0 4px 16px rgba(59,130,246,0.4)'; }}
+                        style={{ width:'100%',padding:'12px',background:loading?'rgba(56,189,248,0.18)':'linear-gradient(180deg,rgba(30,58,138,0.6),rgba(15,30,60,0.7))',border:`1px solid ${loading?'rgba(56,189,248,0.25)':'rgba(96,165,250,0.4)'}`,borderRadius:'8px',color:loading?'#94a3b8':'#bfdbfe',fontSize:'12px',fontWeight:'800',cursor:loading?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'10px',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'8px',boxShadow:loading?'none':'0 0 20px rgba(96,165,250,0.12), inset 0 1px 0 rgba(96,165,250,0.2)',transition:'transform 100ms cubic-bezier(0.23,1,0.32,1), filter 160ms ease-out, box-shadow 160ms ease-out' }}
+                        onMouseEnter={e=>{ if(!loading){ e.currentTarget.style.filter='brightness(1.15)'; e.currentTarget.style.boxShadow='0 0 28px rgba(96,165,250,0.22), inset 0 1px 0 rgba(96,165,250,0.25)'; } }}
+                        onMouseLeave={e=>{ if(!loading){ e.currentTarget.style.filter=''; e.currentTarget.style.boxShadow='0 0 20px rgba(96,165,250,0.12), inset 0 1px 0 rgba(96,165,250,0.2)'; } }}
+                        onMouseDown={e=>{ if(!loading) e.currentTarget.style.transform='scale(0.98)'; }}
+                        onMouseUp={e=>{ e.currentTarget.style.transform=''; }}
                     >
                         {loading ? <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> SEARCHING...</> : <><Search size={18} /> SEARCH DATABASE</>}
                     </button>
@@ -11656,11 +11714,11 @@ return (
                     <div className={`results-grid ${visualEffects ? 'pulse-animation' : ''}`}>
 
                         {/* OWNER BOX */}
-                        <div style={{ padding: '20px', background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(5,150,105,0.06))', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '14px', boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}>
-                            <div style={{ color: '#34d399', fontSize: '11px', fontWeight: '700', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <User size={14} />
-                                <span style={{ width: '3px', height: '12px', background: 'linear-gradient(180deg, #34d399, #10b981)', borderRadius: '2px' }}></span>
-                                Registered Owner
+                        <div style={{ padding:'16px 18px',background:'linear-gradient(180deg,rgba(6,78,59,0.35) 0%,rgba(15,30,30,0.5) 100%)',border:'1px solid rgba(52,211,153,0.2)',borderRadius:'10px',boxShadow:'inset 0 1px 0 rgba(52,211,153,0.08)' }}>
+                            <div style={{ display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px' }}>
+                                <div style={{ width:'2px',height:'12px',background:'#34d399',borderRadius:'2px',boxShadow:'0 0 6px #34d399' }} />
+                                <User size={12} style={{ color:'#34d399' }} />
+                                <span style={{ color:'#34d399',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Registered Owner</span>
                             </div>
 
                             {registration?.parseWarning && (
@@ -12138,12 +12196,13 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
 
 {/* ── REGISTERED VEHICLES ── */}
 {(searchResults.vehicles?.length > 0 || searchResults.failedVehicleRaw?.length > 0) && (
-                            <div>
-                                <div style={{ color: '#60a5fa', fontSize: '11px', fontWeight: '700', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                    <span style={{ width: '3px', height: '14px', background: 'linear-gradient(180deg, #60a5fa, #3b82f6)', borderRadius: '2px', flexShrink: 0 }}></span>
-                                    REGISTERED VEHICLES ({(searchResults.vehicles?.length || 0) + (searchResults.failedVehicleRaw?.length || 0)})
-                                    {searchResults.failedVehicleRaw?.length > 0 && <span style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: '5px', padding: '2px 8px', color: '#fbbf24', fontSize: '10px', fontWeight: '700', letterSpacing: '1px', textTransform: 'uppercase' }}>⚠ {searchResults.failedVehicleRaw.length} IMPROPER REGISTRATIONS</span>}
-                                    <span style={{ color: '#4b5563', fontSize: '10px', fontWeight: '500', letterSpacing: '0.5px' }}>- Click a vehicle to select for citation</span>
+                            <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'10px',padding:'16px 18px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
+                                <div style={{ display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px',flexWrap:'wrap' }}>
+                                    <div style={{ width:'2px',height:'12px',background:'#60a5fa',borderRadius:'2px',boxShadow:'0 0 6px #60a5fa',flexShrink:0 }} />
+                                    <span style={{ color:'#60a5fa',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Registered Vehicles</span>
+                                    <span style={{ padding:'1px 7px',background:'rgba(96,165,250,0.12)',border:'1px solid rgba(96,165,250,0.25)',borderRadius:'10px',color:'#60a5fa',fontSize:'10px',fontWeight:'700',fontFamily:'monospace' }}>{(searchResults.vehicles?.length || 0) + (searchResults.failedVehicleRaw?.length || 0)}</span>
+                                    {searchResults.failedVehicleRaw?.length > 0 && <span style={{ background:'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,0.3)',borderRadius:'4px',padding:'2px 8px',color:'#fbbf24',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase',fontFamily:'monospace' }}>⚠ {searchResults.failedVehicleRaw.length} IMPROPER</span>}
+                                    <span style={{ color:'#475569',fontSize:'9px',marginLeft:'auto',fontFamily:'monospace',letterSpacing:'0.5px' }}>Click vehicle to select for citation</span>
                                 </div>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '12px', maxHeight: '600px', overflowY: 'auto' }}>
@@ -12151,8 +12210,8 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                         <div
                                             key={index}
                                             onClick={() => setSelectedVehicleForCitation(vehicle)}
-                                            style={{ padding: '0', background: selectedVehicleForCitation === vehicle ? 'linear-gradient(135deg, rgba(16,185,129,0.18), rgba(5,150,105,0.1))' : 'linear-gradient(135deg, rgba(15,23,42,0.8), rgba(30,58,138,0.1))', border: selectedVehicleForCitation === vehicle ? '1px solid rgba(16,185,129,0.5)' : '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', cursor: 'pointer', transition: 'all 0.2s', position: 'relative', overflow: 'hidden' }}
-                                            onMouseEnter={e => { if (selectedVehicleForCitation !== vehicle) { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.1), rgba(37,99,235,0.06))'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.35)'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+                                            style={{ padding:'0',background:selectedVehicleForCitation===vehicle?'linear-gradient(180deg,rgba(16,185,129,0.18) 0%,rgba(5,150,105,0.08) 100%)':'rgba(0,0,0,0.25)',border:selectedVehicleForCitation===vehicle?'1px solid rgba(16,185,129,0.45)':'1px solid rgba(56,189,248,0.1)',borderRadius:'10px',cursor:'pointer',transition:'background 160ms ease-out, border-color 160ms ease-out, transform 160ms cubic-bezier(0.23,1,0.32,1)',position:'relative',overflow:'hidden',boxShadow:selectedVehicleForCitation===vehicle?'inset 0 1px 0 rgba(52,211,153,0.15), 0 0 16px rgba(16,185,129,0.08)':'inset 0 1px 0 rgba(56,189,248,0.04)' }}
+                                            onMouseEnter={e=>{ if(selectedVehicleForCitation!==vehicle){ e.currentTarget.style.background='rgba(56,189,253,0.06)'; e.currentTarget.style.borderColor='rgba(56,189,248,0.3)'; e.currentTarget.style.transform='translateY(-1px)'; } }}
                                             onMouseLeave={e => { if (selectedVehicleForCitation !== vehicle) { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(15,23,42,0.8), rgba(30,58,138,0.1))'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.transform = 'translateY(0)'; } }}
                                         >
                                             {selectedVehicleForCitation === vehicle && (
@@ -13799,72 +13858,112 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
 )}
 
 {/* ── BOLO MODAL ── */}
+{/* QUIT confirm modal */}
+{showQuitConfirm && (
+    <div onClick={()=>setShowQuitConfirm(false)} style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.65)',backdropFilter:'blur(6px)',zIndex:99998,display:'flex',alignItems:'center',justifyContent:'center',padding:'20px',animation:'fadeIn 200ms cubic-bezier(0.23,1,0.32,1)' }}>
+        <div onClick={e=>e.stopPropagation()} style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.96) 0%,rgba(20,5,5,0.96) 100%)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:'14px',padding:'28px 32px',width:'100%',maxWidth:'400px',boxShadow:'0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(239,68,68,0.08), inset 0 1px 0 rgba(248,113,113,0.1)',animation:'panelSlideIn 220ms cubic-bezier(0.23,1,0.32,1)' }}>
+            <div style={{ display:'flex',alignItems:'center',gap:'14px',marginBottom:'18px' }}>
+                <div style={{ width:'42px',height:'42px',background:'linear-gradient(135deg,rgba(239,68,68,0.18),rgba(220,38,38,0.08))',border:'1px solid rgba(239,68,68,0.35)',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px',boxShadow:'0 0 16px rgba(239,68,68,0.15), inset 0 1px 0 rgba(255,255,255,0.05)' }}>⏻</div>
+                <div>
+                    <div style={{ color:'#fca5a5',fontSize:'15px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Quit Application</div>
+                    <div style={{ color:'#64748b',fontSize:'10px',letterSpacing:'1px',marginTop:'2px',fontFamily:'monospace' }}>This will close the CAD</div>
+                </div>
+            </div>
+            <div style={{ color:'#cbd5e1',fontSize:'13px',lineHeight:1.6,marginBottom:'22px' }}>
+                Are you sure you want to quit the application? Any unsaved data will be lost.
+            </div>
+            <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px' }}>
+                <button onClick={()=>setShowQuitConfirm(false)}
+                    style={{ padding:'11px',background:'rgba(0,0,0,0.3)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'8px',color:'#94a3b8',fontSize:'11px',fontWeight:'700',cursor:'pointer',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',width:'auto',transition:'background 160ms ease-out, color 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                    onMouseEnter={e=>{ e.currentTarget.style.background='rgba(56,189,253,0.08)'; e.currentTarget.style.color='#e2e8f0'; }}
+                    onMouseLeave={e=>{ e.currentTarget.style.background='rgba(0,0,0,0.3)'; e.currentTarget.style.color='#94a3b8'; }}
+                    onMouseDown={e=>{ e.currentTarget.style.transform='scale(0.97)'; }}
+                    onMouseUp={e=>{ e.currentTarget.style.transform=''; }}>
+                    Cancel
+                </button>
+                <button onClick={()=>{ window.electron?.ipcRenderer?.invoke('quit-app').catch(()=>{ window.close(); }); }}
+                    style={{ padding:'11px',background:'linear-gradient(180deg,#dc2626,#991b1b)',border:'1px solid rgba(239,68,68,0.6)',borderRadius:'8px',color:'white',fontSize:'11px',fontWeight:'700',cursor:'pointer',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',width:'auto',transition:'filter 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)',boxShadow:'0 4px 14px rgba(239,68,68,0.35), inset 0 1px 0 rgba(255,255,255,0.15)' }}
+                    onMouseEnter={e=>{ e.currentTarget.style.filter='brightness(1.15)'; }}
+                    onMouseLeave={e=>{ e.currentTarget.style.filter=''; }}
+                    onMouseDown={e=>{ e.currentTarget.style.transform='scale(0.97)'; }}
+                    onMouseUp={e=>{ e.currentTarget.style.transform=''; }}>
+                    Quit Now
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
 {showBoloModal && (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-        <div style={{ background: 'linear-gradient(160deg, #0a0f1e 0%, #0f172a 60%, #1a0a0a 100%)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: '18px', padding: '28px', width: '100%', maxWidth: '560px', boxShadow: '0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(248,113,113,0.08)', maxHeight: '90vh', overflowY: 'auto' }}>
+    <div onClick={()=>{ setShowBoloModal(false); setBoloForm({ plate: '', description: '', reason: '', expiresIn: 10, image: null, session: null }); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter:'blur(6px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', animation:'fadeIn 200ms cubic-bezier(0.23,1,0.32,1)' }}>
+        <div onClick={e=>e.stopPropagation()} style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.96) 0%,rgba(40,10,15,0.96) 100%)',border:'1px solid rgba(248,113,113,0.3)',borderRadius:'14px',padding:'24px 28px',width:'100%',maxWidth:'600px',boxShadow:'0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(248,113,113,0.08), inset 0 1px 0 rgba(248,113,113,0.1)',maxHeight:'92vh',overflowY:'auto',animation:'panelSlideIn 220ms cubic-bezier(0.23,1,0.32,1)' }}>
+
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, rgba(248,113,113,0.2), rgba(239,68,68,0.1))', border: '1px solid rgba(248,113,113,0.3)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>🚨</div>
+            <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'22px' }}>
+                <div style={{ display:'flex',alignItems:'center',gap:'12px' }}>
+                    <div style={{ width:'42px',height:'42px',background:'linear-gradient(135deg,rgba(239,68,68,0.22),rgba(220,38,38,0.1))',border:'1px solid rgba(248,113,113,0.4)',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px',boxShadow:'0 0 16px rgba(239,68,68,0.15), inset 0 1px 0 rgba(255,255,255,0.05)' }}>🚨</div>
                     <div>
-                        <div style={{ color: '#f87171', fontSize: '16px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '3px' }}>ISSUE BOLO</div>
-                        <div style={{ color: '#4b5563', fontSize: '10px', letterSpacing: '1px' }}>BE ON THE LOOKOUT</div>
+                        <div style={{ display:'flex',alignItems:'center',gap:'8px',marginBottom:'2px' }}>
+                            <span style={{ color:'#fca5a5',fontSize:'15px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace' }}>Issue BOLO</span>
+                            <span style={{ padding:'2px 7px',background:'rgba(248,113,113,0.12)',border:'1px solid rgba(248,113,113,0.3)',borderRadius:'4px',color:'#f87171',fontSize:'8px',fontWeight:'700',letterSpacing:'1px',fontFamily:'monospace' }}>BE ON LOOKOUT</span>
+                        </div>
+                        <div style={{ color:'#64748b',fontSize:'10px',letterSpacing:'1px',fontFamily:'monospace' }}>Broadcast to selected session</div>
                     </div>
                 </div>
-                <button onClick={() => { setShowBoloModal(false); setBoloForm({ plate: '', description: '', reason: '', expiresIn: 10, image: null, session: null }); }} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#6b7280', cursor: 'pointer', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', transition: 'all 0.15s' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; e.currentTarget.style.color = '#f87171'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#6b7280'; }}>✕</button>
+                <button onClick={()=>{ setShowBoloModal(false); setBoloForm({ plate: '', description: '', reason: '', expiresIn: 10, image: null, session: null }); }}
+                    style={{ background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'6px',color:'#f87171',cursor:'pointer',width:'30px',height:'30px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'13px',fontFamily:'monospace',padding:0,transition:'background 160ms ease-out, color 160ms ease-out' }}
+                    onMouseEnter={e=>{ e.currentTarget.style.background='rgba(239,68,68,0.18)'; }}
+                    onMouseLeave={e=>{ e.currentTarget.style.background='rgba(239,68,68,0.08)'; }}>✕</button>
             </div>
 
-            {/* Cooldown warning */}
+            {/* Cooldown */}
             {boloCooldownUntil && Date.now() < boloCooldownUntil && (
-                <div style={{ marginBottom: '16px', padding: '12px 16px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '16px' }}>⏳</span>
+                <div style={{ marginBottom:'14px',padding:'10px 14px',background:'rgba(245,158,11,0.08)',border:'1px solid rgba(245,158,11,0.25)',borderRadius:'8px',display:'flex',alignItems:'center',gap:'10px' }}>
+                    <span style={{ fontSize:'15px' }}>⏳</span>
                     <div>
-                        <div style={{ color: '#fbbf24', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>BOLO COOLDOWN ACTIVE</div>
-                        <div style={{ color: '#92400e', fontSize: '10px' }}>You can issue another BOLO in {Math.ceil((boloCooldownUntil - Date.now()) / 60000)} minute(s)</div>
+                        <div style={{ color:'#fbbf24',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Cooldown Active</div>
+                        <div style={{ color:'#92400e',fontSize:'10px',marginTop:'1px' }}>Available in {Math.ceil((boloCooldownUntil - Date.now()) / 60000)} minute(s)</div>
                     </div>
                 </div>
             )}
 
-            {/* Two column layout */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                {/* Left — image paste */}
-                <div
-                    onPaste={e => {
-                        const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith('image/'));
-                        if (item) { const reader = new FileReader(); reader.onload = ev => setBoloForm(f => ({ ...f, image: ev.target.result })); reader.readAsDataURL(item.getAsFile()); }
-                    }}
+            {/* Two-column layout */}
+            <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'14px',marginBottom:'14px' }}>
+
+                {/* Image paste area */}
+                <div onPaste={e=>{ const item=Array.from(e.clipboardData.items).find(i=>i.type.startsWith('image/')); if(item){ const reader=new FileReader(); reader.onload=ev=>setBoloForm(f=>({...f,image:ev.target.result})); reader.readAsDataURL(item.getAsFile()); } }}
                     tabIndex={0}
-                    style={{ border: '2px dashed rgba(248,113,113,0.25)', borderRadius: '12px', minHeight: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', outline: 'none', background: 'rgba(248,113,113,0.03)', transition: 'all 0.2s', position: 'relative', overflow: 'hidden' }}
-                    onFocus={e => e.currentTarget.style.borderColor = 'rgba(248,113,113,0.6)'}
-                    onBlur={e => e.currentTarget.style.borderColor = 'rgba(248,113,113,0.25)'}
-                >
+                    style={{ border:'1px dashed rgba(248,113,113,0.3)',borderRadius:'10px',minHeight:'160px',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',outline:'none',background:'rgba(0,0,0,0.25)',transition:'border-color 160ms ease-out, background 160ms ease-out',position:'relative',overflow:'hidden' }}
+                    onFocus={e=>{ e.currentTarget.style.borderColor='rgba(248,113,113,0.6)'; e.currentTarget.style.background='rgba(248,113,113,0.04)'; }}
+                    onBlur={e=>{ e.currentTarget.style.borderColor='rgba(248,113,113,0.3)'; e.currentTarget.style.background='rgba(0,0,0,0.25)'; }}>
                     {boloForm.image ? (
                         <>
-                            <img src={boloForm.image} style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '10px' }} />
-                            <button onClick={e => { e.stopPropagation(); setBoloForm(f => ({ ...f, image: null })); }} style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.7)', border: 'none', borderRadius: '50%', width: '22px', height: '22px', color: 'white', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                            <img src={boloForm.image} style={{ width:'100%',height:'160px',objectFit:'cover',borderRadius:'9px' }} />
+                            <button onClick={e=>{ e.stopPropagation(); setBoloForm(f=>({...f,image:null})); }}
+                                style={{ position:'absolute',top:'7px',right:'7px',background:'rgba(0,0,0,0.75)',border:'1px solid rgba(248,113,113,0.4)',borderRadius:'50%',width:'24px',height:'24px',color:'white',cursor:'pointer',fontSize:'11px',display:'flex',alignItems:'center',justifyContent:'center' }}>✕</button>
                         </>
                     ) : (
-                        <div style={{ textAlign: 'center', padding: '12px' }}>
-                            <div style={{ fontSize: '24px', marginBottom: '6px' }}>📸</div>
-                            <div style={{ color: '#4b5563', fontSize: '10px', lineHeight: '1.6' }}>Click here then<br/><strong style={{ color: '#f87171' }}>CTRL+V</strong> to paste image<br/><span style={{ color: '#374151' }}>(optional)</span></div>
+                        <div style={{ textAlign:'center',padding:'14px' }}>
+                            <div style={{ fontSize:'26px',marginBottom:'8px' }}>📸</div>
+                            <div style={{ color:'#64748b',fontSize:'10px',lineHeight:1.7,fontFamily:'monospace',letterSpacing:'0.5px' }}>Click then <strong style={{ color:'#fca5a5' }}>CTRL+V</strong><br/>to paste image<br/><span style={{ color:'#475569',fontSize:'9px' }}>(optional)</span></div>
                         </div>
                     )}
                 </div>
 
-                {/* Right — plate + session */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {/* Plate + session + expires */}
+                <div style={{ display:'flex',flexDirection:'column',gap:'10px' }}>
                     <div>
-                        <div style={{ color: '#6b7280', fontSize: '9px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '5px' }}>LICENSE PLATE</div>
-                        <input value={boloForm.plate} onChange={e => setBoloForm(f => ({ ...f, plate: e.target.value.toUpperCase() }))}
+                        <div style={{ color:'#64748b',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',marginBottom:'5px',fontFamily:'monospace' }}>License Plate</div>
+                        <input value={boloForm.plate} onChange={e=>setBoloForm(f=>({...f,plate:e.target.value.toUpperCase()}))}
                             placeholder="e.g. ABC1234"
-                            style={{ width: '100%', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '8px 12px', color: '#e2e8f0', fontSize: '12px', fontFamily: 'monospace', fontWeight: '700', outline: 'none', boxSizing: 'border-box', letterSpacing: '2px' }} />
+                            style={{ width:'100%',background:'rgba(0,0,0,0.35)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'7px',padding:'9px 12px',color:'#e2e8f0',fontSize:'12px',fontFamily:'monospace',fontWeight:'700',outline:'none',boxSizing:'border-box',letterSpacing:'2px',transition:'border-color 160ms ease-out' }}
+                            onFocus={e=>{ e.target.style.borderColor='rgba(56,189,248,0.4)'; }}
+                            onBlur={e=>{ e.target.style.borderColor='rgba(56,189,248,0.15)'; }} />
                     </div>
                     <div>
-                        <div style={{ color: '#6b7280', fontSize: '9px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '5px' }}>TARGET SESSION <span style={{ color: '#f87171' }}>*</span></div>
-                        <select value={boloForm.session || ''} onChange={e => setBoloForm(f => ({ ...f, session: e.target.value || null }))}
-                            style={{ width: '100%', background: 'rgba(0,0,0,0.35)', border: `1px solid ${boloForm.session ? 'rgba(248,113,113,0.4)' : 'rgba(255,255,255,0.08)'}`, borderRadius: '8px', padding: '8px 12px', color: boloForm.session ? '#f87171' : '#4b5563', fontSize: '10px', fontWeight: '700', outline: 'none', cursor: 'pointer', boxSizing: 'border-box' }}>
+                        <div style={{ color:'#64748b',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',marginBottom:'5px',fontFamily:'monospace' }}>Target Session <span style={{ color:'#f87171' }}>*</span></div>
+                        <select value={boloForm.session || ''} onChange={e=>setBoloForm(f=>({...f,session:e.target.value || null}))}
+                            style={{ width:'100%',background:'rgba(0,0,0,0.35)',border:`1px solid ${boloForm.session ? 'rgba(248,113,113,0.4)' : 'rgba(56,189,248,0.15)'}`,borderRadius:'7px',padding:'9px 12px',color:boloForm.session ? '#fca5a5' : '#475569',fontSize:'10px',fontWeight:'700',outline:'none',cursor:'pointer',boxSizing:'border-box',fontFamily:'monospace',letterSpacing:'1px' }}>
                             <option value="">— SELECT SESSION —</option>
                             <option value="1011898104670330920">SESSION 1</option>
                             <option value="1390212294478397471">SESSION 2</option>
@@ -13872,11 +13971,11 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                         </select>
                     </div>
                     <div>
-                        <div style={{ color: '#6b7280', fontSize: '9px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '5px' }}>EXPIRES IN</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
+                        <div style={{ color:'#64748b',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',marginBottom:'5px',fontFamily:'monospace' }}>Expires In</div>
+                        <div style={{ display:'grid',gridTemplateColumns:'repeat(4, 1fr)',gap:'4px' }}>
                             {[10, 15, 20, 30, 40, 50, 60, 80].map(m => (
-                                <button key={m} onClick={() => setBoloForm(f => ({ ...f, expiresIn: m }))}
-                                    style={{ padding: '5px 2px', borderRadius: '6px', border: `1px solid ${boloForm.expiresIn === m ? 'rgba(248,113,113,0.6)' : 'rgba(255,255,255,0.07)'}`, background: boloForm.expiresIn === m ? 'rgba(248,113,113,0.18)' : 'rgba(0,0,0,0.2)', color: boloForm.expiresIn === m ? '#f87171' : '#4b5563', fontSize: '9px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.15s' }}>
+                                <button key={m} onClick={()=>setBoloForm(f=>({...f,expiresIn:m}))}
+                                    style={{ padding:'6px 2px',borderRadius:'5px',border:`1px solid ${boloForm.expiresIn===m?'rgba(248,113,113,0.5)':'rgba(56,189,248,0.1)'}`,background:boloForm.expiresIn===m?'rgba(248,113,113,0.15)':'rgba(0,0,0,0.25)',color:boloForm.expiresIn===m?'#fca5a5':'#64748b',fontSize:'9px',fontWeight:'700',cursor:'pointer',transition:'background 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out',width:'auto',fontFamily:'monospace',letterSpacing:'0.5px' }}>
                                     {m}m
                                 </button>
                             ))}
@@ -13886,38 +13985,44 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
             </div>
 
             {/* Description + Reason */}
-            {[{ label: 'VEHICLE DESCRIPTION', key: 'description', placeholder: 'e.g. Black 2019 Ford F-150, tinted windows' }, { label: 'REASON FOR BOLO', key: 'reason', placeholder: 'e.g. Fleeing Law Enforcement, etc' }].map(({ label, key, placeholder }) => (
-                <div key={key} style={{ marginBottom: '12px' }}>
-                    <div style={{ color: '#6b7280', fontSize: '9px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '5px' }}>{label}</div>
-                    <textarea value={boloForm[key]} onChange={e => setBoloForm(f => ({ ...f, [key]: e.target.value.toUpperCase() }))}
+            {[{ label:'Vehicle Description', key:'description', placeholder:'e.g. Black 2019 Ford F-150, tinted windows' }, { label:'Reason for BOLO', key:'reason', placeholder:'e.g. Fleeing law enforcement' }].map(({ label, key, placeholder })=>(
+                <div key={key} style={{ marginBottom:'12px' }}>
+                    <div style={{ color:'#64748b',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',marginBottom:'5px',fontFamily:'monospace' }}>{label}</div>
+                    <textarea value={boloForm[key]} onChange={e=>setBoloForm(f=>({...f,[key]:e.target.value.toUpperCase()}))}
                         placeholder={placeholder} rows={2}
-                        style={{ width: '100%', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '8px 12px', color: '#e2e8f0', fontSize: '11px', fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box', resize: 'none', lineHeight: '1.5' }} />
+                        style={{ width:'100%',background:'rgba(0,0,0,0.35)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'7px',padding:'9px 12px',color:'#e2e8f0',fontSize:'11px',fontFamily:'monospace',outline:'none',boxSizing:'border-box',resize:'none',lineHeight:1.5,transition:'border-color 160ms ease-out' }}
+                        onFocus={e=>{ e.target.style.borderColor='rgba(56,189,248,0.4)'; }}
+                        onBlur={e=>{ e.target.style.borderColor='rgba(56,189,248,0.15)'; }} />
                 </div>
             ))}
 
             {/* Submit */}
-            <button
-                disabled={!!boloCooldownUntil && Date.now() < boloCooldownUntil}
-                onClick={() => {
-                    if (boloCooldownUntil && Date.now() < boloCooldownUntil) return;
-                    if (!boloForm.session) { showCustomError('Session Required', 'Please select which session this BOLO should appear in.'); return; }
-                    if (!boloForm.plate && !boloForm.description) { showCustomError('Missing Info', 'Please enter at least a license plate or vehicle description.'); return; }
+            <button disabled={!!boloCooldownUntil && Date.now() < boloCooldownUntil}
+                onClick={()=>{
+                    if(boloCooldownUntil && Date.now() < boloCooldownUntil) return;
+                    if(!boloForm.session) { showCustomError('Session Required', 'Please select which session this BOLO should appear in.'); return; }
+                    if(!boloForm.plate && !boloForm.description) { showCustomError('Missing Info', 'Please enter at least a license plate or vehicle description.'); return; }
                     const payload = { ...boloForm, issuedBy: `${trooperSettings?.FirstName} ${trooperSettings?.LastName}` };
                     fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/bolo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-                        .then(() => {
+                        .then(()=>{
                             const session = selectedUserSession ? `?session=${encodeURIComponent(selectedUserSession)}` : '';
-                            return fetch(`https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/bolo${session}`).then(r => r.json()).then(d => { if (d.bolos) setBoloList(d.bolos); });
-                        }).catch(() => {});
+                            return fetch(`https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/bolo${session}`).then(r=>r.json()).then(d=>{ if(d.bolos) setBoloList(d.bolos); });
+                        }).catch(()=>{});
                     setBoloCooldownUntil(Date.now() + 15 * 60 * 1000);
                     setShowBoloModal(false);
                     setBoloForm({ plate: '', description: '', reason: '', expiresIn: 10, image: null, session: null });
                 }}
-                style={{ width: '100%', padding: '14px', background: (boloCooldownUntil && Date.now() < boloCooldownUntil) ? 'rgba(75,85,99,0.2)' : 'linear-gradient(135deg, rgba(248,113,113,0.2), rgba(239,68,68,0.12))', border: `1px solid ${(boloCooldownUntil && Date.now() < boloCooldownUntil) ? 'rgba(75,85,99,0.3)' : 'rgba(248,113,113,0.4)'}`, borderRadius: '12px', color: (boloCooldownUntil && Date.now() < boloCooldownUntil) ? '#4b5563' : '#f87171', cursor: (boloCooldownUntil && Date.now() < boloCooldownUntil) ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '3px', transition: 'all 0.2s' }}>
-                {(boloCooldownUntil && Date.now() < boloCooldownUntil) ? `⏳ COOLDOWN — ${Math.ceil((boloCooldownUntil - Date.now()) / 60000)}m REMAINING` : '🚨 ISSUE BOLO'}
+                style={{ width:'100%',padding:'13px',background:(boloCooldownUntil && Date.now() < boloCooldownUntil) ? 'rgba(75,85,99,0.18)' : 'linear-gradient(180deg,#dc2626,#991b1b)',border:`1px solid ${(boloCooldownUntil && Date.now() < boloCooldownUntil) ? 'rgba(75,85,99,0.3)' : 'rgba(239,68,68,0.5)'}`,borderRadius:'9px',color:(boloCooldownUntil && Date.now() < boloCooldownUntil) ? '#475569' : 'white',cursor:(boloCooldownUntil && Date.now() < boloCooldownUntil) ? 'not-allowed' : 'pointer',fontSize:'12px',fontWeight:'800',textTransform:'uppercase',letterSpacing:'2.5px',fontFamily:'monospace',boxShadow:(boloCooldownUntil && Date.now() < boloCooldownUntil) ? 'none' : '0 4px 16px rgba(239,68,68,0.3), inset 0 1px 0 rgba(255,255,255,0.15)',transition:'filter 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                onMouseEnter={e=>{ if(!e.currentTarget.disabled){ e.currentTarget.style.filter='brightness(1.1)'; } }}
+                onMouseLeave={e=>{ if(!e.currentTarget.disabled){ e.currentTarget.style.filter=''; } }}
+                onMouseDown={e=>{ if(!e.currentTarget.disabled){ e.currentTarget.style.transform='scale(0.99)'; } }}
+                onMouseUp={e=>{ e.currentTarget.style.transform=''; }}>
+                {(boloCooldownUntil && Date.now() < boloCooldownUntil) ? `⏳ Cooldown — ${Math.ceil((boloCooldownUntil - Date.now()) / 60000)}m remaining` : '🚨 Issue BOLO'}
             </button>
         </div>
     </div>
 )}
+
 {/* ── DEVELOPER PANEL ── */}
 {showDevPanel && (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
