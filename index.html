@@ -761,24 +761,28 @@ html, body {
 }
 
 .copy-btn {
-    background: rgba(59, 130, 246, 0.2);
-    border: 1px solid rgba(59, 130, 246, 0.4);
-    color: #60a5fa;
-    padding: 6px 12px;
-    border-radius: 6px;
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    color: #94a3b8;
+    padding: 3px 7px;
+    border-radius: 4px;
     font-size: 11px;
+    font-family: monospace;
     cursor: pointer;
-    transition: all 0.2s;
-    margin-left: 8px;
+    transition: background 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out, transform 100ms cubic-bezier(0.23, 1, 0.32, 1);
+    margin-left: 0;
+    line-height: 1;
+    width: auto;
 }
 
 .copy-btn:hover {
-    background: rgba(59, 130, 246, 0.4);
-    color: white;
+    background: rgba(56, 189, 248, 0.2);
+    border-color: rgba(56, 189, 248, 0.45);
+    color: #e2e8f0;
 }
 
 .copy-btn:active {
-    transform: scale(0.95);
+    transform: scale(0.92);
 }
 
 .progress-bar-container {
@@ -1839,6 +1843,43 @@ const [editableTrooperSettings, setEditableTrooperSettings] = useState(null);
 const [hasVisitedSettingsBefore, setHasVisitedSettingsBefore] = useState(true);
 const [pageTransitioning, setPageTransitioning] = useState(false);
 const [viewSwitching, setViewSwitching] = useState(false);
+const viewSwitchCooldownRef = React.useRef(0);
+const viewReadyResolveRef = React.useRef(null);
+
+// ── navTo: route every tab change through here ──
+// Why: gives the user instant feedback (loader paints in 1 frame), waits for the new
+// view to mark itself "ready" via useLayoutEffect on activeView, and enforces a 500ms
+// cooldown so the user can't spam-click and stack swap requests.
+const navTo = React.useCallback((target, after) => {
+    const now = Date.now();
+    if (now < viewSwitchCooldownRef.current) return; // still cooling down — ignore
+    viewSwitchCooldownRef.current = now + 500;
+    setViewSwitching(true);
+    requestAnimationFrame(() => {
+        if (after) after();
+        setActiveView(target);
+        // Resolved by the activeView-watching effect below once paint settles
+        new Promise(resolve => { viewReadyResolveRef.current = resolve; })
+            .then(() => setViewSwitching(false));
+    });
+}, []);
+
+// ── View ready detector ──
+// Resolves the navTo promise once React has committed the new view AND the browser
+// has had two frames to lay it out + paint. No fixed timer = no false negatives on
+// fast machines, no false positives on slow ones.
+React.useEffect(() => {
+    if (!viewReadyResolveRef.current) return;
+    const r1 = requestAnimationFrame(() => {
+        const r2 = requestAnimationFrame(() => {
+            const resolve = viewReadyResolveRef.current;
+            viewReadyResolveRef.current = null;
+            if (resolve) resolve();
+        });
+        return () => cancelAnimationFrame(r2);
+    });
+    return () => cancelAnimationFrame(r1);
+}, [activeView, homeSubView]);
 const [shiftBreaks, setShiftBreaks] = useState([]);
 const [shiftAcknowledgedCount, setShiftAcknowledgedCount] = useState(0);
 const [shiftDismissedCount, setShiftDismissedCount] = useState(0);
@@ -10607,14 +10648,6 @@ return (
                         <button key={i} disabled={!!item.disabled}
                             onClick={()=>{
                                 if(item.disabled) return;
-                                const navTo = (target, after) => {
-                                    setViewSwitching(true);
-                                    requestAnimationFrame(() => {
-                                        if (after) after();
-                                        setActiveView(target);
-                                        setTimeout(() => setViewSwitching(false), 220);
-                                    });
-                                };
                                 if(isHomeDash){navTo('home', ()=>setHomeSubView('dashboard'));}
                                 else if(item.mapKey){navTo('home', ()=>{setHomeSubView(v=>v==='map'?'dashboard':'map');setShowDataPanel(false);setShowOfficersPanel(false);setShowHistoryPanel(false);});}
                                 else if(item.k==='hist'){setShowHistoryPanel(p=>!p);setShowDataPanel(false);setShowOfficersPanel(false);}
@@ -11154,7 +11187,7 @@ return (
                             <div style={{ color:'#e2e8f0',fontSize:'15px',fontWeight:'700',fontFamily:'monospace',letterSpacing:'0.3px' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName}</div>
                         </div>
                         <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px' }}>
-                            {[{l:'Badge ID',v:`#${trooperSettings?.BadgeID||'—'}`},{l:'Zone',v:trooperSettings?.Zone||'—'},{l:'Username',v:trooperSettings?.Username||'—'},{l:'Reg. Expiry',v:trooperSettings?.RegExpiry||'—'}].map(({l,v},i)=>(
+                            {[{l:'Badge ID',v:`#${trooperSettings?.BadgeID||'—'}`},{l:'Zone',v:trooperSettings?.Zone||'—'},{l:'Username',v:trooperSettings?.Username||'—'},{l:'Reg. Expiry',v:trooperSettings?.expDate||'—'}].map(({l,v},i)=>(
                                 <div key={i} style={{ background:'rgba(0,0,0,0.25)',border:'1px solid rgba(56,189,248,0.08)',borderRadius:'6px',padding:'8px 10px' }}>
                                     <div style={{ color:'#475569',fontSize:'8px',fontWeight:'600',letterSpacing:'1.2px',textTransform:'uppercase',marginBottom:'3px',fontFamily:'monospace' }}>{l}</div>
                                     <div style={{ color:'#e2e8f0',fontSize:'12px',fontWeight:'700',fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{v}</div>
@@ -11208,7 +11241,7 @@ return (
                             {l:'ID Lookup',   v:'database-search', icon:'👤',c:'#34d399',bg:'linear-gradient(180deg,rgba(6,78,59,0.35),rgba(15,30,30,0.5))',bc:'rgba(52,211,153,0.3)',glow:'0 0 20px rgba(52,211,153,0.08), inset 0 1px 0 rgba(52,211,153,0.15)'},
                             {l:`Pending Calls${activeCalls>0?` (${activeCalls})`:''}`,v:'calls',icon:'🚨',c:'white',bg:'linear-gradient(180deg,#dc2626,#991b1b)',bc:'rgba(239,68,68,0.6)',glow:activeCalls>0?'0 0 28px rgba(239,68,68,0.5), inset 0 1px 0 rgba(255,255,255,0.2)':'0 0 18px rgba(239,68,68,0.2), inset 0 1px 0 rgba(255,255,255,0.1)'},
                         ].map((b,i)=>(
-                            <button key={i} onClick={()=>setActiveView(b.v)}
+                            <button key={i} onClick={()=>navTo(b.v)}
                                 style={{ padding:'14px 18px',background:b.bg,border:`1px solid ${b.bc}`,borderRadius:'10px',color:b.c,fontSize:'12px',fontWeight:'700',cursor:'pointer',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',display:'flex',alignItems:'center',justifyContent:'center',gap:'10px',boxShadow:b.glow,transition:'transform 160ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 160ms ease-out, filter 160ms ease-out',width:'auto' }}
                                 onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-1px)';e.currentTarget.style.filter='brightness(1.12)';}}
                                 onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.filter='';}}
@@ -11316,8 +11349,8 @@ return (
                         </button>
                     </div>
 
-                    {/* Active Calls — own panel */}
-                    <div style={{ background:'linear-gradient(180deg,rgba(60,15,15,0.45) 0%,rgba(40,10,10,0.55) 100%)',border:'1px solid rgba(239,68,68,0.18)',borderRadius:'10px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(239,68,68,0.08)' }}>
+                    {/* Active Calls — own panel, more saturated red than BOLOs */}
+                    <div style={{ background:'linear-gradient(180deg,rgba(127,20,20,0.55) 0%,rgba(80,12,12,0.7) 100%)',border:'1px solid rgba(239,68,68,0.35)',borderRadius:'10px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(239,68,68,0.18), 0 0 24px rgba(239,68,68,0.06)' }}>
                         <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(239,68,68,0.1)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
                             <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
                                 <div style={{ width:'2px',height:'12px',background:'#ef4444',borderRadius:'2px',boxShadow:'0 0 6px #ef4444' }} />
@@ -11793,19 +11826,28 @@ return (
 
                             {loadingRoblox ? (
                                 <>
-                                    {/* Avatar — mirrors avatar-container */}
-                                    <div className="avatar-container">
-                                        <div className="skel" style={{ width: '100%', height: '100%', borderRadius: '12px' }} />
-                                    </div>
-                                    {/* info-item rows — mirrors Roblox Username / User ID / Display Name / Join Date / Discord ID */}
-                                    {['Roblox Username','User ID','Display Name','Join Date','Discord ID'].map((label, i) => (
-                                        <div key={i} className="info-item">
-                                            <span className="info-label">{label}:</span>
-                                            <div className="skel" style={{ height: '13px', width: i === 1 ? '110px' : i === 3 ? '140px' : '90px', borderRadius: '4px' }} />
+                                    {/* Avatar + headline skeleton — horizontal */}
+                                    <div style={{ display:'flex',gap:'14px',alignItems:'center',marginBottom:'12px' }}>
+                                        <div className="skel" style={{ flexShrink:0,width:'78px',height:'78px',borderRadius:'10px' }} />
+                                        <div style={{ flex:1,display:'flex',flexDirection:'column',gap:'5px' }}>
+                                            <div className="skel" style={{ height:'15px',width:'70%',borderRadius:'4px' }} />
+                                            <div className="skel" style={{ height:'11px',width:'55%',borderRadius:'4px' }} />
+                                            <div className="skel" style={{ height:'10px',width:'45%',borderRadius:'4px' }} />
                                         </div>
-                                    ))}
-                                    {/* Warrant badge shimmer */}
-                                    <div className="skel" style={{ height: '42px', borderRadius: '10px', marginTop: '14px' }} />
+                                    </div>
+                                    {/* ID rows skeleton — 2-col */}
+                                    <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px',marginBottom:'10px' }}>
+                                        <div className="info-item" style={{ flexDirection:'column',alignItems:'flex-start',gap:'4px',padding:'7px 10px' }}>
+                                            <div className="skel" style={{ height:'8px',width:'60%',borderRadius:'3px' }} />
+                                            <div className="skel" style={{ height:'11px',width:'80%',borderRadius:'3px' }} />
+                                        </div>
+                                        <div className="info-item" style={{ flexDirection:'column',alignItems:'flex-start',gap:'4px',padding:'7px 10px' }}>
+                                            <div className="skel" style={{ height:'8px',width:'50%',borderRadius:'3px' }} />
+                                            <div className="skel" style={{ height:'11px',width:'90%',borderRadius:'3px' }} />
+                                        </div>
+                                    </div>
+                                    {/* Warrant badge skeleton */}
+                                    <div className="skel" style={{ height:'40px',borderRadius:'8px' }} />
                                 </>
                             ) : robloxError ? (
                                 <>
@@ -11818,19 +11860,56 @@ return (
                                 </>
                             ) : result ? (
                                 <>
-                                    {result?.avatarUrl && (<div className="avatar-container"><img src={result.avatarUrl} alt="Avatar" className="avatar-img" onError={(e) => { const src = e.currentTarget.src; if (!src.includes('corsproxy.io')) { e.currentTarget.src = `https://corsproxy.io/?${encodeURIComponent(src)}`; } else { e.currentTarget.onerror = null; e.currentTarget.style.display = 'none'; } }} /></div>)}
-                                    {result?.username && (<div className="info-item"><span className="info-label">Roblox Username:</span><span className="info-value">{result.username}</span></div>)}
-                                    {result?.userId && (<div className="info-item"><span className="info-label">User ID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{result.userId}</span><button className="copy-btn btn-ripple" onClick={() => copyToClipboard(result.userId, 'roblox')}>{copiedField === 'roblox' ? 'Copied!' : 'Copy'}</button></div></div>)}
-                                    {result?.displayName && (<div className="info-item"><span className="info-label">Display Name:</span><span className="info-value">{result.displayName}</span></div>)}
-                                    {result?.joinDate && (<div className="info-item"><span className="info-label">Join Date:</span><span className="info-value">{result.joinDate}</span></div>)}
-                                    <div className="info-item"><span className="info-label">Discord ID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{registration?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={() => copyToClipboard(registration?.discordUserId, 'discord-owner')}>{copiedField === 'discord-owner' ? 'Copied!' : 'Copy'}</button></div></div>
-                                    <div style={{ marginTop: '14px', padding: '12px 16px', background: warrantFlash ? '#dc2626' : (warrantInfo ? '#ef4444' : 'rgba(255,255,255,0.05)'), border: `1px solid ${warrantInfo ? '#991b1b' : 'rgba(255,255,255,0.1)'}`, borderRadius: '10px', transition: 'all 0.3s', animation: warrantInfo ? 'pulse-border-warrant 2s infinite' : 'none', boxShadow: warrantInfo ? '0 0 20px rgba(239,68,68,0.5)' : 'none' }}>
-                                        <div style={{ color: warrantInfo ? '#fff' : (warrantChecking ? '#fbbf24' : '#86efac'), fontSize: '13px', fontWeight: '700' }}>
+                                    {/* Avatar + headline identity row — horizontal */}
+                                    <div style={{ display:'flex',gap:'14px',alignItems:'center',marginBottom:'12px' }}>
+                                        {result?.avatarUrl && (
+                                            <div style={{ flexShrink:0,width:'78px',height:'78px',borderRadius:'10px',overflow:'hidden',border:'1px solid rgba(52,211,153,0.35)',boxShadow:'0 0 0 4px rgba(52,211,153,0.06), 0 6px 18px rgba(0,0,0,0.4), inset 0 1px 0 rgba(52,211,153,0.15)' }}>
+                                                <img src={result.avatarUrl} alt="Avatar" style={{ width:'100%',height:'100%',objectFit:'cover',display:'block' }}
+                                                    onError={(e) => { const src = e.currentTarget.src; if (!src.includes('corsproxy.io')) { e.currentTarget.src = `https://corsproxy.io/?${encodeURIComponent(src)}`; } else { e.currentTarget.onerror = null; e.currentTarget.style.display = 'none'; } }} />
+                                            </div>
+                                        )}
+                                        <div style={{ flex:1,minWidth:0 }}>
+                                            {result?.username && (
+                                                <div style={{ color:'#e2e8f0',fontSize:'15px',fontWeight:'700',fontFamily:'monospace',letterSpacing:'0.3px',marginBottom:'3px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{result.username}</div>
+                                            )}
+                                            {result?.displayName && result.displayName !== result.username && (
+                                                <div style={{ color:'#94a3b8',fontSize:'11px',fontFamily:'monospace',marginBottom:'4px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>“{result.displayName}”</div>
+                                            )}
+                                            {result?.joinDate && (
+                                                <div style={{ color:'#64748b',fontSize:'10px',fontFamily:'monospace',letterSpacing:'0.5px' }}>Joined {result.joinDate}</div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* ID rows — 2-column grid, denser */}
+                                    <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px',marginBottom:'10px' }}>
+                                        {result?.userId && (
+                                            <div className="info-item" style={{ flexDirection:'column',alignItems:'flex-start',gap:'2px',padding:'7px 10px' }}>
+                                                <span className="info-label" style={{ fontSize:'9px' }}>Roblox User ID</span>
+                                                <div style={{ display:'flex',alignItems:'center',gap:'6px',width:'100%',minWidth:0 }}>
+                                                    <span className="info-value" style={{ fontSize:'11px',textAlign:'left',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{result.userId}</span>
+                                                    <button className="copy-btn btn-ripple" onClick={() => copyToClipboard(result.userId, 'roblox')} style={{ flexShrink:0 }}>{copiedField === 'roblox' ? '✓' : '⧉'}</button>
+                                                </div>
+                                            </div>
+                                        )}
+                                        <div className="info-item" style={{ flexDirection:'column',alignItems:'flex-start',gap:'2px',padding:'7px 10px' }}>
+                                            <span className="info-label" style={{ fontSize:'9px' }}>Discord ID</span>
+                                            <div style={{ display:'flex',alignItems:'center',gap:'6px',width:'100%',minWidth:0 }}>
+                                                <span className="info-value" style={{ fontSize:'11px',textAlign:'left',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{registration?.discordUserId || 'UNKNOWN'}</span>
+                                                <button className="copy-btn btn-ripple" onClick={() => copyToClipboard(registration?.discordUserId, 'discord-owner')} style={{ flexShrink:0 }}>{copiedField === 'discord-owner' ? '✓' : '⧉'}</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Warrant badge */}
+                                    <div style={{ padding:'11px 14px',background:warrantFlash?'#dc2626':(warrantInfo?'linear-gradient(180deg,#dc2626,#991b1b)':'rgba(16,185,129,0.06)'),border:`1px solid ${warrantInfo?'rgba(239,68,68,0.5)':'rgba(52,211,153,0.2)'}`,borderRadius:'8px',transition:'background 160ms ease-out, border-color 160ms ease-out',animation:warrantInfo?'pulse-border-warrant 2s infinite':'none',boxShadow:warrantInfo?'0 0 20px rgba(239,68,68,0.35), inset 0 1px 0 rgba(255,255,255,0.1)':'inset 0 1px 0 rgba(52,211,153,0.08)' }}>
+                                        <div style={{ color:warrantInfo?'#fff':(warrantChecking?'#fbbf24':'#34d399'),fontSize:'11px',fontWeight:'700',fontFamily:'monospace',letterSpacing:'1.2px',textTransform:'uppercase',display:'flex',alignItems:'center',gap:'7px' }}>
+                                            <span style={{ width:'5px',height:'5px',borderRadius:'50%',background:warrantInfo?'#fff':(warrantChecking?'#fbbf24':'#34d399'),boxShadow:warrantInfo?'0 0 8px rgba(255,255,255,0.6)':(warrantChecking?'0 0 6px #fbbf24':'0 0 6px #34d399') }} />
                                             {warrantChecking ? (
                                                 <WarrantDots />
                                             ) : warrantInfo ? (
-                                                <>WARRANT: ACTIVE {warrantInfo.bench > 0 && `BENCH WARRANT${warrantInfo.bench > 1 ? ` (${warrantInfo.bench})` : ''}`}{warrantInfo.bench > 0 && warrantInfo.arrest > 0 && ', '}{warrantInfo.arrest > 0 && `ARREST WARRANT${warrantInfo.arrest > 1 ? ` (${warrantInfo.arrest})` : ''}`}</>
-                                            ) : ('WARRANT: NO ACTIVE WARRANTS')}
+                                                <>Warrant: Active {warrantInfo.bench > 0 && `Bench${warrantInfo.bench > 1 ? ` ×${warrantInfo.bench}` : ''}`}{warrantInfo.bench > 0 && warrantInfo.arrest > 0 && ', '}{warrantInfo.arrest > 0 && `Arrest${warrantInfo.arrest > 1 ? ` ×${warrantInfo.arrest}` : ''}`}</>
+                                            ) : ('No Active Warrants')}
                                         </div>
                                     </div>
                                 </>
