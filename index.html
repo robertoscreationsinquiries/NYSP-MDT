@@ -344,7 +344,9 @@ body::before {
             border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px;
             display: flex; gap: 12px; color: #fecaca; font-size: 14px;
         }
-.results-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 24px; margin-top: 24px; max-width: 1400px; }
+.results-grid { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 18px; margin-top: 14px; align-items: stretch; }
+.results-grid > * { display: flex; flex-direction: column; }
+.results-grid > * > * { flex: none; }
 .owner-box {
     background: #2a2a2a;
     border: 3px solid #3a3a3a;
@@ -460,6 +462,14 @@ body::before {
         opacity: 1;
         transform: translateY(0);
     }
+}
+@keyframes searchScan {
+    0%   { background-position:   0% 50%; }
+    100% { background-position: 200% 50%; }
+}
+@keyframes plateRevealIn {
+    0%   { opacity: 0; transform: translateY(8px) scale(0.98); }
+    100% { opacity: 1; transform: translateY(0)   scale(1); }
 }
         @keyframes panelSlideIn {
             from { transform: translateX(24px); opacity: 0; }
@@ -1312,7 +1322,7 @@ html, body {
 }
 
 @media (min-width: 1600px) {
-    .results-grid { grid-template-columns: 1fr 1.5fr; }
+    .results-grid { grid-template-columns: minmax(0, 380px) minmax(0, 1fr); }
 }
 
 /* Grid overlay - separate element, behind everything */
@@ -11176,8 +11186,8 @@ return (
                     })()}
                 </div>
 
-                {/* Bottom row: Available Officers (compact) | Utilities (spacious) */}
-                <div style={{ display:'grid',gridTemplateColumns:'minmax(0,380px) minmax(0,1fr)',gap:'12px',flex:1,minHeight:'200px',maxHeight:'340px' }}>
+                {/* Bottom row: Officers ~25% | BOLOs ~25% | Utilities ~50% — fills viewport, no max */}
+                <div style={{ display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr) minmax(0,2fr)',gap:'12px',flex:1,minHeight:'320px' }}>
 
                     {/* Available Officers — compact */}
                     <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'10px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
@@ -11317,17 +11327,18 @@ return (
 }
                             </div>
                         </div>
-                        {/* QUIT button */}
-                        <button onClick={()=>setShowQuitConfirm(true)}
-                            style={{ flexShrink:0,margin:'0 10px 10px',padding:'9px',background:'rgba(15,15,15,0.4)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'7px',color:'#f87171',fontSize:'10px',fontWeight:'700',cursor:'pointer',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',display:'flex',alignItems:'center',justifyContent:'center',gap:'7px',width:'auto',transition:'background 160ms ease-out, color 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
-                            onMouseEnter={e=>{ e.currentTarget.style.background='rgba(239,68,68,0.12)'; e.currentTarget.style.color='#fca5a5'; e.currentTarget.style.borderColor='rgba(239,68,68,0.35)'; }}
-                            onMouseLeave={e=>{ e.currentTarget.style.background='rgba(15,15,15,0.4)'; e.currentTarget.style.color='#f87171'; e.currentTarget.style.borderColor='rgba(239,68,68,0.2)'; }}
-                            onMouseDown={e=>{ e.currentTarget.style.transform='scale(0.97)'; }}
-                            onMouseUp={e=>{ e.currentTarget.style.transform=''; }}>
-                            <span>⏻</span>Quit Application
-                        </button>
-                    </div>
+                        </div>
                 </div>
+
+                {/* Full-width QUIT bar */}
+                <button onClick={()=>setShowQuitConfirm(true)}
+                    style={{ flexShrink:0,padding:'12px 18px',background:'linear-gradient(180deg,rgba(127,29,29,0.4) 0%,rgba(80,15,15,0.5) 100%)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:'10px',color:'#fca5a5',fontSize:'11px',fontWeight:'800',cursor:'pointer',letterSpacing:'2.5px',textTransform:'uppercase',fontFamily:'monospace',display:'flex',alignItems:'center',justifyContent:'center',gap:'10px',width:'100%',transition:'background 200ms ease-out, color 200ms ease-out, border-color 200ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1), box-shadow 200ms ease-out',boxShadow:'inset 0 1px 0 rgba(239,68,68,0.08)' }}
+                    onMouseEnter={e=>{ e.currentTarget.style.background='linear-gradient(180deg,rgba(220,38,38,0.5) 0%,rgba(127,29,29,0.6) 100%)'; e.currentTarget.style.color='#fff'; e.currentTarget.style.borderColor='rgba(239,68,68,0.6)'; e.currentTarget.style.boxShadow='inset 0 1px 0 rgba(239,68,68,0.2), 0 0 24px rgba(239,68,68,0.2)'; }}
+                    onMouseLeave={e=>{ e.currentTarget.style.background='linear-gradient(180deg,rgba(127,29,29,0.4) 0%,rgba(80,15,15,0.5) 100%)'; e.currentTarget.style.color='#fca5a5'; e.currentTarget.style.borderColor='rgba(239,68,68,0.3)'; e.currentTarget.style.boxShadow='inset 0 1px 0 rgba(239,68,68,0.08)'; }}
+                    onMouseDown={e=>{ e.currentTarget.style.transform='scale(0.995)'; }}
+                    onMouseUp={e=>{ e.currentTarget.style.transform=''; }}>
+                    <span style={{ fontSize:'13px' }}>⏻</span>Quit Application
+                </button>
 
                 {/* Overlay panels */}
                 {showHistoryPanel && (
@@ -11482,7 +11493,8 @@ return (
                 </button>
             </div>
         ) : (
-            <div style={{ display:'flex',flexDirection:'column',gap:'14px',maxWidth:'1600px',margin:'0 auto' }}>
+            <div style={{ display:'flex',flexDirection:'column',gap:'14px' }}>
+
                 {/* ── SEARCH BOX ── */}
                 <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'10px',padding:'16px 18px',marginBottom:'14px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
                     <div style={{ display:'flex',alignItems:'center',gap:'8px',marginBottom:'12px' }}>
@@ -11517,7 +11529,7 @@ return (
                     <button
                         onClick={lookupUser}
                         disabled={loading || !tokenSaved || voiceActive}
-                        style={{ width:'100%',padding:'12px',background:loading?'rgba(56,189,248,0.18)':'linear-gradient(180deg,rgba(30,58,138,0.6),rgba(15,30,60,0.7))',border:`1px solid ${loading?'rgba(56,189,248,0.25)':'rgba(96,165,250,0.4)'}`,borderRadius:'8px',color:loading?'#94a3b8':'#bfdbfe',fontSize:'12px',fontWeight:'800',cursor:loading?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'10px',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'8px',boxShadow:loading?'none':'0 0 20px rgba(96,165,250,0.12), inset 0 1px 0 rgba(96,165,250,0.2)',transition:'transform 100ms cubic-bezier(0.23,1,0.32,1), filter 160ms ease-out, box-shadow 160ms ease-out' }}
+                        style={{ width:'100%',padding:'12px',background:loading?'linear-gradient(90deg,rgba(56,189,248,0.12) 0%,rgba(96,165,250,0.28) 50%,rgba(56,189,248,0.12) 100%)':'linear-gradient(180deg,rgba(30,58,138,0.6),rgba(15,30,60,0.7))',backgroundSize:loading?'200% 100%':'auto',border:`1px solid ${loading?'rgba(96,165,250,0.4)':'rgba(96,165,250,0.4)'}`,borderRadius:'8px',color:loading?'#bfdbfe':'#bfdbfe',fontSize:'12px',fontWeight:'800',cursor:loading?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'10px',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'8px',boxShadow:loading?'0 0 24px rgba(96,165,250,0.2), inset 0 1px 0 rgba(96,165,250,0.2)':'0 0 20px rgba(96,165,250,0.12), inset 0 1px 0 rgba(96,165,250,0.2)',transition:'transform 100ms cubic-bezier(0.23,1,0.32,1), filter 160ms ease-out, box-shadow 160ms ease-out',animation:loading?'searchScan 1.6s linear infinite':'none' }}
                         onMouseEnter={e=>{ if(!loading){ e.currentTarget.style.filter='brightness(1.15)'; e.currentTarget.style.boxShadow='0 0 28px rgba(96,165,250,0.22), inset 0 1px 0 rgba(96,165,250,0.25)'; } }}
                         onMouseLeave={e=>{ if(!loading){ e.currentTarget.style.filter=''; e.currentTarget.style.boxShadow='0 0 20px rgba(96,165,250,0.12), inset 0 1px 0 rgba(96,165,250,0.2)'; } }}
                         onMouseDown={e=>{ if(!loading) e.currentTarget.style.transform='scale(0.98)'; }}
@@ -11889,54 +11901,66 @@ return (
                         )}
 
                         {/* VEHICLE BOX */}
-                        {registration && !registration.parseFailed && (
-                            <div className="vehicle-box" style={{ border: recentRegistrationFlash ? '2px solid #ef4444' : '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', animation: recentRegistrationFlash ? 'flash-red-border 1.5s infinite' : 'none', background: 'linear-gradient(135deg, rgba(15,23,42,0.8), rgba(30,58,138,0.1))' }}>
-                                <div className="box-header" style={{ borderRadius: '12px 12px 0 0' }}>
-                                    <Car size={16} /> Vehicle Details
-                                    {recentRegistrationFlash && (<span style={{ marginLeft: '12px', padding: '3px 10px', background: '#ef4444', color: 'white', fontSize: '10px', fontWeight: '700', borderRadius: '4px', animation: 'pulse-glow 1s infinite' }}>RECENT EDIT</span>)}
+{registration && !registration.parseFailed && (
+                            <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:recentRegistrationFlash?'1px solid rgba(239,68,68,0.5)':'1px solid rgba(56,189,248,0.18)',borderRadius:'12px',animation:recentRegistrationFlash?'flash-red-border 1.5s infinite':'plateRevealIn 380ms cubic-bezier(0.23,1,0.32,1)',boxShadow:recentRegistrationFlash?'0 0 24px rgba(239,68,68,0.18), inset 0 1px 0 rgba(239,68,68,0.1)':'inset 0 1px 0 rgba(56,189,248,0.08), 0 0 24px rgba(14,165,233,0.04)',display:'flex',flexDirection:'column' }}>
+
+                                {/* Header strip */}
+                                <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 18px',borderBottom:'1px solid rgba(56,189,248,0.1)' }}>
+                                    <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
+                                        <div style={{ width:'2px',height:'12px',background:'#22d3ee',borderRadius:'2px',boxShadow:'0 0 6px #22d3ee' }} />
+                                        <Car size={12} style={{ color:'#22d3ee' }} />
+                                        <span style={{ color:'#22d3ee',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Vehicle Details</span>
+                                    </div>
+                                    {recentRegistrationFlash && (<span style={{ padding:'2px 8px',background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.4)',color:'#fca5a5',fontSize:'9px',fontWeight:'700',borderRadius:'4px',letterSpacing:'1.5px',fontFamily:'monospace',animation:'pulse-glow 1s infinite' }}>RECENT EDIT</span>)}
                                 </div>
 
-                                {/* License Plate Display */}
-                                <div style={{ background: 'linear-gradient(135deg, #064e3b, #065f46)', border: '2px solid #10b981', borderRadius: '12px', padding: '20px', textAlign: 'center', margin: '16px', boxShadow: '0 4px 16px rgba(16,185,129,0.2)' }}>
-                                    <div style={{ fontSize: '11px', color: '#6ee7b7', fontWeight: '700', marginBottom: '6px', letterSpacing: '3px' }}>LICENSE PLATE</div>
-                                    <div style={{ fontSize: '32px', fontWeight: '900', color: 'white', letterSpacing: '6px', fontFamily: 'monospace', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>{registration?.plate}</div>
-                                    <div style={{ fontSize: '14px', color: '#a7f3d0', fontWeight: '600', marginTop: '6px' }}>{registration?.state}</div>
+                                {/* License Plate Hero */}
+                                <div style={{ margin:'16px 18px 14px',padding:'22px',background:'radial-gradient(ellipse at 50% 50%, rgba(16,185,129,0.18) 0%, rgba(6,78,59,0.4) 70%)',border:'1px solid rgba(52,211,153,0.5)',borderRadius:'12px',textAlign:'center',boxShadow:'0 0 32px rgba(16,185,129,0.18), inset 0 1px 0 rgba(52,211,153,0.2), inset 0 -1px 0 rgba(0,0,0,0.2)',position:'relative',overflow:'hidden' }}>
+                                    {/* Subtle scan line effect */}
+                                    <div style={{ position:'absolute',inset:0,background:'repeating-linear-gradient(180deg,transparent 0px,transparent 3px,rgba(255,255,255,0.015) 3px,rgba(255,255,255,0.015) 4px)',pointerEvents:'none',borderRadius:'12px' }} />
+                                    <div style={{ position:'relative' }}>
+                                        <div style={{ fontSize:'10px',color:'#6ee7b7',fontWeight:'700',marginBottom:'8px',letterSpacing:'4px',fontFamily:'monospace' }}>LICENSE PLATE</div>
+                                        <div style={{ fontSize:'38px',fontWeight:'900',color:'white',letterSpacing:'8px',fontFamily:'monospace',textShadow:'0 2px 12px rgba(16,185,129,0.4), 0 0 24px rgba(16,185,129,0.2)',lineHeight:1.1 }}>{registration?.plate}</div>
+                                        <div style={{ fontSize:'13px',color:'#a7f3d0',fontWeight:'700',marginTop:'8px',letterSpacing:'3px',fontFamily:'monospace' }}>{registration?.state}</div>
+                                    </div>
                                 </div>
 
-                                {/* Vehicle Info Grid */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', margin: '0 16px 16px' }}>
+                                {/* Info Grid */}
+                                <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',padding:'0 18px 14px' }}>
                                     {[
-                                        { label: 'VEHICLE', value: `${registration?.year} ${registration?.make}`, sub: registration?.model },
-                                        { label: 'TYPE', value: registration?.vehicleType },
-                                        { label: 'COLOR', value: registration?.color },
-                                        { label: 'STATE', value: registration?.state },
-                                    ].map(({ label, value, sub }) => (
-                                        <div key={label} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '14px' }}>
-                                            <div style={{ fontSize: '10px', color: '#6ee7b7', fontWeight: '700', marginBottom: '6px', letterSpacing: '1px' }}>{label}</div>
-                                            <div style={{ fontSize: '16px', color: 'white', fontWeight: '700' }}>{value}</div>
-                                            {sub && <div style={{ fontSize: '13px', color: '#d1fae5', marginTop: '2px', opacity: 0.8 }}>{sub}</div>}
+                                        { label:'VEHICLE',value:`${registration?.year || ''} ${registration?.make || ''}`.trim()||'—',sub:registration?.model },
+                                        { label:'TYPE',   value:registration?.vehicleType||'—' },
+                                        { label:'COLOR',  value:registration?.color||'—' },
+                                        { label:'STATE',  value:registration?.state||'—' },
+                                    ].map(({ label, value, sub })=>(
+                                        <div key={label} style={{ background:'rgba(0,0,0,0.3)',border:'1px solid rgba(56,189,248,0.1)',borderRadius:'8px',padding:'11px 14px',transition:'background 200ms ease-out, border-color 200ms ease-out' }}
+                                            onMouseEnter={e=>{ e.currentTarget.style.background='rgba(56,189,253,0.04)'; e.currentTarget.style.borderColor='rgba(56,189,248,0.22)'; }}
+                                            onMouseLeave={e=>{ e.currentTarget.style.background='rgba(0,0,0,0.3)'; e.currentTarget.style.borderColor='rgba(56,189,248,0.1)'; }}>
+                                            <div style={{ fontSize:'9px',color:'#64748b',fontWeight:'700',marginBottom:'4px',letterSpacing:'1.5px',fontFamily:'monospace' }}>{label}</div>
+                                            <div style={{ fontSize:'14px',color:'#e2e8f0',fontWeight:'700',fontFamily:'monospace' }}>{value}</div>
+                                            {sub && <div style={{ fontSize:'11px',color:'#94a3b8',marginTop:'2px',fontFamily:'monospace' }}>{sub}</div>}
                                         </div>
                                     ))}
                                 </div>
 
-                                {/* Phonetic Spelling */}
-                                <div style={{ margin: '0 16px 16px', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: '10px', padding: '14px' }}>
-                                    <div style={{ fontSize: '10px', color: '#86efac', fontWeight: '700', marginBottom: '6px', letterSpacing: '2px' }}>PHONETIC SPELLING</div>
-                                    <div style={{ fontSize: '15px', color: 'white', fontWeight: '700', fontFamily: 'monospace', letterSpacing: '1px' }}>{registration?.phoneticPlate}</div>
+                                {/* Phonetic */}
+                                <div style={{ margin:'0 18px 14px',background:'rgba(34,211,238,0.05)',border:'1px solid rgba(34,211,238,0.18)',borderRadius:'8px',padding:'11px 14px' }}>
+                                    <div style={{ fontSize:'9px',color:'#22d3ee',fontWeight:'700',marginBottom:'4px',letterSpacing:'1.5px',fontFamily:'monospace' }}>PHONETIC SPELLING</div>
+                                    <div style={{ fontSize:'14px',color:'#e2e8f0',fontWeight:'700',fontFamily:'monospace',letterSpacing:'1px' }}>{registration?.phoneticPlate}</div>
                                 </div>
 
                                 {/* Timestamp */}
-                                <div style={{ margin: '0 16px 16px', background: 'rgba(16,185,129,0.06)', borderRadius: '8px', padding: '10px 14px' }}>
-                                    <div style={{ fontSize: '11px', color: '#6ee7b7', fontWeight: '600' }}>
-                                        {registration.isEdited ? 'Last Edited: ' : 'Registered: '}
-                                        <span style={{ color: 'white', fontWeight: '700' }}>{registration.timestamp}</span>
+                                <div style={{ margin:'0 18px 18px',padding:'9px 14px',background:'rgba(0,0,0,0.25)',border:'1px solid rgba(56,189,248,0.08)',borderRadius:'7px' }}>
+                                    <div style={{ fontSize:'10px',color:'#94a3b8',fontFamily:'monospace' }}>
+                                        {registration.isEdited ? 'Last Edited:' : 'Registered:'}{' '}
+                                        <span style={{ color:'#34d399',fontWeight:'700',letterSpacing:'0.5px' }}>{registration.timestamp}</span>
                                     </div>
                                 </div>
 
                                 {/* Handicap Permit */}
                                 {registration.hasHandicapPermit && (
-                                    <div style={{ margin: '0 16px 16px', padding: '10px 14px', background: 'linear-gradient(135deg, rgba(251,191,36,0.15), rgba(251,191,36,0.08))', border: '1px solid rgba(251,191,36,0.4)', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px', color: '#fde047', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase' }}>
-                                        <Accessibility size={18} /> HANDICAP PERMIT
+                                    <div style={{ margin:'0 18px 18px',padding:'10px 14px',background:'linear-gradient(180deg,rgba(251,191,36,0.12),rgba(251,191,36,0.04))',border:'1px solid rgba(251,191,36,0.35)',borderRadius:'8px',display:'flex',alignItems:'center',gap:'8px',color:'#fde047',fontSize:'11px',fontWeight:'700',textTransform:'uppercase',letterSpacing:'1.5px',fontFamily:'monospace',boxShadow:'0 0 16px rgba(251,191,36,0.08)' }}>
+                                        <Accessibility size={14} /> Handicap Permit
                                     </div>
                                 )}
                             </div>
