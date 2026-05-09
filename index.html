@@ -11187,7 +11187,7 @@ return (
                             <div style={{ color:'#e2e8f0',fontSize:'15px',fontWeight:'700',fontFamily:'monospace',letterSpacing:'0.3px' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName}</div>
                         </div>
                         <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px' }}>
-                            {[{l:'Badge ID',v:`#${trooperSettings?.BadgeID||'—'}`},{l:'Zone',v:trooperSettings?.Zone||'—'},{l:'Username',v:trooperSettings?.Username||'—'},{l:'Reg. Expiry',v:trooperSettings?.expDate||'—'}].map(({l,v},i)=>(
+                            {[{l:'Badge ID',v:`#${trooperSettings?.BadgeID||'—'}`},{l:'Zone',v:trooperSettings?.Zone||'—'},{l:'Username',v:trooperSettings?.Username||'—'},{l:'Reg. Expiry',v:editableTrooperSettings?.expDate||'—'}].map(({l,v},i)=>(
                                 <div key={i} style={{ background:'rgba(0,0,0,0.25)',border:'1px solid rgba(56,189,248,0.08)',borderRadius:'6px',padding:'8px 10px' }}>
                                     <div style={{ color:'#475569',fontSize:'8px',fontWeight:'600',letterSpacing:'1.2px',textTransform:'uppercase',marginBottom:'3px',fontFamily:'monospace' }}>{l}</div>
                                     <div style={{ color:'#e2e8f0',fontSize:'12px',fontWeight:'700',fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{v}</div>
@@ -11349,17 +11349,17 @@ return (
                         </button>
                     </div>
 
-                    {/* Active Calls — own panel, more saturated red than BOLOs */}
-                    <div style={{ background:'linear-gradient(180deg,rgba(127,20,20,0.55) 0%,rgba(80,12,12,0.7) 100%)',border:'1px solid rgba(239,68,68,0.35)',borderRadius:'10px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(239,68,68,0.18), 0 0 24px rgba(239,68,68,0.06)' }}>
-                        <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(239,68,68,0.1)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
+                    {/* Active Calls — amber/orange to differentiate from red BOLOs */}
+                    <div style={{ background:'linear-gradient(180deg,rgba(120,55,0,0.45) 0%,rgba(80,40,0,0.6) 100%)',border:'1px solid rgba(245,158,11,0.32)',borderRadius:'10px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(245,158,11,0.18), 0 0 24px rgba(245,158,11,0.06)' }}>
+                        <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(245,158,11,0.12)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
                             <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
-                                <div style={{ width:'2px',height:'12px',background:'#ef4444',borderRadius:'2px',boxShadow:'0 0 6px #ef4444' }} />
-                                <span style={{ color:'#f87171',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Active Calls</span>
-                                {(()=>{const n=(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length;return <span style={{ padding:'1px 7px',background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,0.25)',borderRadius:'10px',color:'#f87171',fontSize:'10px',fontWeight:'700',fontFamily:'monospace' }}>{n}</span>;})()}
+                                <div style={{ width:'2px',height:'12px',background:'#f59e0b',borderRadius:'2px',boxShadow:'0 0 6px #f59e0b' }} />
+                                <span style={{ color:'#fbbf24',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Active Calls</span>
+                                {(()=>{const n=(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length;return <span style={{ padding:'1px 7px',background:'rgba(245,158,11,0.14)',border:'1px solid rgba(245,158,11,0.3)',borderRadius:'10px',color:'#fbbf24',fontSize:'10px',fontWeight:'700',fontFamily:'monospace' }}>{n}</span>;})()}
                             </div>
-                            <button onClick={()=>setActiveView('calls')} style={{ padding:'3px 10px',background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:'4px',color:'#f87171',fontSize:'9px',fontWeight:'700',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px',fontFamily:'monospace',width:'auto',transition:'background 160ms ease-out, border-color 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
-                                onMouseEnter={e=>{ e.currentTarget.style.background='rgba(239,68,68,0.18)'; e.currentTarget.style.borderColor='rgba(239,68,68,0.45)'; }}
-                                onMouseLeave={e=>{ e.currentTarget.style.background='rgba(239,68,68,0.1)'; e.currentTarget.style.borderColor='rgba(239,68,68,0.3)'; }}
+                            <button onClick={()=>setActiveView('calls')} style={{ padding:'3px 10px',background:'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,0.3)',borderRadius:'4px',color:'#fbbf24',fontSize:'9px',fontWeight:'700',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px',fontFamily:'monospace',width:'auto',transition:'background 160ms ease-out, border-color 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                                onMouseEnter={e=>{ e.currentTarget.style.background='rgba(245,158,11,0.2)'; e.currentTarget.style.borderColor='rgba(245,158,11,0.5)'; }}
+                                onMouseLeave={e=>{ e.currentTarget.style.background='rgba(245,158,11,0.1)'; e.currentTarget.style.borderColor='rgba(245,158,11,0.3)'; }}
                                 onMouseDown={e=>{ e.currentTarget.style.transform='scale(0.96)'; }}
                                 onMouseUp={e=>{ e.currentTarget.style.transform=''; }}>VIEW ALL</button>
                         </div>
@@ -11367,15 +11367,15 @@ return (
                             {(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length===0
                                 ?<div style={{ color:'#475569',fontSize:'11px',textAlign:'center',padding:'24px',fontFamily:'monospace' }}>No active calls</div>
                                 :(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).map((call,ci)=>(
-                                    <div key={ci} onClick={()=>setActiveView('calls')} style={{ display:'flex',gap:'9px',padding:'9px 11px',background:'rgba(239,68,68,0.06)',border:'1px solid rgba(239,68,68,0.15)',borderRadius:'7px',marginBottom:'5px',cursor:'pointer',transition:'background 160ms ease-out, border-color 160ms ease-out',position:'relative',overflow:'hidden' }}
-                                        onMouseEnter={e=>{ e.currentTarget.style.background='rgba(239,68,68,0.1)'; e.currentTarget.style.borderColor='rgba(239,68,68,0.3)'; }}
-                                        onMouseLeave={e=>{ e.currentTarget.style.background='rgba(239,68,68,0.06)'; e.currentTarget.style.borderColor='rgba(239,68,68,0.15)'; }}>
-                                        <div style={{ position:'absolute',left:0,top:0,bottom:0,width:'2px',background:'#ef4444',boxShadow:'0 0 6px #ef4444' }} />
-                                        <div style={{ width:'24px',height:'24px',background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:'5px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginLeft:'4px' }}>
+                                    <div key={ci} onClick={()=>setActiveView('calls')} style={{ display:'flex',gap:'9px',padding:'9px 11px',background:'rgba(245,158,11,0.06)',border:'1px solid rgba(245,158,11,0.15)',borderRadius:'7px',marginBottom:'5px',cursor:'pointer',transition:'background 160ms ease-out, border-color 160ms ease-out',position:'relative',overflow:'hidden' }}
+                                        onMouseEnter={e=>{ e.currentTarget.style.background='rgba(245,158,11,0.1)'; e.currentTarget.style.borderColor='rgba(245,158,11,0.3)'; }}
+                                        onMouseLeave={e=>{ e.currentTarget.style.background='rgba(245,158,11,0.06)'; e.currentTarget.style.borderColor='rgba(245,158,11,0.15)'; }}>
+                                        <div style={{ position:'absolute',left:0,top:0,bottom:0,width:'2px',background:'#f59e0b',boxShadow:'0 0 6px #f59e0b' }} />
+                                        <div style={{ width:'24px',height:'24px',background:'rgba(245,158,11,0.15)',border:'1px solid rgba(245,158,11,0.3)',borderRadius:'5px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginLeft:'4px' }}>
                                             <span style={{ fontSize:'11px' }}>🚨</span>
                                         </div>
                                         <div style={{ flex:1,minWidth:0 }}>
-                                            <div style={{ color:'#fca5a5',fontSize:'11px',fontWeight:'700',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontFamily:'monospace' }}>{call.type||call.content?.slice(0,40)||'Unknown'}</div>
+                                            <div style={{ color:'#fcd34d',fontSize:'11px',fontWeight:'700',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontFamily:'monospace' }}>{call.type||call.content?.slice(0,40)||'Unknown'}</div>
                                             <div style={{ color:'#64748b',fontSize:'9px',marginTop:'1px',fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{call.author||'—'}</div>
                                         </div>
                                     </div>
@@ -11925,8 +11925,11 @@ return (
 
                             {!loadingRoblox && (
                                 <>
+                                    {/* Spacer pushes action buttons to the bottom edge of the card */}
+                                    <div style={{ flex:'1 1 auto',minHeight:'14px' }} data-spacer="true" />
+
                                     <button onClick={() => { setShowDatabaseHistory(true); const _uid = registration?.discordUserId || searchResults?.discordUserId || ''; setDatabaseSearchId(_uid); if (_uid) setTimeout(() => searchPastRecords(_uid), 100); }}
-                                        style={{ width:'100%',marginTop:'12px',padding:'11px',background:'rgba(0,0,0,0.3)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'7px',color:'#94a3b8',fontSize:'11px',fontWeight:'700',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1.5px',fontFamily:'monospace',transition:'background 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)',display:'flex',alignItems:'center',justifyContent:'center',gap:'7px' }}
+                                        style={{ width:'100%',padding:'11px',background:'rgba(0,0,0,0.3)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'7px',color:'#94a3b8',fontSize:'11px',fontWeight:'700',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1.5px',fontFamily:'monospace',transition:'background 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)',display:'flex',alignItems:'center',justifyContent:'center',gap:'7px' }}
                                         onMouseEnter={e=>{ e.currentTarget.style.background='rgba(56,189,253,0.08)'; e.currentTarget.style.borderColor='rgba(56,189,248,0.3)'; e.currentTarget.style.color='#e2e8f0'; }}
                                         onMouseLeave={e=>{ e.currentTarget.style.background='rgba(0,0,0,0.3)'; e.currentTarget.style.borderColor='rgba(56,189,248,0.15)'; e.currentTarget.style.color='#94a3b8'; }}
                                         onMouseDown={e=>{ e.currentTarget.style.transform='scale(0.98)'; }}
