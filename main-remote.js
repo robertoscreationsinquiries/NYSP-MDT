@@ -68,7 +68,6 @@ load();setInterval(load,5000);
 // filters to the active session prefix (`1 |`, `2 |`, or `3 |`), and returns a
 // normalized officer array. Errors are returned, not thrown — the renderer needs
 // a stable shape so it can render an "unavailable" state.
-const http = require('http');
 function tsRequest(apiKey, command) {
     return new Promise((resolve, reject) => {
         const req = http.request({
