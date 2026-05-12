@@ -68,21 +68,65 @@ load();setInterval(load,5000);
 // filters to the active session prefix (`1 |`, `2 |`, or `3 |`), and returns a
 // normalized officer array. Errors are returned, not thrown — the renderer needs
 // a stable shape so it can render an "unavailable" state.
+// ClientQuery uses TeamSpeak's escaped key-value wire format, not JSON.
+// Records: `key=value key=value|key=value ...` (records separated by `|`).
+// Escapes: \s=space, \p=pipe, \/=slash, \\=backslash, \n=newline, \r=cr, \t=tab.
+function tsUnescape(s) {
+    if (typeof s !== 'string') return s;
+    return s.replace(/\\(s|p|\/|\\|n|r|t)/g, (_, c) => {
+        switch (c) { case 's': return ' '; case 'p': return '|'; case '/': return '/';
+                     case '\\': return '\\'; case 'n': return '\n'; case 'r': return '\r';
+                     case 't': return '\t'; default: return c; }
+    });
+}
+
+// Parse a single ClientQuery response body. Returns { ok, status, body: [records...] }.
+// Body may end with `error id=0 msg=ok` — we strip that and return the records.
+function tsParse(raw) {
+    if (!raw || typeof raw !== 'string') return { ok: false, status: 'empty', body: [] };
+    // Split out the trailing `error id=N msg=...` line if present
+    const errMatch = raw.match(/(\n|^)error id=(\d+) msg=([^\n]*)/);
+    const errId = errMatch ? parseInt(errMatch[2], 10) : 0;
+    const errMsg = errMatch ? tsUnescape(errMatch[3] || '') : '';
+    const payload = errMatch ? raw.slice(0, errMatch.index).trim() : raw.trim();
+    if (errId !== 0) return { ok: false, status: errMsg || `error ${errId}`, body: [] };
+    if (!payload) return { ok: true, status: 'ok', body: [] };
+    const records = payload.split('|').map(rec => {
+        const obj = {};
+        rec.split(/\s+/).forEach(pair => {
+            const eq = pair.indexOf('=');
+            if (eq < 0) return;
+            const k = pair.slice(0, eq);
+            const v = tsUnescape(pair.slice(eq + 1));
+            obj[k] = v;
+        });
+        return obj;
+    });
+    return { ok: true, status: 'ok', body: records };
+}
+
 function tsRequest(apiKey, command) {
     return new Promise((resolve, reject) => {
+        // Send api-key BOTH as header AND query param — different ClientQuery versions
+        // accept different formats; doing both is safe and idempotent.
+        const path = '/' + command + (command.includes('?') ? '&' : '?') + 'api-key=' + encodeURIComponent(apiKey);
         const req = http.request({
-            host: '127.0.0.1', port: 25639, path: '/' + command, method: 'GET',
-            headers: { 'x-api-key': apiKey, 'Accept': 'application/json' },
+            host: '127.0.0.1', port: 25639, path, method: 'GET',
+            headers: { 'Api-Key': apiKey, 'Accept': 'text/plain' },
             timeout: 4000
         }, (res) => {
             let body = '';
             res.on('data', c => body += c);
             res.on('end', () => {
-                try { resolve(JSON.parse(body)); }
-                catch (e) { reject(new Error(`TS parse error (${res.statusCode}): ${body.slice(0, 100)}`)); }
+                if (res.statusCode === 401 || res.statusCode === 403) {
+                    return reject(new Error(`TS auth failed (HTTP ${res.statusCode}) — check API key`));
+                }
+                const parsed = tsParse(body);
+                if (!parsed.ok) return reject(new Error(`TS error: ${parsed.status}`));
+                resolve(parsed);
             });
         });
-        req.on('error', reject);
+        req.on('error', e => reject(new Error(e.code === 'ECONNREFUSED' ? 'ClientQuery not reachable on port 25639 — enable the plugin in TeamSpeak → Tools → Options → Addons' : e.message)));
         req.on('timeout', () => { req.destroy(); reject(new Error('TS request timed out — is TeamSpeak running?')); });
         req.end();
     });
