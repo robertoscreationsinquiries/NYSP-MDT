@@ -61,6 +61,120 @@ load();setInterval(load,5000);
     _streamServer.listen(PORT, '0.0.0.0');
     return { success: true, ip: localIp, port: PORT };
 });
+// ── TeamSpeak ClientQuery poll ──
+// Renderer calls every 5s with the API key. Main process fetches localhost:25639
+// (which is only reachable from the same machine running TS3), parses the channel
+// list and client list, maps each client to a department based on nickname format,
+// filters to the active session prefix (`1 |`, `2 |`, or `3 |`), and returns a
+// normalized officer array. Errors are returned, not thrown — the renderer needs
+// a stable shape so it can render an "unavailable" state.
+const http = require('http');
+function tsRequest(apiKey, command) {
+    return new Promise((resolve, reject) => {
+        const req = http.request({
+            host: '127.0.0.1', port: 25639, path: '/' + command, method: 'GET',
+            headers: { 'x-api-key': apiKey, 'Accept': 'application/json' },
+            timeout: 4000
+        }, (res) => {
+            let body = '';
+            res.on('data', c => body += c);
+            res.on('end', () => {
+                try { resolve(JSON.parse(body)); }
+                catch (e) { reject(new Error(`TS parse error (${res.statusCode}): ${body.slice(0, 100)}`)); }
+            });
+        });
+        req.on('error', reject);
+        req.on('timeout', () => { req.destroy(); reject(new Error('TS request timed out — is TeamSpeak running?')); });
+        req.end();
+    });
+}
+
+ipcMain.handle('ts-poll', async (_event, { apiKey, session }) => {
+    if (!apiKey || apiKey.length < 10) return { ok: false, reason: 'INVALID_KEY' };
+    if (!session) return { ok: false, reason: 'NO_SESSION' };
+    const sessionPrefix = String(session) + ' |';
+    try {
+        // Pull channel list + client list in parallel
+        const [chRes, clRes] = await Promise.all([
+            tsRequest(apiKey, 'channellist'),
+            tsRequest(apiKey, 'clientlist')
+        ]);
+        const channels = (chRes?.body || []).filter(c => c && c.channel_name);
+        const clients  = (clRes?.body || []).filter(c => c && c.client_nickname && c.client_type === '0');
+
+        // Channels matching the session prefix → id -> shortened display name
+        const sessionChannelMap = {};
+        for (const ch of channels) {
+            const name = String(ch.channel_name).trim();
+            if (!name.startsWith(sessionPrefix)) continue;
+            // Strip "N | " prefix
+            const after = name.slice(sessionPrefix.length).trim();
+            // Use first word as short name (NYSP, EGPD, RCSO, VLAW, etc.)
+            const short = (after.split(/\s+/)[0] || after)
+                .replace(/^VLAW\d*/i, 'VLAW')
+                .replace(/^NYSDOT$/i, 'NYSDOT');
+            sessionChannelMap[ch.cid] = short;
+        }
+
+        // Department detection from nickname callsign
+        const patterns = [
+            { dept: 'EGFD', re: /^(ENGINE|LADDER|MEDIC|REMS)-\d+$/i },
+            { dept: 'DOT',  re: /^[A-Z]+-\d+$/i, allowWords: ['TOW', 'TRUCK'] },
+            { dept: 'NYSP', re: /^[A-Z]-\d+$/i },                  // L-N
+            { dept: 'NYSP', re: /^\d[A-Z]\d{2}$/i },               // NLNN
+            { dept: 'NYSP', re: /^MOTOR-\d+$/i },
+            { dept: 'EGPD', re: /^\d{3}$/ },
+        ];
+
+        const officers = [];
+        for (const cl of clients) {
+            const nick = String(cl.client_nickname).trim();
+            const channelShort = sessionChannelMap[cl.cid];
+            if (!channelShort) continue; // not in this session
+
+            // Split on " | " to get callsign vs roblox name
+            let callsign = nick, robloxName = '';
+            const pipeIdx = nick.indexOf('|');
+            if (pipeIdx > -1) {
+                callsign = nick.slice(0, pipeIdx).trim();
+                robloxName = nick.slice(pipeIdx + 1).trim();
+            }
+
+            // Match against department patterns
+            let dept = 'UNKNOWN';
+            for (const p of patterns) {
+                if (!p.re.test(callsign)) continue;
+                if (p.allowWords) {
+                    const word = callsign.split('-')[0].toUpperCase();
+                    if (!p.allowWords.includes(word)) continue;
+                }
+                dept = p.dept;
+                break;
+            }
+
+            officers.push({
+                clid: cl.clid,
+                nickname: nick,
+                callsign,
+                robloxName,
+                channel: channelShort,
+                dept
+            });
+        }
+
+        // Sort: dept order first, then by callsign
+        const deptOrder = { EGPD: 0, NYSP: 1, EGFD: 2, DOT: 3, UNKNOWN: 4 };
+        officers.sort((a, b) => {
+            const d = (deptOrder[a.dept] ?? 9) - (deptOrder[b.dept] ?? 9);
+            if (d !== 0) return d;
+            return a.callsign.localeCompare(b.callsign);
+        });
+
+        return { ok: true, officers, pollAt: Date.now() };
+    } catch (err) {
+        return { ok: false, reason: 'ERROR', error: err.message };
+    }
+});
 
 ipcMain.handle('stop-streaming', async () => {
     if (_streamServer) { _streamServer.close(); _streamServer = null; }
