@@ -1749,6 +1749,8 @@ const [officerNextUpdate, setOfficerNextUpdate] = useState(null);
 const [teamspeakAPIKey, setTeamspeakAPIKey] = useState(() => localStorage.getItem('teamspeakAPIKey') || '');
 const [tsStatus, setTsStatus] = useState('IDLE'); // 'IDLE' | 'INVALID_KEY' | 'NO_SESSION' | 'OK' | 'ERROR'
 const [tsLastUpdate, setTsLastUpdate] = useState(null);
+const [tsErrorDetail, setTsErrorDetail] = useState('');
+const [showTsSetupGuide, setShowTsSetupGuide] = useState(false);
 const [searchCitizenId, setSearchCitizenId] = useState('');
 const [compactMode, setCompactMode] = useState(false);
 const [pastRecords, setPastRecords] = useState([]);
@@ -3340,10 +3342,11 @@ React.useEffect(() => {
                 setOfficerNextUpdate(new Date(Date.now() + 5000));
             } else {
                 setTsStatus(result?.reason || 'ERROR');
+                setTsErrorDetail(result?.error || '');
                 setOnlineOfficers([]);
             }
         } catch (e) {
-            if (!cancelled) { setTsStatus('ERROR'); setOnlineOfficers([]); }
+            if (!cancelled) { setTsStatus('ERROR'); setTsErrorDetail(e?.message || 'IPC failed'); setOnlineOfficers([]); }
         }
     };
     poll();
@@ -3373,10 +3376,18 @@ const renderOfficerList = (variant) => {
         </div>;
     }
     if (tsStatus === 'ERROR') {
+        const isAuthErr = /auth|api key|401|403/i.test(tsErrorDetail || '');
+        const isUnreachable = /reachable|not running|ECONNREFUSED|enable the plugin/i.test(tsErrorDetail || '');
+        const title = isAuthErr ? 'API Key Rejected' : isUnreachable ? 'TeamSpeak Offline' : 'Connection Error';
+        const help = isAuthErr
+            ? 'Reissue the API key in TeamSpeak → ClientQuery → Settings, then update it here.'
+            : isUnreachable
+                ? 'Start TeamSpeak and enable ClientQuery in Tools → Options → Addons.'
+                : (tsErrorDetail || 'Unknown failure');
         return <div style={{ padding: '20px 14px', textAlign: 'center' }}>
-            <div style={{ width: '34px', height: '34px', margin: '0 auto 10px', borderRadius: '50%', background: 'rgba(100,116,139,0.1)', border: '1px solid rgba(100,116,139,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>○</div>
-            <div style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: '4px' }}>TeamSpeak Offline</div>
-            <div style={{ color: '#64748b', fontSize: '10px', fontFamily: 'monospace', lineHeight: 1.5 }}>Start TeamSpeak and ensure<br/>ClientQuery is enabled.</div>
+            <div style={{ width: '34px', height: '34px', margin: '0 auto 10px', borderRadius: '50%', background: 'rgba(100,116,139,0.1)', border: '1px solid rgba(100,116,139,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>⚠️</div>
+            <div style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: '4px' }}>{title}</div>
+            <div style={{ color: '#64748b', fontSize: '10px', fontFamily: 'monospace', lineHeight: 1.5 }}>{help}</div>
         </div>;
     }
     if (!onlineOfficers || onlineOfficers.length === 0) {
@@ -12595,6 +12606,12 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                     <div style={S.fieldLabel}>Discord Account Token</div>
                                     <input type="password" value={discordToken} onChange={(e) => setDiscordToken(e.target.value)} placeholder="Enter your Discord token" style={{ ...S.input, marginBottom: '8px' }} onFocus={e => e.target.style.borderColor = 'rgba(239,68,68,0.4)'} onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.07)'} />
                                     <button onClick={saveToken} style={S.btn('#ef4444', false)}>{tokenSaved ? 'Update Token' : '💾 Save Token'}</button>
+                                    {tokenSaved && (
+                                        <div style={{ marginTop: '8px', padding: '10px 12px', background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '8px' }}>
+                                            <div style={{ color: '#fbbf24', fontSize: '11px', fontWeight: '700', marginBottom: '2px' }}>⚠ Rate Limit Warning</div>
+                                            <div style={{ color: '#78716c', fontSize: '11px' }}>Discord limits API requests. If you see 403/429 errors, wait 60 seconds.</div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div style={S.divider} />
@@ -12608,10 +12625,9 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                 <div style={{ marginBottom: '12px' }}>
                                     <div style={S.fieldLabel}>TeamSpeak API Key</div>
                                     <input type="password" value={teamspeakAPIKey} onChange={(e) => setTeamspeakAPIKey(e.target.value)} placeholder="Paste your TS3 ClientQuery API key" style={{ ...S.input, marginBottom: '8px' }} onFocus={e => e.target.style.borderColor = 'rgba(34,211,238,0.4)'} onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.07)'} />
-                                    <div style={{ color: '#64748b', fontSize: '11px', lineHeight: 1.5, marginBottom: '8px' }}>
-                                        Powers the Available Officers list. Enable <strong style={{ color: '#94a3b8' }}>ClientQuery</strong> in TeamSpeak → Tools → Options → Addons. Copy the API key from ClientQuery → Settings. Click <strong style={{ color: '#22d3ee' }}>Export to Local File</strong> below to persist it.
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 11px', background: tsStatus === 'OK' ? 'rgba(16,185,129,0.08)' : tsStatus === 'INVALID_KEY' ? 'rgba(239,68,68,0.08)' : tsStatus === 'NO_SESSION' ? 'rgba(245,158,11,0.08)' : 'rgba(100,116,139,0.08)', border: `1px solid ${tsStatus === 'OK' ? 'rgba(16,185,129,0.25)' : tsStatus === 'INVALID_KEY' ? 'rgba(239,68,68,0.25)' : tsStatus === 'NO_SESSION' ? 'rgba(245,158,11,0.25)' : 'rgba(100,116,139,0.2)'}`, borderRadius: '7px' }}>
+
+                                    {/* Status pill */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 11px', marginBottom: '4px', background: tsStatus === 'OK' ? 'rgba(16,185,129,0.08)' : tsStatus === 'INVALID_KEY' ? 'rgba(239,68,68,0.08)' : tsStatus === 'NO_SESSION' ? 'rgba(245,158,11,0.08)' : 'rgba(100,116,139,0.08)', border: `1px solid ${tsStatus === 'OK' ? 'rgba(16,185,129,0.25)' : tsStatus === 'INVALID_KEY' ? 'rgba(239,68,68,0.25)' : tsStatus === 'NO_SESSION' ? 'rgba(245,158,11,0.25)' : 'rgba(100,116,139,0.2)'}`, borderRadius: '7px' }}>
                                         <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: tsStatus === 'OK' ? '#10b981' : tsStatus === 'INVALID_KEY' ? '#ef4444' : tsStatus === 'NO_SESSION' ? '#f59e0b' : '#64748b', boxShadow: tsStatus === 'OK' ? '0 0 6px #10b981' : tsStatus === 'INVALID_KEY' ? '0 0 6px #ef4444' : tsStatus === 'NO_SESSION' ? '0 0 6px #f59e0b' : 'none' }} />
                                         <span style={{ color: tsStatus === 'OK' ? '#34d399' : tsStatus === 'INVALID_KEY' ? '#fca5a5' : tsStatus === 'NO_SESSION' ? '#fbbf24' : '#94a3b8', fontSize: '10px', fontWeight: '700', letterSpacing: '1px', fontFamily: 'monospace', textTransform: 'uppercase' }}>
                                             {tsStatus === 'OK' && `Connected · ${(onlineOfficers || []).length} officer${(onlineOfficers || []).length === 1 ? '' : 's'} online`}
@@ -12621,14 +12637,32 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                             {tsStatus === 'IDLE' && 'Idle'}
                                         </span>
                                     </div>
-                                </div>
 
-                                {tokenSaved && (
-                                    <div style={{ padding: '10px 12px', background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '8px', marginBottom: '10px' }}>
-                                        <div style={{ color: '#fbbf24', fontSize: '11px', fontWeight: '700', marginBottom: '2px' }}>⚠ Rate Limit Warning</div>
-                                        <div style={{ color: '#78716c', fontSize: '11px' }}>Discord limits API requests. If you see 403/429 errors, wait 60 seconds.</div>
+                                    {/* Collapsible setup guide */}
+                                    <div onClick={() => setShowTsSetupGuide(v => !v)}
+                                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 0', color: '#22d3ee', fontSize: '11px', fontWeight: '600', userSelect: 'none', transition: 'color 160ms ease-out' }}
+                                        onMouseEnter={e => e.currentTarget.style.color = '#67e8f9'}
+                                        onMouseLeave={e => e.currentTarget.style.color = '#22d3ee'}>
+                                        <span style={{ fontSize: '9px', transform: showTsSetupGuide ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1)', display: 'inline-block' }}>▶</span>
+                                        Click here for a step-by-step setup guide
                                     </div>
-                                )}
+
+                                    {showTsSetupGuide && (
+                                        <div style={{ marginTop: '4px', padding: '12px 14px', background: 'rgba(34,211,238,0.04)', border: '1px solid rgba(34,211,238,0.18)', borderRadius: '8px', animation: 'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }}>
+                                            <ol style={{ margin: 0, paddingLeft: '18px', color: '#cbd5e1', fontSize: '11px', lineHeight: 1.8, fontFamily: 'inherit' }}>
+                                                <li>Open <strong style={{ color: '#e2e8f0' }}>TeamSpeak 3</strong> and go to <strong style={{ color: '#e2e8f0' }}>Tools → Options → Addons</strong>.</li>
+                                                <li>Find <strong style={{ color: '#22d3ee' }}>ClientQuery</strong> in the plugin list and click <strong style={{ color: '#e2e8f0' }}>Enabled</strong>.</li>
+                                                <li>Click <strong style={{ color: '#e2e8f0' }}>Settings</strong> next to ClientQuery — the API key window opens.</li>
+                                                <li>Click <strong style={{ color: '#e2e8f0' }}>Copy</strong> or copy the displayed key manually.</li>
+                                                <li>Paste the key into the field above.</li>
+                                                <li>Click <strong style={{ color: '#22d3ee' }}>Export to Local File</strong> at the bottom of Settings to persist the key across restarts.</li>
+                                            </ol>
+                                            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(34,211,238,0.12)', color: '#64748b', fontSize: '10px', lineHeight: 1.6 }}>
+                                                <strong style={{ color: '#94a3b8' }}>Note:</strong> TeamSpeak must remain running on this machine for officer presence to update. The CAD reads ClientQuery locally — it does not connect to your TS server directly.
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
 
                                 <div style={S.divider} />
                                 <button onClick={() => {
