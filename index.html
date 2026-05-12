@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NY Law Enforcements' CAD</title>
+    <title>NY Law Enforcements CAD</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -1746,6 +1746,9 @@ const [onlineOfficers, setOnlineOfficers] = useState([]);
 const [officerStatus, setOfficerStatus] = useState('10-9');
 const [officerLastUpdated, setOfficerLastUpdated] = useState(null);
 const [officerNextUpdate, setOfficerNextUpdate] = useState(null);
+const [teamspeakAPIKey, setTeamspeakAPIKey] = useState(() => localStorage.getItem('teamspeakAPIKey') || '');
+const [tsStatus, setTsStatus] = useState('IDLE'); // 'IDLE' | 'INVALID_KEY' | 'NO_SESSION' | 'OK' | 'ERROR'
+const [tsLastUpdate, setTsLastUpdate] = useState(null);
 const [searchCitizenId, setSearchCitizenId] = useState('');
 const [compactMode, setCompactMode] = useState(false);
 const [pastRecords, setPastRecords] = useState([]);
@@ -2392,6 +2395,17 @@ if (trimmedLine.startsWith('SFX_MIC_NOTAVAILABLE=')) {
                     console.warn('⚠️ [SETTINGS] Groq Console API key is INVALID');
                     console.warn('⚠️ [SETTINGS] Reason: Empty, contains brackets, or is placeholder');
                     console.warn('═══════════════════════════════════════════════════');
+                }
+}
+
+            // ── TeamSpeak API Key ──
+            if (trimmedLine.startsWith('TeamSpeakAPIKey=')) {
+                const key = trimmedLine.split('=')[1] || '';
+                const trimmedKey = key.trim();
+                if (trimmedKey && !trimmedKey.includes('[') && !trimmedKey.includes('PLACEHOLDER')) {
+                    console.log('🎙 [SETTINGS] Loaded TeamSpeak API key (length ' + trimmedKey.length + ')');
+                    setTeamspeakAPIKey(trimmedKey);
+                    try { localStorage.setItem('teamspeakAPIKey', trimmedKey); } catch (_) {}
                 }
             }
         });
@@ -3283,6 +3297,151 @@ if (window.AVAILABLE_OFFICERS_DISABLED) { console.log('[BACKEND DATA OFFICER]: �
         clearInterval(id);
     };
 }, [tokenSaved, trooperSettings, selectedUserSession, officerStatus]);
+
+
+// ── TeamSpeak ClientQuery poll ──
+// Fetches the current TS channel/client snapshot every 5s via the main process IPC.
+// Falls back to clear states: invalid key → INVALID_KEY, no session → NO_SESSION.
+// onlineOfficers is replaced on each successful poll; departed clients just disappear.
+React.useEffect(() => {
+    const key = (teamspeakAPIKey || '').trim();
+    if (key.length < 10) { setTsStatus('INVALID_KEY'); setOnlineOfficers([]); return; }
+    if (!selectedUserSession) { setTsStatus('NO_SESSION'); setOnlineOfficers([]); return; }
+
+    // Map full Discord session ID → TS session number (1/2/3)
+    const sessionMap = {
+        '1011898104670330920': '1',
+        '1390212294478397471': '2',
+        '1390212341005680650': '3'
+    };
+    const tsSession = sessionMap[selectedUserSession];
+    if (!tsSession) { setTsStatus('NO_SESSION'); setOnlineOfficers([]); return; }
+
+    let cancelled = false;
+    const poll = async () => {
+        if (cancelled) return;
+        try {
+            const result = await window.electron?.ipcRenderer?.invoke('ts-poll', { apiKey: key, session: tsSession });
+            if (cancelled) return;
+            if (result?.ok) {
+                // Adapt TS shape → existing onlineOfficers shape so the rest of the app doesn't break
+                const adapted = (result.officers || []).map(o => ({
+                    badge: o.clid,
+                    callSign: o.callsign,
+                    name: o.robloxName || o.nickname,
+                    zone: o.channel,
+                    status: '10-9',
+                    dept: o.dept
+                }));
+                setOnlineOfficers(adapted);
+                setTsStatus('OK');
+                setTsLastUpdate(new Date());
+                setOfficerLastUpdated(new Date());
+                setOfficerNextUpdate(new Date(Date.now() + 5000));
+            } else {
+                setTsStatus(result?.reason || 'ERROR');
+                setOnlineOfficers([]);
+            }
+        } catch (e) {
+            if (!cancelled) { setTsStatus('ERROR'); setOnlineOfficers([]); }
+        }
+    };
+    poll();
+    const id = setInterval(poll, 5000);
+    return () => { cancelled = true; clearInterval(id); };
+}, [teamspeakAPIKey, selectedUserSession]);
+
+// ── Shared OfficerList renderer ──
+// Single render function used by BOTH the home dashboard panel AND the global
+// sidetab. Visually identical in both contexts. Groups by dept, themes each card
+// to match the department's identity (NYSP navy/yellow, EGPD black/white,
+// EGFD dark-red/amber, DOT dark-yellow/yellow, UNKNOWN slate).
+const renderOfficerList = (variant) => {
+    // variant: 'compact' (home panel) | 'sidetab' (slide-in)
+    if (tsStatus === 'INVALID_KEY') {
+        return <div style={{ padding: '20px 14px', textAlign: 'center' }}>
+            <div style={{ width: '34px', height: '34px', margin: '0 auto 10px', borderRadius: '50%', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>⚠</div>
+            <div style={{ color: '#fca5a5', fontSize: '11px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: '4px' }}>UNAVAILABLE</div>
+            <div style={{ color: '#64748b', fontSize: '10px', fontFamily: 'monospace', lineHeight: 1.5 }}>TeamSpeak API key incorrect.<br/>Configure in Settings → Authentication.</div>
+        </div>;
+    }
+    if (tsStatus === 'NO_SESSION') {
+        return <div style={{ padding: '20px 14px', textAlign: 'center' }}>
+            <div style={{ width: '34px', height: '34px', margin: '0 auto 10px', borderRadius: '50%', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>◐</div>
+            <div style={{ color: '#fbbf24', fontSize: '11px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: '4px' }}>Select a Session</div>
+            <div style={{ color: '#64748b', fontSize: '10px', fontFamily: 'monospace', lineHeight: 1.5 }}>Choose Session 1, 2, or 3<br/>to view available officers.</div>
+        </div>;
+    }
+    if (tsStatus === 'ERROR') {
+        return <div style={{ padding: '20px 14px', textAlign: 'center' }}>
+            <div style={{ width: '34px', height: '34px', margin: '0 auto 10px', borderRadius: '50%', background: 'rgba(100,116,139,0.1)', border: '1px solid rgba(100,116,139,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>○</div>
+            <div style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: '4px' }}>TeamSpeak Offline</div>
+            <div style={{ color: '#64748b', fontSize: '10px', fontFamily: 'monospace', lineHeight: 1.5 }}>Start TeamSpeak and ensure<br/>ClientQuery is enabled.</div>
+        </div>;
+    }
+    if (!onlineOfficers || onlineOfficers.length === 0) {
+        return <div style={{ color: '#475569', fontSize: '11px', textAlign: 'center', padding: '24px', fontFamily: 'monospace' }}>No officers online</div>;
+    }
+
+    // Dept theme palette
+    const themeFor = (dept) => {
+        switch (dept) {
+            case 'NYSP': return { bg: 'linear-gradient(90deg, rgba(30,58,138,0.35), rgba(30,58,138,0.12))', border: 'rgba(251,191,36,0.35)', accent: '#fbbf24', textPrimary: '#fde047', textSecondary: '#cbd5e1', glow: '0 0 8px #fbbf24' };
+            case 'EGPD': return { bg: 'linear-gradient(90deg, rgba(0,0,0,0.55), rgba(30,30,30,0.3))', border: 'rgba(226,232,240,0.35)', accent: '#e2e8f0', textPrimary: '#ffffff', textSecondary: '#94a3b8', glow: '0 0 8px rgba(226,232,240,0.6)' };
+            case 'EGFD': return { bg: 'linear-gradient(90deg, rgba(127,29,29,0.4), rgba(80,15,15,0.18))', border: 'rgba(251,146,60,0.35)', accent: '#fb923c', textPrimary: '#fed7aa', textSecondary: '#cbd5e1', glow: '0 0 8px #fb923c' };
+            case 'DOT':  return { bg: 'linear-gradient(90deg, rgba(120,80,0,0.4), rgba(80,55,0,0.18))', border: 'rgba(253,224,71,0.35)', accent: '#fde047', textPrimary: '#fef08a', textSecondary: '#cbd5e1', glow: '0 0 8px #fde047' };
+            default:     return { bg: 'rgba(71,85,105,0.12)', border: 'rgba(148,163,184,0.2)', accent: '#94a3b8', textPrimary: '#cbd5e1', textSecondary: '#64748b', glow: 'none' };
+        }
+    };
+
+    // Group officers by dept (already sorted by main process)
+    const grouped = [];
+    let lastDept = null;
+    for (const o of onlineOfficers) {
+        if (o.dept !== lastDept) { grouped.push({ header: o.dept, officers: [] }); lastDept = o.dept; }
+        grouped[grouped.length - 1].officers.push(o);
+    }
+
+    return <>
+        {grouped.map((group, gi) => (
+            <div key={gi} style={{ marginBottom: gi < grouped.length - 1 ? '10px' : '0' }}>
+                {/* Dept header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '4px 6px 6px' }}>
+                    <div style={{ width: '2px', height: '10px', background: themeFor(group.header).accent, borderRadius: '2px', boxShadow: themeFor(group.header).glow }} />
+                    <span style={{ color: themeFor(group.header).accent, fontSize: '9px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace' }}>{group.header}</span>
+                    <span style={{ color: '#475569', fontSize: '9px', fontFamily: 'monospace' }}>· {group.officers.length}</span>
+                </div>
+                {group.officers.map((o, oi) => {
+                    const theme = themeFor(o.dept);
+                    const isMe = (o.robloxName || '').toLowerCase() === (trooperSettings?.Username || '').toLowerCase();
+                    const isPanic = panicFlickerOfficer === o.badge || activePanic?.badge === o.badge;
+                    if (o.dept === 'UNKNOWN') {
+                        return <div key={oi} style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '7px 10px', background: theme.bg, border: `1px solid ${theme.border}`, borderRadius: '6px', marginBottom: '4px' }}>
+                            <div style={{ color: theme.textPrimary, fontSize: '11px', fontWeight: '700', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>UNKNOWN ({o.nickname})</div>
+                            <div style={{ color: '#fbbf24', fontSize: '9px', fontFamily: 'monospace', letterSpacing: '0.5px' }}>⚠ Report to admin · #{o.channel}</div>
+                        </div>;
+                    }
+                    return (
+                        <div key={oi} className={isPanic ? (panicFlickerOfficer === o.badge ? 'panic-officer' : 'panic-officer-steady') : ''} style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '8px 10px', background: theme.bg, border: `1px solid ${theme.border}`, borderRadius: '6px', marginBottom: '4px', position: 'relative', overflow: 'hidden', boxShadow: isMe ? `inset 0 0 0 1px ${theme.accent}88` : 'none' }}>
+                            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '2px', background: theme.accent, boxShadow: theme.glow }} />
+                            <div style={{ width: '26px', height: '26px', background: `${theme.accent}1f`, border: `1px solid ${theme.accent}55`, borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginLeft: '4px' }}>
+                                <span style={{ color: theme.accent, fontSize: '9px', fontWeight: '800', fontFamily: 'monospace' }}>{(o.callSign || '?').slice(0, 3)}</span>
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                                    <span style={{ color: theme.textPrimary, fontSize: '12px', fontWeight: '700', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.callSign}</span>
+                                    {isMe && <span style={{ color: theme.accent, fontSize: '8px', background: `${theme.accent}26`, padding: '1px 5px', borderRadius: '3px', fontWeight: '700', fontFamily: 'monospace', flexShrink: 0 }}>YOU</span>}
+                                </div>
+                                <div style={{ color: theme.textSecondary, fontSize: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{o.name}</div>
+                            </div>
+                            <span style={{ color: theme.textSecondary, fontSize: '9px', fontFamily: 'monospace', padding: '2px 7px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px', flexShrink: 0, letterSpacing: '0.5px' }}>{o.zone}</span>
+                        </div>
+                    );
+                })}
+            </div>
+        ))}
+    </>;
+};
 
 // Poll online officers every 10s when a session is active
 React.useEffect(() => {
@@ -4449,6 +4608,7 @@ ESC_TO_HOME=${escToHome ? 'TRUE' : 'FALSE'}
 DevConsoleEnabled=${showDevConsole ? 'TRUE' : 'FALSE'}
 DiscordAccountToken=${discordToken || ''}
 GroqConsoleAPIKey=${groqConsoleAPIKey || ''}
+TeamSpeakAPIKey=${teamspeakAPIKey || ''}
 AmericanDateFormat=${trooperSettings?.AmericanDateFormat || 'FALSE'}
 ACTIONBAR_KEYBIND=${actionBarKeybind || 'CTRL+K'}
 KEYBINDS_REQUIRE_FOCUS=${keybindsRequireFocus ? 'TRUE' : 'FALSE'}
@@ -4473,6 +4633,7 @@ SFX_MIC_NOTAVAILABLE=${soundSettings.MicNotAvailable ? 'TRUE' : 'FALSE'}`;
                     const val = line.substring(eq + 1).trim();
                     if (key === 'DiscordAccountToken') { setDiscordToken(val); localStorage.setItem('discordToken', val); }
                     if (key === 'GroqConsoleAPIKey') { setGroqConsoleAPIKey(val); localStorage.setItem('groqConsoleAPIKey', val); window.GROQ_CONSOLE_API_KEY = val; }
+                    if (key === 'TeamSpeakAPIKey') { setTeamspeakAPIKey(val); localStorage.setItem('teamspeakAPIKey', val); }
                     if (key === 'DyslexiaFont') setDyslexiaFont(val === 'TRUE');
                     if (key === 'VisualEffects') setVisualEffects(val === 'TRUE');
                                         if (key === 'SIDETAB_NAVIGATION' || key === 'MiniMode') { const enabled = val === 'TRUE'; setCompactMode(enabled); if (enabled && window.require) { try { window.require('electron').ipcRenderer.send('toggle-compact-mode', true); } catch(_) {} } }
@@ -10694,7 +10855,7 @@ return (
 )}
 
 {/* Global overlay panels — visible in ALL views */}
-        {activeView !== 'home' && showHistoryPanel && (
+        {showHistoryPanel && (
             <>
                 {/* Backdrop dimmer */}
                 <div onClick={()=>setShowHistoryPanel(false)} style={{ position:'fixed',top:'48px',left:0,right:'360px',bottom:0,background:'rgba(0,0,0,0.4)',zIndex:7999,animation:'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }} />
@@ -10733,7 +10894,7 @@ return (
                 </div>
             </>
         )}
-        {activeView !== 'home' && showDataPanel && (
+        {showDataPanel && (
             <>
                 <div onClick={()=>setShowDataPanel(false)} style={{ position:'fixed',top:'48px',left:0,right:'320px',bottom:0,background:'rgba(0,0,0,0.4)',zIndex:7999,animation:'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }} />
                 <div style={{ position:'fixed',top:'48px',right:0,bottom:0,width:'320px',background:'linear-gradient(180deg,rgba(15,30,60,0.95) 0%,rgba(10,20,40,0.97) 100%)',backdropFilter:'blur(8px)',borderLeft:'1px solid rgba(56,189,248,0.25)',boxShadow:'-8px 0 32px rgba(0,0,0,0.5), inset 1px 0 0 rgba(56,189,248,0.1)',zIndex:8000,overflowY:'auto',animation:'panelSlideIn 220ms cubic-bezier(0.23, 1, 0.32, 1)' }}>
@@ -10774,41 +10935,25 @@ return (
                 </div>
             </>
         )}
-        {activeView !== 'home' && showOfficersPanel && (
+        {showOfficersPanel && (
             <>
                 <div onClick={()=>setShowOfficersPanel(false)} style={{ position:'fixed',top:'48px',left:0,right:'320px',bottom:0,background:'rgba(0,0,0,0.4)',zIndex:7999,animation:'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }} />
-                <div style={{ position:'fixed',top:'48px',right:0,bottom:0,width:'320px',background:'linear-gradient(180deg,rgba(15,30,60,0.95) 0%,rgba(10,20,40,0.97) 100%)',backdropFilter:'blur(8px)',borderLeft:'1px solid rgba(56,189,248,0.25)',boxShadow:'-8px 0 32px rgba(0,0,0,0.5), inset 1px 0 0 rgba(56,189,248,0.1)',zIndex:8000,overflowY:'auto',animation:'panelSlideIn 220ms cubic-bezier(0.23, 1, 0.32, 1)' }}>
+                <div style={{ position:'fixed',top:'48px',right:0,bottom:0,width:'320px',background:'linear-gradient(180deg,rgba(15,30,60,0.95) 0%,rgba(10,20,40,0.97) 100%)',backdropFilter:'blur(8px)',borderLeft:'1px solid rgba(56,189,248,0.25)',boxShadow:'-8px 0 32px rgba(0,0,0,0.5), inset 1px 0 0 rgba(56,189,248,0.1)',zIndex:8000,animation:'panelSlideIn 220ms cubic-bezier(0.23, 1, 0.32, 1)' }}>
                     <div style={{ position:'absolute',left:'-3px',top:'50%',transform:'translateY(-50%)',width:'3px',height:'48px',background:'#22d3ee',borderRadius:'3px 0 0 3px',boxShadow:'0 0 12px rgba(34,211,238,0.5)' }} />
-                    <div style={{ padding:'14px 16px' }}>
-                        <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'12px' }}>
+                    <div style={{ display:'flex',flexDirection:'column',height:'100%' }}>
+                        <div style={{ padding:'14px 16px',borderBottom:'1px solid rgba(56,189,248,0.1)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0,background:'rgba(15,30,60,0.4)' }}>
                             <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
                                 <div style={{ width:'2px',height:'12px',background:'#22d3ee',borderRadius:'2px',boxShadow:'0 0 6px #22d3ee' }} />
                                 <div>
                                     <div style={{ color:'#22d3ee',fontSize:'11px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Officers Panel</div>
-                                    <div style={{ color:'#475569',fontSize:'9px',marginTop:'2px',fontFamily:'monospace' }}>{officerNextUpdate?`Next: ${officerNextUpdate.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'})}`:'Pending sync...'}</div>
+                                    <div style={{ color:'#475569',fontSize:'9px',marginTop:'2px',fontFamily:'monospace' }}>5s autosync · {(onlineOfficers||[]).length} online</div>
                                 </div>
                             </div>
                             <button onClick={()=>setShowOfficersPanel(false)} style={{ background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.25)',borderRadius:'4px',color:'#f87171',cursor:'pointer',width:'24px',height:'24px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontFamily:'monospace',padding:0 }}>✕</button>
                         </div>
-                        <div style={{ display:'flex',gap:'4px',marginBottom:'10px' }}>
-                            {['10-9','10-10','10-5'].map(s=>(
-                                <button key={s} onClick={()=>setOfficerStatus(s)} style={{ flex:1,padding:'6px 4px',background:officerStatus===s?'rgba(56,189,248,0.12)':'rgba(0,0,0,0.3)',border:`1px solid ${officerStatus===s?'rgba(56,189,248,0.35)':'rgba(56,189,248,0.08)'}`,borderRadius:'5px',color:officerStatus===s?'#38bdf8':'#475569',fontSize:'9px',fontWeight:'700',cursor:'pointer',fontFamily:'monospace',width:'auto',transition:'all 160ms ease-out' }}>{s}</button>
-                            ))}
+                        <div style={{ flex:1,overflowY:'auto',padding:'10px' }}>
+                            {renderOfficerList('sidetab')}
                         </div>
-                        {onlineOfficers.length===0?<div style={{ color:'#475569',fontSize:'11px',textAlign:'center',padding:'20px 0',fontFamily:'monospace' }}>No officers online</div>
-                        :onlineOfficers.map((o,i)=>{
-                            const isMe=String(o.badge)===String(trooperSettings?.BadgeID);
-                            const isPanic=panicFlickerOfficer===o.badge||activePanic?.badge===o.badge;
-                            return <div key={i} className={isPanic?(panicFlickerOfficer===o.badge?'panic-officer':'panic-officer-steady'):''} style={{ padding:'9px 11px',background:isMe?'linear-gradient(90deg,rgba(16,185,129,0.12),rgba(16,185,129,0.04))':'rgba(0,0,0,0.3)',border:`1px solid ${isMe?'rgba(16,185,129,0.3)':'rgba(56,189,248,0.08)'}`,borderRadius:'6px',marginBottom:'5px',position:'relative',overflow:'hidden' }}>
-                                {isMe&&<div style={{ position:'absolute',left:0,top:0,bottom:0,width:'2px',background:'#10b981',boxShadow:'0 0 8px #10b981' }} />}
-                                <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'3px' }}>
-                                    <span style={{ color:isMe?'#34d399':'#e2e8f0',fontSize:'13px',fontWeight:'700',fontFamily:'monospace' }}>{o.callSign||'—'}</span>
-                                    <span style={{ fontSize:'8px',fontWeight:'700',padding:'2px 6px',borderRadius:'3px',background:o.status==='10-9'?'rgba(16,185,129,0.15)':o.status==='10-10'?'rgba(239,68,68,0.15)':'rgba(245,158,11,0.15)',color:o.status==='10-9'?'#34d399':o.status==='10-10'?'#f87171':'#fbbf24',fontFamily:'monospace' }}>{o.status}</span>
-                                </div>
-                                <div style={{ color:'#e2e8f0',fontSize:'10px',fontWeight:'500',marginBottom:'2px' }}>{o.name||'Unknown'}</div>
-                                <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace' }}>#{o.badge} · Zone {o.zone||'—'}</div>
-                            </div>;
-                        })}
                     </div>
                 </div>
             </>
@@ -11258,45 +11403,16 @@ return (
 
                     {/* Available Officers — compact */}
                     <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'10px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
-                        <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(56,189,248,0.08)',display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',flexShrink:0,flexWrap:'wrap' }}>
+                        <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(56,189,248,0.08)',display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',flexShrink:0 }}>
                             <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
                                 <div style={{ width:'2px',height:'12px',background:'#22d3ee',borderRadius:'2px',boxShadow:'0 0 6px #22d3ee' }} />
                                 <span style={{ color:'#22d3ee',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Available Officers</span>
-                                <span style={{ padding:'1px 7px',background:'rgba(34,211,238,0.12)',border:'1px solid rgba(34,211,238,0.25)',borderRadius:'10px',color:'#22d3ee',fontSize:'10px',fontWeight:'700',fontFamily:'monospace' }}>{onlineOfficers?.length||0}</span>
+                                <span style={{ padding:'1px 7px',background:'rgba(34,211,238,0.12)',border:'1px solid rgba(34,211,238,0.25)',borderRadius:'10px',color:'#22d3ee',fontSize:'10px',fontWeight:'700',fontFamily:'monospace' }}>{(onlineOfficers||[]).length}</span>
                             </div>
-                            <select value={officerStatus||'10-9'} onChange={e=>setOfficerStatus(e.target.value)} style={{ background:'rgba(0,0,0,0.3)',border:'1px solid rgba(56,189,248,0.2)',borderRadius:'5px',color:'#38bdf8',fontSize:'10px',fontWeight:'600',fontFamily:'monospace',padding:'4px 8px',cursor:'pointer',outline:'none',width:'auto' }}>
-                                <option value="10-9">10-9 · AVAILABLE</option>
-                                <option value="10-10">10-10 · BUSY</option>
-                                <option value="10-5">10-5 · MEAL</option>
-                            </select>
+                            <span style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px' }}>5s autosync</span>
                         </div>
-                        <div style={{ padding:'4px 14px 6px',color:'#475569',fontSize:'8px',fontFamily:'monospace',letterSpacing:'0.5px',flexShrink:0 }}>
-                            UPDATED: {officerLastUpdated?officerLastUpdated.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}):'—'} · NEXT: {officerNextUpdate?officerNextUpdate.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}):'—'}
-                        </div>
-                        <div style={{ flex:1,overflowY:'auto',padding:'4px 8px 8px' }}>
-                            {(!onlineOfficers||onlineOfficers.length===0)
-                                ?<div style={{ color:'#475569',fontSize:'11px',textAlign:'center',padding:'24px',fontFamily:'monospace' }}>No officers online</div>
-                                :onlineOfficers.map((o,i)=>{
-                                    const isMe=String(o.badge)===String(trooperSettings?.BadgeID);
-                                    const isPanic=panicFlickerOfficer===o.badge||activePanic?.badge===o.badge;
-                                    return (
-                                        <div key={i} className={isPanic?(panicFlickerOfficer===o.badge?'panic-officer':'panic-officer-steady'):''} style={{ display:'flex',alignItems:'center',gap:'10px',padding:'7px 10px',background:isMe?'linear-gradient(90deg,rgba(16,185,129,0.12),rgba(16,185,129,0.04))':'rgba(0,0,0,0.2)',border:`1px solid ${isMe?'rgba(16,185,129,0.3)':'rgba(56,189,248,0.08)'}`,borderRadius:'6px',marginBottom:'4px',position:'relative',overflow:'hidden' }}>
-                                            {isMe&&<div style={{ position:'absolute',left:0,top:0,bottom:0,width:'2px',background:'#10b981',boxShadow:'0 0 8px #10b981' }} />}
-                                            <div style={{ width:'24px',height:'24px',background:isMe?'rgba(16,185,129,0.2)':'rgba(56,189,248,0.1)',border:`1px solid ${isMe?'rgba(16,185,129,0.4)':'rgba(56,189,248,0.25)'}`,borderRadius:'5px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0 }}>
-                                                <span style={{ color:isMe?'#10b981':'#38bdf8',fontSize:'9px',fontWeight:'800',fontFamily:'monospace' }}>{(o.callSign||'?')[0]}</span>
-                                            </div>
-                                            <div style={{ flex:1,minWidth:0 }}>
-                                                <div style={{ color:isMe?'#34d399':'#e2e8f0',fontSize:'11px',fontWeight:'600',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>
-                                                    {o.name||'Unknown'}{isMe&&<span style={{ color:'#10b981',fontSize:'8px',background:'rgba(16,185,129,0.15)',padding:'1px 5px',borderRadius:'3px',marginLeft:'5px',fontWeight:'700',fontFamily:'monospace' }}>YOU</span>}
-                                                </div>
-                                                <div style={{ color:'#475569',fontSize:'9px',marginTop:'1px',fontFamily:'monospace' }}>#{o.badge} · Zone {o.zone||'—'}</div>
-                                            </div>
-                                            <span style={{ fontSize:'8px',fontWeight:'700',padding:'2px 6px',borderRadius:'3px',background:o.status==='10-9'?'rgba(16,185,129,0.12)':o.status==='10-10'?'rgba(239,68,68,0.12)':'rgba(245,158,11,0.12)',color:o.status==='10-9'?'#34d399':o.status==='10-10'?'#f87171':'#fbbf24',border:`1px solid ${o.status==='10-9'?'rgba(16,185,129,0.3)':o.status==='10-10'?'rgba(239,68,68,0.3)':'rgba(245,158,11,0.3)'}`,fontFamily:'monospace',letterSpacing:'0.5px' }}>
-                                                {o.status==='10-9'?'AVAIL':o.status==='10-10'?'BUSY':'MEAL'}
-                                            </span>
-                                        </div>
-                                    );
-                                })}
+                        <div style={{ flex:1,overflowY:'auto',padding:'8px' }}>
+                            {renderOfficerList('compact')}
                         </div>
                     </div>
 
@@ -11420,101 +11536,6 @@ return (
                     onMouseUp={e=>{ e.currentTarget.style.transform=''; }}>
                     <span style={{ fontSize:'13px' }}>⏻</span>Quit Application
                 </button>
-
-                {/* Overlay panels */}
-                {showHistoryPanel && (
-                    <div style={{ position:'absolute',top:0,right:0,bottom:0,width:'360px',background:'#161b22',borderLeft:'1px solid #30363d',zIndex:200,display:'flex',flexDirection:'column' }}>
-                        <div style={{ padding:'14px 16px',borderBottom:'1px solid #21262d',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
-                            <span style={{ color:'#58a6ff',fontSize:'11px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase' }}>Activity History</span>
-                            <div style={{ display:'flex',gap:'7px' }}>
-                                <button onClick={()=>setActivityLog([])} style={{ background:'rgba(248,81,73,0.08)',border:'1px solid rgba(248,81,73,0.2)',borderRadius:'4px',color:'#f85149',cursor:'pointer',padding:'3px 8px',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase' }}>CLEAR</button>
-                                <button onClick={()=>setShowHistoryPanel(false)} style={{ background:'rgba(248,81,73,0.08)',border:'1px solid rgba(248,81,73,0.2)',borderRadius:'4px',color:'#f85149',cursor:'pointer',width:'22px',height:'22px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px' }}>✕</button>
-                            </div>
-                        </div>
-                        <div style={{ padding:'8px 14px',borderBottom:'1px solid #21262d',flexShrink:0 }}>
-                            <input value={historySearch} onChange={e=>setHistorySearch(e.target.value)} placeholder="Search history..." style={{ width:'100%',padding:'6px 10px',background:'#0d1117',border:'1px solid #30363d',borderRadius:'5px',color:'#e6edf3',fontSize:'11px',outline:'none',boxSizing:'border-box',fontFamily:'inherit' }}
-                                onFocus={e=>e.target.style.borderColor='#388bfd'}
-                                onBlur={e=>e.target.style.borderColor='#30363d'} />
-                        </div>
-                        <div style={{ flex:1,overflowY:'auto',padding:'6px' }}>
-                            {(()=>{
-                                const filtered=historySearch?activityLog.filter(e=>e.msg.toLowerCase().includes(historySearch.toLowerCase())||e.ts.includes(historySearch)):activityLog;
-                                if(filtered.length===0) return <div style={{ color:'#484f58',fontSize:'11px',textAlign:'center',padding:'24px' }}>{activityLog.length===0?'No activity yet':'No matches'}</div>;
-                                return filtered.map(entry=>{
-                                    const iw=entry.msg.includes('WARRANT'),ie=entry.msg.includes('Export'),ip=entry.msg.includes('Plate'),ic=entry.msg.includes('Citizen');
-                                    const color=iw?'#f85149':ie?'#3fb950':ip?'#58a6ff':ic?'#bc8cff':'#484f58';
-                                    return <div key={entry.id} style={{ display:'flex',gap:'8px',padding:'6px 8px',borderBottom:'1px solid #21262d',alignItems:'flex-start' }}>
-                                        <span style={{ color:'#484f58',fontSize:'9px',fontFamily:'monospace',whiteSpace:'nowrap',flexShrink:0,marginTop:'1px' }}>[{entry.ts}]</span>
-                                        <span style={{ color,fontSize:'10px',fontWeight:'500',lineHeight:'1.4' }}>{entry.msg}</span>
-                                    </div>;
-                                });
-                            })()}
-                        </div>
-                    </div>
-                )}
-                {showOfficersPanel && (
-                    <div style={{ position:'absolute',top:0,right:0,bottom:0,width:'300px',background:'#161b22',borderLeft:'1px solid #30363d',zIndex:200,overflowY:'auto' }}>
-                        <div style={{ padding:'14px 16px' }}>
-                            <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'12px' }}>
-                                <div>
-                                    <div style={{ color:'#58a6ff',fontSize:'11px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase' }}>Available Officers</div>
-                                    <div style={{ color:'#484f58',fontSize:'9px',marginTop:'1px',fontFamily:'monospace' }}>{officerNextUpdate?`Next: ${officerNextUpdate.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'})}`:'Pending sync...'}</div>
-                                </div>
-                                <button onClick={()=>setShowOfficersPanel(false)} style={{ background:'rgba(248,81,73,0.08)',border:'1px solid rgba(248,81,73,0.2)',borderRadius:'4px',color:'#f85149',cursor:'pointer',width:'22px',height:'22px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px' }}>✕</button>
-                            </div>
-                            <div style={{ display:'flex',gap:'4px',marginBottom:'10px' }}>
-                                {['10-9','10-10','10-5'].map(s=>(
-                                    <button key={s} onClick={()=>setOfficerStatus(s)} style={{ flex:1,padding:'5px',background:officerStatus===s?'rgba(56,139,253,0.12)':'#0d1117',border:`1px solid ${officerStatus===s?'rgba(56,139,253,0.3)':'#21262d'}`,borderRadius:'5px',color:officerStatus===s?'#58a6ff':'#484f58',fontSize:'9px',fontWeight:'700',cursor:'pointer' }}>{s}</button>
-                                ))}
-                            </div>
-                            {onlineOfficers.length===0?<div style={{ color:'#484f58',fontSize:'11px',textAlign:'center',padding:'20px 0' }}>No officers online</div>
-                            :onlineOfficers.map((o,i)=>{
-                                const isMe=String(o.badge)===String(trooperSettings?.BadgeID);
-                                const isPanic=panicFlickerOfficer===o.badge||activePanic?.badge===o.badge;
-                                return <div key={i} className={isPanic?(panicFlickerOfficer===o.badge?'panic-officer':'panic-officer-steady'):''} style={{ padding:'9px 11px',background:isMe?'rgba(63,185,80,0.06)':'#0d1117',border:`1px solid ${isMe?'rgba(63,185,80,0.2)':'#21262d'}`,borderRadius:'6px',marginBottom:'5px',position:'relative',overflow:'hidden' }}>
-                                    {isMe&&<div style={{ position:'absolute',left:0,top:0,bottom:0,width:'2px',background:'#3fb950' }} />}
-                                    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'3px' }}>
-                                        <span style={{ color:isMe?'#3fb950':'#e6edf3',fontSize:'13px',fontWeight:'700',fontFamily:'monospace' }}>{o.callSign||'—'}</span>
-                                        <span style={{ fontSize:'8px',fontWeight:'600',padding:'2px 6px',borderRadius:'3px',background:o.status==='10-9'?'rgba(63,185,80,0.1)':o.status==='10-10'?'rgba(248,81,73,0.1)':'rgba(245,158,11,0.1)',color:o.status==='10-9'?'#3fb950':o.status==='10-10'?'#f85149':'#f0883e' }}>{o.status}</span>
-                                    </div>
-                                    <div style={{ color:'#e6edf3',fontSize:'10px',fontWeight:'500',marginBottom:'2px' }}>{o.name||'Unknown'}</div>
-                                    <div style={{ color:'#484f58',fontSize:'9px',fontFamily:'monospace' }}>#{o.badge} · Zone {o.zone||'—'}</div>
-                                </div>;
-                            })}
-                        </div>
-                    </div>
-                )}
-                {showDataPanel && (
-                    <div style={{ position:'absolute',top:0,right:0,bottom:0,width:'300px',background:'#161b22',borderLeft:'1px solid #30363d',zIndex:200,overflowY:'auto' }}>
-                        <div style={{ padding:'14px 16px' }}>
-                            <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'12px' }}>
-                                <span style={{ color:'#58a6ff',fontSize:'11px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase' }}>Data Panel</span>
-                                <button onClick={()=>setShowDataPanel(false)} style={{ background:'rgba(248,81,73,0.08)',border:'1px solid rgba(248,81,73,0.2)',borderRadius:'4px',color:'#f85149',cursor:'pointer',width:'22px',height:'22px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px' }}>✕</button>
-                            </div>
-                            <div style={{ background:'#0d1117',border:'1px solid #21262d',borderRadius:'7px',padding:'12px',marginBottom:'8px' }}>
-                                <div style={{ color:'#484f58',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',marginBottom:'8px',textTransform:'uppercase' }}>Officer</div>
-                                <div style={{ color:'#e6edf3',fontSize:'14px',fontWeight:'700',marginBottom:'8px' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName}</div>
-                                <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px' }}>
-                                    {[{l:'BADGE',v:`#${trooperSettings?.BadgeID||'—'}`},{l:'ZONE',v:trooperSettings?.Zone||'—'},{l:'USERNAME',v:trooperSettings?.Username||'—'},{l:'DEPT',v:trooperSettings?.Department||'—'}].map(({l,v},i)=>(
-                                        <div key={i} style={{ background:'#161b22',border:'1px solid #30363d',borderRadius:'4px',padding:'5px 8px' }}>
-                                            <div style={{ color:'#484f58',fontSize:'8px',fontWeight:'700',letterSpacing:'1px',marginBottom:'1px',textTransform:'uppercase' }}>{l}</div>
-                                            <div style={{ color:'#e6edf3',fontSize:'10px',fontWeight:'600',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{v}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                            <div style={{ background:'#0d1117',border:'1px solid #21262d',borderRadius:'7px',padding:'12px' }}>
-                                <div style={{ color:'#484f58',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',marginBottom:'8px',textTransform:'uppercase' }}>System Status</div>
-                                {[{label:'Discord API',ok:tokenSaved},{label:'Session',ok:!!selectedUserSession},{label:'Groq AI',ok:!!(window.GROQ_CONSOLE_API_KEY||localStorage.getItem('groqConsoleAPIKey'))},{label:'Sounds',ok:!!(window.SOUNDS&&Object.keys(window.SOUNDS).length>0)}].map(({label,ok},i,arr)=>(
-                                    <div key={i} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'4px 0',borderBottom:i<arr.length-1?'1px solid #21262d':'none' }}>
-                                        <span style={{ color:'#8b949e',fontSize:'10px',fontWeight:'500' }}>{label}</span>
-                                        <span style={{ fontSize:'9px',fontWeight:'700',color:ok?'#3fb950':'#f85149',background:ok?'rgba(63,185,80,0.1)':'rgba(248,81,73,0.1)',padding:'2px 6px',borderRadius:'3px',letterSpacing:'0.5px',textTransform:'uppercase' }}>{ok?'ONLINE':'OFFLINE'}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
         )}
 
@@ -12582,6 +12603,24 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                     <div style={S.fieldLabel}>Groq Console API Key</div>
                                     <input type="password" value={groqConsoleAPIKey} onChange={(e) => setGroqConsoleAPIKey(e.target.value)} placeholder="gsk_..." style={{ ...S.input, marginBottom: '8px' }} onFocus={e => e.target.style.borderColor = 'rgba(59,130,246,0.4)'} onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.07)'} />
                                     <button onClick={async () => { if (!groqConsoleAPIKey?.trim()) return; const k = groqConsoleAPIKey.trim(); localStorage.setItem('groqConsoleAPIKey', k); window.GROQ_CONSOLE_API_KEY = k; addLog('✅ Groq key updated', 'success'); }} style={S.btn('#3b82f6', !groqConsoleAPIKey?.trim())}>🔑 Update Groq API Key</button>
+                                </div>
+
+                                <div style={{ marginBottom: '12px' }}>
+                                    <div style={S.fieldLabel}>TeamSpeak API Key</div>
+                                    <input type="password" value={teamspeakAPIKey} onChange={(e) => setTeamspeakAPIKey(e.target.value)} placeholder="Paste your TS3 ClientQuery API key" style={{ ...S.input, marginBottom: '8px' }} onFocus={e => e.target.style.borderColor = 'rgba(34,211,238,0.4)'} onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.07)'} />
+                                    <div style={{ color: '#64748b', fontSize: '11px', lineHeight: 1.5, marginBottom: '8px' }}>
+                                        Powers the Available Officers list. Enable <strong style={{ color: '#94a3b8' }}>ClientQuery</strong> in TeamSpeak → Tools → Options → Addons. Copy the API key from ClientQuery → Settings. Click <strong style={{ color: '#22d3ee' }}>Export to Local File</strong> below to persist it.
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 11px', background: tsStatus === 'OK' ? 'rgba(16,185,129,0.08)' : tsStatus === 'INVALID_KEY' ? 'rgba(239,68,68,0.08)' : tsStatus === 'NO_SESSION' ? 'rgba(245,158,11,0.08)' : 'rgba(100,116,139,0.08)', border: `1px solid ${tsStatus === 'OK' ? 'rgba(16,185,129,0.25)' : tsStatus === 'INVALID_KEY' ? 'rgba(239,68,68,0.25)' : tsStatus === 'NO_SESSION' ? 'rgba(245,158,11,0.25)' : 'rgba(100,116,139,0.2)'}`, borderRadius: '7px' }}>
+                                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: tsStatus === 'OK' ? '#10b981' : tsStatus === 'INVALID_KEY' ? '#ef4444' : tsStatus === 'NO_SESSION' ? '#f59e0b' : '#64748b', boxShadow: tsStatus === 'OK' ? '0 0 6px #10b981' : tsStatus === 'INVALID_KEY' ? '0 0 6px #ef4444' : tsStatus === 'NO_SESSION' ? '0 0 6px #f59e0b' : 'none' }} />
+                                        <span style={{ color: tsStatus === 'OK' ? '#34d399' : tsStatus === 'INVALID_KEY' ? '#fca5a5' : tsStatus === 'NO_SESSION' ? '#fbbf24' : '#94a3b8', fontSize: '10px', fontWeight: '700', letterSpacing: '1px', fontFamily: 'monospace', textTransform: 'uppercase' }}>
+                                            {tsStatus === 'OK' && `Connected · ${(onlineOfficers || []).length} officer${(onlineOfficers || []).length === 1 ? '' : 's'} online`}
+                                            {tsStatus === 'INVALID_KEY' && 'Invalid Key · Min 10 characters'}
+                                            {tsStatus === 'NO_SESSION' && 'No Session Selected'}
+                                            {tsStatus === 'ERROR' && 'TeamSpeak Not Running'}
+                                            {tsStatus === 'IDLE' && 'Idle'}
+                                        </span>
+                                    </div>
                                 </div>
 
                                 {tokenSaved && (
