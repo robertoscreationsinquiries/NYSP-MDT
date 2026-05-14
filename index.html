@@ -3320,23 +3320,29 @@ React.useEffect(() => {
     if (!tsSession) { setTsStatus('NO_SESSION'); setOnlineOfficers([]); return; }
 
     let cancelled = false;
+    let inFlight = false;
     const poll = async () => {
-        if (cancelled) return;
+        if (cancelled || inFlight) return;
+        inFlight = true;
         try {
             const result = await window.electron?.ipcRenderer?.invoke('ts-poll', { apiKey: key, session: tsSession });
             if (cancelled) return;
             if (result?.ok) {
-                // Adapt TS shape → existing onlineOfficers shape so the rest of the app doesn't break
+                // Adapt TS shape → existing onlineOfficers shape so the rest of the app doesn't break.
+                // Preserve `inSession` and `isMe` flags so the renderer can label off-session self.
                 const adapted = (result.officers || []).map(o => ({
                     badge: o.clid,
                     callSign: o.callsign,
                     name: o.robloxName || o.nickname,
                     zone: o.channel,
                     status: '10-9',
-                    dept: o.dept
+                    dept: o.dept,
+                    inSession: o.inSession,
+                    isMe: o.isMe
                 }));
                 setOnlineOfficers(adapted);
                 setTsStatus('OK');
+                setTsErrorDetail('');
                 setTsLastUpdate(new Date());
                 setOfficerLastUpdated(new Date());
                 setOfficerNextUpdate(new Date(Date.now() + 5000));
@@ -3347,6 +3353,8 @@ React.useEffect(() => {
             }
         } catch (e) {
             if (!cancelled) { setTsStatus('ERROR'); setTsErrorDetail(e?.message || 'IPC failed'); setOnlineOfficers([]); }
+        } finally {
+            inFlight = false;
         }
     };
     poll();
@@ -3372,7 +3380,7 @@ const renderOfficerList = (variant) => {
         return <div style={{ padding: '20px 14px', textAlign: 'center' }}>
             <div style={{ width: '34px', height: '34px', margin: '0 auto 10px', borderRadius: '50%', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>◐</div>
             <div style={{ color: '#fbbf24', fontSize: '11px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: '4px' }}>Select a Session</div>
-            <div style={{ color: '#64748b', fontSize: '10px', fontFamily: 'monospace', lineHeight: 1.5 }}>Choose Session 1, 2, or 3<br/>to view available officers.</div>
+            <div style={{ color: '#64748b', fontSize: '10px', fontFamily: 'monospace', lineHeight: 1.5 }}>Choose Session 1, 2, or 3<br/>to view available units.</div>
         </div>;
     }
     if (tsStatus === 'ERROR') {
@@ -3424,7 +3432,8 @@ const renderOfficerList = (variant) => {
                 </div>
                 {group.officers.map((o, oi) => {
                     const theme = themeFor(o.dept);
-                    const isMe = (o.robloxName || '').toLowerCase() === (trooperSettings?.Username || '').toLowerCase();
+                    const isMe = o.isMe === true || (o.name || '').toLowerCase() === (trooperSettings?.Username || '').toLowerCase();
+                    const isOffSession = isMe && o.inSession === false;
                     const isPanic = panicFlickerOfficer === o.badge || activePanic?.badge === o.badge;
                     if (o.dept === 'UNKNOWN') {
                         return <div key={oi} style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '7px 10px', background: theme.bg, border: `1px solid ${theme.border}`, borderRadius: '6px', marginBottom: '4px' }}>
@@ -3445,7 +3454,9 @@ const renderOfficerList = (variant) => {
                                 </div>
                                 <div style={{ color: theme.textSecondary, fontSize: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{o.name}</div>
                             </div>
-                            <span style={{ color: theme.textSecondary, fontSize: '9px', fontFamily: 'monospace', padding: '2px 7px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px', flexShrink: 0, letterSpacing: '0.5px' }}>{o.zone}</span>
+                            <span style={{ color: isOffSession ? '#fbbf24' : theme.textSecondary, fontSize: '9px', fontFamily: 'monospace', padding: '2px 7px', background: isOffSession ? 'rgba(245,158,11,0.15)' : 'rgba(0,0,0,0.3)', border: isOffSession ? '1px solid rgba(245,158,11,0.3)' : 'none', borderRadius: '4px', flexShrink: 0, letterSpacing: '0.5px' }}>
+                                {isOffSession ? `not in session · ${o.zone}` : o.zone}
+                            </span>
                         </div>
                     );
                 })}
@@ -11417,7 +11428,7 @@ return (
                         <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(56,189,248,0.08)',display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',flexShrink:0 }}>
                             <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
                                 <div style={{ width:'2px',height:'12px',background:'#22d3ee',borderRadius:'2px',boxShadow:'0 0 6px #22d3ee' }} />
-                                <span style={{ color:'#22d3ee',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Available Officers</span>
+                                <span style={{ color:'#22d3ee',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Available Units</span>
                                 <span style={{ padding:'1px 7px',background:'rgba(34,211,238,0.12)',border:'1px solid rgba(34,211,238,0.25)',borderRadius:'10px',color:'#22d3ee',fontSize:'10px',fontWeight:'700',fontFamily:'monospace' }}>{(onlineOfficers||[]).length}</span>
                             </div>
                             <span style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px' }}>5s autosync</span>
