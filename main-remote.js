@@ -121,172 +121,211 @@ function tsParse(raw) {
 //   3. We send each command (e.g. `channellist`) — server replies with payload + `error id=N msg=...`
 //   4. We send `quit\n` and close the socket
 // Each error line marks the end of one response. We slice on that boundary.
-function tsSession(apiKey, commands, timeoutMs = 4000) {
-    return new Promise((resolve, reject) => {
+function tsSession(apiKey, commands, timeoutMs = 6000) {
+    return new Promise((resolve) => {
         const responses = [];
         let buffer = '';
-        let phase = 'greeting'; // 'greeting' | 'auth' | 'cmd' | 'done'
-        let cmdIndex = -1;
+        // State machine:
+        //   'await-greeting' — connected, waiting for `selected schandlerid=` line
+        //   'await-auth'     — sent `auth`, waiting for its error response
+        //   'await-cmd'      — sent commands[cmdIndex], waiting for its error response
+        //   'done'           — all responses received, quit sent, closing
+        let phase = 'await-greeting';
+        let cmdIndex = 0;
         let settled = false;
+        let sock;
         const finish = (err, val) => {
             if (settled) return;
             settled = true;
-            try { sock.destroy(); } catch (_) {}
-            err ? reject(err) : resolve(val);
+            try { sock && sock.destroy(); } catch (_) {}
+            // Never reject — always resolve with { error } so renderer never sees an uncaught throw
+            if (err) resolve({ error: err.message || String(err) });
+            else resolve({ responses: val });
         };
-        const sock = net.createConnection({ host: '127.0.0.1', port: 25639, timeout: timeoutMs });
+        try {
+            sock = net.createConnection({ host: '127.0.0.1', port: 25639 });
+        } catch (e) {
+            return finish(e);
+        }
         sock.setEncoding('utf8');
-        sock.on('error', e => finish(new Error(e.code === 'ECONNREFUSED' ? 'ClientQuery not reachable on port 25639 — enable the plugin in TeamSpeak → Tools → Options → Addons' : e.message)));
-        sock.on('timeout', () => finish(new Error('ClientQuery timed out — is TeamSpeak running?')));
-        sock.on('close', () => { if (!settled) finish(new Error('ClientQuery closed the connection unexpectedly')); });
-        sock.on('connect', () => {
-            // Wait for greeting before sending auth
+        sock.setTimeout(timeoutMs);
+        sock.on('error', e => finish(new Error(e.code === 'ECONNREFUSED'
+            ? 'ClientQuery not reachable on port 25639 — enable the plugin in TeamSpeak → Tools → Options → Addons'
+            : (e.message || String(e)))));
+        sock.on('timeout', () => finish(new Error('ClientQuery timed out — is TeamSpeak running and the plugin enabled?')));
+        sock.on('close', () => {
+            if (!settled) finish(new Error('ClientQuery closed the connection unexpectedly'));
         });
         sock.on('data', chunk => {
+            if (settled) return;
             buffer += chunk;
-            // Process complete response blocks. A block ends with `error id=N msg=...\n\r`
-            // or `error id=N msg=...\n`. After the first such line, that's the end of one response.
-            // The greeting is two lines, neither containing `error id=`, so we treat anything
-            // received before our first auth as greeting and discard it.
+
+            // 1) Greeting phase: wait for the `selected schandlerid=N` line, THEN send auth.
+            if (phase === 'await-greeting') {
+                if (/selected schandlerid=\d+/.test(buffer)) {
+                    buffer = ''; // discard greeting entirely
+                    phase = 'await-auth';
+                    try { sock.write('auth apikey=' + apiKey + '\n'); }
+                    catch (e) { return finish(e); }
+                }
+                return;
+            }
+
+            // 2 & 3) Process complete `error id=N msg=...` blocks
             while (true) {
                 const m = buffer.match(/(^|\n)error id=(\d+) msg=([^\n\r]*)[\r\n]+/);
                 if (!m) break;
                 const blockEnd = m.index + m[0].length;
                 const blockText = buffer.slice(0, blockEnd);
                 buffer = buffer.slice(blockEnd);
+                const errId = parseInt(m[2], 10);
+                const errMsg = m[3] || '';
 
-                if (phase === 'greeting' || phase === 'auth') {
-                    // Auth response — check for error
-                    const errId = parseInt(m[2], 10);
-                    if (phase === 'auth' && errId !== 0) {
-                        return finish(new Error(`TS auth failed: ${m[3] || ('error ' + errId)} — check API key`));
+                if (phase === 'await-auth') {
+                    if (errId !== 0) {
+                        return finish(new Error(`TS auth failed (id=${errId}): ${errMsg} — check API key`));
                     }
-                    // Either greeting absorbed (we hadn't sent auth yet) or auth succeeded
-                    // Move to first command
-                    if (phase === 'greeting') {
-                        phase = 'auth';
-                        sock.write('auth apikey=' + apiKey + '\n');
-                        continue;
-                    }
-                    phase = 'cmd';
+                    phase = 'await-cmd';
                     cmdIndex = 0;
-                    sock.write(commands[0] + '\n');
+                    if (commands.length === 0) {
+                        try { sock.write('quit\n'); } catch (_) {}
+                        return finish(null, []);
+                    }
+                    try { sock.write(commands[0] + '\n'); }
+                    catch (e) { return finish(e); }
                     continue;
                 }
-                if (phase === 'cmd') {
-                    // Strip the trailing "error id=..." line for parsing
-                    const parsed = tsParse(blockText);
-                    responses.push(parsed);
+
+                if (phase === 'await-cmd') {
+                    if (errId !== 0) {
+                        return finish(new Error(`TS command '${commands[cmdIndex]}' failed (id=${errId}): ${errMsg}`));
+                    }
+                    responses.push(tsParse(blockText));
                     cmdIndex++;
                     if (cmdIndex < commands.length) {
-                        sock.write(commands[cmdIndex] + '\n');
-                        continue;
+                        try { sock.write(commands[cmdIndex] + '\n'); }
+                        catch (e) { return finish(e); }
+                    } else {
+                        phase = 'done';
+                        try { sock.write('quit\n'); } catch (_) {}
+                        return finish(null, responses);
                     }
-                    // All done
-                    phase = 'done';
-                    try { sock.write('quit\n'); } catch (_) {}
-                    return finish(null, responses);
+                    continue;
                 }
-            }
-            // Greeting is two header lines that arrive BEFORE auth is sent.
-            // If we've buffered enough greeting content (>= 2 newlines) and haven't sent auth yet,
-            // send auth now even though no `error id=` arrived yet.
-            if (phase === 'greeting' && (buffer.match(/\n/g) || []).length >= 1) {
-                phase = 'auth';
-                buffer = ''; // discard greeting
-                sock.write('auth apikey=' + apiKey + '\n');
+
+                // 'done' or unknown phase — just drain
             }
         });
     });
 }
 
-// Backwards-compatible single-request helper (in case anything else calls it)
+// Backwards-compatible single-request helper (legacy callers, if any)
 function tsRequest(apiKey, command) {
-    return tsSession(apiKey, [command]).then(arr => arr[0]);
+    return tsSession(apiKey, [command]).then(r => r.responses ? r.responses[0] : null);
 }
 
 ipcMain.handle('ts-poll', async (_event, { apiKey, session }) => {
     if (!apiKey || apiKey.length < 10) return { ok: false, reason: 'INVALID_KEY' };
     if (!session) return { ok: false, reason: 'NO_SESSION' };
     const sessionPrefix = String(session) + ' |';
-try {
-        // Single TS session — auth once, run both queries, close
-        const [chRes, clRes] = await tsSession(apiKey, ['channellist', 'clientlist']);
-        const channels = (chRes?.body || []).filter(c => c && c.channel_name);
-        const clients  = (clRes?.body || []).filter(c => c && c.client_nickname && c.client_type === '0');
 
-        // Channels matching the session prefix → id -> shortened display name
-        const sessionChannelMap = {};
-        for (const ch of channels) {
-            const name = String(ch.channel_name).trim();
-            if (!name.startsWith(sessionPrefix)) continue;
-            // Strip "N | " prefix
-            const after = name.slice(sessionPrefix.length).trim();
-            // Use first word as short name (NYSP, EGPD, RCSO, VLAW, etc.)
-            const short = (after.split(/\s+/)[0] || after)
-                .replace(/^VLAW\d*/i, 'VLAW')
-                .replace(/^NYSDOT$/i, 'NYSDOT');
-            sessionChannelMap[ch.cid] = short;
-        }
-
-        // Department detection from nickname callsign
-        const patterns = [
-            { dept: 'EGFD', re: /^(ENGINE|LADDER|MEDIC|REMS)-\d+$/i },
-            { dept: 'DOT',  re: /^[A-Z]+-\d+$/i, allowWords: ['TOW', 'TRUCK'] },
-            { dept: 'NYSP', re: /^[A-Z]-\d+$/i },                  // L-N
-            { dept: 'NYSP', re: /^\d[A-Z]\d{2}$/i },               // NLNN
-            { dept: 'NYSP', re: /^MOTOR-\d+$/i },
-            { dept: 'EGPD', re: /^\d{3}$/ },
-        ];
-
-        const officers = [];
-        for (const cl of clients) {
-            const nick = String(cl.client_nickname).trim();
-            const channelShort = sessionChannelMap[cl.cid];
-            if (!channelShort) continue; // not in this session
-
-            // Split on " | " to get callsign vs roblox name
-            let callsign = nick, robloxName = '';
-            const pipeIdx = nick.indexOf('|');
-            if (pipeIdx > -1) {
-                callsign = nick.slice(0, pipeIdx).trim();
-                robloxName = nick.slice(pipeIdx + 1).trim();
-            }
-
-            // Match against department patterns
-            let dept = 'UNKNOWN';
-            for (const p of patterns) {
-                if (!p.re.test(callsign)) continue;
-                if (p.allowWords) {
-                    const word = callsign.split('-')[0].toUpperCase();
-                    if (!p.allowWords.includes(word)) continue;
-                }
-                dept = p.dept;
-                break;
-            }
-
-            officers.push({
-                clid: cl.clid,
-                nickname: nick,
-                callsign,
-                robloxName,
-                channel: channelShort,
-                dept
-            });
-        }
-
-        // Sort: dept order first, then by callsign
-        const deptOrder = { EGPD: 0, NYSP: 1, EGFD: 2, DOT: 3, UNKNOWN: 4 };
-        officers.sort((a, b) => {
-            const d = (deptOrder[a.dept] ?? 9) - (deptOrder[b.dept] ?? 9);
-            if (d !== 0) return d;
-            return a.callsign.localeCompare(b.callsign);
-        });
-
-        return { ok: true, officers, pollAt: Date.now() };
-    } catch (err) {
-        return { ok: false, reason: 'ERROR', error: err.message };
+    // Run all three queries in one telnet session. tsSession returns
+    // { responses: [...] } on success or { error: string } on failure — never throws.
+    const result = await tsSession(apiKey, ['whoami', 'channellist', 'clientlist']);
+    if (result.error) {
+        return { ok: false, reason: 'ERROR', error: result.error };
     }
+    const [whoamiRes, chRes, clRes] = result.responses;
+
+    // whoami body is a single record describing the local client
+    const me = (whoamiRes?.body || [])[0] || {};
+    const myClid = me.clid;
+    const myCid  = me.cid;
+
+    const channels = (chRes?.body || []).filter(c => c && c.channel_name);
+    const clients  = (clRes?.body || []).filter(c => c && c.client_nickname && c.client_type === '0');
+
+    // Map cid → { sessionMatch (bool), shortName }
+    const channelInfo = {};
+    for (const ch of channels) {
+        const name = String(ch.channel_name).trim();
+        const sessionMatch = name.startsWith(sessionPrefix);
+        let short;
+        if (sessionMatch) {
+            const after = name.slice(sessionPrefix.length).trim();
+            short = (after.split(/\s+/)[0] || after).replace(/^VLAW\d+/i, 'VLAW');
+        } else {
+            short = name.length > 12 ? name.slice(0, 12) + '…' : name;
+        }
+        channelInfo[ch.cid] = { sessionMatch, short, fullName: name };
+    }
+
+    // Department detection from callsign (the part before " | ")
+    const patterns = [
+        { dept: 'EGFD', re: /^(ENGINE|LADDER|MEDIC|REMS)-\d+$/i },
+        { dept: 'DOT',  re: /^[A-Z]+-\d+$/i, allowWords: ['TOW', 'TRUCK'] },
+        { dept: 'NYSP', re: /^[A-Z]-\d+$/i },         // L-N
+        { dept: 'NYSP', re: /^\d[A-Z]\d{2}$/i },      // NLNN like 2B02
+        { dept: 'NYSP', re: /^MOTOR-\d+$/i },
+        { dept: 'EGPD', re: /^\d{3}$/ },
+    ];
+    function classify(callsign) {
+        for (const p of patterns) {
+            if (!p.re.test(callsign)) continue;
+            if (p.allowWords) {
+                const word = callsign.split('-')[0].toUpperCase();
+                if (!p.allowWords.includes(word)) continue;
+            }
+            return p.dept;
+        }
+        return 'UNKNOWN';
+    }
+    function parseNick(nick) {
+        nick = String(nick).trim();
+        const pipeIdx = nick.indexOf('|');
+        if (pipeIdx > -1) {
+            return { callsign: nick.slice(0, pipeIdx).trim(), robloxName: nick.slice(pipeIdx + 1).trim() };
+        }
+        return { callsign: nick, robloxName: '' };
+    }
+
+    const officers = [];
+    let selfIncluded = false;
+
+    for (const cl of clients) {
+        const nick = String(cl.client_nickname).trim();
+        const ch = channelInfo[cl.cid];
+        const isMe = String(cl.clid) === String(myClid);
+
+        if (!ch) continue; // shouldn't happen but defensive
+
+        // Include only session-channel clients, OR the local user always (so YOU never disappear)
+        if (!ch.sessionMatch && !isMe) continue;
+
+        const { callsign, robloxName } = parseNick(nick);
+        officers.push({
+            clid: cl.clid,
+            nickname: nick,
+            callsign,
+            robloxName,
+            channel: ch.short,
+            inSession: ch.sessionMatch,
+            dept: classify(callsign),
+            isMe
+        });
+        if (isMe) selfIncluded = true;
+    }
+
+    // Sort: in-session first, then dept order, then callsign
+    const deptOrder = { EGPD: 0, NYSP: 1, EGFD: 2, DOT: 3, UNKNOWN: 4 };
+    officers.sort((a, b) => {
+        if (a.inSession !== b.inSession) return a.inSession ? -1 : 1;
+        const d = (deptOrder[a.dept] ?? 9) - (deptOrder[b.dept] ?? 9);
+        if (d !== 0) return d;
+        return (a.callsign || '').localeCompare(b.callsign || '');
+    });
+
+    return { ok: true, officers, pollAt: Date.now(), selfFound: selfIncluded };
 });
 
 ipcMain.handle('stop-streaming', async () => {
