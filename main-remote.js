@@ -6,6 +6,15 @@
 
 console.log('[REMOTE] main-remote.js executing...');
 
+// Defense-in-depth: catch any unhandled errors from async callbacks in this process
+// (e.g. HTTP parse errors from libraries) so they don't crash the renderer.
+process.on('uncaughtException', (err) => {
+    console.error('[REMOTE] Uncaught:', err?.message || err);
+});
+process.on('unhandledRejection', (err) => {
+    console.error('[REMOTE] Unhandled rejection:', err?.message || err);
+});
+
 // ── IPC: quit / devtools / compact / global shortcut ──
 let _streamServer = null;
 ipcMain.handle('start-streaming', async () => {
@@ -105,43 +114,104 @@ function tsParse(raw) {
     return { ok: true, status: 'ok', body: records };
 }
 
-function tsRequest(apiKey, command) {
+// ── tsSession: one telnet connection, runs N commands in sequence, returns parsed responses
+// ClientQuery is a stateful telnet server, NOT HTTP. Flow:
+//   1. Server sends greeting (`TS3 Client\n\rWelcome...\n\r`) — we discard
+//   2. We send `auth apikey=KEY\n` — server replies with one `error id=N msg=...` line
+//   3. We send each command (e.g. `channellist`) — server replies with payload + `error id=N msg=...`
+//   4. We send `quit\n` and close the socket
+// Each error line marks the end of one response. We slice on that boundary.
+function tsSession(apiKey, commands, timeoutMs = 4000) {
     return new Promise((resolve, reject) => {
-        // Send api-key BOTH as header AND query param — different ClientQuery versions
-        // accept different formats; doing both is safe and idempotent.
-        const path = '/' + command + (command.includes('?') ? '&' : '?') + 'api-key=' + encodeURIComponent(apiKey);
-        const req = http.request({
-            host: '127.0.0.1', port: 25639, path, method: 'GET',
-            headers: { 'Api-Key': apiKey, 'Accept': 'text/plain' },
-            timeout: 4000
-        }, (res) => {
-            let body = '';
-            res.on('data', c => body += c);
-            res.on('end', () => {
-                if (res.statusCode === 401 || res.statusCode === 403) {
-                    return reject(new Error(`TS auth failed (HTTP ${res.statusCode}) — check API key`));
-                }
-                const parsed = tsParse(body);
-                if (!parsed.ok) return reject(new Error(`TS error: ${parsed.status}`));
-                resolve(parsed);
-            });
+        const responses = [];
+        let buffer = '';
+        let phase = 'greeting'; // 'greeting' | 'auth' | 'cmd' | 'done'
+        let cmdIndex = -1;
+        let settled = false;
+        const finish = (err, val) => {
+            if (settled) return;
+            settled = true;
+            try { sock.destroy(); } catch (_) {}
+            err ? reject(err) : resolve(val);
+        };
+        const sock = net.createConnection({ host: '127.0.0.1', port: 25639, timeout: timeoutMs });
+        sock.setEncoding('utf8');
+        sock.on('error', e => finish(new Error(e.code === 'ECONNREFUSED' ? 'ClientQuery not reachable on port 25639 — enable the plugin in TeamSpeak → Tools → Options → Addons' : e.message)));
+        sock.on('timeout', () => finish(new Error('ClientQuery timed out — is TeamSpeak running?')));
+        sock.on('close', () => { if (!settled) finish(new Error('ClientQuery closed the connection unexpectedly')); });
+        sock.on('connect', () => {
+            // Wait for greeting before sending auth
         });
-        req.on('error', e => reject(new Error(e.code === 'ECONNREFUSED' ? 'ClientQuery not reachable on port 25639 — enable the plugin in TeamSpeak → Tools → Options → Addons' : e.message)));
-        req.on('timeout', () => { req.destroy(); reject(new Error('TS request timed out — is TeamSpeak running?')); });
-        req.end();
+        sock.on('data', chunk => {
+            buffer += chunk;
+            // Process complete response blocks. A block ends with `error id=N msg=...\n\r`
+            // or `error id=N msg=...\n`. After the first such line, that's the end of one response.
+            // The greeting is two lines, neither containing `error id=`, so we treat anything
+            // received before our first auth as greeting and discard it.
+            while (true) {
+                const m = buffer.match(/(^|\n)error id=(\d+) msg=([^\n\r]*)[\r\n]+/);
+                if (!m) break;
+                const blockEnd = m.index + m[0].length;
+                const blockText = buffer.slice(0, blockEnd);
+                buffer = buffer.slice(blockEnd);
+
+                if (phase === 'greeting' || phase === 'auth') {
+                    // Auth response — check for error
+                    const errId = parseInt(m[2], 10);
+                    if (phase === 'auth' && errId !== 0) {
+                        return finish(new Error(`TS auth failed: ${m[3] || ('error ' + errId)} — check API key`));
+                    }
+                    // Either greeting absorbed (we hadn't sent auth yet) or auth succeeded
+                    // Move to first command
+                    if (phase === 'greeting') {
+                        phase = 'auth';
+                        sock.write('auth apikey=' + apiKey + '\n');
+                        continue;
+                    }
+                    phase = 'cmd';
+                    cmdIndex = 0;
+                    sock.write(commands[0] + '\n');
+                    continue;
+                }
+                if (phase === 'cmd') {
+                    // Strip the trailing "error id=..." line for parsing
+                    const parsed = tsParse(blockText);
+                    responses.push(parsed);
+                    cmdIndex++;
+                    if (cmdIndex < commands.length) {
+                        sock.write(commands[cmdIndex] + '\n');
+                        continue;
+                    }
+                    // All done
+                    phase = 'done';
+                    try { sock.write('quit\n'); } catch (_) {}
+                    return finish(null, responses);
+                }
+            }
+            // Greeting is two header lines that arrive BEFORE auth is sent.
+            // If we've buffered enough greeting content (>= 2 newlines) and haven't sent auth yet,
+            // send auth now even though no `error id=` arrived yet.
+            if (phase === 'greeting' && (buffer.match(/\n/g) || []).length >= 1) {
+                phase = 'auth';
+                buffer = ''; // discard greeting
+                sock.write('auth apikey=' + apiKey + '\n');
+            }
+        });
     });
+}
+
+// Backwards-compatible single-request helper (in case anything else calls it)
+function tsRequest(apiKey, command) {
+    return tsSession(apiKey, [command]).then(arr => arr[0]);
 }
 
 ipcMain.handle('ts-poll', async (_event, { apiKey, session }) => {
     if (!apiKey || apiKey.length < 10) return { ok: false, reason: 'INVALID_KEY' };
     if (!session) return { ok: false, reason: 'NO_SESSION' };
     const sessionPrefix = String(session) + ' |';
-    try {
-        // Pull channel list + client list in parallel
-        const [chRes, clRes] = await Promise.all([
-            tsRequest(apiKey, 'channellist'),
-            tsRequest(apiKey, 'clientlist')
-        ]);
+try {
+        // Single TS session — auth once, run both queries, close
+        const [chRes, clRes] = await tsSession(apiKey, ['channellist', 'clientlist']);
         const channels = (chRes?.body || []).filter(c => c && c.channel_name);
         const clients  = (clRes?.body || []).filter(c => c && c.client_nickname && c.client_type === '0');
 
