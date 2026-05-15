@@ -172,13 +172,6 @@ function tsSession(apiKey, commands, timeoutMs = 6000) {
         sock.on('connect', () => {
             console.log(`[TS] Connected to ClientQuery at ${host}:25639`);
         });
-        // Wrap sock.write so we can log every command we send
-        const writeAndLog = (cmd) => {
-            const preview = cmd.replace(/[\r\n]/g, m => m === '\r' ? '\\r' : '\\n');
-            console.log(`[TS] → SEND (${cmd.length}b): "${preview}"`);
-            try { sock.write(cmd); return true; }
-            catch (e) { console.log(`[TS] WRITE ERR: ${e.message}`); finish(e); return false; }
-        };
         sock.on('data', chunk => {
             if (settled) return;
             buffer += chunk;
