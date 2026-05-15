@@ -142,12 +142,18 @@ function tsSession(apiKey, commands, timeoutMs = 6000) {
             if (err) resolve({ error: err.message || String(err), host });
             else resolve({ responses: val, host });
         };
+// writeAndLog must be declared BEFORE proceedToAuth references it
+        const writeAndLog = (cmd) => {
+            const preview = cmd.replace(/[\r\n]/g, m => m === '\r' ? '\\r' : '\\n');
+            console.log(`[TS] → SEND (${cmd.length}b): "${preview}"`);
+            try { sock.write(cmd); return true; }
+            catch (e) { console.log(`[TS] WRITE ERR: ${e.message}`); finish(e); return false; }
+        };
         const proceedToAuth = () => {
             if (phase !== 'await-greeting') return;
             phase = 'await-auth';
             buffer = ''; // discard greeting
-            try { sock.write('auth apikey=' + apiKey + '\n'); }
-            catch (e) { return finish(e); }
+            if (!writeAndLog('auth apikey=' + apiKey + '\n')) return;
         };
         try {
             sock = net.createConnection({ host, port: 25639, family: host === '::1' ? 6 : 4 });
@@ -166,14 +172,19 @@ function tsSession(apiKey, commands, timeoutMs = 6000) {
         sock.on('connect', () => {
             console.log(`[TS] Connected to ClientQuery at ${host}:25639`);
         });
+        // Wrap sock.write so we can log every command we send
+        const writeAndLog = (cmd) => {
+            const preview = cmd.replace(/[\r\n]/g, m => m === '\r' ? '\\r' : '\\n');
+            console.log(`[TS] → SEND (${cmd.length}b): "${preview}"`);
+            try { sock.write(cmd); return true; }
+            catch (e) { console.log(`[TS] WRITE ERR: ${e.message}`); finish(e); return false; }
+        };
         sock.on('data', chunk => {
             if (settled) return;
             buffer += chunk;
-            if (!firstDataLogged) {
-                firstDataLogged = true;
-                const preview = buffer.slice(0, 500).replace(/[\r\n]/g, m => m === '\r' ? '\\r' : '\\n');
-                console.log(`[TS] First data from ${host} (${buffer.length} bytes): "${preview}"`);
-            }
+            const chunkPreview = String(chunk).slice(0, 300).replace(/[\r\n]/g, m => m === '\r' ? '\\r' : '\\n');
+            console.log(`[TS] ← RECV (phase=${phase}, ${chunk.length}b, buf=${buffer.length}b): "${chunkPreview}"`);
+            if (!firstDataLogged) firstDataLogged = true;
 
             // 1) Greeting phase: many possible markers across TS3 versions
             if (phase === 'await-greeting') {
@@ -210,11 +221,10 @@ function tsSession(apiKey, commands, timeoutMs = 6000) {
                     phase = 'await-cmd';
                     cmdIndex = 0;
                     if (commands.length === 0) {
-                        try { sock.write('quit\n'); } catch (_) {}
+                        writeAndLog('quit\n');
                         return finish(null, []);
                     }
-                    try { sock.write(commands[0] + '\n'); }
-                    catch (e) { return finish(e); }
+                    if (!writeAndLog(commands[0] + '\n')) return;
                     continue;
                 }
 
@@ -225,11 +235,10 @@ function tsSession(apiKey, commands, timeoutMs = 6000) {
                     responses.push(tsParse(blockText));
                     cmdIndex++;
                     if (cmdIndex < commands.length) {
-                        try { sock.write(commands[cmdIndex] + '\n'); }
-                        catch (e) { return finish(e); }
+                        if (!writeAndLog(commands[cmdIndex] + '\n')) return;
                     } else {
                         phase = 'done';
-                        try { sock.write('quit\n'); } catch (_) {}
+                        writeAndLog('quit\n');
                         return finish(null, responses);
                     }
                     continue;
