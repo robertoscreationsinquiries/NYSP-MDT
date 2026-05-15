@@ -114,59 +114,81 @@ function tsParse(raw) {
     return { ok: true, status: 'ok', body: records };
 }
 
-// ── tsSession: one telnet connection, runs N commands in sequence, returns parsed responses
-// ClientQuery is a stateful telnet server, NOT HTTP. Flow:
-//   1. Server sends greeting (`TS3 Client\n\rWelcome...\n\r`) — we discard
-//   2. We send `auth apikey=KEY\n` — server replies with one `error id=N msg=...` line
-//   3. We send each command (e.g. `channellist`) — server replies with payload + `error id=N msg=...`
-//   4. We send `quit\n` and close the socket
-// Each error line marks the end of one response. We slice on that boundary.
+// ── tsSession: connect via TCP, auth, run commands, close.
+//
+// Robustness features:
+// • Tries IPv4 (127.0.0.1) first, falls back to IPv6 (::1) if connect fails.
+//   ClientQuery on some Windows builds binds to ::1 only — Node won't auto-resolve.
+// • Greeting detection accepts ANY known greeting marker, not just the last line.
+//   After first data arrives, we wait 150ms for the rest of the greeting then send auth.
+// • All response blocks end with `error id=N msg=...` which marks the boundary.
+// • Promise never rejects — always resolves with { responses } or { error }.
+// • Logs first chunk in main-process console for diagnostics.
 function tsSession(apiKey, commands, timeoutMs = 6000) {
-    return new Promise((resolve) => {
+    const tryHost = (host) => new Promise((resolve) => {
         const responses = [];
         let buffer = '';
-        // State machine:
-        //   'await-greeting' — connected, waiting for `selected schandlerid=` line
-        //   'await-auth'     — sent `auth`, waiting for its error response
-        //   'await-cmd'      — sent commands[cmdIndex], waiting for its error response
-        //   'done'           — all responses received, quit sent, closing
         let phase = 'await-greeting';
         let cmdIndex = 0;
         let settled = false;
         let sock;
+        let firstDataLogged = false;
+        let greetingTimer = null;
         const finish = (err, val) => {
             if (settled) return;
             settled = true;
+            if (greetingTimer) clearTimeout(greetingTimer);
             try { sock && sock.destroy(); } catch (_) {}
-            // Never reject — always resolve with { error } so renderer never sees an uncaught throw
-            if (err) resolve({ error: err.message || String(err) });
-            else resolve({ responses: val });
+            if (err) resolve({ error: err.message || String(err), host });
+            else resolve({ responses: val, host });
+        };
+        const proceedToAuth = () => {
+            if (phase !== 'await-greeting') return;
+            phase = 'await-auth';
+            buffer = ''; // discard greeting
+            try { sock.write('auth apikey=' + apiKey + '\n'); }
+            catch (e) { return finish(e); }
         };
         try {
-            sock = net.createConnection({ host: '127.0.0.1', port: 25639 });
-        } catch (e) {
-            return finish(e);
-        }
+            sock = net.createConnection({ host, port: 25639, family: host === '::1' ? 6 : 4 });
+        } catch (e) { return finish(e); }
         sock.setEncoding('utf8');
         sock.setTimeout(timeoutMs);
-        sock.on('error', e => finish(new Error(e.code === 'ECONNREFUSED'
-            ? 'ClientQuery not reachable on port 25639 — enable the plugin in TeamSpeak → Tools → Options → Addons'
-            : (e.message || String(e)))));
-        sock.on('timeout', () => finish(new Error('ClientQuery timed out — is TeamSpeak running and the plugin enabled?')));
+        sock.on('error', e => finish(new Error(
+            e.code === 'ECONNREFUSED' ? `ClientQuery not reachable on ${host}:25639 (${e.code})` :
+            e.code === 'EHOSTUNREACH' ? `Host ${host} unreachable` :
+            (e.message || String(e))
+        )));
+        sock.on('timeout', () => finish(new Error('ClientQuery timed out — no greeting received from ' + host)));
         sock.on('close', () => {
-            if (!settled) finish(new Error('ClientQuery closed the connection unexpectedly'));
+            if (!settled) finish(new Error(`ClientQuery (${host}) closed connection in phase '${phase}'`));
+        });
+        sock.on('connect', () => {
+            console.log(`[TS] Connected to ClientQuery at ${host}:25639`);
         });
         sock.on('data', chunk => {
             if (settled) return;
             buffer += chunk;
+            if (!firstDataLogged) {
+                firstDataLogged = true;
+                const preview = buffer.slice(0, 500).replace(/[\r\n]/g, m => m === '\r' ? '\\r' : '\\n');
+                console.log(`[TS] First data from ${host} (${buffer.length} bytes): "${preview}"`);
+            }
 
-            // 1) Greeting phase: wait for the `selected schandlerid=N` line, THEN send auth.
+            // 1) Greeting phase: many possible markers across TS3 versions
             if (phase === 'await-greeting') {
-                if (/selected schandlerid=\d+/.test(buffer)) {
-                    buffer = ''; // discard greeting entirely
-                    phase = 'await-auth';
-                    try { sock.write('auth apikey=' + apiKey + '\n'); }
-                    catch (e) { return finish(e); }
+                const sawSelected = /selected schandlerid=\d+/.test(buffer);
+                const sawTS3Client = /TS3 Client/.test(buffer);
+                const sawWelcome = /Welcome to the TeamSpeak/i.test(buffer);
+                // If we see the canonical "selected schandlerid=" line, proceed immediately.
+                if (sawSelected) {
+                    if (greetingTimer) { clearTimeout(greetingTimer); greetingTimer = null; }
+                    return proceedToAuth();
+                }
+                // If we've seen ANY greeting marker but not the canonical end,
+                // schedule a fallback proceedToAuth in 250ms (greeting fully arrived).
+                if ((sawTS3Client || sawWelcome) && !greetingTimer) {
+                    greetingTimer = setTimeout(proceedToAuth, 250);
                 }
                 return;
             }
@@ -212,9 +234,21 @@ function tsSession(apiKey, commands, timeoutMs = 6000) {
                     }
                     continue;
                 }
-
-                // 'done' or unknown phase — just drain
             }
+        });
+    });
+
+    // Try IPv4 first, fall back to IPv6 on connect/timeout failure
+    return tryHost('127.0.0.1').then(r => {
+        if (r.responses) return r;
+        const v4err = r.error || '';
+        // Don't retry on auth errors (we'd just get the same answer)
+        if (/auth failed|check API key/i.test(v4err)) return r;
+        console.log(`[TS] IPv4 attempt failed (${v4err}); trying IPv6 ::1`);
+        return tryHost('::1').then(r2 => {
+            if (r2.responses) return r2;
+            // Combine errors so the user sees both attempts
+            return { error: `IPv4: ${v4err} | IPv6: ${r2.error || ''}` };
         });
     });
 }
@@ -223,7 +257,6 @@ function tsSession(apiKey, commands, timeoutMs = 6000) {
 function tsRequest(apiKey, command) {
     return tsSession(apiKey, [command]).then(r => r.responses ? r.responses[0] : null);
 }
-
 ipcMain.handle('ts-poll', async (_event, { apiKey, session }) => {
     if (!apiKey || apiKey.length < 10) return { ok: false, reason: 'INVALID_KEY' };
     if (!session) return { ok: false, reason: 'NO_SESSION' };
