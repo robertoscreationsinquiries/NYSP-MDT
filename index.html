@@ -595,6 +595,15 @@ body::before {
     }
 }
 
+@keyframes announcementSlide {
+    from { transform: translate(-50%, -120%); opacity: 0; }
+    to   { transform: translate(-50%, 0);     opacity: 1; }
+}
+@keyframes announcementBeam {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
 .pulse-animation {
     animation: pulse-data 0.6s ease-out;
 }
@@ -1708,7 +1717,19 @@ const [settingsVisitedOnce, setSettingsVisitedOnce] = useState(false); // NEW - 
             const [selectedSession, setSelectedSession] = useState(null);
             const [calls, setCalls] = useState([]);
             const [liveAnnouncements, setLiveAnnouncements] = useState({});
-            const [dismissedAnnouncements, setDismissedAnnouncements] = useState(new Set());
+            const [dismissedAnnouncements, setDismissedAnnouncements] = useState(() => {
+                // Persist dismissals to localStorage. The IDs are stable per-announcement
+                // from the worker — once you've X'd one, it shouldn't come back.
+                try {
+                    const raw = localStorage.getItem('dismissedAnnouncements');
+                    return raw ? new Set(JSON.parse(raw)) : new Set();
+                } catch (_) { return new Set(); }
+            });
+            React.useEffect(() => {
+                try { localStorage.setItem('dismissedAnnouncements', JSON.stringify([...dismissedAnnouncements])); } catch (_) {}
+            }, [dismissedAnnouncements]);
+            // Queue: only show ONE announcement at a time, expanded modal-style.
+            // When the current one is dismissed, the next pending one slides in.
 const [lastAnnouncementCheck, setLastAnnouncementCheck] = useState(Date.now());
             const [dismissedCalls, setDismissedCalls] = useState([]);
             const [acknowledgedCalls, setAcknowledgedCalls] = useState([]);
@@ -1749,6 +1770,8 @@ const [officerNextUpdate, setOfficerNextUpdate] = useState(null);
 const [teamspeakAPIKey, setTeamspeakAPIKey] = useState(() => localStorage.getItem('teamspeakAPIKey') || '');
 const [tsStatus, setTsStatus] = useState('IDLE'); // 'IDLE' | 'INVALID_KEY' | 'NO_SESSION' | 'OK' | 'ERROR'
 const [tsLastUpdate, setTsLastUpdate] = useState(null);
+const tsLastUpdateRef = React.useRef(null);
+React.useEffect(() => { tsLastUpdateRef.current = tsLastUpdate; }, [tsLastUpdate]);
 const [tsErrorDetail, setTsErrorDetail] = useState('');
 const [showTsSetupGuide, setShowTsSetupGuide] = useState(false);
 const [searchCitizenId, setSearchCitizenId] = useState('');
@@ -3347,12 +3370,23 @@ React.useEffect(() => {
                 setOfficerLastUpdated(new Date());
                 setOfficerNextUpdate(new Date(Date.now() + 5000));
             } else {
+                // Don't immediately clear officers on a transient error — only clear
+                // if the LAST successful poll is older than 12 seconds. Otherwise the
+                // UI flashes empty on a single bad poll and confuses the user.
+                const lastOk = tsLastUpdateRef.current;
+                const staleMs = lastOk ? (Date.now() - lastOk.getTime()) : Infinity;
                 setTsStatus(result?.reason || 'ERROR');
                 setTsErrorDetail(result?.error || '');
-                setOnlineOfficers([]);
+                if (staleMs > 12000) setOnlineOfficers([]);
             }
         } catch (e) {
-            if (!cancelled) { setTsStatus('ERROR'); setTsErrorDetail(e?.message || 'IPC failed'); setOnlineOfficers([]); }
+            if (!cancelled) {
+                const lastOk = tsLastUpdateRef.current;
+                const staleMs = lastOk ? (Date.now() - lastOk.getTime()) : Infinity;
+                setTsStatus('ERROR');
+                setTsErrorDetail(e?.message || 'IPC failed');
+                if (staleMs > 12000) setOnlineOfficers([]);
+            }
         } finally {
             inFlight = false;
         }
@@ -3405,10 +3439,14 @@ const renderOfficerList = (variant) => {
     // Dept theme palette
     const themeFor = (dept) => {
         switch (dept) {
-            case 'NYSP': return { bg: 'linear-gradient(90deg, rgba(30,58,138,0.35), rgba(30,58,138,0.12))', border: 'rgba(251,191,36,0.35)', accent: '#fbbf24', textPrimary: '#fde047', textSecondary: '#cbd5e1', glow: '0 0 8px #fbbf24' };
-            case 'EGPD': return { bg: 'linear-gradient(90deg, rgba(0,0,0,0.55), rgba(30,30,30,0.3))', border: 'rgba(226,232,240,0.35)', accent: '#e2e8f0', textPrimary: '#ffffff', textSecondary: '#94a3b8', glow: '0 0 8px rgba(226,232,240,0.6)' };
-            case 'EGFD': return { bg: 'linear-gradient(90deg, rgba(127,29,29,0.4), rgba(80,15,15,0.18))', border: 'rgba(251,146,60,0.35)', accent: '#fb923c', textPrimary: '#fed7aa', textSecondary: '#cbd5e1', glow: '0 0 8px #fb923c' };
-            case 'DOT':  return { bg: 'linear-gradient(90deg, rgba(120,80,0,0.4), rgba(80,55,0,0.18))', border: 'rgba(253,224,71,0.35)', accent: '#fde047', textPrimary: '#fef08a', textSecondary: '#cbd5e1', glow: '0 0 8px #fde047' };
+            // NYSP — deep navy bg, gold/blue accent (state-trooper colors)
+            case 'NYSP': return { bg: 'linear-gradient(90deg, rgba(15,32,89,0.55), rgba(15,32,89,0.18))', border: 'rgba(59,130,246,0.4)', accent: '#60a5fa', textPrimary: '#dbeafe', textSecondary: '#93c5fd', glow: '0 0 8px #3b82f6' };
+            // EGPD — black bg, white accent (municipal police)
+            case 'EGPD': return { bg: 'linear-gradient(90deg, rgba(0,0,0,0.65), rgba(15,15,15,0.35))', border: 'rgba(226,232,240,0.35)', accent: '#e2e8f0', textPrimary: '#ffffff', textSecondary: '#94a3b8', glow: '0 0 8px rgba(226,232,240,0.5)' };
+            // EGFD — dark red bg, lighter red accent (fire dept)
+            case 'EGFD': return { bg: 'linear-gradient(90deg, rgba(127,29,29,0.55), rgba(80,15,15,0.22))', border: 'rgba(248,113,113,0.4)', accent: '#f87171', textPrimary: '#fecaca', textSecondary: '#fca5a5', glow: '0 0 8px #ef4444' };
+            // DOT — saturated yellow bg, bright yellow accent (highway maintenance)
+            case 'DOT':  return { bg: 'linear-gradient(90deg, rgba(133,77,14,0.55), rgba(120,53,15,0.22))', border: 'rgba(250,204,21,0.45)', accent: '#facc15', textPrimary: '#fef3c7', textSecondary: '#fde047', glow: '0 0 8px #eab308' };
             default:     return { bg: 'rgba(71,85,105,0.12)', border: 'rgba(148,163,184,0.2)', accent: '#94a3b8', textPrimary: '#cbd5e1', textSecondary: '#64748b', glow: 'none' };
         }
     };
@@ -3442,11 +3480,14 @@ const renderOfficerList = (variant) => {
                         </div>;
                     }
                     return (
-                        <div key={oi} className={isPanic ? (panicFlickerOfficer === o.badge ? 'panic-officer' : 'panic-officer-steady') : ''} style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '8px 10px', background: theme.bg, border: `1px solid ${theme.border}`, borderRadius: '6px', marginBottom: '4px', position: 'relative', overflow: 'hidden', boxShadow: isMe ? `inset 0 0 0 1px ${theme.accent}88` : 'none' }}>
+                        <div key={oi} className={isPanic ? (panicFlickerOfficer === o.badge ? 'panic-officer' : 'panic-officer-steady') : ''} style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '8px 10px 8px 12px', background: theme.bg, border: `1px solid ${theme.border}`, borderRadius: '6px', marginBottom: '4px', position: 'relative', overflow: 'hidden', boxShadow: isMe ? `inset 0 0 0 1px ${theme.accent}88` : 'none' }}>
+                            {/* Left accent bar */}
                             <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '2px', background: theme.accent, boxShadow: theme.glow }} />
-                            <div style={{ width: '26px', height: '26px', background: `${theme.accent}1f`, border: `1px solid ${theme.accent}55`, borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginLeft: '4px' }}>
-                                <span style={{ color: theme.accent, fontSize: '9px', fontWeight: '800', fontFamily: 'monospace' }}>{(o.callSign || '?').slice(0, 3)}</span>
-                            </div>
+
+                            {/* ON AIR dot — pulses if in session, dim if off-session */}
+                            <div style={{ flexShrink: 0, width: '8px', height: '8px', borderRadius: '50%', background: isOffSession ? '#fbbf24' : '#10b981', boxShadow: isOffSession ? '0 0 6px #fbbf24' : '0 0 6px #10b981', animation: isOffSession ? 'none' : 'pulse 2s ease-in-out infinite' }} />
+
+                            {/* Identity block */}
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
                                     <span style={{ color: theme.textPrimary, fontSize: '12px', fontWeight: '700', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.callSign}</span>
@@ -3454,8 +3495,10 @@ const renderOfficerList = (variant) => {
                                 </div>
                                 <div style={{ color: theme.textSecondary, fontSize: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{o.name}</div>
                             </div>
-                            <span style={{ color: isOffSession ? '#fbbf24' : theme.textSecondary, fontSize: '9px', fontFamily: 'monospace', padding: '2px 7px', background: isOffSession ? 'rgba(245,158,11,0.15)' : 'rgba(0,0,0,0.3)', border: isOffSession ? '1px solid rgba(245,158,11,0.3)' : 'none', borderRadius: '4px', flexShrink: 0, letterSpacing: '0.5px' }}>
-                                {isOffSession ? `not in session · ${o.zone}` : o.zone}
+
+                            {/* Channel tag */}
+                            <span style={{ color: isOffSession ? '#fbbf24' : theme.textSecondary, fontSize: '9px', fontFamily: 'monospace', padding: '3px 8px', background: isOffSession ? 'rgba(245,158,11,0.12)' : 'rgba(0,0,0,0.35)', border: `1px solid ${isOffSession ? 'rgba(245,158,11,0.3)' : 'rgba(255,255,255,0.06)'}`, borderRadius: '999px', flexShrink: 0, letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span style={{ opacity: 0.6 }}>📻</span>{isOffSession ? `not on radio · ${o.zone}` : o.zone}
                             </span>
                         </div>
                     );
@@ -10968,7 +11011,9 @@ return (
                                 <div style={{ width:'2px',height:'12px',background:'#22d3ee',borderRadius:'2px',boxShadow:'0 0 6px #22d3ee' }} />
                                 <div>
                                     <div style={{ color:'#22d3ee',fontSize:'11px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Officers Panel</div>
-                                    <div style={{ color:'#475569',fontSize:'9px',marginTop:'2px',fontFamily:'monospace' }}>5s autosync · {(onlineOfficers||[]).length} online</div>
+                                    <div style={{ color: tsStatus === 'ERROR' && (onlineOfficers||[]).length > 0 ? '#fbbf24' : '#475569', fontSize:'9px', marginTop:'2px', fontFamily:'monospace' }}>
+                                        {tsStatus === 'ERROR' && (onlineOfficers||[]).length > 0 ? '⚠ stale · retrying' : `5s autosync · ${(onlineOfficers||[]).length} online`}
+                                    </div>
                                 </div>
                             </div>
                             <button onClick={()=>setShowOfficersPanel(false)} style={{ background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.25)',borderRadius:'4px',color:'#f87171',cursor:'pointer',width:'24px',height:'24px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontFamily:'monospace',padding:0 }}>✕</button>
@@ -11431,7 +11476,9 @@ return (
                                 <span style={{ color:'#22d3ee',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Available Units</span>
                                 <span style={{ padding:'1px 7px',background:'rgba(34,211,238,0.12)',border:'1px solid rgba(34,211,238,0.25)',borderRadius:'10px',color:'#22d3ee',fontSize:'10px',fontWeight:'700',fontFamily:'monospace' }}>{(onlineOfficers||[]).length}</span>
                             </div>
-                            <span style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px' }}>5s autosync</span>
+                            <span style={{ color: tsStatus === 'ERROR' && (onlineOfficers||[]).length > 0 ? '#fbbf24' : '#475569', fontSize:'9px', fontFamily:'monospace', letterSpacing:'0.5px' }}>
+                                {tsStatus === 'ERROR' && (onlineOfficers||[]).length > 0 ? '⚠ stale · retrying' : '5s autosync'}
+                            </span>
                         </div>
                         <div style={{ flex:1,overflowY:'auto',padding:'8px' }}>
                             {renderOfficerList('compact')}
@@ -15940,53 +15987,74 @@ if (window.electronAPI?.quit) {
     </div>
 )}
 
-{liveAnnouncements && Object.entries(liveAnnouncements).filter(([id]) => !dismissedAnnouncements.has(id)).length > 0 && (
-    <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999, pointerEvents: 'none', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {Object.entries(liveAnnouncements).filter(([id]) => !dismissedAnnouncements.has(id)).map(([id, message]) => (
-            <div key={id}
-                style={{
-                    background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,58,138,0.25))',
-                    border: '1px solid rgba(239,68,68,0.35)',
-                    borderRadius: '14px',
-                    padding: '14px 16px',
-                    maxWidth: '340px',
-                    boxShadow: '0 4px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)',
-                    pointerEvents: 'auto',
-                    transition: 'transform 0.2s, box-shadow 0.2s',
-                    position: 'relative',
-                    overflow: 'hidden',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateX(-4px)'; e.currentTarget.style.boxShadow = '0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'translateX(0)'; e.currentTarget.style.boxShadow = '0 4px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)'; }}
-            >
-                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(239,68,68,0.7), transparent)' }}></div>
-                <div style={{ position: 'absolute', top: '-50%', right: '-10%', width: '50%', height: '200%', background: 'radial-gradient(circle, rgba(239,68,68,0.06) 0%, transparent 70%)', pointerEvents: 'none' }}></div>
+{(() => {
+    // ── Live Announcement queue ──
+    // Only one announcement visible at a time. Slides down from the top, expanded
+    // modal-style like a car infotainment notification. When dismissed, the next
+    // queued one slides in. Dismissals persist via localStorage, so the same
+    // announcement won't reappear on the next 60s poll.
+    const pending = Object.entries(liveAnnouncements || {}).filter(([id]) => !dismissedAnnouncements.has(id));
+    if (pending.length === 0) return null;
+    const [id, message] = pending[0];
+    const remainingCount = pending.length - 1;
+    return (
+        <div style={{ position: 'fixed', top: '64px', left: '50%', transform: 'translateX(-50%)', zIndex: 99997, width: '100%', maxWidth: '520px', padding: '0 16px', pointerEvents: 'none', animation: 'announcementSlide 360ms cubic-bezier(0.23, 1, 0.32, 1)' }}>
+            <div style={{ pointerEvents: 'auto', background: 'linear-gradient(180deg, rgba(15,30,60,0.96) 0%, rgba(10,20,40,0.97) 100%)', backdropFilter: 'blur(8px)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: '14px', boxShadow: '0 16px 56px rgba(0,0,0,0.55), 0 0 0 1px rgba(239,68,68,0.06), inset 0 1px 0 rgba(248,113,113,0.1)', overflow: 'hidden', position: 'relative' }}>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', position: 'relative', zIndex: 1 }}>
-                    <div style={{ width: '28px', height: '28px', background: 'linear-gradient(135deg, rgba(239,68,68,0.2), rgba(220,38,38,0.1))', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', flexShrink: 0 }}>📢</div>
-                    <span style={{ color: '#f87171', fontSize: '10px', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase' }}>LIVE ANNOUNCEMENT</span>
-                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px rgba(239,68,68,0.9)', animation: 'pulse-dot 2s ease-in-out infinite' }}></div>
-                            <span style={{ color: '#ef4444', fontSize: '9px', fontWeight: '700', letterSpacing: '1px' }}>LIVE</span>
+                {/* Pulsing red strip at top — broadcast indicator */}
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, transparent, #ef4444, transparent)', backgroundSize: '200% 100%', animation: 'announcementBeam 2s linear infinite' }} />
+
+                {/* Body */}
+                <div style={{ padding: '20px 22px 18px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
+
+                        {/* Icon */}
+                        <div style={{ flexShrink: 0, width: '40px', height: '40px', background: 'linear-gradient(135deg, rgba(239,68,68,0.18), rgba(220,38,38,0.08))', border: '1px solid rgba(248,113,113,0.4)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', boxShadow: '0 0 18px rgba(239,68,68,0.18), inset 0 1px 0 rgba(255,255,255,0.06)' }}>📢</div>
+
+                        {/* Text block */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                <span style={{ color: '#fca5a5', fontSize: '11px', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase', fontFamily: 'monospace' }}>Live Announcement</span>
+                                <span style={{ padding: '2px 7px', background: 'rgba(239,68,68,0.14)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: '4px', color: '#f87171', fontSize: '8px', fontWeight: '700', letterSpacing: '1.2px', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 6px #ef4444', animation: 'pulse-dot 1.5s ease-in-out infinite', display: 'inline-block' }} />LIVE
+                                </span>
+                            </div>
+                            <div style={{ color: '#64748b', fontSize: '10px', letterSpacing: '0.8px', fontFamily: 'monospace', marginBottom: '12px' }}>Broadcasted automatically</div>
+                            <div style={{ color: '#e2e8f0', fontSize: '14px', lineHeight: 1.6, fontWeight: '500' }}>{message}</div>
+                        </div>
+
+                        {/* Close button */}
+                        <button
+                            onClick={() => setDismissedAnnouncements(prev => new Set([...prev, id]))}
+                            style={{ flexShrink: 0, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px', color: '#f87171', cursor: 'pointer', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontFamily: 'monospace', padding: 0, transition: 'background 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.18)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}
+                            onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.92)'; }}
+                            onMouseUp={e => { e.currentTarget.style.transform = ''; }}
+                            title="Dismiss this announcement"
+                        >✕</button>
+                    </div>
+
+                    {/* Action row */}
+                    <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '12px', borderTop: '1px solid rgba(239,68,68,0.12)' }}>
+                        <div style={{ color: '#475569', fontSize: '10px', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
+                            {remainingCount > 0 ? `${remainingCount} more queued` : 'No more pending'}
                         </div>
                         <button
                             onClick={() => setDismissedAnnouncements(prev => new Set([...prev, id]))}
-                            style={{ width: '18px', height: '18px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#475569', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0, transition: 'all 0.15s', flexShrink: 0 }}
-                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.15)'; e.currentTarget.style.color = '#f87171'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.3)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#475569'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
-                            title="Dismiss announcement"
-                        >✕</button>
+                            style={{ padding: '8px 18px', background: 'linear-gradient(180deg, #dc2626, #991b1b)', border: '1px solid rgba(239,68,68,0.5)', borderRadius: '7px', color: 'white', fontSize: '11px', fontWeight: '700', cursor: 'pointer', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace', boxShadow: '0 0 18px rgba(239,68,68,0.2), inset 0 1px 0 rgba(255,255,255,0.15)', transition: 'filter 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                            onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(1.12)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.filter = ''; }}
+                            onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.98)'; }}
+                            onMouseUp={e => { e.currentTarget.style.transform = ''; }}>
+                            Acknowledge
+                        </button>
                     </div>
                 </div>
-
-                <div style={{ color: '#94a3b8', fontSize: '12px', lineHeight: '1.6', fontWeight: '500', position: 'relative', zIndex: 1, paddingLeft: '2px' }}>
-                    {message}
-                </div>
             </div>
-        ))}
-    </div>
-)}
+        </div>
+    );
+})()}
 <button 
     className={`scroll-to-top ${showScrollTop ? 'visible' : ''}`}
     onClick={scrollToTop}
