@@ -165,7 +165,7 @@ function tsSession(apiKey, commands, timeoutMs = 6000) {
             e.code === 'EHOSTUNREACH' ? `Host ${host} unreachable` :
             (e.message || String(e))
         )));
-        sock.on('timeout', () => finish(new Error('ClientQuery timed out — no greeting received from ' + host)));
+        sock.on('timeout', () => finish(new Error(`ClientQuery timed out in phase '${phase}' from ${host} — buffer had ${buffer.length}b unparsed`)));
         sock.on('close', () => {
             if (!settled) finish(new Error(`ClientQuery (${host}) closed connection in phase '${phase}'`));
         });
@@ -199,7 +199,7 @@ function tsSession(apiKey, commands, timeoutMs = 6000) {
 
             // 2 & 3) Process complete `error id=N msg=...` blocks
             while (true) {
-                const m = buffer.match(/(^|\n)error id=(\d+) msg=([^\n\r]*)[\r\n]+/);
+                const m = buffer.match(/(^|[\r\n])error id=(\d+) msg=([^\n\r]*)[\r\n]+/);
                 if (!m) break;
                 const blockEnd = m.index + m[0].length;
                 const blockText = buffer.slice(0, blockEnd);
