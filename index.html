@@ -13006,7 +13006,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
                                         <div style={{ flex: 1 }}>
                                             <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700', marginBottom: '2px' }}>🎙 Enable TeamSpeak Integration</div>
-                                            <div style={{ color: '#4b5563', fontSize: '11px' }}>Reads ClientQuery locally to populate the Available Officers list with real radio presence.</div>
+                                            <div style={{ color: '#4b5563', fontSize: '11px' }}>Uses TeamSpeak to show available units within your session. This feature is in an EXPERIMENTAL phase.</div>
                                         </div>
                                         <button
                                             onClick={() => setEnableTeamSpeakIntegration(v => !v)}
@@ -13018,7 +13018,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                                         <div style={{ flex: 1 }}>
                                             <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700', marginBottom: '2px' }}>🎵 Enable Spotify Integration</div>
-                                            <div style={{ color: '#4b5563', fontSize: '11px' }}>Show currently-playing track and (Premium only) control playback from a dedicated sidetab.</div>
+                                            <div style={{ color: '#4b5563', fontSize: '11px' }}>Uses Spotify to show current track and gives the ability to skip, pause, and more. This feature is in an EXPERIMENTAL phase and is restricted to premium-users only..</div>
                                         </div>
                                         <button
                                             onClick={() => setEnableSpotifyIntegration(v => !v)}
