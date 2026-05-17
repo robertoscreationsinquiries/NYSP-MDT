@@ -854,7 +854,7 @@ async function _spotifyExchangeCode(code) {
     const body = new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        redirect_uri: 'http://127.0.0.1:8888/callback',
+        redirect_uri: 'http://localhost:3050/auth/spotify/callback',
         client_id: _spotifyState.clientId,
         code_verifier: _spotifyCodeVerifier
     }).toString();
@@ -993,7 +993,7 @@ ipcMain.handle('spotify-begin-auth', async (_e, { clientId }) => {
     const state = _spotifyBase64Url(crypto.randomBytes(12));
     const scopes = ['user-read-private', 'user-read-email', 'user-read-playback-state', 'user-modify-playback-state', 'user-read-currently-playing'].join(' ');
     const authUrl = 'https://accounts.spotify.com/authorize?' + new URLSearchParams({
-        client_id: clientId, response_type: 'code', redirect_uri: 'http://127.0.0.1:8888/callback',
+        client_id: clientId, response_type: 'code', redirect_uri: 'http://localhost:3050/auth/spotify/callback',
         code_challenge_method: 'S256', code_challenge: pkce.challenge, state, scope: scopes
     }).toString();
     try {
