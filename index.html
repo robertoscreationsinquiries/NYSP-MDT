@@ -1774,6 +1774,26 @@ const tsLastUpdateRef = React.useRef(null);
 React.useEffect(() => { tsLastUpdateRef.current = tsLastUpdate; }, [tsLastUpdate]);
 const [tsErrorDetail, setTsErrorDetail] = useState('');
 const [showTsSetupGuide, setShowTsSetupGuide] = useState(false);
+
+// ── Integration toggles (Personal Preferences) ──
+const [enableTeamSpeakIntegration, setEnableTeamSpeakIntegration] = useState(() => localStorage.getItem('enableTeamSpeakIntegration') !== 'FALSE');
+const [enableSpotifyIntegration, setEnableSpotifyIntegration] = useState(() => localStorage.getItem('enableSpotifyIntegration') === 'TRUE');
+React.useEffect(() => { localStorage.setItem('enableTeamSpeakIntegration', enableTeamSpeakIntegration ? 'TRUE' : 'FALSE'); }, [enableTeamSpeakIntegration]);
+React.useEffect(() => { localStorage.setItem('enableSpotifyIntegration', enableSpotifyIntegration ? 'TRUE' : 'FALSE'); }, [enableSpotifyIntegration]);
+
+// ── Spotify integration ──
+const [spotifyClientId, setSpotifyClientId] = useState(() => localStorage.getItem('spotifyClientId') || '');
+const [spotifyRefreshToken, setSpotifyRefreshToken] = useState(() => localStorage.getItem('spotifyRefreshToken') || '');
+const [spotifyConnected, setSpotifyConnected] = useState(false);
+const [spotifyProduct, setSpotifyProduct] = useState(null);
+const [spotifyNowPlaying, setSpotifyNowPlaying] = useState(null);
+const [spotifyDeviceId, setSpotifyDeviceId] = useState(null);
+const [spotifyError, setSpotifyError] = useState('');
+const [spotifyAuthing, setSpotifyAuthing] = useState(false);
+const [showSpotifySetupGuide, setShowSpotifySetupGuide] = useState(false);
+const [showSpotifyPanel, setShowSpotifyPanel] = useState(false);
+React.useEffect(() => { localStorage.setItem('spotifyClientId', spotifyClientId); }, [spotifyClientId]);
+React.useEffect(() => { localStorage.setItem('spotifyRefreshToken', spotifyRefreshToken); }, [spotifyRefreshToken]);
 const [searchCitizenId, setSearchCitizenId] = useState('');
 const [compactMode, setCompactMode] = useState(false);
 const [pastRecords, setPastRecords] = useState([]);
@@ -2432,6 +2452,27 @@ if (trimmedLine.startsWith('SFX_MIC_NOTAVAILABLE=')) {
                     setTeamspeakAPIKey(trimmedKey);
                     try { localStorage.setItem('teamspeakAPIKey', trimmedKey); } catch (_) {}
                 }
+            }
+
+            // ── Integration toggles ──
+            if (trimmedLine.startsWith('EnableTeamSpeakIntegration=')) {
+                const v = (trimmedLine.split('=')[1] || '').trim();
+                setEnableTeamSpeakIntegration(v === 'TRUE');
+                try { localStorage.setItem('enableTeamSpeakIntegration', v === 'TRUE' ? 'TRUE' : 'FALSE'); } catch (_) {}
+            }
+            if (trimmedLine.startsWith('EnableSpotifyIntegration=')) {
+                const v = (trimmedLine.split('=')[1] || '').trim();
+                setEnableSpotifyIntegration(v === 'TRUE');
+                try { localStorage.setItem('enableSpotifyIntegration', v === 'TRUE' ? 'TRUE' : 'FALSE'); } catch (_) {}
+            }
+            // ── Spotify credentials ──
+            if (trimmedLine.startsWith('SpotifyClientID=')) {
+                const id = (trimmedLine.split('=')[1] || '').trim();
+                if (id) { setSpotifyClientId(id); try { localStorage.setItem('spotifyClientId', id); } catch (_) {} }
+            }
+            if (trimmedLine.startsWith('SpotifyRefreshToken=')) {
+                const t = (trimmedLine.split('=')[1] || '').trim();
+                if (t) { setSpotifyRefreshToken(t); try { localStorage.setItem('spotifyRefreshToken', t); } catch (_) {} }
             }
         });
     } else {
@@ -3329,6 +3370,7 @@ if (window.AVAILABLE_OFFICERS_DISABLED) { console.log('[BACKEND DATA OFFICER]: �
 // Falls back to clear states: invalid key → INVALID_KEY, no session → NO_SESSION.
 // onlineOfficers is replaced on each successful poll; departed clients just disappear.
 React.useEffect(() => {
+    if (!enableTeamSpeakIntegration) { setTsStatus('IDLE'); setOnlineOfficers([]); return; }
     const key = (teamspeakAPIKey || '').trim();
     if (key.length < 10) { setTsStatus('INVALID_KEY'); setOnlineOfficers([]); return; }
     if (!selectedUserSession) { setTsStatus('NO_SESSION'); setOnlineOfficers([]); return; }
@@ -3377,7 +3419,7 @@ React.useEffect(() => {
                 const staleMs = lastOk ? (Date.now() - lastOk.getTime()) : Infinity;
                 setTsStatus(result?.reason || 'ERROR');
                 setTsErrorDetail(result?.error || '');
-                if (staleMs > 12000) setOnlineOfficers([]);
+                if (staleMs > 30000) setOnlineOfficers([]);
             }
         } catch (e) {
             if (!cancelled) {
@@ -3385,7 +3427,7 @@ React.useEffect(() => {
                 const staleMs = lastOk ? (Date.now() - lastOk.getTime()) : Infinity;
                 setTsStatus('ERROR');
                 setTsErrorDetail(e?.message || 'IPC failed');
-                if (staleMs > 12000) setOnlineOfficers([]);
+                if (staleMs > 30000) setOnlineOfficers([]);
             }
         } finally {
             inFlight = false;
@@ -3394,7 +3436,72 @@ React.useEffect(() => {
     poll();
     const id = setInterval(poll, 5000);
     return () => { cancelled = true; clearInterval(id); };
-}, [teamspeakAPIKey, selectedUserSession]);
+}, [teamspeakAPIKey, selectedUserSession, enableTeamSpeakIntegration]);
+
+// ── Spotify: init on enable, listen for state pushes from main ──
+React.useEffect(() => {
+    if (!enableSpotifyIntegration) {
+        setSpotifyConnected(false); setSpotifyNowPlaying(null); setSpotifyProduct(null);
+        try { window.electron?.ipcRenderer?.invoke('spotify-disconnect'); } catch (_) {}
+        return;
+    }
+    const cid = (spotifyClientId || '').trim();
+    if (cid.length < 25) return;
+    try {
+        window.electron?.ipcRenderer?.invoke('spotify-init', { clientId: cid, refreshToken: spotifyRefreshToken || null })
+            .then(r => { if (r?.hasAuth) setSpotifyConnected(true); })
+            .catch(() => {});
+    } catch (_) {}
+}, [enableSpotifyIntegration, spotifyClientId, spotifyRefreshToken]);
+
+React.useEffect(() => {
+    const onState = (_e, data) => {
+        setSpotifyConnected(!!data.connected);
+        setSpotifyProduct(data.product || null);
+        setSpotifyDeviceId(data.deviceId || null);
+        setSpotifyNowPlaying(data.nowPlaying || null);
+        setSpotifyError(data.error || '');
+    };
+    const onProfile = (_e, data) => { setSpotifyProduct(data.product); };
+    const onAuthResult = (_e, data) => {
+        setSpotifyAuthing(false);
+        if (data?.ok) {
+            setSpotifyConnected(true);
+            if (data.refreshToken) setSpotifyRefreshToken(data.refreshToken);
+        } else { setSpotifyError(data?.error || 'Auth failed'); }
+    };
+    try {
+        window.electron?.ipcRenderer?.on('spotify-state', onState);
+        window.electron?.ipcRenderer?.on('spotify-profile', onProfile);
+        window.electron?.ipcRenderer?.on('spotify-auth-result', onAuthResult);
+    } catch (_) {}
+    return () => {
+        try {
+            window.electron?.ipcRenderer?.removeListener('spotify-state', onState);
+            window.electron?.ipcRenderer?.removeListener('spotify-profile', onProfile);
+            window.electron?.ipcRenderer?.removeListener('spotify-auth-result', onAuthResult);
+        } catch (_) {}
+    };
+}, []);
+
+const spotifyAuthorize = async () => {
+    const cid = (spotifyClientId || '').trim();
+    if (cid.length < 25) return;
+    setSpotifyAuthing(true);
+    setSpotifyError('');
+    try {
+        const r = await window.electron?.ipcRenderer?.invoke('spotify-begin-auth', { clientId: cid });
+        if (!r?.ok) { setSpotifyAuthing(false); setSpotifyError(r?.error || 'Failed to start auth'); }
+    } catch (e) { setSpotifyAuthing(false); setSpotifyError(e?.message || 'Auth error'); }
+};
+const spotifyControl = async (action) => {
+    try {
+        const r = await window.electron?.ipcRenderer?.invoke('spotify-control', { action });
+        if (r && r.ok === false && r.error === 'NO_DEVICE') {
+            setSpotifyError('No active Spotify device — open Spotify on any device first');
+        }
+    } catch (_) {}
+};
 
 // ── Shared OfficerList renderer ──
 // Single render function used by BOTH the home dashboard panel AND the global
@@ -4674,6 +4781,10 @@ DevConsoleEnabled=${showDevConsole ? 'TRUE' : 'FALSE'}
 DiscordAccountToken=${discordToken || ''}
 GroqConsoleAPIKey=${groqConsoleAPIKey || ''}
 TeamSpeakAPIKey=${teamspeakAPIKey || ''}
+EnableTeamSpeakIntegration=${enableTeamSpeakIntegration ? 'TRUE' : 'FALSE'}
+EnableSpotifyIntegration=${enableSpotifyIntegration ? 'TRUE' : 'FALSE'}
+SpotifyClientID=${spotifyClientId || ''}
+SpotifyRefreshToken=${spotifyRefreshToken || ''}
 AmericanDateFormat=${trooperSettings?.AmericanDateFormat || 'FALSE'}
 ACTIONBAR_KEYBIND=${actionBarKeybind || 'CTRL+K'}
 KEYBINDS_REQUIRE_FOCUS=${keybindsRequireFocus ? 'TRUE' : 'FALSE'}
@@ -4714,7 +4825,16 @@ if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
                     if (key === 'SFX_MIC_NOTAVAILABLE') setSoundSettings(prev => ({ ...prev, MicNotAvailable: val === 'TRUE' }));
                     if (key === 'ACKNOWLEDGE_KEYBIND') { setAcknowledgeKeybind(val); setAcknowledgeKeybindDraft(val); }
                     if (key === 'AmericanDateFormat') setTrooperSettings(prev => ({ ...prev, AmericanDateFormat: val }));
-                    
+                    if (key === 'RegistrationChannelID') setTrooperSettings(prev => ({ ...prev, RegistrationChannelID: val }));
+                    if (key === 'DatabaseChannelID') setTrooperSettings(prev => ({ ...prev, DatabaseChannelID: val }));
+                    if (key === 'GuildID') setTrooperSettings(prev => ({ ...prev, GuildID: val }));
+                    if (key === 'expDate') setTrooperSettings(prev => ({ ...prev, expDate: val }));
+                    if (key === 'USE_MICROPHONE') setUseMicrophone(val === 'TRUE');
+                    if (key === 'DevConsoleEnabled') setShowDevConsole(val === 'TRUE');
+                    if (key === 'EnableTeamSpeakIntegration') setEnableTeamSpeakIntegration(val === 'TRUE');
+                    if (key === 'EnableSpotifyIntegration') setEnableSpotifyIntegration(val === 'TRUE');
+                    if (key === 'SpotifyClientID') { setSpotifyClientId(val); localStorage.setItem('spotifyClientId', val); }
+                    if (key === 'SpotifyRefreshToken') { setSpotifyRefreshToken(val); localStorage.setItem('spotifyRefreshToken', val); }
                 });
 
                 showCustomError('Settings Exported', `CADSystemSettings.txt updated successfully. All settings are now live - no restart required.`, true);
@@ -10860,6 +10980,7 @@ return (
                     {l:'History',k:'hist',panel:true,icon:'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'},
                     {l:'Data',k:'data',panel:true,icon:'M4 6h16M4 10h16M4 14h16M4 18h16'},
                     {divider:true},
+                    ...(enableSpotifyIntegration ? [{l:'Spotify',k:'spotify',panel:true,icon:'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3'}] : []),
                     {l:'Settings',k:'settings',icon:'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z',circle:'12 12 3'},
                 ].map((item,i)=>{
                     if(item.divider) return <div key={i} style={{ width:'1px',height:'20px',background:'#1c2333',margin:'0 4px',flexShrink:0 }} />;
@@ -10869,6 +10990,7 @@ return (
                         item.k==='hist'?showHistoryPanel :
                         item.k==='data'?showDataPanel :
                         item.k==='officers'?showOfficersPanel :
+                        item.k==='spotify'?showSpotifyPanel :
                         activeView===item.k;
                     return (
                         <button key={i} disabled={!!item.disabled}
@@ -10878,7 +11000,8 @@ return (
                                 else if(item.mapKey){navTo('home', ()=>{setHomeSubView(v=>v==='map'?'dashboard':'map');setShowDataPanel(false);setShowOfficersPanel(false);setShowHistoryPanel(false);});}
                                 else if(item.k==='hist'){setShowHistoryPanel(p=>!p);setShowDataPanel(false);setShowOfficersPanel(false);}
                                 else if(item.k==='data'){setShowDataPanel(p=>!p);setShowOfficersPanel(false);setShowHistoryPanel(false);}
-                                else if(item.k==='officers'){setShowOfficersPanel(p=>!p);setShowDataPanel(false);setShowHistoryPanel(false);}
+                                else if(item.k==='officers'){setShowOfficersPanel(p=>!p);setShowDataPanel(false);setShowHistoryPanel(false);setShowSpotifyPanel(false);}
+                                else if(item.k==='spotify'){setShowSpotifyPanel(p=>!p);setShowOfficersPanel(false);setShowDataPanel(false);setShowHistoryPanel(false);}
                                 else{navTo(item.k, ()=>{ if(item.k==='calls')setCallButtonFlash(false); });}
                             }}
                             style={{ display:'flex',alignItems:'center',gap:'5px',padding:'0 10px',height:'100%',background:isActive?'rgba(56,139,253,0.1)':'transparent',border:'none',borderBottom:isActive?'2px solid #388bfd':'2px solid transparent',color:item.disabled?'#30363d':item.flash?'#f85149':isActive?'#58a6ff':'#8b949e',fontSize:'11px',fontWeight:isActive?'600':'500',cursor:item.disabled?'not-allowed':'pointer',transition:'color 0.15s,background 0.15s',whiteSpace:'nowrap',outline:'none',opacity:item.disabled?0.35:1,animation:item.flash?'flash-red 1.5s infinite':'none',flexShrink:0 }}
@@ -12680,7 +12803,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                     <button onClick={async () => { if (!groqConsoleAPIKey?.trim()) return; const k = groqConsoleAPIKey.trim(); localStorage.setItem('groqConsoleAPIKey', k); window.GROQ_CONSOLE_API_KEY = k; addLog('✅ Groq key updated', 'success'); }} style={S.btn('#3b82f6', !groqConsoleAPIKey?.trim())}>🔑 Update Groq API Key</button>
                                 </div>
 
-                                <div style={{ marginBottom: '12px' }}>
+                                {enableTeamSpeakIntegration && (<div style={{ marginBottom: '12px' }}>
                                     <div style={S.fieldLabel}>TeamSpeak API Key</div>
                                     <input type="password" value={teamspeakAPIKey} onChange={(e) => setTeamspeakAPIKey(e.target.value)} placeholder="Paste your TS3 ClientQuery API key" style={{ ...S.input, marginBottom: '8px' }} onFocus={e => e.target.style.borderColor = 'rgba(34,211,238,0.4)'} onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.07)'} />
 
@@ -12720,7 +12843,85 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                             </div>
                                         </div>
                                     )}
-                                </div>
+                                </div>)}
+
+                                {enableSpotifyIntegration && (<div style={{ marginBottom: '12px' }}>
+                                    <div style={S.fieldLabel}>Spotify Client ID</div>
+                                    <input type="text" value={spotifyClientId} onChange={(e) => setSpotifyClientId(e.target.value)} placeholder="Paste your Spotify app Client ID (32+ chars)" style={{ ...S.input, marginBottom: '8px' }} onFocus={e => e.target.style.borderColor = 'rgba(34,197,94,0.4)'} onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.07)'} />
+
+                                    {/* Status pill */}
+                                    {(() => {
+                                        const cid = (spotifyClientId || '').trim();
+                                        const isValidId = cid.length >= 25;
+                                        const state =
+                                            !isValidId ? 'INVALID' :
+                                            spotifyConnected ? 'CONNECTED' :
+                                            spotifyAuthing ? 'AUTHING' :
+                                            'READY';
+                                        const palette = state === 'CONNECTED' ? { bg: 'rgba(34,197,94,0.08)', border: 'rgba(34,197,94,0.25)', dot: '#22c55e', text: '#86efac', glow: '0 0 6px #22c55e' }
+                                                      : state === 'AUTHING'   ? { bg: 'rgba(34,211,238,0.08)', border: 'rgba(34,211,238,0.25)', dot: '#22d3ee', text: '#67e8f9', glow: '0 0 6px #22d3ee' }
+                                                      : state === 'INVALID'   ? { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.25)', dot: '#ef4444', text: '#fca5a5', glow: '0 0 6px #ef4444' }
+                                                      :                         { bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.25)', dot: '#f59e0b', text: '#fbbf24', glow: '0 0 6px #f59e0b' };
+                                        const label = state === 'CONNECTED' ? `Connected${spotifyProduct ? ` · ${spotifyProduct === 'premium' ? 'Premium' : 'Free (read-only)'}` : ''}`
+                                                    : state === 'AUTHING'   ? 'Waiting for browser sign-in…'
+                                                    : state === 'INVALID'   ? `Invalid ID · ${cid.length}/25 chars`
+                                                    :                         'Ready · Click Authorize to sign in';
+                                        return (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 11px', marginBottom: '8px', background: palette.bg, border: `1px solid ${palette.border}`, borderRadius: '7px' }}>
+                                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: palette.dot, boxShadow: palette.glow }} />
+                                                <span style={{ color: palette.text, fontSize: '10px', fontWeight: '700', letterSpacing: '1px', fontFamily: 'monospace', textTransform: 'uppercase' }}>{label}</span>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* Auth + disconnect controls */}
+                                    <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+                                        <button
+                                            onClick={spotifyAuthorize}
+                                            disabled={(spotifyClientId || '').trim().length < 25 || spotifyAuthing}
+                                            style={{ ...S.btn('#22c55e', (spotifyClientId || '').trim().length < 25 || spotifyAuthing), flex: 1 }}>
+                                            {spotifyConnected ? '🔁 Re-authorize' : '🎵 Authorize Spotify'}
+                                        </button>
+                                        {spotifyConnected && (
+                                            <button
+                                                onClick={async () => { setSpotifyConnected(false); setSpotifyRefreshToken(''); try { await window.electron?.ipcRenderer?.invoke('spotify-disconnect'); } catch (_) {} }}
+                                                style={{ ...S.btn('#475569', false), flex: 0, padding: '0 14px' }}>
+                                                Disconnect
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {spotifyError && (
+                                        <div style={{ color: '#fca5a5', fontSize: '10px', fontFamily: 'monospace', padding: '6px 10px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)', borderRadius: '6px', marginBottom: '8px' }}>
+                                            ⚠ {spotifyError}
+                                        </div>
+                                    )}
+
+                                    {/* Collapsible setup guide */}
+                                    <div onClick={() => setShowSpotifySetupGuide(v => !v)}
+                                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 0', color: '#22c55e', fontSize: '11px', fontWeight: '600', userSelect: 'none', transition: 'color 160ms ease-out' }}
+                                        onMouseEnter={e => e.currentTarget.style.color = '#4ade80'}
+                                        onMouseLeave={e => e.currentTarget.style.color = '#22c55e'}>
+                                        <span style={{ fontSize: '9px', transform: showSpotifySetupGuide ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1)', display: 'inline-block' }}>▶</span>
+                                        Click here for a step-by-step setup guide
+                                    </div>
+
+                                    {showSpotifySetupGuide && (
+                                        <div style={{ marginTop: '4px', padding: '12px 14px', background: 'rgba(34,197,94,0.04)', border: '1px solid rgba(34,197,94,0.18)', borderRadius: '8px', animation: 'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }}>
+                                            <ol style={{ margin: 0, paddingLeft: '18px', color: '#cbd5e1', fontSize: '11px', lineHeight: 1.8, fontFamily: 'inherit' }}>
+                                                <li>Go to <a href="#" onClick={(e) => { e.preventDefault(); try { window.electron?.send?.('open-external', 'https://developer.spotify.com/dashboard'); } catch (_) {} try { window.open('https://developer.spotify.com/dashboard', '_blank'); } catch (_) {} }} style={{ color: '#22c55e', textDecoration: 'underline' }}>this link</a> and log in with your Spotify account.</li>
+                                                <li>Click <strong style={{ color: '#e2e8f0' }}>Create app</strong>. Use any app name and description.</li>
+                                                <li>Under <strong style={{ color: '#e2e8f0' }}>Redirect URIs</strong>, add exactly: <code style={{ color: '#22d3ee', background: 'rgba(34,211,238,0.08)', padding: '1px 5px', borderRadius: '3px', fontSize: '10px' }}>http://127.0.0.1:8888/callback</code></li>
+                                                <li>Save. Open your new app's <strong style={{ color: '#e2e8f0' }}>Settings</strong>, copy the <strong style={{ color: '#22c55e' }}>Client ID</strong>.</li>
+                                                <li>Paste it into the field above.</li>
+                                                <li>Click <strong style={{ color: '#22c55e' }}>Authorize Spotify</strong> — your browser opens, you sign in, then return here. Done!</li>
+                                            </ol>
+                                            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(34,197,94,0.12)', color: '#64748b', fontSize: '10px', lineHeight: 1.6 }}>
+                                                <strong style={{ color: '#94a3b8' }}>Note:</strong> Spotify Premium is required for playback controls (play/pause/skip). Free accounts can see what's playing but can't control it. You'll need Spotify open on at least one device for controls to work.
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>)}
 
                                 <div style={S.divider} />
                                 <button onClick={() => {
@@ -12799,6 +13000,33 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                             <div style={S.section('#f59e0b', 'rgba(245,158,11,0.06)')}>
                                 <div style={S.sectionHead('#fcd34d')}>⚙️ Personal Preferences</div>
                                 <div style={S.sectionSub}>Personalise how the application behaves for you</div>
+
+                                {/* ── INTEGRATION TOGGLES ── */}
+                                <div style={{ background: 'rgba(34,211,238,0.04)', border: '1px solid rgba(34,211,238,0.14)', borderRadius: '10px', padding: '14px 16px', marginBottom: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700', marginBottom: '2px' }}>🎙 Enable TeamSpeak Integration</div>
+                                            <div style={{ color: '#4b5563', fontSize: '11px' }}>Reads ClientQuery locally to populate the Available Officers list with real radio presence.</div>
+                                        </div>
+                                        <button
+                                            onClick={() => setEnableTeamSpeakIntegration(v => !v)}
+                                            style={{ flexShrink: 0, width: '44px', height: '24px', borderRadius: '12px', background: enableTeamSpeakIntegration ? 'rgba(34,197,94,0.35)' : 'rgba(100,116,139,0.25)', border: `1px solid ${enableTeamSpeakIntegration ? 'rgba(34,197,94,0.6)' : 'rgba(100,116,139,0.4)'}`, padding: 0, cursor: 'pointer', position: 'relative', transition: 'background 160ms ease-out, border-color 160ms ease-out' }}>
+                                            <div style={{ position: 'absolute', top: '2px', left: enableTeamSpeakIntegration ? '22px' : '2px', width: '18px', height: '18px', borderRadius: '50%', background: enableTeamSpeakIntegration ? '#22c55e' : '#94a3b8', boxShadow: '0 1px 3px rgba(0,0,0,0.4)', transition: 'left 200ms cubic-bezier(0.23,1,0.32,1)' }} />
+                                        </button>
+                                    </div>
+                                    <div style={{ height: '1px', background: 'rgba(34,211,238,0.1)', margin: '0 -2px 12px' }} />
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700', marginBottom: '2px' }}>🎵 Enable Spotify Integration</div>
+                                            <div style={{ color: '#4b5563', fontSize: '11px' }}>Show currently-playing track and (Premium only) control playback from a dedicated sidetab.</div>
+                                        </div>
+                                        <button
+                                            onClick={() => setEnableSpotifyIntegration(v => !v)}
+                                            style={{ flexShrink: 0, width: '44px', height: '24px', borderRadius: '12px', background: enableSpotifyIntegration ? 'rgba(34,197,94,0.35)' : 'rgba(100,116,139,0.25)', border: `1px solid ${enableSpotifyIntegration ? 'rgba(34,197,94,0.6)' : 'rgba(100,116,139,0.4)'}`, padding: 0, cursor: 'pointer', position: 'relative', transition: 'background 160ms ease-out, border-color 160ms ease-out' }}>
+                                            <div style={{ position: 'absolute', top: '2px', left: enableSpotifyIntegration ? '22px' : '2px', width: '18px', height: '18px', borderRadius: '50%', background: enableSpotifyIntegration ? '#22c55e' : '#94a3b8', boxShadow: '0 1px 3px rgba(0,0,0,0.4)', transition: 'left 200ms cubic-bezier(0.23,1,0.32,1)' }} />
+                                        </button>
+                                    </div>
+                                </div>
 
                                 {/* ── STREAMING ── */}
                                 <div style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.14)', borderRadius: '10px', padding: '14px 16px', marginBottom: '8px' }}>
@@ -15983,6 +16211,119 @@ if (window.electronAPI?.quit) {
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
+)}
+
+{/* ── SPOTIFY SIDETAB ── */}
+{enableSpotifyIntegration && showSpotifyPanel && (
+    <div style={{ position: 'fixed', top: '48px', right: 0, bottom: 0, width: '320px', background: 'linear-gradient(180deg, rgba(15,30,60,0.95) 0%, rgba(10,20,40,0.97) 100%)', backdropFilter: 'blur(8px)', borderLeft: '1px solid rgba(34,197,94,0.25)', boxShadow: '-8px 0 32px rgba(0,0,0,0.5), inset 1px 0 0 rgba(34,197,94,0.1)', zIndex: 8000, animation: 'panelSlideIn 220ms cubic-bezier(0.23, 1, 0.32, 1)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(34,197,94,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, background: 'rgba(15,30,40,0.5)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '2px', height: '12px', background: '#22c55e', borderRadius: '2px', boxShadow: '0 0 6px #22c55e' }} />
+                <div>
+                    <div style={{ color: '#22c55e', fontSize: '11px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace' }}>Spotify</div>
+                    <div style={{ color: '#475569', fontSize: '9px', marginTop: '2px', fontFamily: 'monospace' }}>
+                        {spotifyConnected ? (spotifyProduct === 'premium' ? 'Premium · live sync' : 'Free · read-only') : 'Disconnected'}
+                    </div>
+                </div>
+            </div>
+            <button onClick={() => setShowSpotifyPanel(false)} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '4px', color: '#f87171', cursor: 'pointer', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontFamily: 'monospace', padding: 0 }}>✕</button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+            {!spotifyConnected && (
+                <div style={{ padding: '32px 16px', textAlign: 'center', color: '#64748b' }}>
+                    <div style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.4 }}>🎵</div>
+                    <div style={{ color: '#94a3b8', fontSize: '12px', fontWeight: '600', marginBottom: '6px' }}>Not connected</div>
+                    <div style={{ color: '#64748b', fontSize: '10px', lineHeight: 1.6, fontFamily: 'monospace' }}>Go to Settings → Authentication<br/>and click Authorize Spotify.</div>
+                </div>
+            )}
+
+            {spotifyConnected && !spotifyNowPlaying && !spotifyDeviceId && (
+                <div style={{ padding: '24px 16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '28px', marginBottom: '10px', opacity: 0.5 }}>🔇</div>
+                    <div style={{ color: '#fbbf24', fontSize: '11px', fontWeight: '700', letterSpacing: '1px', marginBottom: '6px', fontFamily: 'monospace', textTransform: 'uppercase' }}>No active device</div>
+                    <div style={{ color: '#64748b', fontSize: '10px', lineHeight: 1.6, fontFamily: 'monospace' }}>Open Spotify on any device<br/>(desktop, web, phone) to start.</div>
+                </div>
+            )}
+
+            {spotifyConnected && spotifyNowPlaying && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {/* Album art */}
+                    <div style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: '10px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)', boxShadow: '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)' }}>
+                        {spotifyNowPlaying.art ? (
+                            <img src={spotifyNowPlaying.art} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        ) : (
+                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '48px', opacity: 0.3 }}>🎵</div>
+                        )}
+                        {/* Subtle gradient overlay for legibility */}
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 60%, rgba(0,0,0,0.5))', pointerEvents: 'none' }} />
+                    </div>
+
+                    {/* Track info */}
+                    <div>
+                        <div style={{ color: '#f8fafc', fontSize: '14px', fontWeight: '700', lineHeight: 1.3, marginBottom: '4px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{spotifyNowPlaying.track}</div>
+                        <div style={{ color: '#94a3b8', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{spotifyNowPlaying.artist}</div>
+                        {spotifyNowPlaying.album && <div style={{ color: '#64748b', fontSize: '10px', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{spotifyNowPlaying.album}</div>}
+                    </div>
+
+                    {/* Progress bar */}
+                    {spotifyNowPlaying.durationMs > 0 && (
+                        <div>
+                            <div style={{ height: '3px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
+                                <div style={{ width: `${Math.min(100, (spotifyNowPlaying.progressMs / spotifyNowPlaying.durationMs) * 100)}%`, height: '100%', background: '#22c55e', boxShadow: '0 0 6px rgba(34,197,94,0.6)', transition: 'width 1s linear' }} />
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '9px', fontFamily: 'monospace', color: '#64748b' }}>
+                                <span>{Math.floor(spotifyNowPlaying.progressMs / 60000)}:{String(Math.floor((spotifyNowPlaying.progressMs % 60000) / 1000)).padStart(2, '0')}</span>
+                                <span>{Math.floor(spotifyNowPlaying.durationMs / 60000)}:{String(Math.floor((spotifyNowPlaying.durationMs % 60000) / 1000)).padStart(2, '0')}</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Controls — only for Premium */}
+                    {spotifyProduct === 'premium' ? (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                            <button onClick={() => spotifyControl('previous')}
+                                style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#cbd5e1', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', padding: 0, transition: 'background 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+                                onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.92)'; }}
+                                onMouseUp={e => { e.currentTarget.style.transform = ''; }}
+                                title="Previous track">⏮</button>
+                            <button onClick={() => spotifyControl(spotifyNowPlaying.isPlaying ? 'pause' : 'play')}
+                                style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'linear-gradient(180deg, #22c55e, #15803d)', border: '1px solid rgba(34,197,94,0.5)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', padding: 0, boxShadow: '0 0 18px rgba(34,197,94,0.35), inset 0 1px 0 rgba(255,255,255,0.18)', transition: 'filter 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                                onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(1.12)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.filter = ''; }}
+                                onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.96)'; }}
+                                onMouseUp={e => { e.currentTarget.style.transform = ''; }}
+                                title={spotifyNowPlaying.isPlaying ? 'Pause' : 'Play'}>
+                                {spotifyNowPlaying.isPlaying ? '⏸' : '▶'}
+                            </button>
+                            <button onClick={() => spotifyControl('next')}
+                                style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#cbd5e1', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', padding: 0, transition: 'background 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+                                onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.92)'; }}
+                                onMouseUp={e => { e.currentTarget.style.transform = ''; }}
+                                title="Next track">⏭</button>
+                        </div>
+                    ) : (
+                        <div style={{ textAlign: 'center', color: '#64748b', fontSize: '10px', padding: '8px 0', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
+                            ⓘ Premium required for playback controls
+                        </div>
+                    )}
+
+                    {spotifyError && (
+                        <div style={{ color: '#fbbf24', fontSize: '10px', fontFamily: 'monospace', padding: '6px 10px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)', borderRadius: '6px', textAlign: 'center' }}>⚠ {spotifyError}</div>
+                    )}
+
+                    {spotifyNowPlaying.url && (
+                        <a href="#" onClick={(e) => { e.preventDefault(); try { window.electron?.send?.('open-external', spotifyNowPlaying.url); } catch (_) {} try { window.open(spotifyNowPlaying.url, '_blank'); } catch (_) {} }}
+                            style={{ color: '#64748b', fontSize: '10px', textAlign: 'center', fontFamily: 'monospace', letterSpacing: '0.5px', textDecoration: 'none', padding: '4px 0', display: 'block' }}>Open in Spotify ↗</a>
+                    )}
+                </div>
+            )}
         </div>
     </div>
 )}
