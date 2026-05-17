@@ -296,13 +296,19 @@ ipcMain.handle('ts-poll', async (_event, { apiKey, session }) => {
     }
 
     // Department detection from callsign (the part before " | ")
-    const patterns = [
-        { dept: 'EGFD', re: /^(ENGINE|LADDER|MEDIC|REMS)-\d+$/i },
-        { dept: 'DOT',  re: /^[A-Z]+-\d+$/i, allowWords: ['TOW', 'TRUCK'] },
-        { dept: 'NYSP', re: /^[A-Z]-\d+$/i },         // L-N
-        { dept: 'NYSP', re: /^\d[A-Z]\d{2}$/i },      // NLNN like 2B02
-        { dept: 'NYSP', re: /^MOTOR-\d+$/i },
+const patterns = [
+        // EGFD — engines, ladders, medics, REMS. Accept BOTH dash and space (e.g. "MEDIC-1" or "Medic 1")
+        { dept: 'EGFD', re: /^(ENGINE|LADDER|MEDIC|REMS)[-\s]\d+$/i },
+        // DOT — tow / truck units
+        { dept: 'DOT',  re: /^(TOW|TRUCK)[-\s]\d+$/i },
+        // EGPD — RAPID-N (or "Rapid N") and bare 3-digit NNN
+        { dept: 'EGPD', re: /^RAPID[-\s]\d+$/i },
         { dept: 'EGPD', re: /^\d{3}$/ },
+        // NYSP — many forms. Specific prefixes BEFORE the bare L-N pattern.
+        { dept: 'NYSP', re: /^MOTOR[-\s]\d+$/i },     // MOTOR-N or "Motor N"
+        { dept: 'NYSP', re: /^\d[A-Z]\d{2}$/i },      // NLNN like 2B02
+        { dept: 'NYSP', re: /^\d-[A-Z]\d+$/i },       // N-LN like 1-L1
+        { dept: 'NYSP', re: /^[A-Z]-\d+$/i },         // L-N like B-3, C-1, S-1
     ];
     function classify(callsign) {
         for (const p of patterns) {
@@ -786,3 +792,272 @@ if (USE_LOCAL_INDEX) {
         });
     });
 }
+
+// ============================================================
+// SPOTIFY INTEGRATION — OAuth (PKCE) + Polling
+// ============================================================
+// Flow:
+//   1. Renderer calls `spotify-begin-auth` with the user's Client ID
+//   2. Main starts a one-shot HTTP listener on 127.0.0.1:8888
+//   3. Main opens https://accounts.spotify.com/authorize?...&code_challenge=...
+//      in the user's default browser via shell.openExternal
+//   4. User logs in, grants permission, Spotify redirects to 127.0.0.1:8888/callback?code=...
+//   5. Listener captures the code, exchanges it for access+refresh tokens via PKCE
+//   6. Tokens persisted; main starts a 5s poll loop for currently-playing track
+//   7. Renderer subscribes via `spotify-state` event sender
+
+const crypto = require('crypto');
+let _spotifyState = {
+    clientId: null,
+    accessToken: null,
+    refreshToken: null,
+    expiresAt: 0,
+    product: null,
+    deviceId: null,
+    nowPlaying: null,
+    error: null,
+    pollTimer: null
+};
+let _spotifyAuthServer = null;
+let _spotifyCodeVerifier = null;
+
+function _spotifyBase64Url(buf) {
+    return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function _spotifyMakePkce() {
+    const verifier = _spotifyBase64Url(crypto.randomBytes(32));
+    const challenge = _spotifyBase64Url(crypto.createHash('sha256').update(verifier).digest());
+    return { verifier, challenge };
+}
+
+function _spotifyHttpsJSON(method, hostname, path, headers, body) {
+    return new Promise((resolve, reject) => {
+        const req = https.request({ hostname, port: 443, path, method, headers: headers || {} }, (res) => {
+            let raw = '';
+            res.on('data', c => raw += c);
+            res.on('end', () => {
+                try {
+                    const parsed = raw ? JSON.parse(raw) : {};
+                    if (res.statusCode >= 200 && res.statusCode < 300) resolve(parsed);
+                    else reject(new Error(`Spotify ${method} ${path} → ${res.statusCode}: ${parsed.error_description || parsed.error?.message || raw.slice(0, 200)}`));
+                } catch (e) { reject(new Error(`Spotify parse error: ${e.message}`)); }
+            });
+        });
+        req.on('error', reject);
+        if (body) req.write(body);
+        req.end();
+    });
+}
+
+async function _spotifyExchangeCode(code) {
+    const body = new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: 'http://127.0.0.1:8888/callback',
+        client_id: _spotifyState.clientId,
+        code_verifier: _spotifyCodeVerifier
+    }).toString();
+    return _spotifyHttpsJSON('POST', 'accounts.spotify.com', '/api/token',
+        { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) }, body);
+}
+
+async function _spotifyRefresh() {
+    if (!_spotifyState.refreshToken || !_spotifyState.clientId) return false;
+    try {
+        const body = new URLSearchParams({
+            grant_type: 'refresh_token',
+            refresh_token: _spotifyState.refreshToken,
+            client_id: _spotifyState.clientId
+        }).toString();
+        const r = await _spotifyHttpsJSON('POST', 'accounts.spotify.com', '/api/token',
+            { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) }, body);
+        _spotifyState.accessToken = r.access_token;
+        _spotifyState.expiresAt = Date.now() + (r.expires_in - 60) * 1000;
+        if (r.refresh_token) _spotifyState.refreshToken = r.refresh_token;
+        return true;
+    } catch (e) { _spotifyState.error = 'Refresh failed: ' + e.message; return false; }
+}
+
+async function _spotifyEnsureToken() {
+    if (!_spotifyState.accessToken) return false;
+    if (Date.now() < _spotifyState.expiresAt - 5000) return true;
+    return await _spotifyRefresh();
+}
+
+async function _spotifyApiGet(path) {
+    if (!await _spotifyEnsureToken()) throw new Error('No access token');
+    return _spotifyHttpsJSON('GET', 'api.spotify.com', '/v1' + path,
+        { 'Authorization': 'Bearer ' + _spotifyState.accessToken });
+}
+
+function _spotifyApiSend(method, path, body) {
+    return new Promise((resolve, reject) => {
+        const data = body ? JSON.stringify(body) : '';
+        const headers = { 'Authorization': 'Bearer ' + _spotifyState.accessToken };
+        if (data) { headers['Content-Type'] = 'application/json'; headers['Content-Length'] = Buffer.byteLength(data); }
+        else headers['Content-Length'] = 0;
+        const req = https.request({ hostname: 'api.spotify.com', port: 443, path: '/v1' + path, method, headers }, (res) => {
+            let raw = '';
+            res.on('data', c => raw += c);
+            res.on('end', () => {
+                if (res.statusCode >= 200 && res.statusCode < 300) resolve({ ok: true });
+                else if (res.statusCode === 404) resolve({ ok: false, error: 'NO_DEVICE' });
+                else if (res.statusCode === 403) resolve({ ok: false, error: 'PREMIUM_REQUIRED' });
+                else reject(new Error(`Spotify ${method} ${path} → ${res.statusCode}: ${raw.slice(0, 200)}`));
+            });
+        });
+        req.on('error', reject);
+        if (data) req.write(data);
+        req.end();
+    });
+}
+
+async function _spotifyControl(method, path) {
+    if (!await _spotifyEnsureToken()) throw new Error('No access token');
+    return _spotifyApiSend(method, path);
+}
+
+async function _spotifyPollOnce() {
+    if (!_spotifyState.accessToken) return;
+    try {
+        if (!_spotifyState.product) {
+            try {
+                const me = await _spotifyApiGet('/me');
+                _spotifyState.product = me.product || 'free';
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('spotify-profile', { product: _spotifyState.product, displayName: me.display_name });
+                }
+            } catch (_) {}
+        }
+        const r = await _spotifyApiGet('/me/player');
+        if (!r || !r.item) {
+            _spotifyState.nowPlaying = null;
+            _spotifyState.deviceId = r?.device?.id || null;
+            _spotifyState.error = null;
+        } else {
+            _spotifyState.deviceId = r.device?.id || null;
+            _spotifyState.nowPlaying = {
+                track: r.item.name,
+                artist: (r.item.artists || []).map(a => a.name).join(', '),
+                album: r.item.album?.name,
+                art: r.item.album?.images?.[0]?.url || null,
+                isPlaying: r.is_playing === true,
+                progressMs: r.progress_ms || 0,
+                durationMs: r.item.duration_ms || 0,
+                trackId: r.item.id,
+                url: r.item.external_urls?.spotify || null
+            };
+            _spotifyState.error = null;
+        }
+    } catch (e) { _spotifyState.error = e.message; }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('spotify-state', {
+            connected: !!_spotifyState.accessToken,
+            product: _spotifyState.product,
+            deviceId: _spotifyState.deviceId,
+            nowPlaying: _spotifyState.nowPlaying,
+            error: _spotifyState.error
+        });
+    }
+}
+
+function _spotifyStartPolling() {
+    if (_spotifyState.pollTimer) clearInterval(_spotifyState.pollTimer);
+    _spotifyState.pollTimer = setInterval(_spotifyPollOnce, 5000);
+    _spotifyPollOnce();
+}
+
+function _spotifyStopPolling() {
+    if (_spotifyState.pollTimer) { clearInterval(_spotifyState.pollTimer); _spotifyState.pollTimer = null; }
+}
+
+ipcMain.handle('spotify-init', async (_e, { clientId, refreshToken }) => {
+    if (!clientId || clientId.length < 25) return { ok: false, reason: 'INVALID_CLIENT_ID' };
+    _spotifyState.clientId = clientId;
+    if (refreshToken) {
+        _spotifyState.refreshToken = refreshToken;
+        const ok = await _spotifyRefresh();
+        if (ok) { _spotifyStartPolling(); return { ok: true, hasAuth: true }; }
+        return { ok: true, hasAuth: false, error: _spotifyState.error };
+    }
+    return { ok: true, hasAuth: false };
+});
+
+ipcMain.handle('spotify-begin-auth', async (_e, { clientId }) => {
+    if (!clientId || clientId.length < 25) return { ok: false, reason: 'INVALID_CLIENT_ID' };
+    _spotifyState.clientId = clientId;
+    if (_spotifyAuthServer) { try { _spotifyAuthServer.close(); } catch (_) {} _spotifyAuthServer = null; }
+    const pkce = _spotifyMakePkce();
+    _spotifyCodeVerifier = pkce.verifier;
+    const state = _spotifyBase64Url(crypto.randomBytes(12));
+    const scopes = ['user-read-private', 'user-read-email', 'user-read-playback-state', 'user-modify-playback-state', 'user-read-currently-playing'].join(' ');
+    const authUrl = 'https://accounts.spotify.com/authorize?' + new URLSearchParams({
+        client_id: clientId, response_type: 'code', redirect_uri: 'http://127.0.0.1:8888/callback',
+        code_challenge_method: 'S256', code_challenge: pkce.challenge, state, scope: scopes
+    }).toString();
+    try {
+        await new Promise((resolve, reject) => {
+            _spotifyAuthServer = http.createServer(async (req, res) => {
+                try {
+                    const url = new URL(req.url, 'http://127.0.0.1:8888');
+                    if (url.pathname !== '/callback') { res.writeHead(404); res.end('Not found'); return; }
+                    const returnedState = url.searchParams.get('state');
+                    const code = url.searchParams.get('code');
+                    const error = url.searchParams.get('error');
+                    if (returnedState !== state) {
+                        res.writeHead(400, { 'Content-Type': 'text/html' });
+                        res.end('<h2>Auth failed</h2><p>State mismatch. You can close this window.</p>');
+                        return;
+                    }
+                    if (error || !code) {
+                        res.writeHead(400, { 'Content-Type': 'text/html' });
+                        res.end(`<h2>Auth failed</h2><p>${error || 'No code returned'}</p>`);
+                        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('spotify-auth-result', { ok: false, error: error || 'No code' });
+                        setTimeout(() => { try { _spotifyAuthServer.close(); _spotifyAuthServer = null; } catch (_) {} }, 200);
+                        return;
+                    }
+                    const tokenResp = await _spotifyExchangeCode(code);
+                    _spotifyState.accessToken = tokenResp.access_token;
+                    _spotifyState.refreshToken = tokenResp.refresh_token;
+                    _spotifyState.expiresAt = Date.now() + (tokenResp.expires_in - 60) * 1000;
+                    res.writeHead(200, { 'Content-Type': 'text/html' });
+                    res.end('<!doctype html><html><head><title>Connected</title><style>body{font-family:-apple-system,sans-serif;background:#0d1117;color:#e2e8f0;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}div{text-align:center}h1{color:#22d3ee;margin:0 0 12px}p{color:#94a3b8;font-size:14px;margin:0}</style></head><body><div><h1>✓ Connected to Spotify</h1><p>You can close this window and return to the CAD.</p></div></body></html>');
+                    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('spotify-auth-result', { ok: true, refreshToken: tokenResp.refresh_token });
+                    _spotifyStartPolling();
+                    setTimeout(() => { try { _spotifyAuthServer.close(); _spotifyAuthServer = null; } catch (_) {} }, 500);
+                } catch (e) {
+                    res.writeHead(500, { 'Content-Type': 'text/html' });
+                    res.end(`<h2>Auth failed</h2><p>${e.message}</p>`);
+                    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('spotify-auth-result', { ok: false, error: e.message });
+                    setTimeout(() => { try { _spotifyAuthServer.close(); _spotifyAuthServer = null; } catch (_) {} }, 200);
+                }
+            });
+            _spotifyAuthServer.on('error', reject);
+            _spotifyAuthServer.listen(8888, '127.0.0.1', () => resolve());
+        });
+    } catch (e) {
+        return { ok: false, error: 'Port 8888 unavailable. Close other apps using it and try again. (' + e.message + ')' };
+    }
+    shell.openExternal(authUrl);
+    return { ok: true };
+});
+
+ipcMain.handle('spotify-disconnect', async () => {
+    _spotifyStopPolling();
+    _spotifyState = { ..._spotifyState, accessToken: null, refreshToken: null, expiresAt: 0, product: null, nowPlaying: null, error: null };
+    return { ok: true };
+});
+
+ipcMain.handle('spotify-control', async (_e, { action }) => {
+    try {
+        let r;
+        if      (action === 'play')     r = await _spotifyControl('PUT',  '/me/player/play');
+        else if (action === 'pause')    r = await _spotifyControl('PUT',  '/me/player/pause');
+        else if (action === 'next')     r = await _spotifyControl('POST', '/me/player/next');
+        else if (action === 'previous') r = await _spotifyControl('POST', '/me/player/previous');
+        else r = { ok: false, error: 'Unknown action' };
+        setTimeout(_spotifyPollOnce, 300);
+        return r;
+    } catch (e) { return { ok: false, error: e.message }; }
+});
