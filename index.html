@@ -12847,7 +12847,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
 
                                 {enableSpotifyIntegration && (<div style={{ marginBottom: '12px' }}>
                                     <div style={S.fieldLabel}>Spotify Client ID</div>
-                                    <input type="text" value={spotifyClientId} onChange={(e) => setSpotifyClientId(e.target.value)} placeholder="Paste your Spotify app Client ID (32+ chars)" style={{ ...S.input, marginBottom: '8px' }} onFocus={e => e.target.style.borderColor = 'rgba(34,197,94,0.4)'} onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.07)'} />
+                                    <input type="text" value={spotifyClientId} onChange={(e) => setSpotifyClientId(e.target.value.trim().replace(/[^a-f0-9]/gi, ''))} placeholder="Paste your Spotify app Client ID (32 hex chars)" style={{ ...S.input, marginBottom: '8px', fontFamily: 'monospace' }} onFocus={e => e.target.style.borderColor = 'rgba(34,197,94,0.4)'} onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.07)'} />
 
                                     {/* Status pill */}
                                     {(() => {
