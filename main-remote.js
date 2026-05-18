@@ -806,7 +806,7 @@ if (USE_LOCAL_INDEX) {
 //   6. Tokens persisted; main starts a 5s poll loop for currently-playing track
 //   7. Renderer subscribes via `spotify-state` event sender
 
-const crypto = require('crypto');
+// crypto is injected by main.js — no require needed (require is not in scope)
 let _spotifyState = {
     clientId: null,
     accessToken: null,
@@ -854,7 +854,7 @@ async function _spotifyExchangeCode(code) {
     const body = new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        redirect_uri: 'http://[::1]:8000/callback',
+        redirect_uri: 'http://127.0.0.1:8000/callback',
         client_id: _spotifyState.clientId,
         code_verifier: _spotifyCodeVerifier
     }).toString();
@@ -993,7 +993,7 @@ ipcMain.handle('spotify-begin-auth', async (_e, { clientId }) => {
     const state = _spotifyBase64Url(crypto.randomBytes(12));
     const scopes = ['user-read-private', 'user-read-email', 'user-read-playback-state', 'user-modify-playback-state', 'user-read-currently-playing'].join(' ');
     const authUrl = 'https://accounts.spotify.com/authorize?' + new URLSearchParams({
-        client_id: clientId, response_type: 'code', redirect_uri: 'http://[::1]:8000/callback',
+        client_id: clientId, response_type: 'code', redirect_uri: 'http://127.0.0.1:8000/callback',
         code_challenge_method: 'S256', code_challenge: pkce.challenge, state, scope: scopes
     }).toString();
     try {
