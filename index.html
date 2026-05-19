@@ -1741,6 +1741,8 @@ const activeAlertAudioRef = React.useRef(null);
             const [showDevConsole, setShowDevConsole] = useState(true);
 const [settingsWarningDismissed, setSettingsWarningDismissed] = useState(false);
 const [continueButtonEnabled, setContinueButtonEnabled] = useState(false);
+const [settingsTab, setSettingsTab] = useState('auth'); // 'auth' | 'integrations' | 'data' | 'appearance' | 'keybinds' | 'audio' | 'preferences' | 'developer' | 'export'
+const [settingsSearch, setSettingsSearch] = useState('');
 const [showDatabaseHistory, setShowDatabaseHistory] = useState(false);
 const [databaseSearchId, setDatabaseSearchId] = useState('');
 const [loadingPastRecords, setLoadingPastRecords] = useState(false);
@@ -1917,9 +1919,8 @@ const navTo = React.useCallback((target, after) => {
     setViewSwitching(true);
     requestAnimationFrame(() => {
         if (after) after();
-        // Same-view click: React won't re-fire the activeView effect because state didn't change.
-        // We still want tactile feedback, so schedule our OWN resolve after ~280ms instead of
-        // waiting for the never-firing effect.
+        // Same-view click: state doesn't change, so the activeView effect never fires.
+        // Schedule our own resolve after ~280ms so the loader doesn't leak.
         if (target === activeView) {
             setTimeout(() => setViewSwitching(false), 280);
             return;
@@ -12719,7 +12720,8 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
 )}
 
 {activeView === 'settings' && (
-    <div className="card" style={{ background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,58,138,0.3))', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '16px', padding: '32px' }}>
+    <div style={{ position:'fixed', top:'48px', left:0, right:0, bottom:0, background:'radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 50%, #050a14 100%)', overflowY:'auto', overflowX:'hidden' }}>
+    <div style={{ maxWidth: '1320px', margin: '0 auto', padding: '24px 32px 48px' }}>
         
         {/* Back Button */}
         <button 
@@ -12774,29 +12776,106 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
             </div>
         ) : (
             <div>
-                <h2 style={{ color: 'white', fontSize: '22px', fontWeight: '700', marginBottom: '24px', letterSpacing: '1px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '14px' }}>⚙️ Configuration</h2>
+                {/* Header bar — title + search */}
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: '24px', gap: '16px', flexWrap: 'wrap' }}>
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ width: '3px', height: '24px', background: '#22d3ee', borderRadius: '3px', boxShadow: '0 0 10px #22d3ee' }} />
+                            <h2 style={{ color: '#ffffff', fontSize: '24px', fontWeight: '800', margin: 0, letterSpacing: '1px' }}>System Configuration</h2>
+                        </div>
+                        <div style={{ color: '#64748b', fontSize: '12px', marginTop: '6px', marginLeft: '15px', fontFamily: 'monospace', letterSpacing: '0.5px' }}>NYSP MDT · Personal preferences and credentials</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ position: 'relative', width: '280px' }}>
+                            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#475569', fontSize: '12px', pointerEvents: 'none' }}>⌕</span>
+                            <input type="text" value={settingsSearch} onChange={e => setSettingsSearch(e.target.value)} placeholder="Search settings…" style={{ width: '100%', padding: '10px 12px 10px 32px', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', color: '#e2e8f0', fontSize: '12px', boxSizing: 'border-box', outline: 'none', fontFamily: 'monospace' }} onFocus={e => e.target.style.borderColor = 'rgba(34,211,238,0.4)'} onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.07)'} />
+                        </div>
+                        <button onClick={() => {
+                            if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); }
+                            else { setActiveView('home'); }
+                        }} style={{ padding: '10px 16px', background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.25)', borderRadius: '8px', color: '#38bdf8', cursor: 'pointer', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: '6px' }}>← Return Home</button>
+                    </div>
+                </div>
 
-                {/* shared sub-styles as inline helpers */}
                 {(() => {
                     const S = {
-section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px solid ${accent}30`, borderRadius: '14px', padding: '20px 22px', marginBottom: '20px', borderLeft: `4px solid ${accent}` }),
-                    sectionHead: (color) => ({ color, fontSize: '15px', fontWeight: '800', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }),
-                    sectionSub: { color: '#475569', fontSize: '12px', marginBottom: '16px' },
-                        row: (on, accent) => ({ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: on ? `${accent}12` : 'rgba(255,255,255,0.02)', border: `1px solid ${on ? `${accent}30` : 'rgba(255,255,255,0.05)'}`, borderRadius: '9px', cursor: 'pointer', transition: 'all 0.15s', marginBottom: '7px' }),
-                        rowLabel: (on) => ({ color: on ? '#e2e8f0' : '#6b7280', fontSize: '13px', fontWeight: '600', transition: 'color 0.15s' }),
-                        rowDesc: { color: '#374151', fontSize: '11px', marginTop: '2px' },
+                        section: (accent, accentFaint) => ({ background: `${accentFaint || 'rgba(15,30,60,0.4)'}`, border: `1px solid ${accent}30`, borderRadius: '14px', padding: '24px 26px', marginBottom: '18px', borderLeft: `3px solid ${accent}`, boxShadow: 'inset 0 1px 0 rgba(56,189,248,0.04)' }),
+                        sectionHead: (color) => ({ color, fontSize: '14px', fontWeight: '800', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }),
+                        sectionSub: { color: '#64748b', fontSize: '12px', marginBottom: '18px', fontFamily: 'monospace', letterSpacing: '0.3px' },
+                        row: (on, accent) => ({ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 15px', background: on ? `${accent}12` : 'rgba(255,255,255,0.02)', border: `1px solid ${on ? `${accent}30` : 'rgba(255,255,255,0.05)'}`, borderRadius: '9px', cursor: 'pointer', transition: 'all 0.15s', marginBottom: '7px' }),
+                        rowLabel: (on) => ({ color: on ? '#e2e8f0' : '#94a3b8', fontSize: '13px', fontWeight: '600', transition: 'color 0.15s' }),
+                        rowDesc: { color: '#475569', fontSize: '11px', marginTop: '2px' },
                         toggle: (on, accent) => ({ width: '38px', height: '21px', borderRadius: '11px', background: on ? accent : 'rgba(255,255,255,0.08)', position: 'relative', transition: 'all 0.2s', flexShrink: 0, marginLeft: '14px' }),
                         toggleDot: (on) => ({ position: 'absolute', top: '2px', left: on ? '19px' : '2px', width: '15px', height: '15px', borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.4)' }),
-                        input: { width: '100%', padding: '10px 12px', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', color: '#e2e8f0', fontSize: '13px', boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.2s' },
-                        fieldLabel: { color: '#4b5563', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '5px' },
-                        divider: { height: '1px', background: 'rgba(255,255,255,0.04)', margin: '14px 0' },
+                        input: { width: '100%', padding: '11px 13px', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', color: '#e2e8f0', fontSize: '13px', boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.2s', fontFamily: 'inherit' },
+                        fieldLabel: { color: '#94a3b8', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '6px', fontFamily: 'monospace' },
+                        divider: { height: '1px', background: 'rgba(255,255,255,0.05)', margin: '18px 0' },
                         btn: (color, disabled) => ({ width: '100%', padding: '11px', background: disabled ? 'rgba(255,255,255,0.03)' : `${color}18`, border: `1px solid ${disabled ? 'rgba(255,255,255,0.05)' : `${color}30`}`, borderRadius: '8px', color: disabled ? '#374151' : color, fontSize: '12px', fontWeight: '700', cursor: disabled ? 'not-allowed' : 'pointer', letterSpacing: '1px', textTransform: 'uppercase', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }),
                     };
 
+                    // Tab definitions
+                    const tabs = [
+                        { id: 'auth',         label: 'Authentication',  icon: '🔒', accent: '#ef4444', tags: ['discord', 'groq', 'token', 'api', 'spotify', 'teamspeak', 'client', 'id'] },
+                        { id: 'data',         label: 'Data Sources',    icon: '🗄️', accent: '#10b981', tags: ['channel', 'guild', 'database', 'registration', 'expiry'] },
+                        { id: 'preferences',  label: 'Preferences',     icon: '⚙️', accent: '#f59e0b', tags: ['language', 'phonetic', 'time', 'date', 'integration', 'enable', 'spotify', 'teamspeak'] },
+                        { id: 'appearance',   label: 'Appearance',      icon: '🎨', accent: '#8b5cf6', tags: ['dyslexia', 'font', 'visual', 'effects', 'mini', 'sidetab', 'theme'] },
+                        { id: 'audio',        label: 'Audio & Voice',   icon: '🔊', accent: '#a855f7', tags: ['microphone', 'mic', 'voice', 'sound', 'sfx', 'alert'] },
+                        { id: 'keybinds',     label: 'Hotkeys',         icon: '⌨️', accent: '#10b981', tags: ['hotkey', 'shortcut', 'keybind', 'panic', 'mic', 'acknowledge'] },
+                        { id: 'developer',    label: 'Developer',       icon: '🛠️', accent: '#f59e0b', tags: ['dev', 'console', 'debug', 'devtools'] },
+                        { id: 'export',       label: 'Export & Reset',  icon: '💾', accent: '#22c55e', tags: ['export', 'save', 'file', 'cadsystemsettings'] },
+                    ];
+                    const search = (settingsSearch || '').trim().toLowerCase();
+                    const matchingTabs = search ? tabs.filter(t => t.label.toLowerCase().includes(search) || t.tags.some(tag => tag.includes(search))) : tabs;
+                    const activeT = matchingTabs.find(t => t.id === settingsTab) || matchingTabs[0] || tabs[0];
+
                     return (
-                        <div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '24px', alignItems: 'flex-start' }}>
+
+                            {/* ── Left rail navigation ── */}
+                            <div style={{ position: 'sticky', top: '24px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                {matchingTabs.map(t => {
+                                    const isActive = (activeT && activeT.id === t.id);
+                                    return (
+                                        <button key={t.id}
+                                            onClick={() => setSettingsTab(t.id)}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: '12px',
+                                                padding: '11px 14px',
+                                                background: isActive ? `${t.accent}14` : 'transparent',
+                                                border: `1px solid ${isActive ? `${t.accent}30` : 'transparent'}`,
+                                                borderLeft: `2px solid ${isActive ? t.accent : 'transparent'}`,
+                                                borderRadius: '8px',
+                                                color: isActive ? '#ffffff' : '#64748b',
+                                                fontSize: '13px', fontWeight: isActive ? '700' : '500',
+                                                cursor: 'pointer', textAlign: 'left',
+                                                transition: 'all 160ms ease-out',
+                                                fontFamily: 'inherit'
+                                            }}
+                                            onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+                                            onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}>
+                                            <span style={{ fontSize: '14px', filter: isActive ? 'none' : 'grayscale(0.6)' }}>{t.icon}</span>
+                                            <span style={{ flex: 1 }}>{t.label}</span>
+                                            {isActive && <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: t.accent, boxShadow: `0 0 6px ${t.accent}` }} />}
+                                        </button>
+                                    );
+                                })}
+                                {matchingTabs.length === 0 && (
+                                    <div style={{ padding: '24px 12px', color: '#475569', fontSize: '11px', fontFamily: 'monospace', textAlign: 'center', lineHeight: 1.6 }}>No sections match<br/>"{settingsSearch}"</div>
+                                )}
+
+                                {/* Quick session info */}
+                                <div style={{ marginTop: '18px', padding: '14px 16px', background: 'rgba(15,30,60,0.4)', border: '1px solid rgba(56,189,248,0.1)', borderRadius: '10px' }}>
+                                    <div style={{ color: '#64748b', fontSize: '9px', fontFamily: 'monospace', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '8px' }}>Signed in as</div>
+                                    <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700' }}>{trooperSettings?.Username || 'Unknown'}</div>
+                                    <div style={{ color: '#64748b', fontSize: '10px', marginTop: '2px', fontFamily: 'monospace' }}>Badge #{trooperSettings?.BadgeID || '—'}</div>
+                                </div>
+                            </div>
+
+                            {/* ── Right content panel ── */}
+                            <div>
 
                             {/* ── AUTHENTICATION ── */}
+                            {activeT && activeT.id === 'auth' && (<>
                             <div style={S.section('#ef4444', 'rgba(239,68,68,0.06)')}>
                                 <div style={S.sectionHead('#f87171')}>🔒 Authentication</div>
                                 <div style={S.sectionSub}>Credentials and account access</div>
@@ -12958,8 +13037,10 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                     <XCircle size={14} /> Logout
                                 </button>
                             </div>
+                            </>)}
 
                             {/* ── APPEARANCE ── */}
+                            {activeT && activeT.id === 'appearance' && (<>
                             <div style={S.section('#8b5cf6', 'rgba(139,92,246,0.06)')}>
                                 <div style={S.sectionHead('#a78bfa')}>🎨 Appearance</div>
                                 <div style={S.sectionSub}>Display and visual preferences</div>
@@ -12979,9 +13060,11 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
     </div>
 </div>
                             </div>
+                            </>)}
 
                             {/* ── HOTKEYS ── */}
-<div style={S.section('#10b981', 'rgba(16,185,129,0.06)')}>
+                            {activeT && activeT.id === 'keybinds' && (<>
+                            <div style={S.section('#10b981', 'rgba(16,185,129,0.06)')}>
                                 <div style={S.sectionHead('#6ee7b7')}>🗄️ Hotkeys & Keybinds</div>
                                 <div style={S.sectionSub}>Configure keyboard shortcuts - conflicts are blocked automatically</div>
                                 <ToggleRow label="Panic Button" desc="Enables the panic button hotkey system. AUTOHOTKEY APPLICATION REQUIRED!" on={panicEnabled} accent="#ef4444" onToggle={() => setPanicEnabled(v => !v)} />
@@ -13013,8 +13096,10 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                 <KeybindRecorder label="Mic Toggle (Plate Search)" desc="Toggles voice-to-plate on the plate search page 🖥️" active={micHotkey} draft={micHotkeyDraft} setDraft={setMicHotkeyDraft} onSave={() => { setMicHotkey(micHotkeyDraft); addLog(`✅ Mic hotkey: ${micHotkeyDraft}`, 'success'); }} setRecording={setIsRecordingMicHotkey} accent="#10b981" conflictKey={actionBarKeybind} conflictLabel="Action Bar" />
 <KeybindRecorder label="Acknowledge Call(s)" desc="Instantly acknowledges all active unacknowledged dispatch calls 🖥️" active={acknowledgeKeybind} draft={acknowledgeKeybindDraft} setDraft={setAcknowledgeKeybindDraft} onSave={() => { setAcknowledgeKeybind(acknowledgeKeybindDraft); addLog(`✅ Acknowledge hotkey set to: ${acknowledgeKeybindDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#10b981" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
                             </div>
+                            </>)}
 
                             {/* ── PERSONAL PREFERENCES ── */}
+                            {activeT && activeT.id === 'preferences' && (<>
                             <div style={S.section('#f59e0b', 'rgba(245,158,11,0.06)')}>
                                 <div style={S.sectionHead('#fcd34d')}>⚙️ Personal Preferences</div>
                                 <div style={S.sectionSub}>Personalise how the application behaves for you</div>
@@ -13148,8 +13233,10 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                     </div>
                                 </div>
                             </div>
+                            </>)}
 
                             {/* ── DATA SOURCES ── */}
+                            {activeT && activeT.id === 'data' && (<>
                             <div style={S.section('#10b981')}>
                                 <div style={S.sectionHead('#6ee7b7')}>🗄️ Data Sources</div>
                                 <div style={S.sectionSub}>Discord channel IDs used as the citizen and vehicle database</div>
@@ -13165,8 +13252,10 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                     </div>
                                 ))}
                             </div>
+                            </>)}
 
                             {/* ── AUDIO, SOUND & VOICE ── */}
+                            {activeT && activeT.id === 'audio' && (<>
                             <div style={S.section('#a855f7', 'rgba(168,85,247,0.06)')}>
                                 <div style={S.sectionHead('#d8b4fe')}>🔊 Audio, Sound & Voice</div>
                                 <div style={S.sectionSub}>Call alerts, sound effects, and microphone access</div>
@@ -13243,8 +13332,10 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                     <ToggleRow key={key} label={label} on={soundSettings[key]} accent="#a855f7" onToggle={() => setSoundSettings({...soundSettings, [key]: !soundSettings[key]})} />
                                 ))}
                             </div>
+                            </>)}
 
                             {/* ── DEVELOPER TOOLS ── */}
+                            {activeT && activeT.id === 'developer' && (<>
                             <div style={S.section('#f59e0b', 'rgba(245,158,11,0.06)')}>
                                 <div style={S.sectionHead('#fcd34d')}>🛠️ Developer Tools</div>
                                 <div style={S.sectionSub}>Diagnostic and troubleshooting utilities</div>
@@ -13268,8 +13359,10 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                     }} style={S.btn('#3b82f6', false)}>📄 Export Logs</button>
                                 </div>
                             </div>
+                            </>)}
 
                             {/* ── EXPORT SETTINGS ── */}
+                            {activeT && activeT.id === 'export' && (<>
                             <div style={S.section('#22c55e', 'rgba(34,197,94,0.06)')}>
                                 <div style={S.sectionHead('#4ade80')}>💾 Export Settings</div>
                                 <div style={S.sectionSub}>Write all current settings to your CADSystemSettings.txt file</div>
@@ -13298,11 +13391,15 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                 </div>
                             )}
 
-                        </div>
+                            </>)}
+
+                            </div> {/* /right content panel */}
+                        </div> {/* /grid */}
                     );
                 })()}
             </div>
         )}
+    </div>
     </div>
 )}
 
@@ -16239,7 +16336,6 @@ if (window.electronAPI?.quit) {
         <div onClick={()=>setShowSpotifyPanel(false)} style={{ position:'fixed',top:'48px',left:0,right:'360px',bottom:0,background:'rgba(0,0,0,0.4)',zIndex:7999,animation:'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }} />
         <div style={{ position: 'fixed', top: '48px', right: 0, bottom: 0, width: '360px', background: 'linear-gradient(180deg, rgba(15,30,60,0.95) 0%, rgba(10,20,40,0.97) 100%)', backdropFilter: 'blur(8px)', borderLeft: '1px solid rgba(34,197,94,0.25)', boxShadow: '-8px 0 32px rgba(0,0,0,0.5), inset 1px 0 0 rgba(34,197,94,0.1)', zIndex: 8000, animation: 'panelSlideIn 220ms cubic-bezier(0.23, 1, 0.32, 1)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-            {/* Compact header — sits over album art when track is loaded */}
             <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, position: 'relative', zIndex: 2, background: spotifyNowPlaying?.art ? 'transparent' : 'rgba(15,30,40,0.5)', borderBottom: spotifyNowPlaying?.art ? 'none' : '1px solid rgba(34,197,94,0.15)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div style={{ width: '2px', height: '12px', background: '#22c55e', borderRadius: '2px', boxShadow: '0 0 6px #22c55e' }} />
@@ -16256,7 +16352,6 @@ if (window.electronAPI?.quit) {
                     title="Close">✕</button>
             </div>
 
-            {/* Hero art region — only when a track is playing */}
             {spotifyConnected && spotifyNowPlaying && (
                 <div style={{ position: 'relative', marginTop: '-56px', flexShrink: 0, aspectRatio: '1 / 1', overflow: 'hidden', background: '#000' }}>
                     {spotifyNowPlaying.art ? (
@@ -16264,13 +16359,10 @@ if (window.electronAPI?.quit) {
                     ) : (
                         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '64px', opacity: 0.3 }}>🎵</div>
                     )}
-                    {/* Top fade for header legibility */}
                     <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '80px', background: 'linear-gradient(180deg, rgba(10,20,40,0.85) 0%, transparent 100%)', pointerEvents: 'none' }} />
-                    {/* Bottom fade so the body card blends in */}
                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '50%', background: 'linear-gradient(180deg, transparent 0%, rgba(10,20,40,0.85) 70%, rgba(10,20,40,0.97) 100%)', pointerEvents: 'none' }} />
-                    {/* Live equalizer indicator while playing */}
                     {spotifyNowPlaying.isPlaying && (
-                        <div style={{ position: 'absolute', top: '64px', right: '14px', display: 'flex', alignItems: 'flex-end', gap: '2px', height: '14px', padding: '4px 6px', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', borderRadius: '4px', border: '1px solid rgba(34,197,94,0.3)' }}>
+                        <div style={{ position: 'absolute', top: '64px', right: '14px', display: 'flex', alignItems: 'flex-end', gap: '2px', height: '20px', padding: '4px 6px', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', borderRadius: '4px', border: '1px solid rgba(34,197,94,0.3)' }}>
                             <div style={{ width: '2px', background: '#22c55e', borderRadius: '1px', animation: 'spotifyEq1 0.8s ease-in-out infinite' }} />
                             <div style={{ width: '2px', background: '#22c55e', borderRadius: '1px', animation: 'spotifyEq2 0.9s ease-in-out infinite' }} />
                             <div style={{ width: '2px', background: '#22c55e', borderRadius: '1px', animation: 'spotifyEq3 0.7s ease-in-out infinite' }} />
@@ -16279,7 +16371,6 @@ if (window.electronAPI?.quit) {
                 </div>
             )}
 
-            {/* Body */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '0 18px 18px', display: 'flex', flexDirection: 'column' }}>
                 {!spotifyConnected && (
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '40px 16px' }}>
@@ -16293,7 +16384,6 @@ if (window.electronAPI?.quit) {
 
                 {spotifyConnected && !spotifyNowPlaying && (
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '40px 16px' }}>
-                        {/* Idle equalizer */}
                         <div style={{ display: 'flex', alignItems: 'flex-end', gap: '5px', height: '32px', marginBottom: '22px', opacity: 0.4 }}>
                             <div style={{ width: '4px', height: '12px', background: '#22c55e', borderRadius: '2px' }} />
                             <div style={{ width: '4px', height: '20px', background: '#22c55e', borderRadius: '2px' }} />
@@ -16307,14 +16397,12 @@ if (window.electronAPI?.quit) {
 
                 {spotifyConnected && spotifyNowPlaying && (
                     <div style={{ marginTop: '-40px', position: 'relative', zIndex: 3 }}>
-                        {/* Track info */}
                         <div style={{ marginBottom: '20px' }}>
                             <div style={{ color: '#ffffff', fontSize: '18px', fontWeight: '800', lineHeight: 1.25, marginBottom: '6px', textShadow: '0 2px 8px rgba(0,0,0,0.6)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{spotifyNowPlaying.track}</div>
                             <div style={{ color: '#cbd5e1', fontSize: '13px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>{spotifyNowPlaying.artist}</div>
                             {spotifyNowPlaying.album && <div style={{ color: '#64748b', fontSize: '10px', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{spotifyNowPlaying.album}</div>}
                         </div>
 
-                        {/* Progress bar */}
                         {spotifyNowPlaying.durationMs > 0 && (
                             <div style={{ marginBottom: '20px' }}>
                                 <div style={{ height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
@@ -16327,7 +16415,6 @@ if (window.electronAPI?.quit) {
                             </div>
                         )}
 
-                        {/* Controls */}
                         {spotifyProduct === 'premium' ? (
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '14px' }}>
                                 <button onClick={() => spotifyControl('previous')}
@@ -16379,7 +16466,6 @@ if (window.electronAPI?.quit) {
                 )}
             </div>
 
-            {/* Bottom action bar — sticky */}
             {spotifyConnected && spotifyNowPlaying?.url && (
                 <div style={{ padding: '12px 18px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.3)', flexShrink: 0 }}>
                     <a href="#" onClick={(e) => { e.preventDefault(); try { window.electron?.send?.('open-external', spotifyNowPlaying.url); } catch (_) {} try { window.open(spotifyNowPlaying.url, '_blank'); } catch (_) {} }}
@@ -16394,6 +16480,7 @@ if (window.electronAPI?.quit) {
         </div>
     </>
 )}
+
 {(() => {
     // ── Live Announcement queue ──
     // Only one announcement visible at a time. Slides down from the top, expanded
