@@ -604,6 +604,10 @@ body::before {
     100% { background-position: -200% 0; }
 }
 
+@keyframes spotifyEq1 { 0%,100% { height: 4px; } 50% { height: 14px; } }
+@keyframes spotifyEq2 { 0%,100% { height: 8px; } 50% { height: 12px; } }
+@keyframes spotifyEq3 { 0%,100% { height: 12px; } 50% { height: 6px; } }
+
 .pulse-animation {
     animation: pulse-data 0.6s ease-out;
 }
@@ -1902,15 +1906,29 @@ const navTo = React.useCallback((target, after) => {
     const now = Date.now();
     if (now < viewSwitchCooldownRef.current) return; // still cooling down — ignore
     viewSwitchCooldownRef.current = now + 500;
+
+    // Bail any pending resolve so we never leak the spinner.
+    if (viewReadyResolveRef.current) {
+        const stale = viewReadyResolveRef.current;
+        viewReadyResolveRef.current = null;
+        try { stale(); } catch (_) {}
+    }
+
     setViewSwitching(true);
     requestAnimationFrame(() => {
         if (after) after();
+        // Same-view click: React won't re-fire the activeView effect because state didn't change.
+        // We still want tactile feedback, so schedule our OWN resolve after ~280ms instead of
+        // waiting for the never-firing effect.
+        if (target === activeView) {
+            setTimeout(() => setViewSwitching(false), 280);
+            return;
+        }
         setActiveView(target);
-        // Resolved by the activeView-watching effect below once paint settles
         new Promise(resolve => { viewReadyResolveRef.current = resolve; })
             .then(() => setViewSwitching(false));
     });
-}, []);
+}, [activeView]);
 
 // ── View ready detector ──
 // Resolves the navTo promise once React has committed the new view AND the browser
@@ -10998,8 +11016,8 @@ return (
                                 if(item.disabled) return;
                                 if(isHomeDash){navTo('home', ()=>setHomeSubView('dashboard'));}
                                 else if(item.mapKey){navTo('home', ()=>{setHomeSubView(v=>v==='map'?'dashboard':'map');setShowDataPanel(false);setShowOfficersPanel(false);setShowHistoryPanel(false);});}
-                                else if(item.k==='hist'){setShowHistoryPanel(p=>!p);setShowDataPanel(false);setShowOfficersPanel(false);}
-                                else if(item.k==='data'){setShowDataPanel(p=>!p);setShowOfficersPanel(false);setShowHistoryPanel(false);}
+                                else if(item.k==='hist'){setShowHistoryPanel(p=>!p);setShowDataPanel(false);setShowOfficersPanel(false);setShowSpotifyPanel(false);}
+                                else if(item.k==='data'){setShowDataPanel(p=>!p);setShowOfficersPanel(false);setShowHistoryPanel(false);setShowSpotifyPanel(false);}
                                 else if(item.k==='officers'){setShowOfficersPanel(p=>!p);setShowDataPanel(false);setShowHistoryPanel(false);setShowSpotifyPanel(false);}
                                 else if(item.k==='spotify'){setShowSpotifyPanel(p=>!p);setShowOfficersPanel(false);setShowDataPanel(false);setShowHistoryPanel(false);}
                                 else{navTo(item.k, ()=>{ if(item.k==='calls')setCallButtonFlash(false); });}
@@ -13256,7 +13274,7 @@ section: (accent, accentFaint) => ({ background: `${accentFaint}`, border: `1px 
                                 <div style={S.sectionHead('#4ade80')}>💾 Export Settings</div>
                                 <div style={S.sectionSub}>Write all current settings to your CADSystemSettings.txt file</div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '12px' }}>
-                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE','PANIC_ENABLED','PANIC_HOTKEY','PANIC_TRIGGER_MODE','ACKNOWLEDGE_KEYBIND','PHONETIC_MODE','MIC_DEVICE','SFX_MIC_ACTIVE','SFX_MIC_INACTIVE','SFX_MIC_NOTAVAILABLE'].map(k => (
+                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','TeamSpeakAPIKey','EnableTeamSpeakIntegration','EnableSpotifyIntegration','SpotifyClientID','SpotifyRefreshToken','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE','PANIC_ENABLED','PANIC_HOTKEY','PANIC_TRIGGER_MODE','ACKNOWLEDGE_KEYBIND','PHONETIC_MODE','ESC_TO_HOME','MIC_DEVICE','SFX_MIC_ACTIVE','SFX_MIC_INACTIVE','SFX_MIC_NOTAVAILABLE'].map(k => (
                                         <span key={k} style={{ padding: '2px 7px', background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.18)', borderRadius: '4px', color: '#4ade80', fontSize: '10px', fontFamily: 'monospace' }}>{k}</span>
                                     ))}
                                     <span style={{ padding: '2px 7px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '4px', color: '#f87171', fontSize: '10px', fontFamily: 'monospace' }}>ActiveSession*</span>
@@ -16217,117 +16235,165 @@ if (window.electronAPI?.quit) {
 
 {/* ── SPOTIFY SIDETAB ── */}
 {enableSpotifyIntegration && showSpotifyPanel && (
-    <div style={{ position: 'fixed', top: '48px', right: 0, bottom: 0, width: '320px', background: 'linear-gradient(180deg, rgba(15,30,60,0.95) 0%, rgba(10,20,40,0.97) 100%)', backdropFilter: 'blur(8px)', borderLeft: '1px solid rgba(34,197,94,0.25)', boxShadow: '-8px 0 32px rgba(0,0,0,0.5), inset 1px 0 0 rgba(34,197,94,0.1)', zIndex: 8000, animation: 'panelSlideIn 220ms cubic-bezier(0.23, 1, 0.32, 1)', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(34,197,94,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, background: 'rgba(15,30,40,0.5)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '2px', height: '12px', background: '#22c55e', borderRadius: '2px', boxShadow: '0 0 6px #22c55e' }} />
-                <div>
-                    <div style={{ color: '#22c55e', fontSize: '11px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace' }}>Spotify</div>
-                    <div style={{ color: '#475569', fontSize: '9px', marginTop: '2px', fontFamily: 'monospace' }}>
-                        {spotifyConnected ? (spotifyProduct === 'premium' ? 'Premium · live sync' : 'Free · read-only') : 'Disconnected'}
-                    </div>
-                </div>
-            </div>
-            <button onClick={() => setShowSpotifyPanel(false)} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '4px', color: '#f87171', cursor: 'pointer', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontFamily: 'monospace', padding: 0 }}>✕</button>
-        </div>
+    <>
+        <div onClick={()=>setShowSpotifyPanel(false)} style={{ position:'fixed',top:'48px',left:0,right:'360px',bottom:0,background:'rgba(0,0,0,0.4)',zIndex:7999,animation:'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }} />
+        <div style={{ position: 'fixed', top: '48px', right: 0, bottom: 0, width: '360px', background: 'linear-gradient(180deg, rgba(15,30,60,0.95) 0%, rgba(10,20,40,0.97) 100%)', backdropFilter: 'blur(8px)', borderLeft: '1px solid rgba(34,197,94,0.25)', boxShadow: '-8px 0 32px rgba(0,0,0,0.5), inset 1px 0 0 rgba(34,197,94,0.1)', zIndex: 8000, animation: 'panelSlideIn 220ms cubic-bezier(0.23, 1, 0.32, 1)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-            {!spotifyConnected && (
-                <div style={{ padding: '32px 16px', textAlign: 'center', color: '#64748b' }}>
-                    <div style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.4 }}>🎵</div>
-                    <div style={{ color: '#94a3b8', fontSize: '12px', fontWeight: '600', marginBottom: '6px' }}>Not connected</div>
-                    <div style={{ color: '#64748b', fontSize: '10px', lineHeight: 1.6, fontFamily: 'monospace' }}>Go to Settings → Authentication<br/>and click Authorize Spotify.</div>
-                </div>
-            )}
-
-            {spotifyConnected && !spotifyNowPlaying && !spotifyDeviceId && (
-                <div style={{ padding: '24px 16px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '28px', marginBottom: '10px', opacity: 0.5 }}>🔇</div>
-                    <div style={{ color: '#fbbf24', fontSize: '11px', fontWeight: '700', letterSpacing: '1px', marginBottom: '6px', fontFamily: 'monospace', textTransform: 'uppercase' }}>No active device</div>
-                    <div style={{ color: '#64748b', fontSize: '10px', lineHeight: 1.6, fontFamily: 'monospace' }}>Open Spotify on any device<br/>(desktop, web, phone) to start.</div>
-                </div>
-            )}
-
-            {spotifyConnected && spotifyNowPlaying && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    {/* Album art */}
-                    <div style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: '10px', overflow: 'hidden', background: 'rgba(0,0,0,0.3)', boxShadow: '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)' }}>
-                        {spotifyNowPlaying.art ? (
-                            <img src={spotifyNowPlaying.art} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                        ) : (
-                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '48px', opacity: 0.3 }}>🎵</div>
-                        )}
-                        {/* Subtle gradient overlay for legibility */}
-                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 60%, rgba(0,0,0,0.5))', pointerEvents: 'none' }} />
-                    </div>
-
-                    {/* Track info */}
+            {/* Compact header — sits over album art when track is loaded */}
+            <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, position: 'relative', zIndex: 2, background: spotifyNowPlaying?.art ? 'transparent' : 'rgba(15,30,40,0.5)', borderBottom: spotifyNowPlaying?.art ? 'none' : '1px solid rgba(34,197,94,0.15)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '2px', height: '12px', background: '#22c55e', borderRadius: '2px', boxShadow: '0 0 6px #22c55e' }} />
                     <div>
-                        <div style={{ color: '#f8fafc', fontSize: '14px', fontWeight: '700', lineHeight: 1.3, marginBottom: '4px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{spotifyNowPlaying.track}</div>
-                        <div style={{ color: '#94a3b8', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{spotifyNowPlaying.artist}</div>
-                        {spotifyNowPlaying.album && <div style={{ color: '#64748b', fontSize: '10px', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{spotifyNowPlaying.album}</div>}
+                        <div style={{ color: '#22c55e', fontSize: '11px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace' }}>Spotify</div>
+                        <div style={{ color: '#94a3b8', fontSize: '9px', marginTop: '2px', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
+                            {spotifyConnected ? (spotifyProduct === 'premium' ? 'Premium · live sync' : 'Free · read-only') : 'Disconnected'}
+                        </div>
                     </div>
+                </div>
+                <button onClick={() => setShowSpotifyPanel(false)} style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: '#94a3b8', cursor: 'pointer', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', padding: 0, transition: 'background 160ms ease-out' }}
+                    onMouseEnter={e=>{e.currentTarget.style.background='rgba(239,68,68,0.15)';e.currentTarget.style.color='#fca5a5';}}
+                    onMouseLeave={e=>{e.currentTarget.style.background='rgba(0,0,0,0.4)';e.currentTarget.style.color='#94a3b8';}}
+                    title="Close">✕</button>
+            </div>
 
-                    {/* Progress bar */}
-                    {spotifyNowPlaying.durationMs > 0 && (
-                        <div>
-                            <div style={{ height: '3px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
-                                <div style={{ width: `${Math.min(100, (spotifyNowPlaying.progressMs / spotifyNowPlaying.durationMs) * 100)}%`, height: '100%', background: '#22c55e', boxShadow: '0 0 6px rgba(34,197,94,0.6)', transition: 'width 1s linear' }} />
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '9px', fontFamily: 'monospace', color: '#64748b' }}>
-                                <span>{Math.floor(spotifyNowPlaying.progressMs / 60000)}:{String(Math.floor((spotifyNowPlaying.progressMs % 60000) / 1000)).padStart(2, '0')}</span>
-                                <span>{Math.floor(spotifyNowPlaying.durationMs / 60000)}:{String(Math.floor((spotifyNowPlaying.durationMs % 60000) / 1000)).padStart(2, '0')}</span>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Controls — only for Premium */}
-                    {spotifyProduct === 'premium' ? (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                            <button onClick={() => spotifyControl('previous')}
-                                style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#cbd5e1', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', padding: 0, transition: 'background 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
-                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
-                                onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.92)'; }}
-                                onMouseUp={e => { e.currentTarget.style.transform = ''; }}
-                                title="Previous track">⏮</button>
-                            <button onClick={() => spotifyControl(spotifyNowPlaying.isPlaying ? 'pause' : 'play')}
-                                style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'linear-gradient(180deg, #22c55e, #15803d)', border: '1px solid rgba(34,197,94,0.5)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', padding: 0, boxShadow: '0 0 18px rgba(34,197,94,0.35), inset 0 1px 0 rgba(255,255,255,0.18)', transition: 'filter 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
-                                onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(1.12)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.filter = ''; }}
-                                onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.96)'; }}
-                                onMouseUp={e => { e.currentTarget.style.transform = ''; }}
-                                title={spotifyNowPlaying.isPlaying ? 'Pause' : 'Play'}>
-                                {spotifyNowPlaying.isPlaying ? '⏸' : '▶'}
-                            </button>
-                            <button onClick={() => spotifyControl('next')}
-                                style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#cbd5e1', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', padding: 0, transition: 'background 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
-                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
-                                onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.92)'; }}
-                                onMouseUp={e => { e.currentTarget.style.transform = ''; }}
-                                title="Next track">⏭</button>
-                        </div>
+            {/* Hero art region — only when a track is playing */}
+            {spotifyConnected && spotifyNowPlaying && (
+                <div style={{ position: 'relative', marginTop: '-56px', flexShrink: 0, aspectRatio: '1 / 1', overflow: 'hidden', background: '#000' }}>
+                    {spotifyNowPlaying.art ? (
+                        <img src={spotifyNowPlaying.art} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: spotifyNowPlaying.isPlaying ? 'none' : 'brightness(0.7) saturate(0.6)', transition: 'filter 600ms ease-out' }} />
                     ) : (
-                        <div style={{ textAlign: 'center', color: '#64748b', fontSize: '10px', padding: '8px 0', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
-                            ⓘ Premium required for playback controls
+                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '64px', opacity: 0.3 }}>🎵</div>
+                    )}
+                    {/* Top fade for header legibility */}
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '80px', background: 'linear-gradient(180deg, rgba(10,20,40,0.85) 0%, transparent 100%)', pointerEvents: 'none' }} />
+                    {/* Bottom fade so the body card blends in */}
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '50%', background: 'linear-gradient(180deg, transparent 0%, rgba(10,20,40,0.85) 70%, rgba(10,20,40,0.97) 100%)', pointerEvents: 'none' }} />
+                    {/* Live equalizer indicator while playing */}
+                    {spotifyNowPlaying.isPlaying && (
+                        <div style={{ position: 'absolute', top: '64px', right: '14px', display: 'flex', alignItems: 'flex-end', gap: '2px', height: '14px', padding: '4px 6px', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', borderRadius: '4px', border: '1px solid rgba(34,197,94,0.3)' }}>
+                            <div style={{ width: '2px', background: '#22c55e', borderRadius: '1px', animation: 'spotifyEq1 0.8s ease-in-out infinite' }} />
+                            <div style={{ width: '2px', background: '#22c55e', borderRadius: '1px', animation: 'spotifyEq2 0.9s ease-in-out infinite' }} />
+                            <div style={{ width: '2px', background: '#22c55e', borderRadius: '1px', animation: 'spotifyEq3 0.7s ease-in-out infinite' }} />
                         </div>
-                    )}
-
-                    {spotifyError && (
-                        <div style={{ color: '#fbbf24', fontSize: '10px', fontFamily: 'monospace', padding: '6px 10px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)', borderRadius: '6px', textAlign: 'center' }}>⚠ {spotifyError}</div>
-                    )}
-
-                    {spotifyNowPlaying.url && (
-                        <a href="#" onClick={(e) => { e.preventDefault(); try { window.electron?.send?.('open-external', spotifyNowPlaying.url); } catch (_) {} try { window.open(spotifyNowPlaying.url, '_blank'); } catch (_) {} }}
-                            style={{ color: '#64748b', fontSize: '10px', textAlign: 'center', fontFamily: 'monospace', letterSpacing: '0.5px', textDecoration: 'none', padding: '4px 0', display: 'block' }}>Open in Spotify ↗</a>
                     )}
                 </div>
             )}
-        </div>
-    </div>
-)}
 
+            {/* Body */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0 18px 18px', display: 'flex', flexDirection: 'column' }}>
+                {!spotifyConnected && (
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '40px 16px' }}>
+                        <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '18px' }}>
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M9 18V5l12-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zm12-3a3 3 0 11-6 0 3 3 0 016 0z" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        </div>
+                        <div style={{ color: '#e2e8f0', fontSize: '14px', fontWeight: '700', marginBottom: '8px' }}>Not connected</div>
+                        <div style={{ color: '#64748b', fontSize: '11px', lineHeight: 1.6, fontFamily: 'monospace', maxWidth: '240px' }}>Open <strong style={{ color: '#22d3ee' }}>Settings → Authentication</strong> and click <strong style={{ color: '#22c55e' }}>Authorize Spotify</strong> to begin.</div>
+                    </div>
+                )}
+
+                {spotifyConnected && !spotifyNowPlaying && (
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '40px 16px' }}>
+                        {/* Idle equalizer */}
+                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '5px', height: '32px', marginBottom: '22px', opacity: 0.4 }}>
+                            <div style={{ width: '4px', height: '12px', background: '#22c55e', borderRadius: '2px' }} />
+                            <div style={{ width: '4px', height: '20px', background: '#22c55e', borderRadius: '2px' }} />
+                            <div style={{ width: '4px', height: '8px',  background: '#22c55e', borderRadius: '2px' }} />
+                            <div style={{ width: '4px', height: '16px', background: '#22c55e', borderRadius: '2px' }} />
+                        </div>
+                        <div style={{ color: '#fbbf24', fontSize: '11px', fontWeight: '700', letterSpacing: '1.5px', marginBottom: '8px', fontFamily: 'monospace', textTransform: 'uppercase' }}>Waiting for Spotify</div>
+                        <div style={{ color: '#64748b', fontSize: '11px', lineHeight: 1.6, fontFamily: 'monospace', maxWidth: '260px' }}>Open Spotify on any device — desktop, web, or phone — and start a track. Status updates every 5 seconds.</div>
+                    </div>
+                )}
+
+                {spotifyConnected && spotifyNowPlaying && (
+                    <div style={{ marginTop: '-40px', position: 'relative', zIndex: 3 }}>
+                        {/* Track info */}
+                        <div style={{ marginBottom: '20px' }}>
+                            <div style={{ color: '#ffffff', fontSize: '18px', fontWeight: '800', lineHeight: 1.25, marginBottom: '6px', textShadow: '0 2px 8px rgba(0,0,0,0.6)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{spotifyNowPlaying.track}</div>
+                            <div style={{ color: '#cbd5e1', fontSize: '13px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>{spotifyNowPlaying.artist}</div>
+                            {spotifyNowPlaying.album && <div style={{ color: '#64748b', fontSize: '10px', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{spotifyNowPlaying.album}</div>}
+                        </div>
+
+                        {/* Progress bar */}
+                        {spotifyNowPlaying.durationMs > 0 && (
+                            <div style={{ marginBottom: '20px' }}>
+                                <div style={{ height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                                    <div style={{ width: `${Math.min(100, (spotifyNowPlaying.progressMs / spotifyNowPlaying.durationMs) * 100)}%`, height: '100%', background: 'linear-gradient(90deg, #22c55e, #4ade80)', boxShadow: '0 0 8px rgba(34,197,94,0.5)', transition: 'width 1s linear' }} />
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '10px', fontFamily: 'monospace', color: '#64748b', letterSpacing: '0.5px' }}>
+                                    <span>{Math.floor(spotifyNowPlaying.progressMs / 60000)}:{String(Math.floor((spotifyNowPlaying.progressMs % 60000) / 1000)).padStart(2, '0')}</span>
+                                    <span>{Math.floor(spotifyNowPlaying.durationMs / 60000)}:{String(Math.floor((spotifyNowPlaying.durationMs % 60000) / 1000)).padStart(2, '0')}</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Controls */}
+                        {spotifyProduct === 'premium' ? (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '14px' }}>
+                                <button onClick={() => spotifyControl('previous')}
+                                    style={{ width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#e2e8f0', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, transition: 'background 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                                    onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.9)'; }}
+                                    onMouseUp={e => { e.currentTarget.style.transform = ''; }}
+                                    title="Previous track">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6V6zm3.5 6l8.5 6V6l-8.5 6z"/></svg>
+                                </button>
+                                <button onClick={() => spotifyControl(spotifyNowPlaying.isPlaying ? 'pause' : 'play')}
+                                    style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'linear-gradient(180deg, #22c55e, #16a34a)', border: '1px solid rgba(34,197,94,0.6)', color: '#0a1428', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, boxShadow: '0 4px 24px rgba(34,197,94,0.4), inset 0 1px 0 rgba(255,255,255,0.2)', transition: 'filter 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                                    onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(1.12)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.filter = ''; }}
+                                    onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.95)'; }}
+                                    onMouseUp={e => { e.currentTarget.style.transform = ''; }}
+                                    title={spotifyNowPlaying.isPlaying ? 'Pause' : 'Play'}>
+                                    {spotifyNowPlaying.isPlaying ? (
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z"/></svg>
+                                    ) : (
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: '3px' }}><path d="M8 5v14l11-7L8 5z"/></svg>
+                                    )}
+                                </button>
+                                <button onClick={() => spotifyControl('next')}
+                                    style={{ width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#e2e8f0', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, transition: 'background 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                                    onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.9)'; }}
+                                    onMouseUp={e => { e.currentTarget.style.transform = ''; }}
+                                    title="Next track">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                                </button>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', padding: '12px 0', marginBottom: '14px', color: '#64748b', fontSize: '11px', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/><path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                                <span>Premium required for controls</span>
+                            </div>
+                        )}
+
+                        {spotifyError && (
+                            <div style={{ color: '#fbbf24', fontSize: '11px', fontFamily: 'monospace', padding: '8px 12px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '8px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span>⚠</span>
+                                <span style={{ flex: 1, lineHeight: 1.5 }}>{spotifyError}</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* Bottom action bar — sticky */}
+            {spotifyConnected && spotifyNowPlaying?.url && (
+                <div style={{ padding: '12px 18px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.3)', flexShrink: 0 }}>
+                    <a href="#" onClick={(e) => { e.preventDefault(); try { window.electron?.send?.('open-external', spotifyNowPlaying.url); } catch (_) {} try { window.open(spotifyNowPlaying.url, '_blank'); } catch (_) {} }}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '8px', color: '#22c55e', fontSize: '11px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', textDecoration: 'none', fontFamily: 'monospace', transition: 'background 160ms ease-out' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(34,197,94,0.12)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(34,197,94,0.06)'; }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+                        Open in Spotify
+                    </a>
+                </div>
+            )}
+        </div>
+    </>
+)}
 {(() => {
     // ── Live Announcement queue ──
     // Only one announcement visible at a time. Slides down from the top, expanded
