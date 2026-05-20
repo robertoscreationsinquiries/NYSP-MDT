@@ -794,6 +794,92 @@ if (USE_LOCAL_INDEX) {
 }
 
 // ============================================================
+// ROBLOX API — direct fetch from main process (no CORS, no proxies)
+// ============================================================
+// The renderer can't hit users.roblox.com directly because of CORS.
+// But the main process is Node — no CORS. So we fetch here and hand back JSON.
+// Renderer calls: window.electron.invoke('roblox-fetch', { url })
+
+function _robloxHttpsGet(targetUrl) {
+    return new Promise((resolve, reject) => {
+        let parsed;
+        try { parsed = new URL(targetUrl); } catch (e) { return reject(new Error('Bad URL')); }
+        // Allowlist — only Roblox domains
+        const allowed = ['users.roblox.com', 'thumbnails.roblox.com', 'avatar.roblox.com', 'api.roblox.com', 'www.roblox.com'];
+        if (!allowed.includes(parsed.hostname)) return reject(new Error('Domain not allowed: ' + parsed.hostname));
+
+        const req = https.request({
+            hostname: parsed.hostname,
+            path: parsed.pathname + parsed.search,
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+            }
+        }, (res) => {
+            let raw = '';
+            res.on('data', c => raw += c);
+            res.on('end', () => {
+                resolve({ status: res.statusCode, body: raw });
+            });
+        });
+        req.on('error', reject);
+        req.setTimeout(8000, () => { req.destroy(); reject(new Error('timeout')); });
+        req.end();
+    });
+}
+
+// Simple in-memory cache in the main process. Roblox user data barely changes,
+// so caching for 6h means repeat lookups of the same person never re-hit Roblox.
+const _robloxCache = new Map(); // url -> { at, status, body }
+const _ROBLOX_TTL = 6 * 60 * 60 * 1000; // 6 hours
+
+ipcMain.handle('roblox-fetch', async (_e, { url }) => {
+    try {
+        const cached = _robloxCache.get(url);
+        if (cached && (Date.now() - cached.at) < _ROBLOX_TTL) {
+            return { ok: true, status: cached.status, body: cached.body, cached: true };
+        }
+        const result = await _robloxHttpsGet(url);
+        if (result.status >= 200 && result.status < 300) {
+            _robloxCache.set(url, { at: Date.now(), status: result.status, body: result.body });
+            // Keep cache from growing unbounded
+            if (_robloxCache.size > 500) {
+                const firstKey = _robloxCache.keys().next().value;
+                _robloxCache.delete(firstKey);
+            }
+        }
+        return { ok: true, status: result.status, body: result.body, cached: false };
+    } catch (e) {
+        return { ok: false, error: e.message };
+    }
+});
+
+// Fetch a Roblox CDN image and return it as a base64 data URL (for avatars).
+ipcMain.handle('roblox-image', async (_e, { url }) => {
+    try {
+        let parsed;
+        try { parsed = new URL(url); } catch (_) { return { ok: false, error: 'bad url' }; }
+        // Roblox CDN images live on rbxcdn.com subdomains
+        if (!/\.rbxcdn\.com$/.test(parsed.hostname) && !parsed.hostname.endsWith('roblox.com')) {
+            return { ok: false, error: 'domain not allowed' };
+        }
+        const data = await new Promise((resolve, reject) => {
+            https.get(url, (res) => {
+                if (res.statusCode !== 200) { reject(new Error('status ' + res.statusCode)); return; }
+                const chunks = [];
+                res.on('data', c => chunks.push(c));
+                res.on('end', () => resolve(Buffer.concat(chunks)));
+            }).on('error', reject);
+        });
+        const contentType = 'image/png';
+        return { ok: true, dataUrl: `data:${contentType};base64,${data.toString('base64')}` };
+    } catch (e) {
+        return { ok: false, error: e.message };
+    }
+});
+
+// ============================================================
 // SPOTIFY INTEGRATION — OAuth (PKCE) + Polling
 // ============================================================
 // Flow:
@@ -1022,7 +1108,7 @@ ipcMain.handle('spotify-begin-auth', async (_e, { clientId }) => {
                     _spotifyState.refreshToken = tokenResp.refresh_token;
                     _spotifyState.expiresAt = Date.now() + (tokenResp.expires_in - 60) * 1000;
                     res.writeHead(200, { 'Content-Type': 'text/html' });
-                    res.end('<!doctype html><html><head><title>Connected</title><style>body{font-family:-apple-system,sans-serif;background:#0d1117;color:#e2e8f0;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}div{text-align:center}h1{color:#22d3ee;margin:0 0 12px}p{color:#94a3b8;font-size:14px;margin:0}</style></head><body><div><h1>✓ Connected to Spotify</h1><p>You can close this window and return to the CAD.</p></div></body></html>');
+                    res.end('<!doctype html><html><head><title>Connected</title><style>body{font-family:-apple-system,sans-serif;background:#0d1117;color:#e2e8f0;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}div{text-align:center}h1{color:#22d3ee;margin:0 0 12px}p{color:#94a3b8;font-size:14px;margin:0}</style></head><body><div><h1>Connected to Spotify</h1><p>You can close this window and return to the CAD.</p></div></body></html>');
                     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('spotify-auth-result', { ok: true, refreshToken: tokenResp.refresh_token });
                     _spotifyStartPolling();
                     setTimeout(() => { try { _spotifyAuthServer.close(); _spotifyAuthServer = null; } catch (_) {} }, 500);
