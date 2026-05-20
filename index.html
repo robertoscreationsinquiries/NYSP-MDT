@@ -6729,39 +6729,27 @@ const lookupRobloxUser = async (username, retryCount = 0) => {
             let displayName = userData.displayName || userName;
             
             try {
-                const avatarPromises = proxies.map(async (proxy) => {
+                const avatarPromises = [(async () => {
                     try {
-                        const avatarResp = await Promise.race([
-                            fetch(proxy.url(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png`)),
-                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500))
-                        ]);
-                        
+                        const avatarResp = await robloxFetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png`);
                         if (avatarResp.ok) {
                             const avatarData = await avatarResp.json();
                             return avatarData?.data?.[0]?.imageUrl;
                         }
                         return null;
-                    } catch (e) {
-                        return null;
-                    }
-                });
+                    } catch (e) { return null; }
+                })()];
                 
-                const detailsPromises = proxies.map(async (proxy) => {
+                const detailsPromises = [(async () => {
                     try {
-                        const detailsResp = await Promise.race([
-                            fetch(proxy.url(`https://users.roblox.com/v1/users/${userId}`)),
-                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500))
-                        ]);
-                        
+                        const detailsResp = await robloxFetch(`https://users.roblox.com/v1/users/${userId}`);
                         if (detailsResp.ok) {
                             const detailsData = await detailsResp.json();
                             return detailsData;
                         }
                         return null;
-                    } catch (e) {
-                        return null;
-                    }
-                });
+                    } catch (e) { return null; }
+                })()];
                 
                 const [avatarResults, detailsResults] = await Promise.all([
                     Promise.all(avatarPromises),
@@ -7300,8 +7288,8 @@ console.log('   - Username:', memberData.user.username);
                         // ✅ Also manually fetch and set result for plate search display
                         console.log('🎮 [PLATE SEARCH] Fetching Roblox profile for:', serverName);
                         try {
-                            const robloxSearchUrl = `https://corsproxy.io/?https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(serverName)}&limit=10`;
-                            const robloxSearchResp = await fetch(robloxSearchUrl);
+                            const robloxSearchUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(serverName)}&limit=10`;
+                            const robloxSearchResp = await robloxFetch(robloxSearchUrl);
                             
                             if (robloxSearchResp.ok) {
                                 const robloxSearchData = await robloxSearchResp.json();
@@ -7322,8 +7310,9 @@ console.log('   - Username:', memberData.user.username);
                                     addLog(`✓ Found Roblox: ${matchedUser.name}`, 'success');
                                     
                                     // Fetch full profile
-                                    const profileUrl = `https://corsproxy.io/?https://users.roblox.com/v1/users/${matchedUser.id}`;
-                                    const profileResp = await fetch(profileUrl);
+                                    // Direct Roblox fetch via main process (no CORS, no proxy)
+                const robloxUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=10`;
+                const robloxResp = await robloxFetch(robloxUrl);
                                     
                                     if (profileResp.ok) {
                                         const profileData = await profileResp.json();
@@ -7370,8 +7359,8 @@ console.log('   - Username:', memberData.user.username);
 // ✅ Also fetch and store Roblox profile for display
                         console.log('🎮 [ROBLOX] Fetching profile data for display...');
                         try {
-                            const robloxSearchUrl = `https://corsproxy.io/?https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(serverName)}&limit=10`;
-                            const robloxSearchResp = await fetch(robloxSearchUrl);
+                            const robloxSearchUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(serverName)}&limit=10`;
+                            const robloxSearchResp = await robloxFetch(robloxSearchUrl);
                             
                             if (robloxSearchResp.ok) {
                                 const robloxSearchData = await robloxSearchResp.json();
@@ -7389,8 +7378,9 @@ console.log('   - Username:', memberData.user.username);
                                     console.log('✅ [ROBLOX] Matched user:', matchedUser.name);
                                     
                                     // Fetch full profile
-                                    const profileUrl = `https://corsproxy.io/?https://users.roblox.com/v1/users/${matchedUser.id}`;
-                                    const profileResp = await fetch(profileUrl);
+                                    // Direct Roblox fetch via main process (no CORS, no proxy)
+                const robloxUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=10`;
+                const robloxResp = await robloxFetch(robloxUrl);
                                     
                                     if (profileResp.ok) {
                                         const profileData = await profileResp.json();
@@ -7796,35 +7786,18 @@ discordUserId = inputUserId;
             addLog('Step 2: Looking up Roblox profile...', 'info');
             
             try {
-                const proxies = [
-                    { name: 'Direct API', url: (endpoint) => endpoint },
-                    { name: 'AllOrigins', url: (endpoint) => `https://api.allorigins.win/raw?url=${encodeURIComponent(endpoint)}` },
-                    { name: 'CorsProxy', url: (endpoint) => `https://corsproxy.io/?${encodeURIComponent(endpoint)}` },
-                    { name: 'CodeTabs', url: (endpoint) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(endpoint)}` }
-                ];
-                
                 const searchUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(serverName)}&limit=25`;
                 
-                const searchPromises = proxies.map(async (proxy) => {
-                    try {
-                        const resp = await Promise.race([
-                            fetch(proxy.url(searchUrl)),
-                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500))
-                        ]);
-                        
-                        if (resp.ok) {
-                            const data = await resp.json();
-                            if (data?.data?.[0]) {
-                                return { success: true, data, proxy: proxy.name };
-                            }
+                let successResult = null;
+                try {
+                    const resp = await robloxFetch(searchUrl);
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        if (data?.data?.[0]) {
+                            successResult = { success: true, data, proxy: 'App (direct)' };
                         }
-                        return { success: false };
-                    } catch (e) {
-                        return { success: false };
                     }
-                });
-                
-                const successResult = await raceProxies(searchPromises);
+                } catch (e) { /* falls through */ }
                 
                 if (successResult) {
                     addLog(`✓ Success with ${successResult.proxy}!`, 'success');
@@ -12063,7 +12036,7 @@ return (
                                         {result?.avatarUrl && (
                                             <div style={{ flexShrink:0,width:'78px',height:'78px',borderRadius:'10px',overflow:'hidden',border:'1px solid rgba(52,211,153,0.35)',boxShadow:'0 0 0 4px rgba(52,211,153,0.06), 0 6px 18px rgba(0,0,0,0.4), inset 0 1px 0 rgba(52,211,153,0.15)' }}>
                                                 <img src={result.avatarUrl} alt="Avatar" style={{ width:'100%',height:'100%',objectFit:'cover',display:'block' }}
-                                                    onError={(e) => { const src = e.currentTarget.src; if (!src.includes('corsproxy.io')) { e.currentTarget.src = `https://corsproxy.io/?${encodeURIComponent(src)}`; } else { e.currentTarget.onerror = null; e.currentTarget.style.display = 'none'; } }} />
+                                                    onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.style.display = 'none'; }} />
                                             </div>
                                         )}
                                         <div style={{ flex:1,minWidth:0 }}>
@@ -12460,14 +12433,9 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                                 src={searchResults.robloxUser.avatarUrl}
                                                 alt="Avatar"
                                                 className="avatar-img"
-                                                onError={(e) => {
-                                                    const src = e.currentTarget.src;
-                                                    if (!src.includes('corsproxy.io')) {
-                                                        e.currentTarget.src = `https://corsproxy.io/?${encodeURIComponent(src)}`;
-                                                    } else {
-                                                        e.currentTarget.onerror = null;
-                                                        e.currentTarget.style.display = 'none';
-                                                    }
+onError={(e) => {
+                                                    e.currentTarget.onerror = null;
+                                                    e.currentTarget.style.display = 'none';
                                                 }}
                                             />
                                         </div>
