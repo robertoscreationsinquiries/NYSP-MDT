@@ -1655,6 +1655,26 @@ const raceProxies = (promises) => new Promise((resolve) => {
     }).catch(() => { remaining--; if (remaining === 0) resolve(null); }));
 });
 
+// ── Roblox fetch via Electron main process (no CORS, no proxies, no rate limits) ──
+// The main process fetches Roblox directly and caches for 6h. This replaces the
+// dead third-party CORS proxies entirely. Returns a fetch-like { ok, status, json() }.
+const robloxFetch = async (robloxUrl) => {
+    try {
+        const r = await window.electron?.ipcRenderer?.invoke('roblox-fetch', { url: robloxUrl });
+        if (!r || !r.ok) {
+            return { ok: false, status: 0, json: async () => { throw new Error(r?.error || 'roblox-fetch failed'); } };
+        }
+        return {
+            ok: r.status >= 200 && r.status < 300,
+            status: r.status,
+            json: async () => JSON.parse(r.body),
+            text: async () => r.body
+        };
+    } catch (e) {
+        return { ok: false, status: 0, json: async () => { throw e; } };
+    }
+};
+
 const WarrantDots = () => {
     const [dots, setDots] = React.useState(1);
     React.useEffect(() => {
@@ -3856,21 +3876,11 @@ useEffect(() => {
         setLoaderStatus('TESTING ROBLOX API');
         await new Promise(r => setTimeout(r, 80));
 
-        const probes = [
-            { label: 'Direct',      url: 'https://users.roblox.com/v1/users/1' },
-            { label: 'CodeTabs',    url: 'https://api.codetabs.com/v1/proxy?quest=https://users.roblox.com/v1/users/1' },
-            { label: 'AllOrigins',  url: 'https://api.allorigins.win/raw?url=https://users.roblox.com/v1/users/1' },
-        ];
         let robloxWorking = null;
-        for (const p of probes) {
-            try {
-                const pr = await Promise.race([
-                    fetch(p.url),
-                    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000))
-                ]);
-                if (pr.ok) { robloxWorking = p.label; break; }
-            } catch (_) {}
-        }
+        try {
+            const pr = await robloxFetch('https://users.roblox.com/v1/users/1');
+            if (pr.ok) robloxWorking = 'App (direct)';
+        } catch (_) {}
         setCheck(4,
             robloxWorking ? 'ok' : 'warn',
             robloxWorking ? `Online via ${robloxWorking}` : 'All proxies failed'
@@ -3938,57 +3948,30 @@ useEffect(() => {
 }, []);
 
 const fetchAvatarAsBase64 = async (userId) => {
-    // Proxies to try in order
-    const proxies = [
-        (url) => url,  // direct first — Roblox CDN usually allows CORS for thumbnails
-        (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-        (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
-    ];
-
     const thumbnailApiUrl = `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png`;
+    try {
+        // Step 1: get the CDN image URL via the app's direct Roblox fetch (no CORS, no proxy)
+        const jsonResp = await robloxFetch(thumbnailApiUrl);
+        if (!jsonResp.ok) { console.error(`❌ [AVATAR] thumbnail API failed for ${userId}`); return null; }
+        const jsonData = await jsonResp.json();
+        const cdnUrl = jsonData?.data?.[0]?.imageUrl;
+        if (!cdnUrl) { console.error(`❌ [AVATAR] no imageUrl for ${userId}`); return null; }
 
-    for (const makeProxied of proxies) {
-        try {
-            // Step 1: get the JSON that contains the CDN URL
-            const jsonResp = await Promise.race([
-                fetch(makeProxied(thumbnailApiUrl)),
-                new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 5000))
-            ]);
-            if (!jsonResp.ok) continue;
-
-            const jsonData = await jsonResp.json();
-            const cdnUrl = jsonData?.data?.[0]?.imageUrl;
-            if (!cdnUrl) continue;
-
-            // Step 2: fetch the actual image bytes through the same proxy
-            const imgResp = await Promise.race([
-                fetch(makeProxied(cdnUrl)),
-                new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 5000))
-            ]);
-            if (!imgResp.ok) continue;
-
-            const blob = await imgResp.blob();
-
-            // Step 3: convert to base64 data URL
-            const base64 = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            });
-
-            console.log(`✅ [AVATAR] Fetched as base64 for userId ${userId} via proxy`);
-            return base64; // "data:image/png;base64,..."
-
-        } catch (e) {
-            console.warn(`⚠️ [AVATAR] Proxy failed for ${userId}:`, e.message);
+        // Step 2: fetch the actual image bytes via the main process too, returned as base64.
+        // (CDN bytes can't be JSON-parsed, so we ask main for a base64 data URL directly.)
+        const imgResult = await window.electron?.ipcRenderer?.invoke('roblox-image', { url: cdnUrl });
+        if (imgResult?.ok && imgResult.dataUrl) {
+            console.log(`✅ [AVATAR] Fetched as base64 for userId ${userId}`);
+            return imgResult.dataUrl;
         }
+        // Fallback: just return the CDN URL — <img src> works without CORS for display.
+        console.log(`✅ [AVATAR] Using direct CDN URL for userId ${userId}`);
+        return cdnUrl;
+    } catch (e) {
+        console.error(`❌ [AVATAR] Failed for userId ${userId}:`, e.message);
+        return null;
     }
-
-    console.error(`❌ [AVATAR] All proxies failed for userId ${userId}`);
-    return null;
 };
-
 
 
 // Apply visual effects setting to body
@@ -6715,37 +6698,20 @@ const lookupRobloxUser = async (username, retryCount = 0) => {
     addLog(`🔍 Searching Roblox for: ${cleanUsername}${retryCount > 0 ? ` (Retry ${retryCount}/${maxRetries})` : ''}`, 'info');
     
     try {
-        const proxies = [
-            { name: 'Direct API', url: (endpoint) => endpoint },
-            { name: 'CodeTabs', url: (endpoint) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(endpoint)}` },
-            { name: 'AllOrigins', url: (endpoint) => `https://api.allorigins.win/raw?url=${encodeURIComponent(endpoint)}` },
-            { name: 'ThingProxy', url: (endpoint) => `https://thingproxy.freeboard.io/fetch/${endpoint}` }
-        ];
-        
         const searchUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(username)}&limit=25`;
         
-        addLog('Trying proxy fetch...', 'info');
+        addLog('Fetching Roblox via app...', 'info');
         
-        const searchPromises = proxies.map(async (proxy) => {
-            try {
-                const resp = await Promise.race([
-                    fetch(proxy.url(searchUrl)),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500))
-                ]);
-                
-                if (resp.ok) {
-                    const data = await resp.json();
-                    if (data?.data?.[0]) {
-                        return { success: true, data, proxy: proxy.name };
-                    }
+        let successResult = null;
+        try {
+            const resp = await robloxFetch(searchUrl);
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data?.data?.[0]) {
+                    successResult = { success: true, data, proxy: 'App (direct)' };
                 }
-                return { success: false };
-            } catch (e) {
-                return { success: false };
             }
-        });
-        
-        const successResult = await raceProxies(searchPromises);
+        } catch (e) { /* falls through to null */ }
         
         if (successResult) {
             addLog(`✅ Success with ${successResult.proxy}!`, 'success');
@@ -7666,41 +7632,24 @@ discordUserId = inputUserId;
             // Start Roblox lookup in parallel — doesn't block vehicle search
             robloxLookupPromise = (async () => {
             try {
-                const proxies = [
-                    { name: 'Direct API', url: (endpoint) => endpoint },
-                    { name: 'AllOrigins', url: (endpoint) => `https://api.allorigins.win/raw?url=${encodeURIComponent(endpoint)}` },
-                    { name: 'CorsProxy', url: (endpoint) => `https://corsproxy.io/?${encodeURIComponent(endpoint)}` },
-                    { name: 'CodeTabs', url: (endpoint) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(endpoint)}` }
-                ];
-                
                 const searchUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(serverName)}&limit=25`;
                 
-                console.log('🌐 [PROXY] Attempting proxy fetch...');
+                console.log('🌐 [ROBLOX] Fetching via app (direct, no proxy)...');
                 
-                const searchPromises = proxies.map(async (proxy) => {
-                    console.log('🔄 [PROXY] Trying:', proxy.name);
-                    try {
-                        const resp = await Promise.race([
-                            fetch(proxy.url(searchUrl)),
-                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500))
-                        ]);
-                        
-                        if (resp.ok) {
-                            const data = await resp.json();
-                            if (data?.data?.[0]) {
-                                console.log('✅ [PROXY]', proxy.name, 'SUCCESS');
-                                return { success: true, data, proxy: proxy.name };
-                            }
+                let successResult = null;
+                try {
+                    const resp = await robloxFetch(searchUrl);
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        if (data?.data?.[0]) {
+                            console.log('✅ [ROBLOX] Direct fetch SUCCESS');
+                            successResult = { success: true, data, proxy: 'App (direct)' };
                         }
-                        console.log('❌ [PROXY]', proxy.name, 'failed');
-                        return { success: false };
-                    } catch (e) {
-                        console.log('❌ [PROXY]', proxy.name, 'error:', e.message);
-                        return { success: false };
                     }
-                });
-                
-                const successResult = await raceProxies(searchPromises);
+                    if (!successResult) console.log('❌ [ROBLOX] No match found');
+                } catch (e) {
+                    console.log('❌ [ROBLOX] error:', e.message);
+                }
                 
                 if (successResult) {
                     console.log('✅ [SUCCESS] Proxy succeeded:', successResult.proxy);
@@ -7720,38 +7669,18 @@ discordUserId = inputUserId;
                     let displayName = userData.displayName || userData.name;
                     
                     try {
-                        const avatarPromises = proxies.map(async (proxy) => {
-                            try {
-                                const aResp = await Promise.race([
-                                    fetch(proxy.url(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userData.id}&size=150x150&format=Png`)),
-                                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1200))
-                                ]);
-                                if (aResp.ok) {
-                                    const aData = await aResp.json();
-                                    return aData?.data?.[0]?.imageUrl || null;
-                                }
-                                return null;
-                            } catch (e) {
-                                return null;
-                            }
-                        });
-
-                        const detailsPromises = proxies.map(async (proxy) => {
-                            try {
-                                const detailsResp = await Promise.race([
-                                    fetch(proxy.url(`https://users.roblox.com/v1/users/${userData.id}`)),
-                                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1200))
-                                ]);
-                                
-                                if (detailsResp.ok) {
-                                    const detailsData = await detailsResp.json();
-                                    return detailsData;
-                                }
-                                return null;
-                            } catch (e) {
-                                return null;
-                            }
-                        });
+                        const searchUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(serverName)}&limit=25`;
+                
+                let successResult = null;
+                try {
+                    const resp = await robloxFetch(searchUrl);
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        if (data?.data?.[0]) {
+                            successResult = { success: true, data, proxy: 'App (direct)' };
+                        }
+                    }
+                } catch (e) { /* falls through */ }
                         
                         const [avatarResults, detailsResults] = await Promise.all([
                             Promise.all(avatarPromises),
@@ -7910,39 +7839,27 @@ discordUserId = inputUserId;
                     let displayName = userData.displayName || userData.name;
                     
                     try {
-                        const avatarPromises = proxies.map(async (proxy) => {
+                        const avatarPromises = [(async () => {
                             try {
-                                const avatarResp = await Promise.race([
-                                    fetch(proxy.url(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userData.id}&size=150x150&format=Png`)),
-                                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1200))
-                                ]);
-                                
+                                const avatarResp = await robloxFetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userData.id}&size=150x150&format=Png`);
                                 if (avatarResp.ok) {
                                     const avatarData = await avatarResp.json();
                                     return avatarData?.data?.[0]?.imageUrl;
                                 }
                                 return null;
-                            } catch (e) {
-                                return null;
-                            }
-                        });
+                            } catch (e) { return null; }
+                        })()];
                         
-                        const detailsPromises = proxies.map(async (proxy) => {
+                        const detailsPromises = [(async () => {
                             try {
-                                const detailsResp = await Promise.race([
-                                    fetch(proxy.url(`https://users.roblox.com/v1/users/${userData.id}`)),
-                                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1200))
-                                ]);
-                                
+                                const detailsResp = await robloxFetch(`https://users.roblox.com/v1/users/${userData.id}`);
                                 if (detailsResp.ok) {
                                     const detailsData = await detailsResp.json();
                                     return detailsData;
                                 }
                                 return null;
-                            } catch (e) {
-                                return null;
-                            }
-                        });
+                            } catch (e) { return null; }
+                        })()];
                         
                         const [avatarResults, detailsResults] = await Promise.all([
                             Promise.all(avatarPromises),
