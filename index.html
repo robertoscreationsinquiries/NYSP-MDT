@@ -3858,7 +3858,7 @@ useEffect(() => {
 
         const probes = [
             { label: 'Direct',      url: 'https://users.roblox.com/v1/users/1' },
-            { label: 'CorsProxy',   url: 'https://corsproxy.io/?https://users.roblox.com/v1/users/1' },
+            { label: 'CodeTabs',    url: 'https://api.codetabs.com/v1/proxy?quest=https://users.roblox.com/v1/users/1' },
             { label: 'AllOrigins',  url: 'https://api.allorigins.win/raw?url=https://users.roblox.com/v1/users/1' },
         ];
         let robloxWorking = null;
@@ -3940,9 +3940,9 @@ useEffect(() => {
 const fetchAvatarAsBase64 = async (userId) => {
     // Proxies to try in order
     const proxies = [
-        (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-        (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-        (url) => url  // direct last resort
+        (url) => url,  // direct first — Roblox CDN usually allows CORS for thumbnails
+        (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+        (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
     ];
 
     const thumbnailApiUrl = `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png`;
@@ -6717,9 +6717,9 @@ const lookupRobloxUser = async (username, retryCount = 0) => {
     try {
         const proxies = [
             { name: 'Direct API', url: (endpoint) => endpoint },
+            { name: 'CodeTabs', url: (endpoint) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(endpoint)}` },
             { name: 'AllOrigins', url: (endpoint) => `https://api.allorigins.win/raw?url=${encodeURIComponent(endpoint)}` },
-            { name: 'CorsProxy', url: (endpoint) => `https://corsproxy.io/?${encodeURIComponent(endpoint)}` },
-            { name: 'CodeTabs', url: (endpoint) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(endpoint)}` }
+            { name: 'ThingProxy', url: (endpoint) => `https://thingproxy.freeboard.io/fetch/${endpoint}` }
         ];
         
         const searchUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(username)}&limit=25`;
@@ -7720,9 +7720,22 @@ discordUserId = inputUserId;
                     let displayName = userData.displayName || userData.name;
                     
                     try {
+                        const avatarPromises = proxies.map(async (proxy) => {
+                            try {
+                                const aResp = await Promise.race([
+                                    fetch(proxy.url(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userData.id}&size=150x150&format=Png`)),
+                                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1200))
+                                ]);
+                                if (aResp.ok) {
+                                    const aData = await aResp.json();
+                                    return aData?.data?.[0]?.imageUrl || null;
+                                }
+                                return null;
+                            } catch (e) {
+                                return null;
+                            }
+                        });
 
-                            avatarUrl = avatarResults.find(url => url) || null;
-                        
                         const detailsPromises = proxies.map(async (proxy) => {
                             try {
                                 const detailsResp = await Promise.race([
@@ -12791,7 +12804,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                             <span style={{ position:'absolute',left:'10px',top:'50%',transform:'translateY(-50%)',color:'#475569',fontSize:'11px',pointerEvents:'none' }}>⌕</span>
                             <input type="text" value={settingsSearch} onChange={e => setSettingsSearch(e.target.value)} placeholder="Search settings…" style={{ width:'100%',padding:'8px 12px 8px 28px',background:'rgba(0,0,0,0.4)',border:'1px solid rgba(56,189,248,0.18)',borderRadius:'999px',color:'#e2e8f0',fontSize:'11px',boxSizing:'border-box',outline:'none',fontFamily:'monospace',letterSpacing:'0.3px',transition:'border-color 160ms ease-out, background 160ms ease-out' }} onFocus={e => { e.target.style.borderColor='rgba(34,211,238,0.5)'; e.target.style.background='rgba(0,0,0,0.55)'; }} onBlur={e => { e.target.style.borderColor='rgba(56,189,248,0.18)'; e.target.style.background='rgba(0,0,0,0.4)'; }} />
                         </div>
-                        <div style={{ display:'flex',alignItems:'center',gap:'6px',padding:'6px 12px',background:'rgba(16,185,129,0.1)',border:'1px solid rgba(16,185,129,0.3)',borderRadius:'999px' }}>
+                        //<div style={{ display:'flex',alignItems:'center',gap:'6px',padding:'6px 12px',background:'rgba(16,185,129,0.1)',border:'1px solid rgba(16,185,129,0.3)',borderRadius:'999px' }}>
                             <div style={{ width:'6px',height:'6px',borderRadius:'50%',background:'#10b981',boxShadow:'0 0 6px #10b981' }} />
                             <span style={{ color:'#34d399',fontSize:'10px',fontWeight:'700',letterSpacing:'1.2px',fontFamily:'monospace' }}>{trooperSettings?.Username?.toUpperCase() || 'UNAUTHENTICATED'}</span>
                         </div>
