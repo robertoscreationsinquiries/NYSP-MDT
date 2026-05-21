@@ -7659,19 +7659,28 @@ discordUserId = inputUserId;
                     let displayName = userData.displayName || userData.name;
                     
                     try {
-                        const searchUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(serverName)}&limit=25`;
-                
-                let successResult = null;
-                try {
-                    const resp = await robloxFetch(searchUrl);
-                    if (resp.ok) {
-                        const data = await resp.json();
-                        if (data?.data?.[0]) {
-                            successResult = { success: true, data, proxy: 'App (direct)' };
-                        }
-                    }
-                } catch (e) { /* falls through */ }
-                        
+                        const avatarPromises = [(async () => {
+                            try {
+                                const avatarResp = await robloxFetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userData.id}&size=150x150&format=Png`);
+                                if (avatarResp.ok) {
+                                    const avatarData = await avatarResp.json();
+                                    return avatarData?.data?.[0]?.imageUrl;
+                                }
+                                return null;
+                            } catch (e) { return null; }
+                        })()];
+
+                        const detailsPromises = [(async () => {
+                            try {
+                                const detailsResp = await robloxFetch(`https://users.roblox.com/v1/users/${userData.id}`);
+                                if (detailsResp.ok) {
+                                    const detailsData = await detailsResp.json();
+                                    return detailsData;
+                                }
+                                return null;
+                            } catch (e) { return null; }
+                        })()];
+
                         const [avatarResults, detailsResults] = await Promise.all([
                             Promise.all(avatarPromises),
                             Promise.all(detailsPromises)
@@ -8158,9 +8167,9 @@ const memberUsername = memberData.nick ||
             addLog(`🎮 Looking up Roblox profile for: ${memberUsername}`, 'info');
             
             try {
-                // Use CorsProxy for Roblox API
-                const robloxUrl = `https://corsproxy.io/?https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=10`;
-                const robloxResp = await fetch(robloxUrl);
+                // Direct Roblox fetch via main process (no CORS, no proxy)
+                const robloxUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=10`;
+                const robloxResp = await robloxFetch(robloxUrl);
                 
                 if (robloxResp.ok) {
                     const robloxData = await robloxResp.json();
@@ -8180,8 +8189,8 @@ const memberUsername = memberData.nick ||
                         addLog(`✓ Found Roblox: ${matchedUser.name}`, 'success');
                         
                         // Fetch detailed profile
-                        const profileUrl = `https://corsproxy.io/?https://users.roblox.com/v1/users/${matchedUser.id}`;
-                        const profileResp = await fetch(profileUrl);
+                        const profileUrl = `https://users.roblox.com/v1/users/${matchedUser.id}`;
+                        const profileResp = await robloxFetch(profileUrl);
                         
                         if (profileResp.ok) {
                             const profileData = await profileResp.json();
