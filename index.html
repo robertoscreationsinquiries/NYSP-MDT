@@ -7311,7 +7311,7 @@ console.log('   - Username:', memberData.user.username);
                                     
                                     // Fetch full profile
                                     // Direct Roblox fetch via main process (no CORS, no proxy)
-                const robloxUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=10`;
+                const robloxUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=25`;
                 const robloxResp = await robloxFetch(robloxUrl);
                                     
                                     if (profileResp.ok) {
@@ -7379,7 +7379,7 @@ console.log('   - Username:', memberData.user.username);
                                     
                                     // Fetch full profile
                                     // Direct Roblox fetch via main process (no CORS, no proxy)
-                const robloxUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=10`;
+                const robloxUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=25`;
                 const robloxResp = await robloxFetch(robloxUrl);
                                     
                                     if (profileResp.ok) {
@@ -8168,7 +8168,7 @@ const memberUsername = memberData.nick ||
             
             try {
                 // Direct Roblox fetch via main process (no CORS, no proxy)
-                const robloxUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=10`;
+                const robloxUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=25`;
                 const robloxResp = await robloxFetch(robloxUrl);
                 
                 if (robloxResp.ok) {
@@ -8237,17 +8237,19 @@ const memberUsername = memberData.nick ||
     }
 }
 
-// Set results with populated Roblox data
-setSearchResults({
+// Set results with populated Roblox data.
+// If this (second) lookup failed/rate-limited, robloxUserData is null — in that case
+// preserve the robloxUser already set by the earlier successful lookup instead of wiping it.
+setSearchResults(prev => ({
     vehicles: allVehicles,
     failedVehicleRaw: allVehicleBlocks._failedRaw || [],
-    robloxUser: robloxUserData,  // ✅ Now properly populated!
+    robloxUser: robloxUserData || (prev && prev.robloxUser) || null,
     discordUserId: discordUserId,
     warrants: warrants,
     parseFailCount: parseFailCount,
     vehicleErrorMessage: vehicleErrorMessage,
     noRegistrationFound: noRegistrationFound
-});
+}));
 
 console.log('🔍 [DEBUG] Setting search results:', {
     vehicleCount: allVehicles.length,
