@@ -7309,10 +7309,8 @@ console.log('   - Username:', memberData.user.username);
                                     console.log('✅ [ROBLOX] Matched user:', matchedUser.name, 'ID:', matchedUser.id);
                                     addLog(`✓ Found Roblox: ${matchedUser.name}`, 'success');
                                     
-                                    // Fetch full profile
-                                    // Direct Roblox fetch via main process (no CORS, no proxy)
-                const robloxUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=25`;
-                const robloxResp = await robloxFetch(robloxUrl);
+                                    // Fetch full profile BY ID (no CORS, no proxy)
+                                    const profileResp = await robloxFetch(`https://users.roblox.com/v1/users/${matchedUser.id}`);
                                     
                                     if (profileResp.ok) {
                                         const profileData = await profileResp.json();
@@ -7377,10 +7375,8 @@ console.log('   - Username:', memberData.user.username);
                                     
                                     console.log('✅ [ROBLOX] Matched user:', matchedUser.name);
                                     
-                                    // Fetch full profile
-                                    // Direct Roblox fetch via main process (no CORS, no proxy)
-                const robloxUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=25`;
-                const robloxResp = await robloxFetch(robloxUrl);
+                                    // Fetch full profile BY ID (no CORS, no proxy)
+                                    const profileResp = await robloxFetch(`https://users.roblox.com/v1/users/${matchedUser.id}`);
                                     
                                     if (profileResp.ok) {
                                         const profileData = await profileResp.json();
