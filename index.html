@@ -7283,135 +7283,15 @@ console.log('   - Username:', memberData.user.username);
                         });
                         
                         // ✅ Call lookupRobloxUser which sets result state
-                        await lookupRobloxUser(serverName);
                         
-                        // ✅ Also manually fetch and set result for plate search display
-                        console.log('🎮 [PLATE SEARCH] Fetching Roblox profile for:', serverName);
-                        try {
-                            const robloxSearchUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(serverName)}&limit=10`;
-                            const robloxSearchResp = await robloxFetch(robloxSearchUrl);
-                            
-                            if (robloxSearchResp.ok) {
-                                const robloxSearchData = await robloxSearchResp.json();
-                                console.log('✅ [ROBLOX] Search response:', robloxSearchData);
-                                
-                                if (robloxSearchData.data && robloxSearchData.data.length > 0) {
-                                    // Find exact match or use first result
-                                    let matchedUser = robloxSearchData.data.find(u => 
-                                        u.name.toLowerCase() === serverName.toLowerCase()
-                                    );
-                                    
-                                    if (!matchedUser) {
-                                        console.log('⚠️ [ROBLOX] No exact match, using first result');
-                                        matchedUser = robloxSearchData.data[0];
-                                    }
-                                    
-                                    console.log('✅ [ROBLOX] Matched user:', matchedUser.name, 'ID:', matchedUser.id);
-                                    addLog(`✓ Found Roblox: ${matchedUser.name}`, 'success');
-                                    
-                                    // Fetch full profile BY ID (no CORS, no proxy)
-                                    const profileResp = await robloxFetch(`https://users.roblox.com/v1/users/${matchedUser.id}`);
-                                    
-                                    if (profileResp.ok) {
-                                        const profileData = await profileResp.json();
-                                        console.log('✅ [ROBLOX] Profile data:', profileData);
-                                        
-                                        // Fetch avatar
-    const avatarImage = await fetchAvatarAsBase64(matchedUser.id);
-                                        
-                                        const joinDate = new Date(profileData.created).toLocaleDateString('en-US', {
-                                            year: 'numeric',
-                                            month: 'long',
-                                            day: 'numeric'
-                                        });
-                                        
-                                        // ✅ SET RESULT STATE - This fixes "User Not Found"
-                                        setResult({
-                                            username: profileData.name,
-                                            userId: profileData.id,
-                                            displayName: profileData.displayName || profileData.name,
-                                            joinDate: joinDate,
-                                            avatarUrl: avatarImage
-                                        });
-                                        
-                                        console.log('✅ [PLATE SEARCH] Result state set with Roblox data');
-                                        addLog('✓ Roblox profile loaded', 'success');
-                                    } else {
-                                        console.error('❌ [ROBLOX] Failed to fetch profile');
-                                    }
-                                } else {
-                                    console.warn('⚠️ [ROBLOX] No users found for:', serverName);
-                                    addLog(`⚠️ No Roblox profile found for ${serverName}`, 'warn');
-                                }
-                            } else {
-                                console.error('❌ [ROBLOX] Search request failed:', robloxSearchResp.status);
-                            }
-                        } catch (robloxError) {
-                            console.error('❌ [ROBLOX] Error fetching profile:', robloxError);
-                            addLog('⚠️ Could not load Roblox profile', 'warn');
-                        }
+await lookupRobloxUser(serverName);
 
-                        
-// 🚀 Warrant check already fired above in parallel — no action needed here
+                        // lookupRobloxUser (above) already searched, retried with
+                        // backoff, and set result state with avatar + profile. The two
+                        // extra inline searches here were redundant and tripped Roblox's
+                        // /users/search rate limit (429s on later lookups) — removed.
 
-// ✅ Also fetch and store Roblox profile for display
-                        console.log('🎮 [ROBLOX] Fetching profile data for display...');
-                        try {
-                            const robloxSearchUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(serverName)}&limit=10`;
-                            const robloxSearchResp = await robloxFetch(robloxSearchUrl);
-                            
-                            if (robloxSearchResp.ok) {
-                                const robloxSearchData = await robloxSearchResp.json();
-                                
-                                if (robloxSearchData.data && robloxSearchData.data.length > 0) {
-                                    // Find exact match or use first result
-                                    let matchedUser = robloxSearchData.data.find(u => 
-                                        u.name.toLowerCase() === serverName.toLowerCase()
-                                    );
-                                    
-                                    if (!matchedUser) {
-                                        matchedUser = robloxSearchData.data[0];
-                                    }
-                                    
-                                    console.log('✅ [ROBLOX] Matched user:', matchedUser.name);
-                                    
-                                    // Fetch full profile BY ID (no CORS, no proxy)
-                                    const profileResp = await robloxFetch(`https://users.roblox.com/v1/users/${matchedUser.id}`);
-                                    
-                                    if (profileResp.ok) {
-                                        const profileData = await profileResp.json();
-                                        
-                                        // Fetch avatar
-    const avatarImage = await fetchAvatarAsBase64(matchedUser.id);
-
-                                        
-                                        const joinDate = new Date(profileData.created).toLocaleDateString('en-US', {
-                                            year: 'numeric',
-                                            month: 'long',
-                                            day: 'numeric'
-                                        });
-                                        
-                                        // ✅ Update result state with Roblox data
-                                        setResult({
-                                            username: profileData.name,
-                                            userId: profileData.id,
-                                            displayName: profileData.displayName || profileData.name,
-                                            joinDate: joinDate,
-                                            avatarUrl: avatarImage
-                                        });
-                                        
-                                        console.log('✅ [ROBLOX] Profile data set in result state');
-                                        addLog('✓ Roblox profile loaded', 'success');
-                                    }
-                                }
-                            }
-                        } catch (robloxError) {
-                            console.error('❌ [ROBLOX] Error fetching profile:', robloxError);
-                            addLog('⚠️ Could not load Roblox profile', 'warn');
-                        }
-
-
-                        setShiftPlateSearches(prev => prev.map(search => 
+                        setShiftPlateSearches(prev => prev.map(search =>
                             search.plate === searchedPlate ? {
                                 ...search,
                                 vehicleDetails: {
