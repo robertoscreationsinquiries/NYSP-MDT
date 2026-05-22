@@ -820,7 +820,8 @@ function _robloxHttpsGet(targetUrl) {
             let raw = '';
             res.on('data', c => raw += c);
             res.on('end', () => {
-                resolve({ status: res.statusCode, body: raw });
+                const retryAfter = parseInt(res.headers['retry-after'], 10);
+                resolve({ status: res.statusCode, body: raw, retryAfter: Number.isFinite(retryAfter) ? retryAfter : null });
             });
         });
         req.on('error', reject);
@@ -829,21 +830,57 @@ function _robloxHttpsGet(targetUrl) {
     });
 }
 
-// Simple in-memory cache in the main process. Roblox user data barely changes,
-// so caching for 6h means repeat lookups of the same person never re-hit Roblox.
-const _robloxCache = new Map(); // url -> { at, status, body }
-const _ROBLOX_TTL = 6; // 6 hours
+// ── Durable Roblox fetch: cache + in-flight dedup + 429 backoff ──
+// Roblox aggressively rate-limits (429) bursts of requests, especially from non-browser
+// clients. The CAD can fire several lookups for the same user within seconds, which trips
+// the limit. Three layers prevent that from ever surfacing as a "BACKEND ERROR":
+//   1. 6h success cache — repeat lookups of the same person never re-hit Roblox.
+//   2. In-flight dedup — simultaneous identical requests share ONE network call.
+//   3. 429 backoff — on a 429, wait (honoring Retry-After) and retry inside main, so the
+//      renderer receives a success instead of a transient failure.
+const _robloxCache = new Map();      // url -> { at, status, body }
+const _robloxInflight = new Map();   // url -> Promise<{status, body}>
+const _ROBLOX_TTL = 6 * 60 * 60 * 1000; // 6 hours
+const _sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+async function _robloxFetchWithBackoff(url) {
+    const maxAttempts = 4;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const result = await _robloxHttpsGet(url);
+        if (result.status === 429) {
+            if (attempt === maxAttempts - 1) return result; // give up, return the 429
+            // Honor Retry-After if present, else exponential backoff capped at 8s.
+            const waitMs = (result.retryAfter ? result.retryAfter * 1000 : Math.min(1000 * Math.pow(2, attempt), 8000));
+            await _sleep(waitMs);
+            continue;
+        }
+        return result;
+    }
+}
 
 ipcMain.handle('roblox-fetch', async (_e, { url }) => {
     try {
+        // 1) Serve from cache
         const cached = _robloxCache.get(url);
         if (cached && (Date.now() - cached.at) < _ROBLOX_TTL) {
             return { ok: true, status: cached.status, body: cached.body, cached: true };
         }
-        const result = await _robloxHttpsGet(url);
+        // 2) Coalesce duplicate concurrent requests for the same URL
+        if (_robloxInflight.has(url)) {
+            const result = await _robloxInflight.get(url);
+            return { ok: true, status: result.status, body: result.body, cached: false, coalesced: true };
+        }
+        // 3) Fetch with 429 backoff
+        const promise = _robloxFetchWithBackoff(url);
+        _robloxInflight.set(url, promise);
+        let result;
+        try {
+            result = await promise;
+        } finally {
+            _robloxInflight.delete(url);
+        }
         if (result.status >= 200 && result.status < 300) {
             _robloxCache.set(url, { at: Date.now(), status: result.status, body: result.body });
-            // Keep cache from growing unbounded
             if (_robloxCache.size > 500) {
                 const firstKey = _robloxCache.keys().next().value;
                 _robloxCache.delete(firstKey);
