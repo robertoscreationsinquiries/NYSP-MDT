@@ -800,6 +800,40 @@ if (USE_LOCAL_INDEX) {
 // But the main process is Node — no CORS. So we fetch here and hand back JSON.
 // Renderer calls: window.electron.invoke('roblox-fetch', { url })
 
+// POST helper for Roblox endpoints that take a JSON body (e.g. /v1/usernames/users).
+// The POST username-resolve endpoint is far less rate-limited than GET /v1/users/search.
+function _robloxHttpsPost(targetUrl, bodyObj) {
+    return new Promise((resolve, reject) => {
+        let parsed;
+        try { parsed = new URL(targetUrl); } catch (e) { return reject(new Error('Bad URL')); }
+        const allowed = ['users.roblox.com', 'thumbnails.roblox.com', 'avatar.roblox.com', 'api.roblox.com', 'www.roblox.com'];
+        if (!allowed.includes(parsed.hostname)) return reject(new Error('Domain not allowed: ' + parsed.hostname));
+        const payload = JSON.stringify(bodyObj || {});
+        const req = https.request({
+            hostname: parsed.hostname,
+            path: parsed.pathname + parsed.search,
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(payload),
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+            }
+        }, (res) => {
+            let raw = '';
+            res.on('data', c => raw += c);
+            res.on('end', () => {
+                const retryAfter = parseInt(res.headers['retry-after'], 10);
+                resolve({ status: res.statusCode, body: raw, retryAfter: Number.isFinite(retryAfter) ? retryAfter : null });
+            });
+        });
+        req.on('error', reject);
+        req.setTimeout(8000, () => { req.destroy(); reject(new Error('timeout')); });
+        req.write(payload);
+        req.end();
+    });
+}
+
 function _robloxHttpsGet(targetUrl) {
     return new Promise((resolve, reject) => {
         let parsed;
@@ -887,6 +921,52 @@ ipcMain.handle('roblox-fetch', async (_e, { url }) => {
             }
         }
         return { ok: true, status: result.status, body: result.body, cached: false };
+    } catch (e) {
+        return { ok: false, error: e.message };
+    }
+});
+
+// ── Resolve an exact username → user object via POST /v1/usernames/users ──
+// This replaces GET /v1/users/search, which Roblox rate-limits (429) extremely aggressively
+// from non-browser clients. The POST endpoint is the official username-resolution path and
+// is far more lenient. Cached for 6h keyed by lowercase username.
+const _robloxNameCache = new Map(); // lowercaseName -> { at, user }
+ipcMain.handle('roblox-resolve-username', async (_e, { username }) => {
+    try {
+        const key = (username || '').trim().toLowerCase();
+        if (!key) return { ok: false, error: 'empty username' };
+        const cached = _robloxNameCache.get(key);
+        if (cached && (Date.now() - cached.at) < _ROBLOX_TTL) {
+            return { ok: true, user: cached.user, cached: true };
+        }
+        // Retry with backoff on the rare 429
+        let result;
+        for (let attempt = 0; attempt < 4; attempt++) {
+            result = await _robloxHttpsPost('https://users.roblox.com/v1/usernames/users', {
+                usernames: [username],
+                excludeBannedUsers: false
+            });
+            if (result.status === 429 && attempt < 3) {
+                const waitMs = result.retryAfter ? result.retryAfter * 1000 : Math.min(1000 * Math.pow(2, attempt), 8000);
+                await new Promise(r => setTimeout(r, waitMs));
+                continue;
+            }
+            break;
+        }
+        if (result.status >= 200 && result.status < 300) {
+            let parsed;
+            try { parsed = JSON.parse(result.body); } catch (_) { parsed = null; }
+            const user = parsed?.data?.[0] || null;
+            if (user) {
+                _robloxNameCache.set(key, { at: Date.now(), user });
+                if (_robloxNameCache.size > 500) {
+                    const firstKey = _robloxNameCache.keys().next().value;
+                    _robloxNameCache.delete(firstKey);
+                }
+            }
+            return { ok: true, user, status: result.status };
+        }
+        return { ok: false, status: result.status, error: 'Roblox returned ' + result.status };
     } catch (e) {
         return { ok: false, error: e.message };
     }
