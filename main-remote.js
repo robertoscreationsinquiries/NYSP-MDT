@@ -832,7 +832,7 @@ function _robloxHttpsGet(targetUrl) {
 // Simple in-memory cache in the main process. Roblox user data barely changes,
 // so caching for 6h means repeat lookups of the same person never re-hit Roblox.
 const _robloxCache = new Map(); // url -> { at, status, body }
-const _ROBLOX_TTL = 6 * 60 * 60 * 1000; // 6 hours
+const _ROBLOX_TTL = 6; // 6 hours
 
 ipcMain.handle('roblox-fetch', async (_e, { url }) => {
     try {
