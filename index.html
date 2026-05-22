@@ -1552,7 +1552,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
         (function() {
             const badge = document.createElement('div');
             const sha = window.APP_COMMIT_SHA || 'dev';
-            badge.textContent = `BETA BUILD - APP V. 0.1.0.9.C  •  ${sha}`;
+            badge.textContent = `BETA BUILD - APP V. 0.1.0.9.D  •  ${sha}`;
             badge.style.cssText = 'position:fixed;bottom:16px;left:44px;font-size:9px;font-weight:700;color:rgba(251,191,36,0.45);letter-spacing:1px;z-index:9998;pointer-events:none;font-family:"Courier New",monospace;white-space:nowrap;';
             document.body.appendChild(badge);
             if (window.APP_GITHUB_BRANCH && window.APP_GITHUB_BRANCH !== 'main') {
@@ -1564,7 +1564,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
         })();
 
         function NYSPLookupTool() {
-            const APP_VERSION = '0.1.0.9.C';
+            const APP_VERSION = '0.1.0.9.D';
             const [licensePlate, setLicensePlate] = useState('');
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
@@ -3289,55 +3289,29 @@ let robloxWorking = null;
 }, []);
 
 const fetchAvatarAsBase64 = async (userId) => {
-    // Proxies to try in order
-    const proxies = [
-        (url) => url,  // direct first — Roblox CDN usually allows CORS for thumbnails
-        (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-        (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
-    ];
-
     const thumbnailApiUrl = `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png`;
+    try {
+        // Step 1: get the CDN image URL via the app's direct Roblox fetch (no CORS, no proxy)
+        const jsonResp = await robloxFetch(thumbnailApiUrl);
+        if (!jsonResp.ok) { console.error(`❌ [AVATAR] thumbnail API failed for ${userId}`); return null; }
+        const jsonData = await jsonResp.json();
+        const cdnUrl = jsonData?.data?.[0]?.imageUrl;
+        if (!cdnUrl) { console.error(`❌ [AVATAR] no imageUrl for ${userId}`); return null; }
 
-    for (const makeProxied of proxies) {
-        try {
-            // Step 1: get the JSON that contains the CDN URL
-            const jsonResp = await Promise.race([
-                fetch(makeProxied(thumbnailApiUrl)),
-                new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 5000))
-            ]);
-            if (!jsonResp.ok) continue;
-
-            const jsonData = await jsonResp.json();
-            const cdnUrl = jsonData?.data?.[0]?.imageUrl;
-            if (!cdnUrl) continue;
-
-            // Step 2: fetch the actual image bytes through the same proxy
-            const imgResp = await Promise.race([
-                fetch(makeProxied(cdnUrl)),
-                new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 5000))
-            ]);
-            if (!imgResp.ok) continue;
-
-            const blob = await imgResp.blob();
-
-            // Step 3: convert to base64 data URL
-            const base64 = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            });
-
-            console.log(`✅ [AVATAR] Fetched as base64 for userId ${userId} via proxy`);
-            return base64; // "data:image/png;base64,..."
-
-        } catch (e) {
-            console.warn(`⚠️ [AVATAR] Proxy failed for ${userId}:`, e.message);
+        // Step 2: fetch the actual image bytes via the main process too, returned as base64.
+        // (CDN bytes can't be JSON-parsed, so we ask main for a base64 data URL directly.)
+        const imgResult = await window.electron?.ipcRenderer?.invoke('roblox-image', { url: cdnUrl });
+        if (imgResult?.ok && imgResult.dataUrl) {
+            console.log(`✅ [AVATAR] Fetched as base64 for userId ${userId}`);
+            return imgResult.dataUrl;
         }
+        // Fallback: just return the CDN URL — <img src> works without CORS for display.
+        console.log(`✅ [AVATAR] Using direct CDN URL for userId ${userId}`);
+        return cdnUrl;
+    } catch (e) {
+        console.error(`❌ [AVATAR] Failed for userId ${userId}:`, e.message);
+        return null;
     }
-
-    console.error(`❌ [AVATAR] All proxies failed for userId ${userId}`);
-    return null;
 };
 
 
@@ -5965,6 +5939,7 @@ console.log('🔍 [PARSE] Extracting vehicle blocks...');
     };
 };
 
+
 const lookupRobloxUser = async (username, retryCount = 0) => {
     const maxRetries = 3;
     
@@ -6108,7 +6083,6 @@ const isFieldReadable = (fieldName) => {
         return true; // Other errors - still try to use it
     }
 };
-
 const lookupUser = async (plateOverride) => {
     const effectivePlate = typeof plateOverride === 'string' ? plateOverride : licensePlate;
 
@@ -6232,6 +6206,7 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
             console.log('🔍 [DEBUG] Tried variants:', plateVariants.join(', '));
             addLog(`❌ No registration found: ${searchedPlate}`, 'error');
             try { if (window.SOUNDS?.plateFail) { const _a = new Audio(window.SOUNDS.plateFail); _a.volume = 0.5; _a.play().catch(() => {}); } } catch(_) {}
+            logActivity(`Plate searched → ${searchedPlate} · NOT FOUND`);
             setRegistration({ notFound: true });
             setError('');
             setLoading(false);
@@ -6321,19 +6296,16 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
                             content: m.content,
                             timestamp: m.edited_timestamp || m.timestamp
                         }));
-// Set results with populated Roblox data.
-// If this (second) lookup failed/rate-limited, robloxUserData is null — in that case
-// preserve the robloxUser already set by the earlier successful lookup instead of wiping it.
-setSearchResults(prev => ({
-    vehicles: allVehicles,
-    failedVehicleRaw: allVehicleBlocks._failedRaw || [],
-    robloxUser: robloxUserData || (prev && prev.robloxUser) || null,
-    discordUserId: discordUserId,
-    warrants: warrants,
-    parseFailCount: parseFailCount,
-    vehicleErrorMessage: vehicleErrorMessage,
-    noRegistrationFound: noRegistrationFound
-}));
+                        setSearchResults({
+                            vehicles: [],
+                            failedVehicleRaw: failedRaw,
+                            robloxUser: robloxUserData,
+                            discordUserId: discordUserId,
+                            warrants: null,
+                            parseFailCount: foundMessages.length,
+                            vehicleErrorMessage: null,
+                            noRegistrationFound: false
+                        });
                         setLoading(false);
                         setSearchProgress(0);
                         return;
@@ -6497,6 +6469,7 @@ if (parseFailedButVehicleExists) {
 const finalDiscordUserId = regData.discordUserId || 'Unknown';
 console.log('👤 [SEARCH] Final Discord ID for member lookup:', finalDiscordUserId);
 
+logActivity(`Plate searched → ${searchedPlate} · FOUND`);
                 setShiftPlateSearches(prev => [...prev, {
                     plate: searchedPlate,
                     timestamp: new Date().toLocaleString(),
@@ -6574,7 +6547,7 @@ console.log('   - Username:', memberData.user.username);
                         // ✅ Also manually fetch and set result for plate search display
                         console.log('🎮 [PLATE SEARCH] Fetching Roblox profile for:', serverName);
                         try {
-const robloxSearchUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(serverName)}&limit=10`;
+                            const robloxSearchUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(serverName)}&limit=10`;
                             const robloxSearchResp = await robloxFetch(robloxSearchUrl);
                             
                             if (robloxSearchResp.ok) {
@@ -6596,7 +6569,7 @@ const robloxSearchUrl = `https://users.roblox.com/v1/users/search?keyword=${enco
                                     addLog(`✓ Found Roblox: ${matchedUser.name}`, 'success');
                                     
                                     // Fetch full profile
-// Direct Roblox fetch via main process (no CORS, no proxy)
+                                    // Direct Roblox fetch via main process (no CORS, no proxy)
                 const robloxUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=25`;
                 const robloxResp = await robloxFetch(robloxUrl);
                                     
@@ -6645,7 +6618,7 @@ const robloxSearchUrl = `https://users.roblox.com/v1/users/search?keyword=${enco
 // ✅ Also fetch and store Roblox profile for display
                         console.log('🎮 [ROBLOX] Fetching profile data for display...');
                         try {
-const robloxSearchUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(serverName)}&limit=10`;
+                            const robloxSearchUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(serverName)}&limit=10`;
                             const robloxSearchResp = await robloxFetch(robloxSearchUrl);
                             
                             if (robloxSearchResp.ok) {
@@ -6664,7 +6637,7 @@ const robloxSearchUrl = `https://users.roblox.com/v1/users/search?keyword=${enco
                                     console.log('✅ [ROBLOX] Matched user:', matchedUser.name);
                                     
                                     // Fetch full profile
-// Direct Roblox fetch via main process (no CORS, no proxy)
+                                    // Direct Roblox fetch via main process (no CORS, no proxy)
                 const robloxUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=25`;
                 const robloxResp = await robloxFetch(robloxUrl);
                                     
@@ -6738,6 +6711,7 @@ const robloxSearchUrl = `https://users.roblox.com/v1/users/search?keyword=${enco
                 playSound('fail');
 
                 setRegistration({ notFound: true });
+                logActivity(`Plate searched → ${searchedPlate} · NOT FOUND`);
                 setShiftPlateSearches(prev => [...prev, {
                     plate: searchedPlate,
                     timestamp: new Date().toLocaleString(),
@@ -6766,7 +6740,6 @@ const robloxSearchUrl = `https://users.roblox.com/v1/users/search?keyword=${enco
         }, 1000);
     }
 };
-
 
 
 const searchByUsername = async (overrideValue) => {
@@ -8183,6 +8156,7 @@ checkWarrants(discordUserId).then(warrants => {
         addLog(`Roblox lookup error: ${e.message}`, 'error');
     }
 };
+
 
 const searchPastRecords = async (userId) => {
     console.log('🔍 [RECORDS] ═══════════════════════════════════════');
