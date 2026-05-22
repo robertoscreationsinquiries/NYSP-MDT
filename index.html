@@ -6206,7 +6206,6 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
             console.log('🔍 [DEBUG] Tried variants:', plateVariants.join(', '));
             addLog(`❌ No registration found: ${searchedPlate}`, 'error');
             try { if (window.SOUNDS?.plateFail) { const _a = new Audio(window.SOUNDS.plateFail); _a.volume = 0.5; _a.play().catch(() => {}); } } catch(_) {}
-            logActivity(`Plate searched → ${searchedPlate} · NOT FOUND`);
             setRegistration({ notFound: true });
             setError('');
             setLoading(false);
@@ -6469,7 +6468,6 @@ if (parseFailedButVehicleExists) {
 const finalDiscordUserId = regData.discordUserId || 'Unknown';
 console.log('👤 [SEARCH] Final Discord ID for member lookup:', finalDiscordUserId);
 
-logActivity(`Plate searched → ${searchedPlate} · FOUND`);
                 setShiftPlateSearches(prev => [...prev, {
                     plate: searchedPlate,
                     timestamp: new Date().toLocaleString(),
@@ -6711,7 +6709,6 @@ console.log('   - Username:', memberData.user.username);
                 playSound('fail');
 
                 setRegistration({ notFound: true });
-                logActivity(`Plate searched → ${searchedPlate} · NOT FOUND`);
                 setShiftPlateSearches(prev => [...prev, {
                     plate: searchedPlate,
                     timestamp: new Date().toLocaleString(),
