@@ -6568,7 +6568,7 @@ console.log('   - Username:', memberData.user.username);
                                     
                                     // Fetch full profile
                                     // Direct Roblox fetch via main process (no CORS, no proxy)
-                const robloxUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=25`;
+                const robloxUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=10`;
                 const robloxResp = await robloxFetch(robloxUrl);
                                     
                                     if (profileResp.ok) {
@@ -6636,7 +6636,7 @@ console.log('   - Username:', memberData.user.username);
                                     
                                     // Fetch full profile
                                     // Direct Roblox fetch via main process (no CORS, no proxy)
-                const robloxUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=25`;
+                const robloxUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=10`;
                 const robloxResp = await robloxFetch(robloxUrl);
                                     
                                     if (profileResp.ok) {
@@ -7410,7 +7410,7 @@ const memberUsername = memberData.nick ||
             
             try {
 // Direct Roblox fetch via main process (no CORS, no proxy)
-                const robloxUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=25`;
+                const robloxUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=10`;
                 const robloxResp = await robloxFetch(robloxUrl);
                 
                 if (robloxResp.ok) {
