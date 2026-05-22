@@ -1,4 +1,4 @@
-   <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -6788,9 +6788,12 @@ const lookupRobloxUser = async (username, retryCount = 0) => {
             return lookupRobloxUser(username, retryCount + 1);
         }
         
-        const errorMsg = `No Roblox user found for "${username}" after ${maxRetries + 1} attempts`;
-        addLog(`❌ ${errorMsg}`, 'error');
-        setRobloxError(errorMsg);
+        // Roblox profile couldn't be resolved (throttled or genuinely not found).
+        // NOT a backend failure — registration + owner data already loaded. Degrade
+        // gracefully: show the owner we know (Discord server name), no avatar.
+        addLog(`⚠️ Roblox profile unavailable for "${username}" — showing owner only`, 'warn');
+        setRobloxError(null);
+        setResult({ username: username, userId: null, displayName: username, joinDate: 'Unknown', avatarUrl: null, robloxUnavailable: true });
         setLoadingRoblox(false);
         setRobloxLoadingStage('');
         
@@ -6802,10 +6805,11 @@ const lookupRobloxUser = async (username, retryCount = 0) => {
             return lookupRobloxUser(username, retryCount + 1);
         }
         
-        const errorMsg = `Error: ${e.message} (after ${maxRetries + 1} attempts)`;
-        addLog(`❌ ${errorMsg}`, 'error');
-        console.error('Full error:', e);
-        setRobloxError(errorMsg);
+        // Same graceful degradation on hard error — never block the search on Roblox.
+        addLog(`⚠️ Roblox lookup error for "${username}" (${e.message}) — showing owner only`, 'warn');
+        console.error('Roblox lookup error (non-fatal):', e);
+        setRobloxError(null);
+        setResult({ username: username, userId: null, displayName: username, joinDate: 'Unknown', avatarUrl: null, robloxUnavailable: true });
         setLoadingRoblox(false);
         setRobloxLoadingStage('');
     }
@@ -11909,9 +11913,8 @@ return (
                                 </>
                             ) : robloxError ? (
                                 <>
-                                    <div style={{ padding: '16px', textAlign: 'center', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', marginBottom: '14px' }}>
-                                        <p style={{ color: '#fca5a5', fontSize: '15px', fontWeight: '700', marginBottom: '6px' }}>BACKEND ERROR</p>
-                                        <p style={{ color: '#fecaca', fontSize: '13px', marginBottom: '6px' }}>{robloxError}</p>
+                                    <div style={{ padding: '16px', textAlign: 'center', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '10px', marginBottom: '14px' }}>
+                                        <p style={{ color: '#fde047', fontSize: '14px', fontWeight: '700', marginBottom: '6px' }}>Roblox Profile Unavailable</p>
                                         <p style={{ color: '#bfdbfe', fontSize: '12px', opacity: 0.8 }}>Citation can still be exported with Discord and vehicle data.</p>
                                     </div>
                                     <div className="info-item"><span className="info-label">Discord ID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }}>{copiedField === 'discord' ? 'Copied!' : 'Copy'}</button></div></div>
