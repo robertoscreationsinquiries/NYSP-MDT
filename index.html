@@ -1,4 +1,4 @@
-   <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -594,6 +594,17 @@ body::before {
         opacity: 0.7;
     }
 }
+
+/* Login screen — Emil-style: enter from slightly down + scaled, ease-out curve */
+@keyframes loginCardIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes loginErrIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.login-spin { animation: spin 0.7s linear infinite; }
 
 @keyframes announcementSlide {
     from { transform: translate(-50%, -120%); opacity: 0; }
@@ -6706,7 +6717,9 @@ console.log('🔍 [PARSE] Extracting vehicle blocks...');
         console.error('❌ [PARSE] RETURNING parseError OBJECT');
         const errorObj = {
             parseError: true,
-            errorMessage: 'Vehicle details could not be parsed by AI/Manual Parser. Manual search needs to be conducted.'
+            errorMessage: 'Vehicle details could not be parsed by AI/Manual Parser. Manual search needs to be conducted.',
+            discordUserId: discordUserId  // Preserve owner ID (extracted at line ~6592) so the
+                                          // Roblox/owner lookup still works even when Groq parsing fails.
         };
         console.error('❌ [PARSE] Error object:', errorObj);
         return errorObj;
@@ -10619,49 +10632,39 @@ return (
         <div style={{ position: 'absolute', top: '-200px', left: '-200px', width: '600px', height: '600px', background: 'radial-gradient(circle, rgba(30,58,138,0.2) 0%, transparent 70%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', bottom: '-200px', right: '-200px', width: '500px', height: '500px', background: 'radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
-        <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: '0', width: '100%', maxWidth: '820px', background: 'linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(10,15,30,0.99) 100%)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '20px', overflow: 'hidden', boxShadow: '0 0 0 1px rgba(0,0,0,0.5), 0 40px 100px rgba(0,0,0,0.7)' }}>
+        <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', gap: '16px', animation: 'loginCardIn 0.5s cubic-bezier(0.23,1,0.32,1)' }}>
 
-            {/* LEFT — branding panel */}
-            <div style={{ flex: '0 0 280px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: '20px', padding: '48px 36px', background: 'rgba(30,58,138,0.06)', borderRight: '1px solid rgba(59,130,246,0.1)' }}>
-                <div style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #3b82f6 100%)', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 0 1px rgba(59,130,246,0.3), 0 12px 40px rgba(30,58,138,0.6)' }}>
-                    <Shield size={44} style={{ color: 'white' }} />
+            {/* HERO — mirrors the home/scan-plate page header: 135deg blue gradient, radial glow, gradient icon tile */}
+            <div style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(135deg, rgba(30,58,138,0.6), rgba(30,58,138,0.2))', border: '2px solid rgba(59,130,246,0.4)', borderRadius: '14px', padding: '34px 28px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '16px' }}>
+                <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at center, rgba(59,130,246,0.15) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
+                <div style={{ position: 'relative', zIndex: 1, width: '68px', height: '68px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(59,130,246,0.5)' }}>
+                    <Shield size={38} style={{ color: 'white' }} />
                 </div>
-                <div>
-                    <div style={{ color: '#f1f5f9', fontSize: '22px', fontWeight: '900', letterSpacing: '-0.5px', lineHeight: 1.1, marginBottom: '6px' }}>MOBILE DATA<br />TERMINAL</div>
-                    <div style={{ color: '#3b82f6', fontSize: '10px', fontWeight: '700', letterSpacing: '3px', textTransform: 'uppercase' }}>CAD SYSTEM · BETA</div>
-                </div>
-                <div style={{ width: '100%', height: '1px', background: 'linear-gradient(90deg, rgba(59,130,246,0.4), transparent)' }} />
-                <div style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', width: '100%' }}>
-                    <div style={{ color: '#1e3a5f', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', marginBottom: '6px' }}>SYSTEM STATUS</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981', animation: 'pulse-dot 2s ease-in-out infinite' }} />
-                        <span style={{ color: '#374151', fontSize: '11px', fontWeight: '600', letterSpacing: '1px' }}>ONLINE · SECURE</span>
-                    </div>
-                </div>
-                <div style={{ color: '#1f2937', fontSize: '10px', fontWeight: '600', letterSpacing: '2px', fontFamily: 'monospace' }}>
-                    v{typeof APP_VERSION !== 'undefined' ? APP_VERSION : '-'} · {typeof window !== 'undefined' && window.APP_COMMIT_SHA ? window.APP_COMMIT_SHA.slice(0,7) : '-------'}
+                <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ color: '#fff', fontSize: '26px', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase', textShadow: '0 2px 8px rgba(0,0,0,0.3)', lineHeight: 1.1 }}>NYSP MDT</div>
+                    <div style={{ background: 'rgba(59,130,246,0.25)', border: '1px solid rgba(59,130,246,0.5)', borderRadius: '6px', padding: '6px 12px', color: '#bfdbfe', fontSize: '12px', fontWeight: '500', letterSpacing: '0.3px' }}>Mobile Data Terminal · CAD System</div>
                 </div>
             </div>
 
-            {/* RIGHT — login form */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '48px 44px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '28px' }}>
-                    <div style={{ width: '3px', height: '18px', background: 'linear-gradient(180deg, #3b82f6, #1e3a8a)', borderRadius: '2px' }} />
-                    <span style={{ color: '#475569', fontSize: '10px', fontWeight: '700', letterSpacing: '3px', textTransform: 'uppercase' }}>Authentication Required</span>
-                </div>
+            {/* FORM CARD — matches the S.section() card language from Plates/Settings */}
+            <div style={{ background: 'linear-gradient(180deg, rgba(15,30,60,0.5) 0%, rgba(10,20,40,0.6) 100%)', border: '1px solid rgba(59,130,246,0.18)', borderRadius: '12px', padding: '26px 24px', boxShadow: 'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
 
-                <div style={{ fontSize: '26px', fontWeight: '900', color: '#f1f5f9', letterSpacing: '-0.5px', marginBottom: '6px' }}>Sign In</div>
-                <div style={{ fontSize: '13px', color: '#334155', marginBottom: '28px' }}>Enter your credentials to access the CAD system.</div>
+                {/* Section heading — accent bar + monospace caps, identical to Plate Lookup */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                    <div style={{ width: '2px', height: '12px', background: '#3b82f6', borderRadius: '2px', boxShadow: '0 0 6px #3b82f6', flexShrink: 0 }} />
+                    <span style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace' }}>Authentication</span>
+                </div>
+                <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '20px', fontFamily: 'monospace', letterSpacing: '0.3px', marginLeft: '12px' }}>Enter your credentials to access the terminal</div>
 
                 {loginError && (
-                    <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '10px', padding: '12px 16px', marginBottom: '20px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                    <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '10px', padding: '12px 16px', marginBottom: '18px', display: 'flex', alignItems: 'flex-start', gap: '10px', animation: 'loginErrIn 0.25s cubic-bezier(0.23,1,0.32,1)' }}>
                         <XCircle size={16} style={{ color: '#f87171', flexShrink: 0, marginTop: '1px' }} />
                         <span style={{ color: '#fca5a5', fontSize: '12px', lineHeight: '1.5' }}>{loginError}</span>
                     </div>
                 )}
 
-                <div style={{ marginBottom: '16px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#475569', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '8px' }}>ROBLOX USERNAME</div>
+                <div style={{ marginBottom: '14px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#7f9bc4', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '8px', fontFamily: 'monospace' }}>Roblox Username</div>
                     <input
                         type="text"
                         value={loginUsername}
@@ -10669,14 +10672,14 @@ return (
                         onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
                         disabled={isLoggingIn}
                         placeholder="Enter your username"
-                        style={{ width: '100%', padding: '13px 16px', background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '10px', color: '#f1f5f9', fontSize: '14px', outline: 'none', fontFamily: "'Courier New', monospace", boxSizing: 'border-box', transition: 'border-color 0.2s' }}
-                        onFocus={e => e.target.style.borderColor = 'rgba(59,130,246,0.6)'}
-                        onBlur={e => e.target.style.borderColor = 'rgba(59,130,246,0.2)'}
+                        style={{ width: '100%', padding: '13px 16px', background: 'rgba(7,12,24,0.7)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '10px', color: '#f1f5f9', fontSize: '14px', outline: 'none', fontFamily: "'Courier New', monospace", boxSizing: 'border-box', transition: 'border-color 160ms ease-out, box-shadow 160ms ease-out' }}
+                        onFocus={e => { e.target.style.borderColor = 'rgba(59,130,246,0.6)'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
+                        onBlur={e => { e.target.style.borderColor = 'rgba(59,130,246,0.2)'; e.target.style.boxShadow = 'none'; }}
                     />
                 </div>
 
-                <div style={{ marginBottom: '24px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#475569', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '8px' }}>PASSWORD</div>
+                <div style={{ marginBottom: '22px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#7f9bc4', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '8px', fontFamily: 'monospace' }}>Password</div>
                     <input
                         type="password"
                         value={loginPassword}
@@ -10684,25 +10687,34 @@ return (
                         onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
                         disabled={isLoggingIn}
                         placeholder="Enter your password"
-                        style={{ width: '100%', padding: '13px 16px', background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '10px', color: '#f1f5f9', fontSize: '14px', outline: 'none', fontFamily: "'Courier New', monospace", boxSizing: 'border-box', transition: 'border-color 0.2s' }}
-                        onFocus={e => e.target.style.borderColor = 'rgba(59,130,246,0.6)'}
-                        onBlur={e => e.target.style.borderColor = 'rgba(59,130,246,0.2)'}
+                        style={{ width: '100%', padding: '13px 16px', background: 'rgba(7,12,24,0.7)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '10px', color: '#f1f5f9', fontSize: '14px', outline: 'none', fontFamily: "'Courier New', monospace", boxSizing: 'border-box', transition: 'border-color 160ms ease-out, box-shadow 160ms ease-out' }}
+                        onFocus={e => { e.target.style.borderColor = 'rgba(59,130,246,0.6)'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
+                        onBlur={e => { e.target.style.borderColor = 'rgba(59,130,246,0.2)'; e.target.style.boxShadow = 'none'; }}
                     />
                 </div>
 
                 <button
                     onClick={handleLogin}
                     disabled={isLoggingIn || !loginUsername.trim() || !loginPassword}
-                    style={{ width: '100%', padding: '14px', background: isLoggingIn || !loginUsername.trim() || !loginPassword ? 'rgba(59,130,246,0.2)' : 'linear-gradient(135deg, #1e3a8a, #2563eb)', border: 'none', borderRadius: '10px', color: isLoggingIn || !loginUsername.trim() || !loginPassword ? '#334155' : '#fff', fontSize: '13px', fontWeight: '700', cursor: isLoggingIn || !loginUsername.trim() || !loginPassword ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s', boxShadow: isLoggingIn || !loginUsername.trim() || !loginPassword ? 'none' : '0 4px 20px rgba(30,58,138,0.5)' }}
-                    onMouseEnter={e => { if (!isLoggingIn && loginUsername.trim() && loginPassword) { e.currentTarget.style.boxShadow = '0 6px 28px rgba(59,130,246,0.5)'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
-                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = isLoggingIn || !loginUsername.trim() || !loginPassword ? 'none' : '0 4px 20px rgba(30,58,138,0.5)'; }}
+                    style={{ width: '100%', padding: '14px', background: isLoggingIn || !loginUsername.trim() || !loginPassword ? 'rgba(59,130,246,0.2)' : 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'none', borderRadius: '10px', color: isLoggingIn || !loginUsername.trim() || !loginPassword ? '#334155' : '#fff', fontSize: '13px', fontWeight: '700', cursor: isLoggingIn || !loginUsername.trim() || !loginPassword ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'transform 120ms cubic-bezier(0.23,1,0.32,1), box-shadow 160ms ease-out, background 160ms ease-out', boxShadow: isLoggingIn || !loginUsername.trim() || !loginPassword ? 'none' : '0 8px 24px rgba(59,130,246,0.4)' }}
+                    onMouseEnter={e => { if (!isLoggingIn && loginUsername.trim() && loginPassword) { e.currentTarget.style.boxShadow = '0 10px 30px rgba(59,130,246,0.55)'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = isLoggingIn || !loginUsername.trim() || !loginPassword ? 'none' : '0 8px 24px rgba(59,130,246,0.4)'; }}
+                    onMouseDown={e => { if (!isLoggingIn && loginUsername.trim() && loginPassword) e.currentTarget.style.transform = 'scale(0.98)'; }}
+                    onMouseUp={e => { if (!isLoggingIn && loginUsername.trim() && loginPassword) e.currentTarget.style.transform = 'translateY(-1px)'; }}
                 >
-                    {isLoggingIn ? <><Loader2 size={16} /><span>AUTHENTICATING...</span></> : <><Shield size={16} /><span>AUTHENTICATE</span></>}
+                    {isLoggingIn ? <><Loader2 size={16} className="login-spin" /><span>AUTHENTICATING...</span></> : <><Shield size={16} /><span>AUTHENTICATE</span></>}
                 </button>
+            </div>
 
-                <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid rgba(59,130,246,0.08)', textAlign: 'center' }}>
-                    <p style={{ fontSize: '11px', color: '#1e293b', lineHeight: '1.6' }}>Authorized personnel only. Unauthorized access is prohibited.</p>
+            {/* FOOTER STRIP — status + version, monospace like the rest of the system */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981', animation: 'pulse-dot 2s ease-in-out infinite' }} />
+                    <span style={{ color: '#64748b', fontSize: '10px', fontWeight: '600', letterSpacing: '1.5px', fontFamily: 'monospace', textTransform: 'uppercase' }}>Online · Secure</span>
                 </div>
+                <span style={{ color: '#475569', fontSize: '10px', fontWeight: '600', letterSpacing: '1px', fontFamily: 'monospace' }}>
+                    v{typeof APP_VERSION !== 'undefined' ? APP_VERSION : '-'} · {typeof window !== 'undefined' && window.APP_COMMIT_SHA ? window.APP_COMMIT_SHA.slice(0,7) : '-------'}
+                </span>
             </div>
         </div>
     </div>
@@ -10719,7 +10731,7 @@ return (
         {/* Top bar */}
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 28px', borderBottom: '1px solid rgba(59,130,246,0.1)', background: 'rgba(6,10,18,0.8)', backdropFilter: 'blur(8px)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 16px rgba(59,130,246,0.5)' }}>
+                <div style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 16px rgba(59,130,246,0.5)' }}>
                     <Shield size={18} style={{ color: 'white' }} />
                 </div>
                 <span style={{ color: '#60a5fa', fontSize: '12px', fontWeight: '700', letterSpacing: '3px', textTransform: 'uppercase' }}>CAD</span>
@@ -10730,53 +10742,40 @@ return (
             </div>
         </div>
 
-        {/* Main content - two column layout */}
-        <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'center', padding: '32px 40px' }}>
-        <div style={{ display: 'flex', gap: '0', width: '100%', maxWidth: '780px', background: 'linear-gradient(135deg, rgba(15,23,42,0.95) 0%, rgba(10,15,30,0.98) 100%)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 0 0 1px rgba(0,0,0,0.5), 0 40px 100px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)' }}>
+        {/* Main content - centered stack matching the login + home/scan-plate vocabulary */}
+        <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 40px', overflowY: 'auto' }}>
+        <div style={{ width: '100%', maxWidth: '520px', display: 'flex', flexDirection: 'column', gap: '16px', animation: 'loginCardIn 0.5s cubic-bezier(0.23,1,0.32,1)' }}>
 
-            {/* LEFT - branding column */}
-            <div style={{ flex: '0 0 260px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '24px', padding: '36px 32px', background: 'rgba(30,58,138,0.06)', borderRight: '1px solid rgba(59,130,246,0.1)', justifyContent: 'center' }}>
-                <div style={{ width: '96px', height: '96px', background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #3b82f6 100%)', borderRadius: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 0 1px rgba(59,130,246,0.3), 0 16px 48px rgba(30,58,138,0.6)', position: 'relative' }}>
-                    <Shield size={52} style={{ color: 'white' }} />
-                    <div style={{ position: 'absolute', inset: '-1px', borderRadius: '25px', background: 'linear-gradient(135deg, rgba(255,255,255,0.1), transparent)', pointerEvents: 'none' }} />
+            {/* HERO — identical treatment to the login hero for a seamless handoff */}
+            <div style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(135deg, rgba(30,58,138,0.6), rgba(30,58,138,0.2))', border: '2px solid rgba(59,130,246,0.4)', borderRadius: '14px', padding: '30px 28px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '14px' }}>
+                <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at center, rgba(59,130,246,0.15) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
+                <div style={{ position: 'relative', zIndex: 1, width: '64px', height: '64px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(59,130,246,0.5)' }}>
+                    <Shield size={36} style={{ color: 'white' }} />
                 </div>
-                <div>
-                    <h1 style={{ color: '#f1f5f9', fontSize: '26px', fontWeight: '900', margin: '0 0 6px', letterSpacing: '-0.5px', lineHeight: 1.1 }}>MOBILE DATA<br />TERMINAL</h1>
-                    <p style={{ color: '#3b82f6', fontSize: '11px', fontWeight: '700', margin: 0, letterSpacing: '3px', textTransform: 'uppercase' }}>CAD SYSTEM - BETA</p>
-                </div>
-                <div style={{ width: '100%', height: '1px', background: 'linear-gradient(90deg, rgba(59,130,246,0.4), transparent)' }} />
-                {showWelcome && trooperData ? (
-                    <div style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(5,150,105,0.06))', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '12px', animation: 'fadeIn 0.4s ease-out' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ color: '#fff', fontSize: '23px', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase', textShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>NYSP MDT</div>
+                    {showWelcome && trooperData ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', borderRadius: '6px', padding: '6px 12px', animation: 'loginErrIn 0.3s cubic-bezier(0.23,1,0.32,1)' }}>
                             <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981', animation: 'pulse-dot 2s ease-in-out infinite' }} />
-                            <span style={{ color: '#34d399', fontSize: '10px', fontWeight: '700', letterSpacing: '2px' }}>IDENTITY VERIFIED</span>
+                            <span style={{ color: '#86efac', fontSize: '12px', fontWeight: '700', letterSpacing: '0.5px' }}>
+                                {trooperData.department === 'DISPATCHER' ? 'DISPATCHER' : 'TROOPER'} {trooperData.firstName?.toUpperCase()} {trooperData.lastName?.toUpperCase()} · #{trooperData.badgeId}
+                            </span>
                         </div>
-                        <p style={{ color: '#86efac', fontSize: '14px', fontWeight: '800', margin: '0 0 3px', letterSpacing: '0.3px' }}>
-                            {trooperData.department === 'DISPATCHER' ? 'DISPATCHER' : 'TROOPER'} {trooperData.firstName?.toUpperCase()} {trooperData.lastName?.toUpperCase()}
-                        </p>
-                        <p style={{ color: '#6ee7b7', fontSize: '11px', margin: 0, opacity: 0.8 }}>
-                            Badge #{trooperData.badgeId} · Zone {trooperData.patrolZone}
-                        </p>
-                    </div>
-                ) : (
-                    <div style={{ width: '100%', padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px' }}>
-                        <p style={{ color: '#374151', fontSize: '12px', fontWeight: '600', margin: 0, letterSpacing: '1px' }}>AWAITING AUTHENTICATION...</p>
-                    </div>
-                )}
-                <p style={{ color: '#1f2937', fontSize: '10px', fontWeight: '600', margin: 0, letterSpacing: '2px', fontFamily: 'monospace' }}>
-                    v{typeof APP_VERSION !== 'undefined' ? APP_VERSION : '-'} · {typeof window !== 'undefined' && window.APP_COMMIT_SHA ? window.APP_COMMIT_SHA.slice(0,7) : '-------'}
-                </p>
+                    ) : (
+                        <div style={{ background: 'rgba(59,130,246,0.25)', border: '1px solid rgba(59,130,246,0.5)', borderRadius: '6px', padding: '6px 12px', color: '#bfdbfe', fontSize: '12px', fontWeight: '500', letterSpacing: '0.3px' }}>Initializing terminal...</div>
+                    )}
+                </div>
             </div>
 
-            {/* RIGHT - diagnostics column */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', padding: '36px 32px', justifyContent: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                    <div style={{ width: '3px', height: '16px', background: 'linear-gradient(180deg, #3b82f6, #1e3a8a)', borderRadius: '2px' }} />
-                    <span style={{ color: '#475569', fontSize: '10px', fontWeight: '700', letterSpacing: '3px', textTransform: 'uppercase' }}>System Diagnostics</span>
+            {/* DIAGNOSTICS CARD — S.section() language: 180deg dark-blue gradient, accent border, monospace head */}
+            <div style={{ background: 'linear-gradient(180deg, rgba(15,30,60,0.5) 0%, rgba(10,20,40,0.6) 100%)', border: '1px solid rgba(59,130,246,0.18)', borderRadius: '12px', padding: '20px 22px', boxShadow: 'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                    <div style={{ width: '2px', height: '12px', background: '#3b82f6', borderRadius: '2px', boxShadow: '0 0 6px #3b82f6', flexShrink: 0 }} />
+                    <span style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace' }}>System Diagnostics</span>
                     <div style={{ flex: 1, height: '1px', background: 'rgba(59,130,246,0.1)' }} />
                 </div>
                 {loaderChecks.map((check, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '13px 16px', background: check.status === 'running' ? 'rgba(59,130,246,0.07)' : check.status === 'ok' ? 'rgba(16,185,129,0.05)' : check.status === 'warn' ? 'rgba(251,191,36,0.05)' : 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid ' + (check.status === 'running' ? 'rgba(59,130,246,0.2)' : check.status === 'ok' ? 'rgba(16,185,129,0.15)' : check.status === 'warn' ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.04)'), transition: 'all 0.3s ease', position: 'relative', overflow: 'hidden' }}>
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '11px 14px', background: check.status === 'running' ? 'rgba(59,130,246,0.08)' : check.status === 'ok' ? 'rgba(16,185,129,0.05)' : check.status === 'warn' ? 'rgba(251,191,36,0.05)' : 'rgba(255,255,255,0.015)', borderRadius: '8px', border: '1px solid ' + (check.status === 'running' ? 'rgba(59,130,246,0.25)' : check.status === 'ok' ? 'rgba(16,185,129,0.18)' : check.status === 'warn' ? 'rgba(251,191,36,0.18)' : 'rgba(255,255,255,0.05)'), transition: 'background 200ms ease-out, border-color 200ms ease-out', position: 'relative', overflow: 'hidden', marginBottom: '6px' }}>
                         {check.status === 'running' && (
                             <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '3px', background: 'linear-gradient(180deg, #3b82f6, #1e40af)', borderRadius: '3px 0 0 3px' }} />
                         )}
@@ -10786,20 +10785,26 @@ return (
                             {check.status === 'ok' && <svg width="20" height="20" fill="none" stroke="#10b981" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                             {check.status === 'warn' && <svg width="20" height="20" fill="none" stroke="#fbbf24" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>}
                         </div>
-                        <span style={{ flex: 1, fontSize: '12px', fontWeight: '600', letterSpacing: '0.3px', color: check.status === 'running' ? '#93c5fd' : check.status === 'ok' ? '#6ee7b7' : check.status === 'warn' ? '#fcd34d' : '#374151' }}>{check.label}</span>
-                        <span style={{ fontSize: '11px', color: check.status === 'ok' ? '#374151' : '#1f2937', fontFamily: 'monospace', letterSpacing: '0.5px' }}>{check.result}</span>
+                        <span style={{ flex: 1, fontSize: '12px', fontWeight: '600', letterSpacing: '0.3px', color: check.status === 'running' ? '#93c5fd' : check.status === 'ok' ? '#6ee7b7' : check.status === 'warn' ? '#fcd34d' : '#64748b' }}>{check.label}</span>
+                        <span style={{ fontSize: '11px', color: check.status === 'ok' ? '#475569' : '#334155', fontFamily: 'monospace', letterSpacing: '0.5px' }}>{check.result}</span>
                     </div>
                 ))}
-                <div style={{ marginTop: '8px', padding: '18px 20px', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(59,130,246,0.12)', borderRadius: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
-                        <span style={{ color: '#4b5563', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase' }}>{loaderStatus}</span>
-                        <span style={{ color: loaderProgress === 100 ? '#10b981' : '#3b82f6', fontSize: '20px', fontWeight: '900', fontFamily: 'monospace', transition: 'color 0.3s' }}>{loaderProgress}<span style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>%</span></span>
-                    </div>
-                    <div style={{ height: '4px', background: '#0f172a', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
-                        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 18px, rgba(255,255,255,0.02) 18px, rgba(255,255,255,0.02) 20px)' }} />
-                        <div style={{ height: '100%', width: `${loaderProgress}%`, background: loaderProgress === 100 ? 'linear-gradient(90deg, #059669, #10b981)' : 'linear-gradient(90deg, #1e3a8a, #2563eb, #60a5fa)', borderRadius: '4px', transition: 'width 0.5s ease, background 0.5s ease', boxShadow: loaderProgress > 0 ? '0 0 10px rgba(59,130,246,0.5)' : 'none' }} />
-                    </div>
+            </div>
+
+            {/* PROGRESS CARD */}
+            <div style={{ background: 'linear-gradient(180deg, rgba(15,30,60,0.5) 0%, rgba(10,20,40,0.6) 100%)', border: '1px solid rgba(59,130,246,0.18)', borderRadius: '12px', padding: '18px 22px', boxShadow: 'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
+                    <span style={{ color: '#7f9bc4', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase', fontFamily: 'monospace' }}>{loaderStatus}</span>
+                    <span style={{ color: loaderProgress === 100 ? '#10b981' : '#3b82f6', fontSize: '20px', fontWeight: '900', fontFamily: 'monospace', transition: 'color 0.3s' }}>{loaderProgress}<span style={{ fontSize: '12px', fontWeight: '600', color: '#475569' }}>%</span></span>
                 </div>
+                <div style={{ height: '5px', background: '#070c18', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
+                    <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 18px, rgba(255,255,255,0.02) 18px, rgba(255,255,255,0.02) 20px)' }} />
+                    <div style={{ height: '100%', width: `${loaderProgress}%`, background: loaderProgress === 100 ? 'linear-gradient(90deg, #059669, #10b981)' : 'linear-gradient(90deg, #1e3a8a, #2563eb, #60a5fa)', borderRadius: '4px', transition: 'width 0.5s cubic-bezier(0.23,1,0.32,1), background 0.5s ease', boxShadow: loaderProgress > 0 ? '0 0 10px rgba(59,130,246,0.5)' : 'none' }} />
+                </div>
+            </div>
+
+            <div style={{ textAlign: 'center', color: '#475569', fontSize: '10px', fontWeight: '600', letterSpacing: '2px', fontFamily: 'monospace' }}>
+                v{typeof APP_VERSION !== 'undefined' ? APP_VERSION : '-'} · {typeof window !== 'undefined' && window.APP_COMMIT_SHA ? window.APP_COMMIT_SHA.slice(0,7) : '-------'}
             </div>
         </div>
         </div>
