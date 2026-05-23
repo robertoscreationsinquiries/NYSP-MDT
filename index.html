@@ -1495,6 +1495,18 @@ const robloxFetch = async (robloxUrl) => {
     }
 };
 
+// Resolve an exact Roblox username to a user object via the POST endpoint (avoids the
+// heavily rate-limited GET search). Returns { id, name, displayName } or null.
+const robloxResolveUsername = async (username) => {
+    try {
+        const r = await window.electron?.ipcRenderer?.invoke('roblox-resolve-username', { username });
+        if (r && r.ok) return r.user || null;
+        return null;
+    } catch (e) {
+        return null;
+    }
+};
+
 const WarrantDots = () => {
     const [dots, setDots] = React.useState(1);
     React.useEffect(() => {
@@ -3289,23 +3301,53 @@ let robloxWorking = null;
 }, []);
 
 const fetchAvatarAsBase64 = async (userId) => {
-    const thumbnailApiUrl = `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png`;
-    try {
-        // Step 1: get the CDN image URL via the app's direct Roblox fetch (no CORS, no proxy)
-        const jsonResp = await robloxFetch(thumbnailApiUrl);
-        if (!jsonResp.ok) { console.error(`❌ [AVATAR] thumbnail API failed for ${userId}`); return null; }
-        const jsonData = await jsonResp.json();
-        const cdnUrl = jsonData?.data?.[0]?.imageUrl;
-        if (!cdnUrl) { console.error(`❌ [AVATAR] no imageUrl for ${userId}`); return null; }
+    // Roblox's thumbnail API returns a per-user `state`. If the headshot hasn't been rendered
+    // yet it comes back state:"Pending" with a null imageUrl (NOT an error) — Roblox renders it
+    // on demand, so a short retry usually succeeds. This is why one specific user's avatar can be
+    // blank while others load fine. We poll a few times, then fall back to the bust (full-body)
+    // endpoint, then to whatever URL we have.
+    const headshotUrl = (sz) => `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=${sz}&format=Png`;
+    const bustUrl = `https://thumbnails.roblox.com/v1/users/avatar-bust?userIds=${userId}&size=150x150&format=Png`;
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-        // Step 2: fetch the actual image bytes via the main process too, returned as base64.
-        // (CDN bytes can't be JSON-parsed, so we ask main for a base64 data URL directly.)
+    const tryGetCdnUrl = async (apiUrl) => {
+        try {
+            const jsonResp = await robloxFetch(apiUrl);
+            if (!jsonResp.ok) return { url: null, state: 'HttpError' };
+            const jsonData = await jsonResp.json();
+            const entry = jsonData?.data?.[0];
+            return { url: entry?.imageUrl || null, state: entry?.state || 'Unknown' };
+        } catch (e) {
+            return { url: null, state: 'Exception' };
+        }
+    };
+
+    try {
+        let cdnUrl = null;
+        // Poll the headshot endpoint up to 4 times while it's Pending (~0.5s, 1s, 1.5s waits).
+        for (let attempt = 0; attempt < 4; attempt++) {
+            const { url, state } = await tryGetCdnUrl(headshotUrl('150x150'));
+            if (url && state === 'Completed') { cdnUrl = url; break; }
+            if (url && state !== 'Pending' && state !== 'Blocked') { cdnUrl = url; break; }
+            if (state !== 'Pending') break; // Blocked/error won't resolve by waiting
+            await sleep(500 * (attempt + 1));
+        }
+
+        // Fallback: try the avatar-bust endpoint if headshot never completed.
+        if (!cdnUrl) {
+            const { url } = await tryGetCdnUrl(bustUrl);
+            if (url) cdnUrl = url;
+        }
+
+        if (!cdnUrl) { console.warn(`⚠️ [AVATAR] thumbnail not ready for ${userId} (Pending/Blocked)`); return null; }
+
+        // Convert to base64 via main process (CDN bytes can't be JSON-parsed in renderer).
         const imgResult = await window.electron?.ipcRenderer?.invoke('roblox-image', { url: cdnUrl });
         if (imgResult?.ok && imgResult.dataUrl) {
             console.log(`✅ [AVATAR] Fetched as base64 for userId ${userId}`);
             return imgResult.dataUrl;
         }
-        // Fallback: just return the CDN URL — <img src> works without CORS for display.
+        // Last resort: return the CDN URL directly — <img src> works without CORS.
         console.log(`✅ [AVATAR] Using direct CDN URL for userId ${userId}`);
         return cdnUrl;
     } catch (e) {
@@ -5958,18 +6000,13 @@ const lookupRobloxUser = async (username, retryCount = 0) => {
     addLog(`🔍 Searching Roblox for: ${cleanUsername}${retryCount > 0 ? ` (Retry ${retryCount}/${maxRetries})` : ''}`, 'info');
     
     try {
-        const searchUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(username)}&limit=25`;
-        
-        addLog('Fetching Roblox via app...', 'info');
+        addLog('Resolving Roblox username via app...', 'info');
         
         let successResult = null;
         try {
-            const resp = await robloxFetch(searchUrl);
-            if (resp.ok) {
-                const data = await resp.json();
-                if (data?.data?.[0]) {
-                    successResult = { success: true, data, proxy: 'App (direct)' };
-                }
+            const user = await robloxResolveUsername(username);
+            if (user) {
+                successResult = { success: true, data: { data: [user] }, proxy: 'App (resolver)' };
             }
         } catch (e) { /* falls through to null */ }
         
@@ -6206,6 +6243,7 @@ const channelId = editableTrooperSettings?.RegistrationChannelID || '14608426575
             console.log('🔍 [DEBUG] Tried variants:', plateVariants.join(', '));
             addLog(`❌ No registration found: ${searchedPlate}`, 'error');
             try { if (window.SOUNDS?.plateFail) { const _a = new Audio(window.SOUNDS.plateFail); _a.volume = 0.5; _a.play().catch(() => {}); } } catch(_) {}
+            logActivity(`Plate searched → ${searchedPlate} · NOT FOUND`);
             setRegistration({ notFound: true });
             setError('');
             setLoading(false);
@@ -6468,6 +6506,7 @@ if (parseFailedButVehicleExists) {
 const finalDiscordUserId = regData.discordUserId || 'Unknown';
 console.log('👤 [SEARCH] Final Discord ID for member lookup:', finalDiscordUserId);
 
+logActivity(`Plate searched → ${searchedPlate} · FOUND`);
                 setShiftPlateSearches(prev => [...prev, {
                     plate: searchedPlate,
                     timestamp: new Date().toLocaleString(),
@@ -6542,134 +6581,11 @@ console.log('   - Username:', memberData.user.username);
                         // ✅ Call lookupRobloxUser which sets result state
                         await lookupRobloxUser(serverName);
                         
-                        // ✅ Also manually fetch and set result for plate search display
-                        console.log('🎮 [PLATE SEARCH] Fetching Roblox profile for:', serverName);
-                        try {
-                            const robloxSearchUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(serverName)}&limit=10`;
-                            const robloxSearchResp = await robloxFetch(robloxSearchUrl);
-                            
-                            if (robloxSearchResp.ok) {
-                                const robloxSearchData = await robloxSearchResp.json();
-                                console.log('✅ [ROBLOX] Search response:', robloxSearchData);
-                                
-                                if (robloxSearchData.data && robloxSearchData.data.length > 0) {
-                                    // Find exact match or use first result
-                                    let matchedUser = robloxSearchData.data.find(u => 
-                                        u.name.toLowerCase() === serverName.toLowerCase()
-                                    );
-                                    
-                                    if (!matchedUser) {
-                                        console.log('⚠️ [ROBLOX] No exact match, using first result');
-                                        matchedUser = robloxSearchData.data[0];
-                                    }
-                                    
-                                    console.log('✅ [ROBLOX] Matched user:', matchedUser.name, 'ID:', matchedUser.id);
-                                    addLog(`✓ Found Roblox: ${matchedUser.name}`, 'success');
-                                    
-                                    // Fetch full profile
-                                    // Direct Roblox fetch via main process (no CORS, no proxy)
-                const robloxUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=10`;
-                const robloxResp = await robloxFetch(robloxUrl);
-                                    
-                                    if (profileResp.ok) {
-                                        const profileData = await profileResp.json();
-                                        console.log('✅ [ROBLOX] Profile data:', profileData);
-                                        
-                                        // Fetch avatar
-    const avatarImage = await fetchAvatarAsBase64(matchedUser.id);
-                                        
-                                        const joinDate = new Date(profileData.created).toLocaleDateString('en-US', {
-                                            year: 'numeric',
-                                            month: 'long',
-                                            day: 'numeric'
-                                        });
-                                        
-                                        // ✅ SET RESULT STATE - This fixes "User Not Found"
-                                        setResult({
-                                            username: profileData.name,
-                                            userId: profileData.id,
-                                            displayName: profileData.displayName || profileData.name,
-                                            joinDate: joinDate,
-                                            avatarUrl: avatarImage
-                                        });
-                                        
-                                        console.log('✅ [PLATE SEARCH] Result state set with Roblox data');
-                                        addLog('✓ Roblox profile loaded', 'success');
-                                    } else {
-                                        console.error('❌ [ROBLOX] Failed to fetch profile');
-                                    }
-                                } else {
-                                    console.warn('⚠️ [ROBLOX] No users found for:', serverName);
-                                    addLog(`⚠️ No Roblox profile found for ${serverName}`, 'warn');
-                                }
-                            } else {
-                                console.error('❌ [ROBLOX] Search request failed:', robloxSearchResp.status);
-                            }
-                        } catch (robloxError) {
-                            console.error('❌ [ROBLOX] Error fetching profile:', robloxError);
-                            addLog('⚠️ Could not load Roblox profile', 'warn');
-                        }
-
-                        
-// 🚀 Warrant check already fired above in parallel — no action needed here
-
-// ✅ Also fetch and store Roblox profile for display
-                        console.log('🎮 [ROBLOX] Fetching profile data for display...');
-                        try {
-                            const robloxSearchUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(serverName)}&limit=10`;
-                            const robloxSearchResp = await robloxFetch(robloxSearchUrl);
-                            
-                            if (robloxSearchResp.ok) {
-                                const robloxSearchData = await robloxSearchResp.json();
-                                
-                                if (robloxSearchData.data && robloxSearchData.data.length > 0) {
-                                    // Find exact match or use first result
-                                    let matchedUser = robloxSearchData.data.find(u => 
-                                        u.name.toLowerCase() === serverName.toLowerCase()
-                                    );
-                                    
-                                    if (!matchedUser) {
-                                        matchedUser = robloxSearchData.data[0];
-                                    }
-                                    
-                                    console.log('✅ [ROBLOX] Matched user:', matchedUser.name);
-                                    
-                                    // Fetch full profile
-                                    // Direct Roblox fetch via main process (no CORS, no proxy)
-                const robloxUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(memberUsername)}&limit=10`;
-                const robloxResp = await robloxFetch(robloxUrl);
-                                    
-                                    if (profileResp.ok) {
-                                        const profileData = await profileResp.json();
-                                        
-                                        // Fetch avatar
-    const avatarImage = await fetchAvatarAsBase64(matchedUser.id);
-
-                                        
-                                        const joinDate = new Date(profileData.created).toLocaleDateString('en-US', {
-                                            year: 'numeric',
-                                            month: 'long',
-                                            day: 'numeric'
-                                        });
-                                        
-                                        // ✅ Update result state with Roblox data
-                                        setResult({
-                                            username: profileData.name,
-                                            userId: profileData.id,
-                                            displayName: profileData.displayName || profileData.name,
-                                            joinDate: joinDate,
-                                            avatarUrl: avatarImage
-                                        });
-                                        
-                                        console.log('✅ [ROBLOX] Profile data set in result state');
-                                        addLog('✓ Roblox profile loaded', 'success');
-                                    }
-                                }
-                            }
-                        } catch (robloxError) {
-                            console.error('❌ [ROBLOX] Error fetching profile:', robloxError);
-                            addLog('⚠️ Could not load Roblox profile', 'warn');
-                        }
+                        // Roblox profile already fetched + result set by lookupRobloxUser(serverName)
+                        // above (line ~7298). The two redundant re-fetch blocks that used to live
+                        // here hit the rate-limited GET /users/search endpoint, 429'd, and burned
+                        // ~10s of retries AFTER the data was already on screen — which delayed the
+                        // cooldown start. Removed; the single lookupRobloxUser call is authoritative.
 
 
                         setShiftPlateSearches(prev => prev.map(search => 
@@ -6709,6 +6625,7 @@ console.log('   - Username:', memberData.user.username);
                 playSound('fail');
 
                 setRegistration({ notFound: true });
+                logActivity(`Plate searched → ${searchedPlate} · NOT FOUND`);
                 setShiftPlateSearches(prev => [...prev, {
                     plate: searchedPlate,
                     timestamp: new Date().toLocaleString(),
@@ -8153,7 +8070,6 @@ checkWarrants(discordUserId).then(warrants => {
         addLog(`Roblox lookup error: ${e.message}`, 'error');
     }
 };
-
 
 const searchPastRecords = async (userId) => {
     console.log('🔍 [RECORDS] ═══════════════════════════════════════');
