@@ -5965,7 +5965,9 @@ console.log('🔍 [PARSE] Extracting vehicle blocks...');
         console.error('❌ [PARSE] RETURNING parseError OBJECT');
         const errorObj = {
             parseError: true,
-            errorMessage: 'Vehicle details could not be parsed by AI/Manual Parser. Manual search needs to be conducted.'
+            errorMessage: 'Vehicle details could not be parsed by AI/Manual Parser. Manual search needs to be conducted.',
+            discordUserId: discordUserId  // Preserve owner ID (extracted at line ~6592) so the
+                                          // Roblox/owner lookup still works even when Groq parsing fails.
         };
         console.error('❌ [PARSE] Error object:', errorObj);
         return errorObj;
