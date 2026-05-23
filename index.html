@@ -3960,23 +3960,53 @@ useEffect(() => {
 }, []);
 
 const fetchAvatarAsBase64 = async (userId) => {
-    const thumbnailApiUrl = `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png`;
-    try {
-        // Step 1: get the CDN image URL via the app's direct Roblox fetch (no CORS, no proxy)
-        const jsonResp = await robloxFetch(thumbnailApiUrl);
-        if (!jsonResp.ok) { console.error(`❌ [AVATAR] thumbnail API failed for ${userId}`); return null; }
-        const jsonData = await jsonResp.json();
-        const cdnUrl = jsonData?.data?.[0]?.imageUrl;
-        if (!cdnUrl) { console.error(`❌ [AVATAR] no imageUrl for ${userId}`); return null; }
+    // Roblox's thumbnail API returns a per-user `state`. If the headshot hasn't been rendered
+    // yet it comes back state:"Pending" with a null imageUrl (NOT an error) — Roblox renders it
+    // on demand, so a short retry usually succeeds. This is why one specific user's avatar can be
+    // blank while others load fine. We poll a few times, then fall back to the bust (full-body)
+    // endpoint, then to whatever URL we have.
+    const headshotUrl = (sz) => `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=${sz}&format=Png`;
+    const bustUrl = `https://thumbnails.roblox.com/v1/users/avatar-bust?userIds=${userId}&size=150x150&format=Png`;
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-        // Step 2: fetch the actual image bytes via the main process too, returned as base64.
-        // (CDN bytes can't be JSON-parsed, so we ask main for a base64 data URL directly.)
+    const tryGetCdnUrl = async (apiUrl) => {
+        try {
+            const jsonResp = await robloxFetch(apiUrl);
+            if (!jsonResp.ok) return { url: null, state: 'HttpError' };
+            const jsonData = await jsonResp.json();
+            const entry = jsonData?.data?.[0];
+            return { url: entry?.imageUrl || null, state: entry?.state || 'Unknown' };
+        } catch (e) {
+            return { url: null, state: 'Exception' };
+        }
+    };
+
+    try {
+        let cdnUrl = null;
+        // Poll the headshot endpoint up to 4 times while it's Pending (~0.5s, 1s, 1.5s waits).
+        for (let attempt = 0; attempt < 4; attempt++) {
+            const { url, state } = await tryGetCdnUrl(headshotUrl('150x150'));
+            if (url && state === 'Completed') { cdnUrl = url; break; }
+            if (url && state !== 'Pending' && state !== 'Blocked') { cdnUrl = url; break; }
+            if (state !== 'Pending') break; // Blocked/error won't resolve by waiting
+            await sleep(500 * (attempt + 1));
+        }
+
+        // Fallback: try the avatar-bust endpoint if headshot never completed.
+        if (!cdnUrl) {
+            const { url } = await tryGetCdnUrl(bustUrl);
+            if (url) cdnUrl = url;
+        }
+
+        if (!cdnUrl) { console.warn(`⚠️ [AVATAR] thumbnail not ready for ${userId} (Pending/Blocked)`); return null; }
+
+        // Convert to base64 via main process (CDN bytes can't be JSON-parsed in renderer).
         const imgResult = await window.electron?.ipcRenderer?.invoke('roblox-image', { url: cdnUrl });
         if (imgResult?.ok && imgResult.dataUrl) {
             console.log(`✅ [AVATAR] Fetched as base64 for userId ${userId}`);
             return imgResult.dataUrl;
         }
-        // Fallback: just return the CDN URL — <img src> works without CORS for display.
+        // Last resort: return the CDN URL directly — <img src> works without CORS.
         console.log(`✅ [AVATAR] Using direct CDN URL for userId ${userId}`);
         return cdnUrl;
     } catch (e) {
