@@ -2067,6 +2067,26 @@ const [mapDragStart, setMapDragStart] = useState(null);
 const [showDataPanel, setShowDataPanel] = useState(false);
 const [showOfficersPanel, setShowOfficersPanel] = useState(false);
 const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+
+// ── Notes feature: multiple named notepads, persisted to localStorage ──
+const [showNotesPanel, setShowNotesPanel] = useState(false);
+const [notepads, setNotepads] = useState(() => {
+    try {
+        const saved = localStorage.getItem('mdtNotepads');
+        if (saved) return JSON.parse(saved);
+    } catch (_) {}
+    return [{ id: 'np_' + Date.now(), name: 'Scratchpad', body: '', updated: Date.now() }];
+});
+const [activeNotepadId, setActiveNotepadId] = useState(null); // null = list view; id = editing that pad
+const [notepadDraft, setNotepadDraft] = useState('');         // unsaved text buffer
+const [notepadSavedFlash, setNotepadSavedFlash] = useState(false);
+const [newNotepadName, setNewNotepadName] = useState('');
+const [creatingNotepad, setCreatingNotepad] = useState(false);
+// Persist notepads whenever they change
+React.useEffect(() => {
+    try { localStorage.setItem('mdtNotepads', JSON.stringify(notepads)); } catch (_) {}
+}, [notepads]);
+
 const [showQuitConfirm, setShowQuitConfirm] = useState(false);
 const [boloLightboxImage, setBoloLightboxImage] = useState(null);
 const [activityLog, setActivityLog] = useState([]);
@@ -10925,49 +10945,81 @@ return (
                 </div>
             </div>
 
-            {/* Nav links — pill buttons, grouped, filled active state */}
-            <div style={{ display:'flex',alignItems:'center',height:'100%',flex:1,paddingLeft:'10px',gap:'3px' }}>
+            {/* Nav links — VIEWS (solid tabs) vs PANELS (ghost toggles), clearly separated */}
+            <div style={{ display:'flex',alignItems:'center',height:'100%',flex:1,paddingLeft:'12px',gap:'3px' }}>
+                {/* group label: VIEWS */}
+                <span style={{ color:'#3d4756',fontSize:'9px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace',marginRight:'8px',flexShrink:0,userSelect:'none' }}>VIEWS</span>
                 {[
                     {l:'Home',k:'home-dash',icon:'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'},
                     {l:'Calls',k:'calls',flash:callButtonFlash,icon:'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9'},
                     {l:'Plates',k:'search',icon:'M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4'},
                     {l:'Citizens',k:'database-search',icon:'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'},
                     {l:'Map',k:'map',mapKey:true,icon:'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7'},
-                    {divider:true},
+                    {l:'Settings',k:'settings',icon:'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z',circle:'12 12 3'},
+                    {groupBreak:true},
                     {l:'Officers',k:'officers',disabled:!selectedUserSession,panel:true,icon:'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'},
                     {l:'History',k:'hist',panel:true,icon:'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'},
                     {l:'Data',k:'data',panel:true,icon:'M4 6h16M4 10h16M4 14h16M4 18h16'},
+                    {l:'Notes',k:'notes',panel:true,icon:'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z'},
                     ...(enableSpotifyIntegration ? [{l:'Spotify',k:'spotify',panel:true,icon:'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3'}] : []),
-                    {divider:true},
-                    {l:'Settings',k:'settings',icon:'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z',circle:'12 12 3'},
                 ].map((item,i)=>{
-                    if(item.divider) return <div key={i} style={{ width:'1px',height:'22px',background:'#1c2333',margin:'0 7px',flexShrink:0 }} />;
+                    if(item.groupBreak) return (
+                        <div key={i} style={{ display:'flex',alignItems:'center',gap:'8px',margin:'0 6px 0 10px',flexShrink:0 }}>
+                            <div style={{ width:'1px',height:'24px',background:'#1c2333' }} />
+                            <span style={{ color:'#3d4756',fontSize:'9px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace',userSelect:'none' }}>PANELS</span>
+                        </div>
+                    );
                     const isHomeDash = item.k==='home-dash';
                     const isActive = isHomeDash?(activeView==='home'&&homeSubView==='dashboard') :
                         item.mapKey?(activeView==='home'&&homeSubView==='map') :
                         item.k==='hist'?showHistoryPanel :
                         item.k==='data'?showDataPanel :
                         item.k==='officers'?showOfficersPanel :
+                        item.k==='notes'?showNotesPanel :
                         item.k==='spotify'?showSpotifyPanel :
                         activeView===item.k;
-                    const accent = item.panel ? '34,211,238' : '56,139,253'; // panels cyan, nav blue
+                    const isPanel = !!item.panel;
+                    const accent = isPanel ? '34,211,238' : '56,139,253'; // panels cyan, views blue
+                    // VIEWS: solid filled tab when active. PANELS: ghost/outlined pill with a dot marker.
+                    const baseStyle = isPanel ? {
+                        display:'flex',alignItems:'center',gap:'7px',padding:'7px 12px',borderRadius:'7px',
+                        background:isActive?`rgba(${accent},0.14)`:'transparent',
+                        border:`1px dashed ${isActive?`rgba(${accent},0.55)`:'rgba(255,255,255,0.12)'}`,
+                        color:item.disabled?'#30363d':isActive?`rgb(${accent})`:'#8b97a6',
+                        fontSize:'12px',fontWeight:isActive?'700':'600',cursor:item.disabled?'not-allowed':'pointer',
+                        transition:'background 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)',
+                        whiteSpace:'nowrap',outline:'none',opacity:item.disabled?0.4:1,flexShrink:0,
+                        boxShadow:isActive?`0 0 14px rgba(${accent},0.16)`:'none'
+                    } : {
+                        display:'flex',alignItems:'center',gap:'7px',padding:'8px 13px',borderRadius:'8px',
+                        background:isActive?`linear-gradient(135deg, rgba(${accent},0.9), rgba(37,99,235,0.9))`:'transparent',
+                        border:`1px solid ${isActive?'transparent':'transparent'}`,
+                        color:item.disabled?'#30363d':item.flash?'#f85149':isActive?'#fff':'#9aa5b1',
+                        fontSize:'12px',fontWeight:isActive?'700':'600',cursor:item.disabled?'not-allowed':'pointer',
+                        transition:'background 160ms ease-out, color 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)',
+                        whiteSpace:'nowrap',outline:'none',opacity:item.disabled?0.4:1,
+                        animation:item.flash?'flash-red 1.5s infinite':'none',flexShrink:0,
+                        boxShadow:isActive?`0 4px 14px rgba(${accent},0.4)`:'none'
+                    };
                     return (
                         <button key={i} disabled={!!item.disabled}
                             onClick={()=>{
                                 if(item.disabled) return;
                                 if(isHomeDash){navTo('home', ()=>setHomeSubView('dashboard'));}
-                                else if(item.mapKey){navTo('home', ()=>{setHomeSubView(v=>v==='map'?'dashboard':'map');setShowDataPanel(false);setShowOfficersPanel(false);setShowHistoryPanel(false);});}
-                                else if(item.k==='hist'){setShowHistoryPanel(p=>!p);setShowDataPanel(false);setShowOfficersPanel(false);setShowSpotifyPanel(false);}
-                                else if(item.k==='data'){setShowDataPanel(p=>!p);setShowOfficersPanel(false);setShowHistoryPanel(false);setShowSpotifyPanel(false);}
-                                else if(item.k==='officers'){setShowOfficersPanel(p=>!p);setShowDataPanel(false);setShowHistoryPanel(false);setShowSpotifyPanel(false);}
-                                else if(item.k==='spotify'){setShowSpotifyPanel(p=>!p);setShowOfficersPanel(false);setShowDataPanel(false);setShowHistoryPanel(false);}
+                                else if(item.mapKey){navTo('home', ()=>{setHomeSubView(v=>v==='map'?'dashboard':'map');setShowDataPanel(false);setShowOfficersPanel(false);setShowHistoryPanel(false);setShowNotesPanel(false);});}
+                                else if(item.k==='hist'){setShowHistoryPanel(p=>!p);setShowDataPanel(false);setShowOfficersPanel(false);setShowSpotifyPanel(false);setShowNotesPanel(false);}
+                                else if(item.k==='data'){setShowDataPanel(p=>!p);setShowOfficersPanel(false);setShowHistoryPanel(false);setShowSpotifyPanel(false);setShowNotesPanel(false);}
+                                else if(item.k==='officers'){setShowOfficersPanel(p=>!p);setShowDataPanel(false);setShowHistoryPanel(false);setShowSpotifyPanel(false);setShowNotesPanel(false);}
+                                else if(item.k==='notes'){setShowNotesPanel(p=>!p);setShowOfficersPanel(false);setShowDataPanel(false);setShowHistoryPanel(false);setShowSpotifyPanel(false);}
+                                else if(item.k==='spotify'){setShowSpotifyPanel(p=>!p);setShowOfficersPanel(false);setShowDataPanel(false);setShowHistoryPanel(false);setShowNotesPanel(false);}
                                 else{navTo(item.k, ()=>{ if(item.k==='calls')setCallButtonFlash(false); });}
                             }}
-                            style={{ display:'flex',alignItems:'center',gap:'7px',padding:'8px 13px',borderRadius:'8px',background:isActive?`rgba(${accent},0.16)`:'transparent',border:`1px solid ${isActive?`rgba(${accent},0.45)`:'transparent'}`,color:item.disabled?'#30363d':item.flash?'#f85149':isActive?`rgb(${accent})`:'#9aa5b1',fontSize:'12px',fontWeight:isActive?'700':'600',cursor:item.disabled?'not-allowed':'pointer',transition:'background 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)',whiteSpace:'nowrap',outline:'none',opacity:item.disabled?0.4:1,animation:item.flash?'flash-red 1.5s infinite':'none',flexShrink:0,boxShadow:isActive?`0 0 14px rgba(${accent},0.18)`:'none' }}
-                            onMouseEnter={e=>{if(!item.disabled&&!isActive&&!item.flash){e.currentTarget.style.color='#e6edf3';e.currentTarget.style.background='rgba(177,186,196,0.08)';}}}
-                            onMouseLeave={e=>{if(!item.disabled&&!isActive&&!item.flash){e.currentTarget.style.color='#9aa5b1';e.currentTarget.style.background='transparent';}}}
+                            style={baseStyle}
+                            onMouseEnter={e=>{if(!item.disabled&&!isActive&&!item.flash){e.currentTarget.style.color=isPanel?`rgb(${accent})`:'#e6edf3';e.currentTarget.style.background=isPanel?`rgba(${accent},0.07)`:'rgba(177,186,196,0.08)';if(isPanel)e.currentTarget.style.borderColor=`rgba(${accent},0.35)`;}}}
+                            onMouseLeave={e=>{if(!item.disabled&&!isActive&&!item.flash){e.currentTarget.style.color=isPanel?'#8b97a6':'#9aa5b1';e.currentTarget.style.background='transparent';if(isPanel)e.currentTarget.style.borderColor='rgba(255,255,255,0.12)';}}}
                             onMouseDown={e=>{if(!item.disabled)e.currentTarget.style.transform='scale(0.95)';}}
                             onMouseUp={e=>{if(!item.disabled)e.currentTarget.style.transform='scale(1)';}}>
+                            {isPanel && <span style={{ width:'5px',height:'5px',borderRadius:'50%',background:isActive?`rgb(${accent})`:'rgba(255,255,255,0.25)',boxShadow:isActive?`0 0 6px rgb(${accent})`:'none',flexShrink:0,transition:'background 160ms ease-out' }} />}
                             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 {item.circle?<><path d={item.icon}/><circle cx={item.circle.split(' ')[0]} cy={item.circle.split(' ')[1]} r={item.circle.split(' ')[2]}/></>:<path d={item.icon}/>}
                             </svg>
@@ -11043,6 +11095,127 @@ return (
                 </div>
             </>
         )}
+        {showNotesPanel && (() => {
+            const activePad = notepads.find(n => n.id === activeNotepadId);
+            const saveActive = () => {
+                if (!activePad) return;
+                setNotepads(prev => prev.map(n => n.id === activeNotepadId ? { ...n, body: notepadDraft, updated: Date.now() } : n));
+                setNotepadSavedFlash(true);
+                setTimeout(() => setNotepadSavedFlash(false), 1400);
+            };
+            const openPad = (pad) => { setActiveNotepadId(pad.id); setNotepadDraft(pad.body || ''); setNotepadSavedFlash(false); };
+            const createPad = () => {
+                const name = (newNotepadName || '').trim() || `Notepad ${notepads.length + 1}`;
+                const pad = { id: 'np_' + Date.now(), name, body: '', updated: Date.now() };
+                setNotepads(prev => [pad, ...prev]);
+                setNewNotepadName(''); setCreatingNotepad(false);
+                openPad(pad);
+            };
+            const deletePad = (id) => {
+                setNotepads(prev => prev.filter(n => n.id !== id));
+                if (activeNotepadId === id) { setActiveNotepadId(null); setNotepadDraft(''); }
+            };
+            const dirty = activePad && notepadDraft !== activePad.body;
+            return (
+            <>
+                <div onClick={()=>setShowNotesPanel(false)} style={{ position:'fixed',top:'52px',left:0,right:'380px',bottom:0,background:'rgba(0,0,0,0.4)',zIndex:7999,animation:'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }} />
+                <div style={{ position:'fixed',top:'52px',right:0,bottom:0,width:'380px',background:'linear-gradient(180deg,rgba(15,30,60,0.95) 0%,rgba(10,20,40,0.97) 100%)',backdropFilter:'blur(8px)',borderLeft:'1px solid rgba(56,189,248,0.25)',boxShadow:'-8px 0 32px rgba(0,0,0,0.5), inset 1px 0 0 rgba(56,189,248,0.1)',zIndex:8000,display:'flex',flexDirection:'column',animation:'panelSlideIn 220ms cubic-bezier(0.23, 1, 0.32, 1)' }}>
+                    <div style={{ position:'absolute',left:'-3px',top:'50%',transform:'translateY(-50%)',width:'3px',height:'48px',background:'#22d3ee',borderRadius:'3px 0 0 3px',boxShadow:'0 0 12px rgba(34,211,238,0.5)' }} />
+
+                    {/* Header */}
+                    <div style={{ display:'flex',alignItems:'center',gap:'10px',padding:'16px 18px',borderBottom:'1px solid rgba(56,189,248,0.12)',flexShrink:0 }}>
+                        {activePad ? (
+                            <button onClick={()=>{ setActiveNotepadId(null); setNotepadDraft(''); }} title="Back to notepads"
+                                style={{ display:'flex',alignItems:'center',justifyContent:'center',width:'28px',height:'28px',borderRadius:'7px',background:'rgba(56,189,248,0.08)',border:'1px solid rgba(56,189,248,0.2)',color:'#7dd3fc',cursor:'pointer',flexShrink:0,transition:'background 150ms ease-out' }}
+                                onMouseEnter={e=>e.currentTarget.style.background='rgba(56,189,248,0.18)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(56,189,248,0.08)'}>
+                                <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 19l-7-7 7-7"/></svg>
+                            </button>
+                        ) : (
+                            <div style={{ width:'28px',height:'28px',borderRadius:'7px',background:'linear-gradient(135deg,#22d3ee,#0891b2)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 2px 10px rgba(34,211,238,0.35)' }}>
+                                <svg width="15" height="15" fill="none" stroke="white" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </div>
+                        )}
+                        <div style={{ flex:1,minWidth:0 }}>
+                            <div style={{ color:'#e2e8f0',fontSize:'13px',fontWeight:'700',letterSpacing:'0.5px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis' }}>{activePad ? activePad.name : 'NOTES'}</div>
+                            <div style={{ color:'#5b7299',fontSize:'9px',fontWeight:'600',letterSpacing:'1px',fontFamily:'monospace',textTransform:'uppercase' }}>{activePad ? (dirty ? 'Unsaved changes' : 'Saved') : `${notepads.length} notepad${notepads.length===1?'':'s'}`}</div>
+                        </div>
+                        <button onClick={()=>setShowNotesPanel(false)} title="Close"
+                            style={{ display:'flex',alignItems:'center',justifyContent:'center',width:'28px',height:'28px',borderRadius:'7px',background:'transparent',border:'1px solid rgba(255,255,255,0.1)',color:'#64748b',cursor:'pointer',flexShrink:0,transition:'all 150ms ease-out' }}
+                            onMouseEnter={e=>{e.currentTarget.style.color='#f87171';e.currentTarget.style.borderColor='rgba(248,113,113,0.4)';}} onMouseLeave={e=>{e.currentTarget.style.color='#64748b';e.currentTarget.style.borderColor='rgba(255,255,255,0.1)';}}>
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+
+                    {activePad ? (
+                        /* ── EDITOR VIEW ── */
+                        <div style={{ flex:1,display:'flex',flexDirection:'column',padding:'14px 16px',gap:'12px',minHeight:0 }}>
+                            <textarea
+                                value={notepadDraft}
+                                onChange={e=>setNotepadDraft(e.target.value)}
+                                onKeyDown={e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='s'){ e.preventDefault(); saveActive(); } }}
+                                placeholder="Start typing your notes… (Ctrl+S to save)"
+                                style={{ flex:1,width:'100%',resize:'none',background:'rgba(7,12,24,0.6)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'10px',padding:'14px',color:'#e2e8f0',fontSize:'13px',lineHeight:'1.6',fontFamily:"'Courier New', monospace",outline:'none',boxSizing:'border-box',transition:'border-color 160ms ease-out' }}
+                                onFocus={e=>e.target.style.borderColor='rgba(56,189,248,0.45)'} onBlur={e=>e.target.style.borderColor='rgba(56,189,248,0.15)'}
+                            />
+                            <button onClick={saveActive} disabled={!dirty && !notepadSavedFlash}
+                                style={{ display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',padding:'11px',borderRadius:'9px',border:'none',cursor:dirty?'pointer':'default',background:notepadSavedFlash?'linear-gradient(135deg,#059669,#10b981)':dirty?'linear-gradient(135deg,#22d3ee,#0891b2)':'rgba(255,255,255,0.04)',color:notepadSavedFlash?'#fff':dirty?'#04222b':'#475569',fontSize:'12px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase',transition:'background 200ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                                onMouseDown={e=>{if(dirty)e.currentTarget.style.transform='scale(0.98)';}} onMouseUp={e=>e.currentTarget.style.transform='scale(1)'}>
+                                {notepadSavedFlash ? (<><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg> Saved</>) : (dirty ? 'Save Notes' : 'No changes')}
+                            </button>
+                        </div>
+                    ) : (
+                        /* ── LIST VIEW ── */
+                        <div style={{ flex:1,display:'flex',flexDirection:'column',minHeight:0 }}>
+                            <div style={{ padding:'12px 16px',flexShrink:0 }}>
+                                {creatingNotepad ? (
+                                    <div style={{ display:'flex',gap:'8px' }}>
+                                        <input autoFocus value={newNotepadName} onChange={e=>setNewNotepadName(e.target.value)}
+                                            onKeyDown={e=>{ if(e.key==='Enter')createPad(); if(e.key==='Escape'){setCreatingNotepad(false);setNewNotepadName('');} }}
+                                            placeholder="Notepad name…"
+                                            style={{ flex:1,padding:'9px 12px',background:'rgba(7,12,24,0.6)',border:'1px solid rgba(56,189,248,0.4)',borderRadius:'8px',color:'#e2e8f0',fontSize:'12px',outline:'none',boxSizing:'border-box' }} />
+                                        <button onClick={createPad} style={{ padding:'0 14px',borderRadius:'8px',border:'none',background:'linear-gradient(135deg,#22d3ee,#0891b2)',color:'#04222b',fontSize:'12px',fontWeight:'700',cursor:'pointer' }}>Add</button>
+                                    </div>
+                                ) : (
+                                    <button onClick={()=>setCreatingNotepad(true)}
+                                        style={{ width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',padding:'11px',borderRadius:'9px',background:'rgba(56,189,248,0.08)',border:'1px dashed rgba(56,189,248,0.35)',color:'#7dd3fc',fontSize:'12px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase',cursor:'pointer',transition:'background 160ms ease-out, border-color 160ms ease-out' }}
+                                        onMouseEnter={e=>{e.currentTarget.style.background='rgba(56,189,248,0.16)';e.currentTarget.style.borderColor='rgba(56,189,248,0.6)';}} onMouseLeave={e=>{e.currentTarget.style.background='rgba(56,189,248,0.08)';e.currentTarget.style.borderColor='rgba(56,189,248,0.35)';}}>
+                                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                                        New Notepad
+                                    </button>
+                                )}
+                            </div>
+                            <div style={{ flex:1,overflowY:'auto',padding:'0 16px 16px' }}>
+                                {notepads.length === 0 && (
+                                    <div style={{ textAlign:'center',color:'#475569',fontSize:'11px',fontFamily:'monospace',padding:'30px 0' }}>No notepads yet.</div>
+                                )}
+                                {notepads.map(pad => {
+                                    const preview = (pad.body || '').trim().split('\n')[0].slice(0, 42) || 'Empty notepad';
+                                    return (
+                                        <div key={pad.id} onClick={()=>openPad(pad)}
+                                            style={{ display:'flex',alignItems:'center',gap:'12px',padding:'12px 14px',marginBottom:'8px',background:'rgba(56,189,248,0.04)',border:'1px solid rgba(56,189,248,0.12)',borderRadius:'10px',cursor:'pointer',transition:'background 150ms ease-out, border-color 150ms ease-out' }}
+                                            onMouseEnter={e=>{e.currentTarget.style.background='rgba(56,189,248,0.1)';e.currentTarget.style.borderColor='rgba(56,189,248,0.3)';}} onMouseLeave={e=>{e.currentTarget.style.background='rgba(56,189,248,0.04)';e.currentTarget.style.borderColor='rgba(56,189,248,0.12)';}}>
+                                            <div style={{ width:'34px',height:'34px',borderRadius:'8px',background:'rgba(34,211,238,0.12)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0 }}>
+                                                <svg width="16" height="16" fill="none" stroke="#22d3ee" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                            </div>
+                                            <div style={{ flex:1,minWidth:0 }}>
+                                                <div style={{ color:'#e2e8f0',fontSize:'13px',fontWeight:'600',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis' }}>{pad.name}</div>
+                                                <div style={{ color:'#5b7299',fontSize:'10px',fontFamily:'monospace',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginTop:'2px' }}>{preview}</div>
+                                            </div>
+                                            <button onClick={(e)=>{ e.stopPropagation(); deletePad(pad.id); }} title="Delete notepad"
+                                                style={{ display:'flex',alignItems:'center',justifyContent:'center',width:'26px',height:'26px',borderRadius:'6px',background:'transparent',border:'none',color:'#475569',cursor:'pointer',flexShrink:0,transition:'color 150ms ease-out' }}
+                                                onMouseEnter={e=>e.currentTarget.style.color='#f87171'} onMouseLeave={e=>e.currentTarget.style.color='#475569'}>
+                                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </>
+            );
+        })()}
         {showDataPanel && (
             <>
                 <div onClick={()=>setShowDataPanel(false)} style={{ position:'fixed',top:'52px',left:0,right:'320px',bottom:0,background:'rgba(0,0,0,0.4)',zIndex:7999,animation:'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }} />
