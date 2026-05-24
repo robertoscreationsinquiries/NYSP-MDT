@@ -573,7 +573,16 @@ ipcMain.handle('export-pdf', async (event, { type }) => {
         if (!fs.existsSync(templatePath)) return { success: false, error: `Template not found: ${type}-template.pdf` };
         const outputPath = path.join(app.getPath('temp'), `${type}-${Date.now()}.pdf`);
         fs.writeFileSync(outputPath, fs.readFileSync(templatePath));
-        await shell.openPath(outputPath);
+        // Open in the user's DEFAULT EXTERNAL BROWSER (not inside the CAD/Electron window,
+        // and not the OS PDF app). shell.openExternal with a file:// URL routes to the
+        // registered browser. pathToFileURL handles spaces/backslashes correctly on Windows.
+        const fileUrl = require('url').pathToFileURL(outputPath).href;
+        try {
+            await shell.openExternal(fileUrl);
+        } catch (extErr) {
+            // Fallback to OS default handler if the browser refused the file URL
+            await shell.openPath(outputPath);
+        }
         return { success: true, path: outputPath };
     } catch(err) { return { success: false, error: err.message }; }
 });
