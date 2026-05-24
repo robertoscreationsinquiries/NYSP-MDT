@@ -606,6 +606,17 @@ body::before {
 }
 .login-spin { animation: spin 0.7s linear infinite; }
 
+/* Invalid-input shake — horizontal jitter, sharp easing for a tactile 'no' */
+@keyframes loginShake {
+    0%, 100% { transform: translateX(0); }
+    15% { transform: translateX(-9px); }
+    30% { transform: translateX(8px); }
+    45% { transform: translateX(-6px); }
+    60% { transform: translateX(5px); }
+    75% { transform: translateX(-3px); }
+    90% { transform: translateX(2px); }
+}
+
 /* Light sweep across the hero wordmark — slow, subtle highlight pass */
 @keyframes loginSweep {
     0%   { background-position: 150% 0; }
@@ -2302,6 +2313,11 @@ const [loginFadingOut, setLoginFadingOut] = useState(false);
 const [loginUsername, setLoginUsername] = useState(() => localStorage.getItem('nysp_saved_username') || '');
 const [loginPassword, setLoginPassword] = useState(() => localStorage.getItem('nysp_saved_password') || '');
 const [loginError, setLoginError] = useState('');
+const [loginShake, setLoginShake] = useState(false);
+const triggerLoginShake = React.useCallback(() => {
+    setLoginShake(true);
+    setTimeout(() => setLoginShake(false), 450);
+}, []);
 const [showSavePasswordPrompt, setShowSavePasswordPrompt] = useState(false);
 const [pendingSaveCredentials, setPendingSaveCredentials] = useState(null);
 const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -10075,6 +10091,25 @@ if (window.MAINTENANCE === true && !(window.APP_GITHUB_BRANCH && window.APP_GITH
         return;
     }
 
+    // ── Minimum-length validation (must exceed 5 characters in BOTH fields) ──
+    const uLen = loginUsername.trim().length;
+    const pLen = loginPassword.length;
+    if (uLen <= 5 && pLen <= 5) {
+        setLoginError('Username and password must each be longer than 5 characters.');
+        triggerLoginShake();
+        return;
+    }
+    if (uLen <= 5) {
+        setLoginError(`Username must be longer than 5 characters (currently ${uLen}).`);
+        triggerLoginShake();
+        return;
+    }
+    if (pLen <= 5) {
+        setLoginError(`Password must be longer than 5 characters (currently ${pLen}).`);
+        triggerLoginShake();
+        return;
+    }
+
     setLoginError('');
     setIsLoggingIn(true);
 
@@ -10734,7 +10769,7 @@ return (
 
             {/* RIGHT — form panel (darker, separated by a hairline) */}
             <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 6vw', background: 'linear-gradient(180deg, rgba(10,18,36,0.55) 0%, rgba(6,12,26,0.75) 100%)', borderLeft: '1px solid rgba(59,130,246,0.15)', boxShadow: '-20px 0 60px rgba(0,0,0,0.35)' }}>
-              <div style={{ width: '100%', maxWidth: '380px', margin: '0 auto' }}>
+              <div style={{ width: '100%', maxWidth: '380px', margin: '0 auto', animation: loginShake ? 'loginShake 0.45s cubic-bezier(0.36,0.07,0.19,0.97)' : 'none' }}>
 
                 {/* Section heading — accent bar + monospace caps, identical to Plate Lookup */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
@@ -10782,12 +10817,12 @@ return (
 
                 <button
                     onClick={handleLogin}
-                    disabled={isLoggingIn || !loginUsername.trim() || !loginPassword}
-                    style={{ width: '100%', padding: '14px', background: isLoggingIn || !loginUsername.trim() || !loginPassword ? 'rgba(59,130,246,0.2)' : 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'none', borderRadius: '10px', color: isLoggingIn || !loginUsername.trim() || !loginPassword ? '#334155' : '#fff', fontSize: '13px', fontWeight: '700', cursor: isLoggingIn || !loginUsername.trim() || !loginPassword ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'transform 120ms cubic-bezier(0.23,1,0.32,1), box-shadow 160ms ease-out, background 160ms ease-out', boxShadow: isLoggingIn || !loginUsername.trim() || !loginPassword ? 'none' : '0 8px 24px rgba(59,130,246,0.4)' }}
-                    onMouseEnter={e => { if (!isLoggingIn && loginUsername.trim() && loginPassword) { e.currentTarget.style.boxShadow = '0 10px 30px rgba(59,130,246,0.55)'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
-                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = isLoggingIn || !loginUsername.trim() || !loginPassword ? 'none' : '0 8px 24px rgba(59,130,246,0.4)'; }}
-                    onMouseDown={e => { if (!isLoggingIn && loginUsername.trim() && loginPassword) e.currentTarget.style.transform = 'scale(0.98)'; }}
-                    onMouseUp={e => { if (!isLoggingIn && loginUsername.trim() && loginPassword) e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                    disabled={isLoggingIn}
+                    style={{ width: '100%', padding: '14px', background: isLoggingIn ? 'rgba(59,130,246,0.2)' : 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'none', borderRadius: '10px', color: isLoggingIn ? '#334155' : '#fff', fontSize: '13px', fontWeight: '700', cursor: isLoggingIn ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'transform 120ms cubic-bezier(0.23,1,0.32,1), box-shadow 160ms ease-out, background 160ms ease-out', boxShadow: isLoggingIn ? 'none' : '0 8px 24px rgba(59,130,246,0.4)' }}
+                    onMouseEnter={e => { if (!isLoggingIn) { e.currentTarget.style.boxShadow = '0 10px 30px rgba(59,130,246,0.55)'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = isLoggingIn ? 'none' : '0 8px 24px rgba(59,130,246,0.4)'; }}
+                    onMouseDown={e => { if (!isLoggingIn) e.currentTarget.style.transform = 'scale(0.98)'; }}
+                    onMouseUp={e => { if (!isLoggingIn) e.currentTarget.style.transform = 'translateY(-1px)'; }}
                 >
                     {isLoggingIn ? <><Loader2 size={16} className="login-spin" /><span>AUTHENTICATING...</span></> : <><Shield size={16} /><span>AUTHENTICATE</span></>}
                 </button>
