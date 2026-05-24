@@ -1711,6 +1711,18 @@ const robloxResolveUsername = async (username) => {
     }
 };
 
+// Clean a Discord nickname/name before using it as a Roblox username lookup.
+// Roblox usernames are ONLY a-z, A-Z, 0-9, and underscore. Discord nicknames often
+// contain invisible/zero-width/decorative characters (e.g. U+17B5, U+200B, U+FEFF)
+// appended for styling or uniqueness — those break the exact-match resolver. We strip
+// everything outside the legal Roblox set so "Iconicc_Sam<invisible>" → "Iconicc_Sam".
+const sanitizeRobloxName = (name) => {
+    if (!name) return '';
+    // Normalize, then keep only Roblox-legal characters.
+    let cleaned = String(name).normalize('NFKC').replace(/[^a-zA-Z0-9_]/g, '').trim();
+    return cleaned;
+};
+
 const WarrantDots = () => {
     const [dots, setDots] = React.useState(1);
     React.useEffect(() => {
@@ -3428,6 +3440,11 @@ useEffect(() => {
 // Presence heartbeat — fires immediately then every 110s, but only sends if data changed or TTL refresh needed
 React.useEffect(() => {
     if (!tokenSaved || !trooperSettings?.BadgeID || trooperSettings.BadgeID === 'N/A') return;
+    // ── Officer presence heartbeat DISABLED ──
+    // Available-units presence is now handled via TeamSpeak, so we no longer send
+    // per-officer heartbeats to Cloudflare. (BOLO polling is separate and stays active.)
+    console.log('[BACKEND DATA OFFICER]: Presence heartbeat disabled — using TeamSpeak for available units');
+    return;
     const send = (force = false) => {
 if (window.AVAILABLE_OFFICERS_DISABLED) { console.log('[BACKEND DATA OFFICER]: ⛔ Heartbeat skipped — feature disabled by Cloudflare'); return; }
         // Send any pending APEX misread report
@@ -3737,9 +3754,11 @@ const poll = () => {
             .then(r => r.json())
             .then(d => {
                 if (Array.isArray(d.officers)) {
-console.log(`[BACKEND DATA OFFICER]: Poll complete — ${d.officers.length} officer(s) online:`, d.officers.map(o => `${o.name} (#${o.badge}) ${o.status}`).join(', ') || 'none');
+console.log(`[BACKEND DATA OFFICER]: Poll complete — panic check only (available units via TeamSpeak)`);
 console.log('[BACKEND DATA OFFICER]: Panic data:', d.panic ? `badge=${d.panic.badge} triggeredAt=${d.panic.triggeredAt}` : 'none');
-                    setOnlineOfficers(d.officers || []);
+                    // Available-units list is now handled by TeamSpeak — do NOT populate onlineOfficers.
+                    // We keep this poll alive ONLY for panic-button alert detection below.
+                    setOnlineOfficers([]);
                     // Check panic signal piggybacked on poll — use ref to avoid stale closure
                     if (d.panic) {
                         const alreadyActive = activePanicRef.current && activePanicRef.current.triggeredAt === d.panic.triggeredAt;
@@ -7319,11 +7338,13 @@ logActivity(`Plate searched → ${searchedPlate} · FOUND`);
 if (memberResp.ok) {
                         const memberData = await memberResp.json();
 // ✅ Priority: Server nickname > Global name > Username
-const serverName = memberData.nick || 
+const rawServerName = memberData.nick || 
                    memberData.user.global_name || 
                    memberData.user.username;
+const serverName = sanitizeRobloxName(rawServerName) || rawServerName;
 
 console.log('👤 [MEMBER] Using for Roblox lookup:', serverName);
+if (rawServerName !== serverName) console.warn('⚠️ [MEMBER] Sanitized name for lookup — raw:', JSON.stringify(rawServerName), '→ clean:', JSON.stringify(serverName));
 console.log('   - Nickname:', memberData.nick);
 console.log('   - Global name:', memberData.user.global_name);
 console.log('   - Username:', memberData.user.username);
@@ -8091,15 +8112,17 @@ if (discordUserId) {
             console.log('✅ [MEMBER] Found member data:', memberData);
 
 
-const memberUsername = memberData.nick || 
+const rawMemberName = memberData.nick || 
                                   memberData.user.global_name || 
                                   memberData.user.username || 
                                   'Unknown';
+const memberUsername = sanitizeRobloxName(rawMemberName) || rawMemberName;
             
             console.log('👤 [MEMBER] Server nickname:', memberData.nick);
             console.log('👤 [MEMBER] Global name:', memberData.user.global_name);
             console.log('👤 [MEMBER] Username:', memberData.user.username);
             console.log('✅ [MEMBER] Using for Roblox lookup:', memberUsername);
+            if (rawMemberName !== memberUsername) console.warn('⚠️ [MEMBER] Sanitized name for lookup — raw:', JSON.stringify(rawMemberName), '→ clean:', JSON.stringify(memberUsername));
 
             
             // Look up Roblox profile using username
