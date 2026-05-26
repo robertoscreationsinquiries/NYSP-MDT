@@ -1028,6 +1028,7 @@ let _spotifyState = {
     deviceId: null,
     nowPlaying: null,
     error: null,
+    volume: 50,
     pollTimer: null
 };
 let _spotifyAuthServer = null;
@@ -1125,9 +1126,9 @@ function _spotifyApiSend(method, path, body) {
     });
 }
 
-async function _spotifyControl(method, path) {
+async function _spotifyControl(method, path, body) {
     if (!await _spotifyEnsureToken()) throw new Error('No access token');
-    return _spotifyApiSend(method, path);
+    return _spotifyApiSend(method, path, body);
 }
 
 async function _spotifyPollOnce() {
@@ -1149,6 +1150,7 @@ async function _spotifyPollOnce() {
             _spotifyState.error = null;
         } else {
             _spotifyState.deviceId = r.device?.id || null;
+            _spotifyState.volume = (typeof r.device?.volume_percent === 'number') ? r.device.volume_percent : _spotifyState.volume;
             _spotifyState.nowPlaying = {
                 track: r.item.name,
                 artist: (r.item.artists || []).map(a => a.name).join(', '),
@@ -1158,7 +1160,10 @@ async function _spotifyPollOnce() {
                 progressMs: r.progress_ms || 0,
                 durationMs: r.item.duration_ms || 0,
                 trackId: r.item.id,
-                url: r.item.external_urls?.spotify || null
+                url: r.item.external_urls?.spotify || null,
+                volume: _spotifyState.volume,
+                shuffle: r.shuffle_state === true,
+                repeat: r.repeat_state || 'off'
             };
             _spotifyState.error = null;
         }
@@ -1169,6 +1174,7 @@ async function _spotifyPollOnce() {
             product: _spotifyState.product,
             deviceId: _spotifyState.deviceId,
             nowPlaying: _spotifyState.nowPlaying,
+            volume: _spotifyState.volume,
             error: _spotifyState.error
         });
     }
@@ -1176,8 +1182,28 @@ async function _spotifyPollOnce() {
 
 function _spotifyStartPolling() {
     if (_spotifyState.pollTimer) clearInterval(_spotifyState.pollTimer);
-    _spotifyState.pollTimer = setInterval(_spotifyPollOnce, 5000);
-    _spotifyPollOnce();
+    // Adaptive cadence:
+    //  • Playing → poll every 5s (the "count to 4, update on the 5th" feel). The renderer
+    //    ticks the progress bar locally between polls so it stays smooth without spamming the API.
+    //  • Paused/idle → poll every 15s only (a paused track's position doesn't move, so frequent
+    //    polling is wasted). When you pause/resume THROUGH our app, _spotifyPollSoon() fires an
+    //    immediate poll so the timestamp is exact the instant state changes.
+    const schedule = () => {
+        if (_spotifyState.pollTimer) { clearInterval(_spotifyState.pollTimer); _spotifyState.pollTimer = null; }
+        const playing = !!(_spotifyState.nowPlaying && _spotifyState.nowPlaying.isPlaying);
+        const interval = playing ? 5000 : 15000;
+        _spotifyState.pollTimer = setInterval(() => { _spotifyPollOnce().then(() => {
+            // If playback state flipped since this interval was set, reschedule at the new cadence.
+            const nowPlaying = !!(_spotifyState.nowPlaying && _spotifyState.nowPlaying.isPlaying);
+            if (nowPlaying !== playing) schedule();
+        }); }, interval);
+    };
+    _spotifyPollOnce().then(schedule);
+}
+
+// Immediate poll shortly after a control action, then re-evaluate cadence.
+function _spotifyPollSoon(delay = 250) {
+    setTimeout(() => { _spotifyPollOnce().then(() => _spotifyStartPolling()); }, delay);
 }
 
 function _spotifyStopPolling() {
@@ -1268,8 +1294,53 @@ ipcMain.handle('spotify-control', async (_e, { action }) => {
         else if (action === 'pause')    r = await _spotifyControl('PUT',  '/me/player/pause');
         else if (action === 'next')     r = await _spotifyControl('POST', '/me/player/next');
         else if (action === 'previous') r = await _spotifyControl('POST', '/me/player/previous');
+        else if (action === 'shuffle-on')  r = await _spotifyControl('PUT', '/me/player/shuffle?state=true');
+        else if (action === 'shuffle-off') r = await _spotifyControl('PUT', '/me/player/shuffle?state=false');
+        else if (action === 'repeat-track')   r = await _spotifyControl('PUT', '/me/player/repeat?state=track');
+        else if (action === 'repeat-context') r = await _spotifyControl('PUT', '/me/player/repeat?state=context');
+        else if (action === 'repeat-off')     r = await _spotifyControl('PUT', '/me/player/repeat?state=off');
         else r = { ok: false, error: 'Unknown action' };
-        setTimeout(_spotifyPollOnce, 300);
+        // Instant update so the UI reflects the new state immediately (e.g. paused timestamp),
+        // and re-evaluates the poll cadence (stops the 5s count when paused).
+        _spotifyPollSoon();
+        return r;
+    } catch (e) { return { ok: false, error: e.message }; }
+});
+
+// Set playback volume (0–100). Spotify requires an active device.
+ipcMain.handle('spotify-set-volume', async (_e, { volume }) => {
+    try {
+        const v = Math.max(0, Math.min(100, Math.round(volume)));
+        const r = await _spotifyControl('PUT', `/me/player/volume?volume_percent=${v}`);
+        _spotifyState.volume = v;
+        _spotifyPollSoon(400);
+        return r;
+    } catch (e) { return { ok: false, error: e.message }; }
+});
+
+// Fetch the user's playlists (id, name, image, track count) for the picker.
+ipcMain.handle('spotify-get-playlists', async () => {
+    try {
+        if (!await _spotifyEnsureToken()) throw new Error('No access token');
+        const r = await _spotifyApiGet('/me/playlists?limit=50');
+        const playlists = (r.items || []).map(p => ({
+            id: p.id,
+            uri: p.uri,
+            name: p.name,
+            image: p.images?.[0]?.url || null,
+            tracks: p.tracks?.total || 0,
+            owner: p.owner?.display_name || ''
+        }));
+        return { ok: true, playlists };
+    } catch (e) { return { ok: false, error: e.message }; }
+});
+
+// Start playback of a given playlist (context URI).
+ipcMain.handle('spotify-play-playlist', async (_e, { uri }) => {
+    try {
+        if (!uri) return { ok: false, error: 'No playlist URI' };
+        const r = await _spotifyControl('PUT', '/me/player/play', { context_uri: uri });
+        _spotifyPollSoon();
         return r;
     } catch (e) { return { ok: false, error: e.message }; }
 });
