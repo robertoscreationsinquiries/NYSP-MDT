@@ -1913,6 +1913,10 @@ const [spotifyError, setSpotifyError] = useState('');
 const [spotifyAuthing, setSpotifyAuthing] = useState(false);
 const [showSpotifySetupGuide, setShowSpotifySetupGuide] = useState(false);
 const [showSpotifyPanel, setShowSpotifyPanel] = useState(false);
+const [spotifyVolume, setSpotifyVolume] = useState(50);
+const [spotifyPlaylists, setSpotifyPlaylists] = useState([]);
+const [spotifyShowPlaylists, setSpotifyShowPlaylists] = useState(false);
+const [spotifyLoadingPlaylists, setSpotifyLoadingPlaylists] = useState(false);
 React.useEffect(() => { localStorage.setItem('spotifyClientId', spotifyClientId); }, [spotifyClientId]);
 React.useEffect(() => { localStorage.setItem('spotifyRefreshToken', spotifyRefreshToken); }, [spotifyRefreshToken]);
 const [searchCitizenId, setSearchCitizenId] = useState('');
@@ -3625,6 +3629,7 @@ React.useEffect(() => {
         setSpotifyDeviceId(data.deviceId || null);
         setSpotifyNowPlaying(data.nowPlaying || null);
         setSpotifyError(data.error || '');
+        if (typeof data.volume === 'number' && !window._spotifyVolumeDragging) setSpotifyVolume(data.volume);
     };
     const onProfile = (_e, data) => { setSpotifyProduct(data.product); };
     const onAuthResult = (_e, data) => {
@@ -3664,6 +3669,26 @@ const spotifyControl = async (action) => {
         if (r && r.ok === false && r.error === 'NO_DEVICE') {
             setSpotifyError('No active Spotify device — open Spotify on any device first');
         }
+    } catch (_) {}
+};
+const spotifySetVolume = async (vol) => {
+    setSpotifyVolume(vol); // optimistic
+    try { await window.electron?.ipcRenderer?.invoke('spotify-set-volume', { volume: vol }); } catch (_) {}
+};
+const spotifyLoadPlaylists = async () => {
+    setSpotifyLoadingPlaylists(true);
+    try {
+        const r = await window.electron?.ipcRenderer?.invoke('spotify-get-playlists');
+        if (r?.ok) setSpotifyPlaylists(r.playlists || []);
+        else setSpotifyError(r?.error || 'Could not load playlists');
+    } catch (e) { setSpotifyError(e?.message || 'Playlist load error'); }
+    setSpotifyLoadingPlaylists(false);
+};
+const spotifyPlayPlaylist = async (uri) => {
+    try {
+        const r = await window.electron?.ipcRenderer?.invoke('spotify-play-playlist', { uri });
+        if (r && r.ok === false && r.error === 'NO_DEVICE') setSpotifyError('No active Spotify device — open Spotify first');
+        else setSpotifyShowPlaylists(false);
     } catch (_) {}
 };
 
@@ -10845,120 +10870,118 @@ return (
         <div style={{ position: 'absolute', top: '-220px', left: '-180px', width: '680px', height: '680px', background: 'radial-gradient(circle, rgba(37,99,235,0.18) 0%, transparent 70%)', pointerEvents: 'none', animation: 'heroDrift 11s ease-in-out infinite' }} />
         <div style={{ position: 'absolute', bottom: '-220px', right: '-180px', width: '560px', height: '560px', background: 'radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 70%)', pointerEvents: 'none', animation: 'heroDrift 13s ease-in-out infinite reverse' }} />
 
-        {/* Top bar */}
-        <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 28px', borderBottom: '1px solid rgba(59,130,246,0.1)', background: 'rgba(6,10,18,0.8)', backdropFilter: 'blur(8px)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 16px rgba(59,130,246,0.5)' }}>
-                    <Shield size={18} style={{ color: 'white' }} />
-                </div>
-                <span style={{ color: '#60a5fa', fontSize: '12px', fontWeight: '700', letterSpacing: '3px', textTransform: 'uppercase' }}>CAD</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#fbbf24', boxShadow: '0 0 8px #fbbf24', animation: 'pulse-dot 1s ease-in-out infinite' }} />
-                <span style={{ color: '#6b7280', fontSize: '11px', fontWeight: '600', letterSpacing: '2px' }}>SYSTEM BOOT</span>
-            </div>
-        </div>
+        {/* Full-bleed split — mirrors the login layout for a seamless transition */}
+        <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', minHeight: 0, animation: 'loginCardIn 0.5s cubic-bezier(0.23,1,0.32,1)' }}>
 
-        {/* Main content - centered stack matching the login + home/scan-plate vocabulary */}
-        <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 40px', overflowY: 'auto' }}>
-        <div style={{ width: '100%', maxWidth: '860px', display: 'flex', flexDirection: 'column', gap: '16px', animation: 'loginCardIn 0.5s cubic-bezier(0.23,1,0.32,1)' }}>
+            {/* LEFT — hero, identical treatment to the login hero (scanlines, brackets, sweep, cyan) */}
+            <div style={{ position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: '26px', padding: '0 7vw' }}>
+                <div style={{ position: 'absolute', top: '42%', left: '-160px', transform: 'translateY(-50%)', width: '520px', height: '520px', background: 'radial-gradient(circle, rgba(37,99,235,0.18) 0%, transparent 65%)', pointerEvents: 'none', zIndex: 0 }} />
+                <div style={{ position: 'absolute', top: '70%', left: '20%', width: '360px', height: '360px', background: 'radial-gradient(circle, rgba(56,189,248,0.1) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0, animation: 'heroDrift 10s ease-in-out infinite' }} />
+                <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, rgba(56,189,248,0.025) 0px, rgba(56,189,248,0.025) 1px, transparent 1px, transparent 3px)', pointerEvents: 'none', zIndex: 0, opacity: 0.6 }} />
 
-            {/* HERO — horizontal layout to fill the wider container */}
-            <div style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(135deg, rgba(30,58,138,0.6), rgba(30,58,138,0.2))', border: '2px solid rgba(59,130,246,0.4)', borderRadius: '14px', padding: '22px 30px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '20px' }}>
-                <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 18% 50%, rgba(37,99,235,0.16) 0%, transparent 60%)', pointerEvents: 'none', zIndex: 0 }} />
-                <div style={{ position: 'absolute', top: '-140px', right: '-100px', width: '300px', height: '300px', background: 'radial-gradient(circle, rgba(56,189,248,0.16) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0, animation: 'heroDrift 9s ease-in-out infinite' }} />
-                <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, rgba(56,189,248,0.03) 0px, rgba(56,189,248,0.03) 1px, transparent 1px, transparent 3px)', pointerEvents: 'none', zIndex: 0, opacity: 0.5 }} />
-                <div style={{ position: 'relative', zIndex: 1, width: '60px', height: '60px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(37,99,235,0.5), inset 0 1px 0 rgba(255,255,255,0.18)', flexShrink: 0 }}>
-                    <Shield size={34} style={{ color: 'white' }} />
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                    <div style={{ position: 'absolute', top: '-8px', left: '-8px', width: '16px', height: '16px', borderTop: '2px solid rgba(56,189,248,0.6)', borderLeft: '2px solid rgba(56,189,248,0.6)', borderRadius: '3px 0 0 0' }} />
+                    <div style={{ position: 'absolute', bottom: '-8px', right: '-8px', width: '16px', height: '16px', borderBottom: '2px solid rgba(56,189,248,0.6)', borderRight: '2px solid rgba(56,189,248,0.6)', borderRadius: '0 0 3px 0' }} />
+                    <div style={{ width: '84px', height: '84px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 12px 36px rgba(37,99,235,0.55), inset 0 1px 0 rgba(255,255,255,0.18)' }}>
+                        <Shield size={48} style={{ color: 'white' }} />
+                    </div>
                 </div>
-                <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
-                    <div style={{ color: '#fff', fontSize: '24px', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase', textShadow: '0 2px 12px rgba(37,99,235,0.4)', lineHeight: 1 }}>NYSP MDT</div>
+
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                    <div style={{ position: 'relative', display: 'inline-block', overflow: 'hidden' }}>
+                        <div style={{ color: '#fff', fontSize: 'clamp(40px, 5vw, 60px)', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase', textShadow: '0 4px 24px rgba(37,99,235,0.35)', lineHeight: 0.98, marginBottom: '18px' }}>NEW YORK<br/>STATE POLICE</div>
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.18) 48%, transparent 62%)', backgroundSize: '250% 100%', pointerEvents: 'none', animation: 'loginSweep 6s ease-in-out infinite' }} />
+                    </div>
                     {showWelcome && trooperData ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', borderRadius: '6px', padding: '6px 12px', animation: 'loginErrIn 0.3s cubic-bezier(0.23,1,0.32,1)' }}>
-                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981', animation: 'pulse-dot 2s ease-in-out infinite' }} />
-                            <span style={{ color: '#86efac', fontSize: '12px', fontWeight: '700', letterSpacing: '0.5px' }}>
-                                {trooperData.department === 'DISPATCHER' ? 'DISPATCHER' : 'TROOPER'} {trooperData.firstName?.toUpperCase()} {trooperData.lastName?.toUpperCase()} · #{trooperData.badgeId}
-                            </span>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.4)', borderRadius: '8px', padding: '8px 16px', color: '#86efac', fontSize: '13px', fontWeight: '700', letterSpacing: '0.5px', fontFamily: 'monospace', animation: 'loginErrIn 0.3s cubic-bezier(0.23,1,0.32,1)' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981', animation: 'pulse-dot 2s ease-in-out infinite' }} />
+                            {trooperData.department === 'DISPATCHER' ? 'DISPATCHER' : 'TROOPER'} {trooperData.firstName?.toUpperCase()} {trooperData.lastName?.toUpperCase()} · #{trooperData.badgeId}
                         </div>
                     ) : (
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.35)', borderRadius: '6px', padding: '6px 12px', color: '#7dd3fc', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', fontFamily: 'monospace', textTransform: 'uppercase' }}>
-                            <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#38bdf8', boxShadow: '0 0 6px #38bdf8' }} />
-                            Initializing Terminal
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.35)', borderRadius: '8px', padding: '8px 16px', color: '#7dd3fc', fontSize: '13px', fontWeight: '600', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace', boxShadow: 'inset 0 1px 0 rgba(56,189,248,0.1)' }}>
+                            <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#38bdf8', boxShadow: '0 0 6px #38bdf8', animation: 'pulse-dot 1.4s ease-in-out infinite' }} />
+                            Initializing Terminal · Booting CAD
                         </div>
                     )}
                 </div>
+
+                <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'monospace', fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                    <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#fbbf24', boxShadow: '0 0 10px #fbbf24', animation: 'pulse-dot 1s ease-in-out infinite' }} />
+                    <span style={{ color: '#94a3b8', fontWeight: '600' }}>System Boot · Loading Assets</span>
+                </div>
             </div>
 
-            {/* BODY ROW — diagnostics (left, wider) + progress (right) side by side */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '16px', alignItems: 'start' }}>
+            {/* RIGHT — boot diagnostics + progress (where the login form sits) */}
+            <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '16px', padding: '0 5vw', background: 'linear-gradient(180deg, rgba(10,18,36,0.55) 0%, rgba(6,12,26,0.75) 100%)', borderLeft: '1px solid rgba(59,130,246,0.15)', boxShadow: '-20px 0 60px rgba(0,0,0,0.35)', overflowY: 'auto' }}>
 
-            {/* DIAGNOSTICS CARD — S.section() language: 180deg dark-blue gradient, accent border, monospace head */}
-            <div style={{ background: 'linear-gradient(180deg, rgba(15,30,60,0.5) 0%, rgba(10,20,40,0.6) 100%)', border: '1px solid rgba(59,130,246,0.18)', borderRadius: '12px', padding: '20px 22px', boxShadow: 'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-                    <div style={{ width: '2px', height: '12px', background: '#3b82f6', borderRadius: '2px', boxShadow: '0 0 6px #3b82f6', flexShrink: 0 }} />
-                    <span style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace' }}>System Diagnostics</span>
-                    <div style={{ flex: 1, height: '1px', background: 'rgba(59,130,246,0.1)' }} />
-                </div>
-                {loaderChecks.map((check, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '11px 14px', background: check.status === 'running' ? 'rgba(59,130,246,0.08)' : check.status === 'ok' ? 'rgba(16,185,129,0.05)' : check.status === 'warn' ? 'rgba(251,191,36,0.05)' : 'rgba(255,255,255,0.015)', borderRadius: '8px', border: '1px solid ' + (check.status === 'running' ? 'rgba(59,130,246,0.25)' : check.status === 'ok' ? 'rgba(16,185,129,0.18)' : check.status === 'warn' ? 'rgba(251,191,36,0.18)' : 'rgba(255,255,255,0.05)'), transition: 'background 200ms ease-out, border-color 200ms ease-out', position: 'relative', overflow: 'hidden', marginBottom: '6px' }}>
-                        {check.status === 'running' && (
-                            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '3px', background: 'linear-gradient(180deg, #3b82f6, #1e40af)', borderRadius: '3px 0 0 3px' }} />
-                        )}
-                        <div style={{ width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            {check.status === 'pending' && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#1f2937', border: '1px solid #374151' }} />}
-                            {check.status === 'running' && <div style={{ width: '16px', height: '16px', border: '2px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />}
-                            {check.status === 'ok' && <svg width="20" height="20" fill="none" stroke="#10b981" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                            {check.status === 'warn' && <svg width="20" height="20" fill="none" stroke="#fbbf24" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>}
-                        </div>
-                        <span style={{ flex: 1, fontSize: '12px', fontWeight: '600', letterSpacing: '0.3px', color: check.status === 'running' ? '#93c5fd' : check.status === 'ok' ? '#6ee7b7' : check.status === 'warn' ? '#fcd34d' : '#64748b' }}>{check.label}</span>
-                        <span style={{ fontSize: '11px', color: check.status === 'ok' ? '#475569' : '#334155', fontFamily: 'monospace', letterSpacing: '0.5px' }}>{check.result}</span>
+                {/* DIAGNOSTICS */}
+                <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                        <div style={{ width: '2px', height: '12px', background: '#38bdf8', borderRadius: '2px', boxShadow: '0 0 6px #38bdf8', flexShrink: 0 }} />
+                        <span style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace' }}>System Diagnostics</span>
+                        <div style={{ flex: 1, height: '1px', background: 'rgba(56,189,248,0.12)' }} />
                     </div>
-                ))}
-            </div>
-
-            {/* PROGRESS CARD */}
-            <div style={{ background: 'linear-gradient(180deg, rgba(15,30,60,0.5) 0%, rgba(10,20,40,0.6) 100%)', border: '1px solid rgba(59,130,246,0.18)', borderRadius: '12px', padding: '18px 22px', boxShadow: 'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
-                    <span style={{ color: '#7f9bc4', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase', fontFamily: 'monospace' }}>{loaderStatus}</span>
-                    <span style={{ color: loaderProgress === 100 ? '#10b981' : '#3b82f6', fontSize: '20px', fontWeight: '900', fontFamily: 'monospace', transition: 'color 0.3s' }}>{loaderProgress}<span style={{ fontSize: '12px', fontWeight: '600', color: '#475569' }}>%</span></span>
+                    {loaderChecks.map((check, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '11px 14px', background: check.status === 'running' ? 'rgba(59,130,246,0.08)' : check.status === 'ok' ? 'rgba(16,185,129,0.05)' : check.status === 'warn' ? 'rgba(251,191,36,0.05)' : 'rgba(255,255,255,0.015)', borderRadius: '8px', border: '1px solid ' + (check.status === 'running' ? 'rgba(59,130,246,0.25)' : check.status === 'ok' ? 'rgba(16,185,129,0.18)' : check.status === 'warn' ? 'rgba(251,191,36,0.18)' : 'rgba(255,255,255,0.05)'), transition: 'background 200ms ease-out, border-color 200ms ease-out', position: 'relative', overflow: 'hidden', marginBottom: '6px' }}>
+                            {check.status === 'running' && (
+                                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '3px', background: 'linear-gradient(180deg, #3b82f6, #1e40af)', borderRadius: '3px 0 0 3px' }} />
+                            )}
+                            <div style={{ width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                {check.status === 'pending' && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#1f2937', border: '1px solid #374151' }} />}
+                                {check.status === 'running' && <div style={{ width: '16px', height: '16px', border: '2px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />}
+                                {check.status === 'ok' && <svg width="20" height="20" fill="none" stroke="#10b981" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                                {check.status === 'warn' && <svg width="20" height="20" fill="none" stroke="#fbbf24" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>}
+                            </div>
+                            <span style={{ flex: 1, fontSize: '12px', fontWeight: '600', letterSpacing: '0.3px', color: check.status === 'running' ? '#93c5fd' : check.status === 'ok' ? '#6ee7b7' : check.status === 'warn' ? '#fcd34d' : '#64748b' }}>{check.label}</span>
+                            <span style={{ fontSize: '11px', color: check.status === 'ok' ? '#475569' : '#334155', fontFamily: 'monospace', letterSpacing: '0.5px' }}>{check.result}</span>
+                        </div>
+                    ))}
                 </div>
-                <div style={{ height: '5px', background: '#070c18', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
-                    <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 18px, rgba(255,255,255,0.02) 18px, rgba(255,255,255,0.02) 20px)' }} />
-                    <div style={{ height: '100%', width: `${loaderProgress}%`, background: loaderProgress === 100 ? 'linear-gradient(90deg, #059669, #10b981)' : 'linear-gradient(90deg, #1e3a8a, #2563eb, #60a5fa)', borderRadius: '4px', transition: 'width 0.5s cubic-bezier(0.23,1,0.32,1), background 0.5s ease', boxShadow: loaderProgress > 0 ? '0 0 10px rgba(59,130,246,0.5)' : 'none' }} />
+
+                {/* PROGRESS */}
+                <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
+                        <span style={{ color: '#7f9bc4', fontSize: '10px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase', fontFamily: 'monospace' }}>{loaderStatus}</span>
+                        <span style={{ color: loaderProgress === 100 ? '#10b981' : '#38bdf8', fontSize: '22px', fontWeight: '900', fontFamily: 'monospace', transition: 'color 0.3s' }}>{loaderProgress}<span style={{ fontSize: '12px', fontWeight: '600', color: '#475569' }}>%</span></span>
+                    </div>
+                    <div style={{ height: '6px', background: '#070c18', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
+                        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 18px, rgba(255,255,255,0.02) 18px, rgba(255,255,255,0.02) 20px)' }} />
+                        <div style={{ height: '100%', width: `${loaderProgress}%`, background: loaderProgress === 100 ? 'linear-gradient(90deg, #059669, #10b981)' : 'linear-gradient(90deg, #1e3a8a, #2563eb, #38bdf8)', borderRadius: '4px', transition: 'width 0.5s cubic-bezier(0.23,1,0.32,1), background 0.5s ease', boxShadow: loaderProgress > 0 ? '0 0 12px rgba(56,189,248,0.5)' : 'none', position: 'relative', overflow: 'hidden' }}>
+                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent)', backgroundSize: '200% 100%', animation: loaderProgress < 100 ? 'loginSweep 1.5s ease-in-out infinite' : 'none' }} />
+                        </div>
+                    </div>
+                </div>
+
+                {/* ENTER APP button (appears with the same styling language) */}
+                <button
+                    onClick={() => {
+                        setShowLoader(false);
+                        setLoaderProgress(100);
+                        if (compactMode && window.require) {
+                            try { window.require('electron').ipcRenderer.send('toggle-compact-mode', true); } catch(_) {}
+                        }
+                        const alreadyAccepted = localStorage.getItem('mdtWelcomeAccepted');
+                        if (!alreadyAccepted) setShowWelcomePopup(true);
+                        const loadedSoundCount = window.SOUNDS ? Object.keys(window.SOUNDS).length : 0;
+                        if (loadedSoundCount < 13) setSoundsOutOfDate(true);
+                        if (soundSettings?.StartupSFX && SOUNDS.StartupSFX) {
+                            try { const audio = new Audio(SOUNDS.StartupSFX); audio.volume = 0.5; audio.play().catch(() => {}); } catch (e) {}
+                        }
+                    }}
+                    disabled={loaderProgress < 100}
+                    style={{ width: '100%', padding: '14px', background: loaderProgress < 100 ? 'rgba(59,130,246,0.12)' : 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'none', borderRadius: '10px', color: loaderProgress < 100 ? '#475569' : '#fff', fontSize: '13px', fontWeight: '700', cursor: loaderProgress < 100 ? 'not-allowed' : 'pointer', letterSpacing: '2px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'transform 120ms cubic-bezier(0.23,1,0.32,1), box-shadow 160ms ease-out, background 300ms ease-out', boxShadow: loaderProgress < 100 ? 'none' : '0 8px 24px rgba(59,130,246,0.4)' }}
+                    onMouseEnter={e => { if (loaderProgress >= 100) { e.currentTarget.style.boxShadow = '0 10px 30px rgba(59,130,246,0.55)'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = loaderProgress < 100 ? 'none' : '0 8px 24px rgba(59,130,246,0.4)'; }}
+                    onMouseDown={e => { if (loaderProgress >= 100) e.currentTarget.style.transform = 'scale(0.98)'; }}
+                    onMouseUp={e => { if (loaderProgress >= 100) e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                >
+                    {loaderProgress < 100 ? <><Loader2 size={16} className="login-spin" /><span>LOADING...</span></> : <><span>ENTER APP</span><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg></>}
+                </button>
+
+                <div style={{ textAlign: 'center', color: '#475569', fontSize: '10px', fontWeight: '600', letterSpacing: '1px', fontFamily: 'monospace' }}>
+                    v{typeof APP_VERSION !== 'undefined' ? APP_VERSION : '-'} · {typeof window !== 'undefined' && window.APP_COMMIT_SHA ? window.APP_COMMIT_SHA.slice(0,7) : '-------'}
                 </div>
             </div>
-            </div>{/* end body row grid */}
-
-            <div style={{ textAlign: 'center', color: '#475569', fontSize: '10px', fontWeight: '600', letterSpacing: '2px', fontFamily: 'monospace' }}>
-                v{typeof APP_VERSION !== 'undefined' ? APP_VERSION : '-'} · {typeof window !== 'undefined' && window.APP_COMMIT_SHA ? window.APP_COMMIT_SHA.slice(0,7) : '-------'}
-            </div>
-        </div>
-        </div>
-
-        {/* Bottom bar */}
-        <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '14px 28px', borderTop: '1px solid rgba(59,130,246,0.08)' }}>
-            <button
-                onClick={() => {
-                    setShowLoader(false);
-                    setLoaderProgress(100);
-                    if (compactMode && window.require) {
-                        try { window.require('electron').ipcRenderer.send('toggle-compact-mode', true); } catch(_) {}
-                    }
-                    const alreadyAccepted = localStorage.getItem('mdtWelcomeAccepted');
-                    if (!alreadyAccepted) setShowWelcomePopup(true);
-                    const loadedSoundCount = window.SOUNDS ? Object.keys(window.SOUNDS).length : 0;
-                    if (loadedSoundCount < 13) setSoundsOutOfDate(true);
-                    if (soundSettings?.StartupSFX && SOUNDS.StartupSFX) {
-                        try { const audio = new Audio(SOUNDS.StartupSFX); audio.volume = 0.5; audio.play().catch(() => {}); } catch (e) {}
-                    }
-                }}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 20px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '8px', color: '#60a5fa', fontSize: '11px', fontWeight: '700', cursor: 'pointer', letterSpacing: '2px', textTransform: 'uppercase', transition: 'all 0.2s' }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.18)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)'; e.currentTarget.style.color = '#fff'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.08)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.2)'; e.currentTarget.style.color = '#60a5fa'; }}
-            >
-                ENTER APP
-                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-            </button>
         </div>
     </div>
 )}
@@ -16691,6 +16714,64 @@ if (window.electronAPI?.quit) {
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', padding: '12px 0', marginBottom: '14px', color: '#64748b', fontSize: '11px', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/><path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                                 <span>Premium required for controls</span>
+                            </div>
+                        )}
+
+                        {/* Shuffle / Repeat + Volume + Playlists — premium only, only when a track is loaded */}
+                        {spotifyProduct === 'premium' && spotifyNowPlaying && (
+                            <div style={{ marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {/* shuffle + repeat */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px' }}>
+                                    <button onClick={() => spotifyControl(spotifyNowPlaying.shuffle ? 'shuffle-off' : 'shuffle-on')}
+                                        title={spotifyNowPlaying.shuffle ? 'Shuffle on' : 'Shuffle off'}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: spotifyNowPlaying.shuffle ? '#22c55e' : '#64748b', transition: 'color 160ms ease-out' }}>
+                                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+                                    </button>
+                                    <button onClick={() => { const next = spotifyNowPlaying.repeat === 'off' ? 'repeat-context' : spotifyNowPlaying.repeat === 'context' ? 'repeat-track' : 'repeat-off'; spotifyControl(next); }}
+                                        title={`Repeat: ${spotifyNowPlaying.repeat}`}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', position: 'relative', color: spotifyNowPlaying.repeat !== 'off' ? '#22c55e' : '#64748b', transition: 'color 160ms ease-out' }}>
+                                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 01-4 4H3"/></svg>
+                                        {spotifyNowPlaying.repeat === 'track' && <span style={{ position: 'absolute', top: '-2px', right: '-2px', fontSize: '8px', fontWeight: '800', color: '#22c55e', background: '#0a1428', borderRadius: '50%', width: '12px', height: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>1</span>}
+                                    </button>
+                                </div>
+                                {/* volume slider */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/></svg>
+                                    <input type="range" min="0" max="100" value={spotifyVolume}
+                                        onChange={e => spotifySetVolume(parseInt(e.target.value, 10))}
+                                        onMouseDown={() => { window._spotifyVolumeDragging = true; }}
+                                        onMouseUp={() => { window._spotifyVolumeDragging = false; }}
+                                        style={{ flex: 1, height: '4px', accentColor: '#22c55e', cursor: 'pointer' }} />
+                                    <span style={{ fontSize: '10px', fontFamily: 'monospace', color: '#64748b', minWidth: '28px', textAlign: 'right' }}>{spotifyVolume}%</span>
+                                </div>
+                                {/* playlists toggle */}
+                                <button onClick={() => { const next = !spotifyShowPlaylists; setSpotifyShowPlaylists(next); if (next && spotifyPlaylists.length === 0) spotifyLoadPlaylists(); }}
+                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '9px', borderRadius: '8px', background: spotifyShowPlaylists ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.04)', border: `1px solid ${spotifyShowPlaylists ? 'rgba(34,197,94,0.4)' : 'rgba(255,255,255,0.1)'}`, color: spotifyShowPlaylists ? '#4ade80' : '#94a3b8', fontSize: '11px', fontWeight: '700', letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 160ms ease-out' }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg>
+                                    {spotifyShowPlaylists ? 'Hide Playlists' : 'Browse Playlists'}
+                                </button>
+                                {/* playlist list */}
+                                {spotifyShowPlaylists && (
+                                    <div style={{ maxHeight: '220px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', animation: 'loginErrIn 0.25s cubic-bezier(0.23,1,0.32,1)' }}>
+                                        {spotifyLoadingPlaylists ? (
+                                            <div style={{ textAlign: 'center', padding: '16px', color: '#64748b', fontSize: '11px', fontFamily: 'monospace' }}>Loading playlists…</div>
+                                        ) : spotifyPlaylists.length === 0 ? (
+                                            <div style={{ textAlign: 'center', padding: '16px', color: '#64748b', fontSize: '11px', fontFamily: 'monospace' }}>No playlists found</div>
+                                        ) : spotifyPlaylists.map(pl => (
+                                            <div key={pl.id} onClick={() => spotifyPlayPlaylist(pl.uri)}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', transition: 'background 150ms ease-out' }}
+                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(34,197,94,0.1)'}
+                                                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}>
+                                                {pl.image ? <img src={pl.image} alt="" style={{ width: '34px', height: '34px', borderRadius: '5px', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: '34px', height: '34px', borderRadius: '5px', background: 'rgba(34,197,94,0.15)', flexShrink: 0 }} />}
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ color: '#e2e8f0', fontSize: '12px', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pl.name}</div>
+                                                    <div style={{ color: '#64748b', fontSize: '10px', fontFamily: 'monospace' }}>{pl.tracks} tracks</div>
+                                                </div>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="#22c55e" style={{ flexShrink: 0 }}><path d="M8 5v14l11-7L8 5z"/></svg>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
 
