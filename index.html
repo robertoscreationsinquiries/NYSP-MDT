@@ -2327,6 +2327,13 @@ const [loginFadingOut, setLoginFadingOut] = useState(false);
 // if the injection hasn't run (e.g. local-fallback boot).
 const [showSessionWarning, setShowSessionWarning] = useState(false);
 const [sessionCountdown, setSessionCountdown] = useState(0);
+
+// ── Custom alert/error popup QUEUE ──
+// Replaces the old imperative DOM-creating showCustomError. The function (defined below)
+// now pushes entries onto this queue; only the head entry renders. Dismiss → shift the
+// queue → next entry shows with a fresh timer.
+const [alertQueue, setAlertQueue] = useState([]);          // [{ id, title, message, isGood, durationSec }, ...]
+const [alertCountdown, setAlertCountdown] = useState(0);   // seconds remaining for the head entry
 const [loginUsername, setLoginUsername] = useState(() => localStorage.getItem('nysp_saved_username') || '');
 const [loginPassword, setLoginPassword] = useState(() => localStorage.getItem('nysp_saved_password') || '');
 const [loginError, setLoginError] = useState('');
@@ -5070,98 +5077,55 @@ if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
     
     setSavingSettings(false);
 };
-const showCustomError = (title, message, g_background = false) => {
-    const isGood = g_background === true;
-    const accent = isGood ? '#10b981' : '#ef4444';
-    const accentDim = isGood ? 'rgba(16,185,129,' : 'rgba(239,68,68,';
-    const icon = isGood ? '✅' : '⚠️';
-    const label = isGood ? 'SUCCESS' : 'SYSTEM ALERT';
-    const btnGrad = isGood
-        ? 'linear-gradient(135deg, #10b981, #059669)'
-        : 'linear-gradient(135deg, #ef4444, #dc2626)';
-    const btnShadow = isGood
-        ? '0 4px 16px rgba(16,185,129,0.35)'
-        : '0 4px 16px rgba(239,68,68,0.35)';
+// ════════════════════════════════════════════════════════════════════
+// Custom alert popup — queue-driven, matches the Session Expiration UI
+// ════════════════════════════════════════════════════════════════════
+// Public API (UNCHANGED for backward compat): showCustomError(title, message, isGood?, durationSec?)
+//   • title       — heading
+//   • message     — body text
+//   • isGood      — true → success styling (green), false/undefined → error styling (red)
+//   • durationSec — auto-dismiss after this many seconds; defaults to 15 if omitted
+//
+// Multiple calls queue. Only the head entry renders; dismissing it (button or auto-timer)
+// advances to the next and restarts that one's timer. The visual matches the Session
+// Expiration popup — same full-bleed dark-radial card, accent bar, monospace caps —
+// so all "important moment" dialogs feel like one family.
+const showCustomError = React.useCallback((title, message, isGood = false, durationSec) => {
+    const entry = {
+        id: Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+        title: title || '',
+        message: message || '',
+        isGood: isGood === true,
+        durationSec: (typeof durationSec === 'number' && durationSec > 0) ? Math.round(durationSec) : 15
+    };
+    setAlertQueue(q => [...q, entry]);
+}, []);
 
-    const errorOverlay = document.createElement('div');
-    errorOverlay.style.cssText = `
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.75);
-        backdrop-filter: blur(6px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 99999;
-    `;
+const dismissAlert = React.useCallback(() => {
+    setAlertQueue(q => q.slice(1));
+    setAlertCountdown(0); // the next-head effect below will set the new value
+}, []);
 
-    const errorBox = document.createElement('div');
-    if (visualEffects && !isGood) errorBox.className = 'shake-animation';
-    errorBox.style.cssText = `
-        background: linear-gradient(135deg, #0a0f1e 0%, #0f172a 60%, #1e1f2e 100%);
-        border-radius: 16px;
-        padding: 36px 40px;
-        max-width: 460px;
-        width: 90%;
-        text-align: center;
-        border: 1px solid ${accentDim}0.5);
-        box-shadow: 0 0 0 1px ${accentDim}0.1), 0 24px 60px rgba(0,0,0,0.7), 0 0 40px ${accentDim}0.08);
-        position: relative;
-        overflow: hidden;
-    `;
+// Whenever the head of the queue changes, restart the countdown with its duration.
+React.useEffect(() => {
+    if (alertQueue.length === 0) {
+        if (alertCountdown !== 0) setAlertCountdown(0);
+        return;
+    }
+    setAlertCountdown(alertQueue[0].durationSec);
+}, [alertQueue.length > 0 ? alertQueue[0].id : null]);   // re-run when head id changes
 
-    errorBox.innerHTML = `
-        <div style="position:absolute;top:-40%;right:-10%;width:50%;height:200%;background:radial-gradient(circle,${accentDim}0.06) 0%,transparent 70%);pointer-events:none;"></div>
-        <div style="
-            width: 56px; height: 56px;
-            background: ${accentDim}0.15);
-            border: 1px solid ${accentDim}0.4);
-            border-radius: 14px;
-            display: flex; align-items: center; justify-content: center;
-            margin: 0 auto 20px;
-            font-size: 26px;
-            box-shadow: 0 4px 20px ${accentDim}0.2);
-        ">${icon}</div>
-        <div style="
-            display: inline-block;
-            background: ${accentDim}0.1);
-            border: 1px solid ${accentDim}0.25);
-            border-radius: 4px;
-            padding: 2px 10px;
-            color: ${accent};
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            margin-bottom: 14px;
-        ">${label}</div>
-        <h2 style="color: #f1f5f9; font-size: 20px; font-weight: 800; margin-bottom: 10px; letter-spacing: 0.5px;">${title}</h2>
-        <p style="color: #64748b; font-size: 13px; margin-bottom: 28px; line-height: 1.7;">${message || ''}</p>
-        <button id="closeError" style="
-            padding: 11px 36px;
-            background: ${btnGrad};
-            color: white;
-            border: none;
-            border-radius: 9px;
-            font-size: 13px;
-            font-weight: 700;
-            cursor: pointer;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            box-shadow: ${btnShadow};
-            transition: all 0.2s;
-        ">DISMISS</button>
-    `;
+// Tick the head's countdown; auto-dismiss at zero.
+React.useEffect(() => {
+    if (alertQueue.length === 0) return;
+    if (alertCountdown <= 0) {
+        dismissAlert();
+        return;
+    }
+    const t = setTimeout(() => setAlertCountdown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+}, [alertQueue.length, alertCountdown, dismissAlert]);
 
-    errorOverlay.appendChild(errorBox);
-    document.body.appendChild(errorOverlay);
-
-    const closeBtn = errorBox.querySelector('#closeError');
-    closeBtn.onmouseenter = () => closeBtn.style.boxShadow = `0 6px 24px ${accentDim}0.55)`;
-    closeBtn.onmouseleave = () => closeBtn.style.boxShadow = btnShadow;
-    closeBtn.onclick = () => document.body.removeChild(errorOverlay);
-    errorOverlay.onclick = (e) => { if (e.target === errorOverlay) document.body.removeChild(errorOverlay); };
-};
 React.useEffect(() => {
     if (activeView === 'calls' && tokenSaved && selectedUserSession) {
         const loadCalls = async () => {
@@ -11265,6 +11229,150 @@ return (
                     onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-1px)'; }}
                 >
                     Continue Session
+                </button>
+            </div>
+        </div>
+    </>
+    );
+})()}
+
+{/* ────────────────────────────────────────────────────────── */}
+{/* CUSTOM ALERT POPUP — queue-driven, mirrors Session Expiration UI */}
+{/* ────────────────────────────────────────────────────────── */}
+{alertQueue.length > 0 && (() => {
+    const head = alertQueue[0];
+    const isGood = head.isGood === true;
+    const total = head.durationSec || 15;
+    const remaining = Math.max(0, alertCountdown);
+    const ratio = Math.max(0, Math.min(1, remaining / total));
+    // Palette swap is the *only* visual difference between success and error — same shape,
+    // same rhythm, just hue. Makes good news feel like a sibling to bad news instead of a
+    // wholly different dialog.
+    const accent = isGood ? '#22c55e' : '#ef4444';
+    const accentSoft = isGood ? '#86efac' : '#fca5a5';
+    const accentDeep = isGood ? '#15803d' : '#b91c1c';
+    const accentRgb = isGood ? '34,197,94' : '239,68,68';
+    const labelText = isGood ? 'Success' : 'Alert';
+    const queuedExtra = alertQueue.length - 1; // entries waiting behind this one
+    return (
+    <>
+        {/* Backdrop — same 45% black + light blur as session warning, click-swallowing */}
+        <div
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onContextMenu={(e) => e.preventDefault()}
+            style={{
+                position: 'fixed', inset: 0, zIndex: 100040,
+                background: 'rgba(0,0,0,0.45)',
+                backdropFilter: 'blur(2px)',
+                animation: 'fadeIn 200ms cubic-bezier(0.23,1,0.32,1)'
+            }}
+        />
+        <div
+            key={head.id}    /* remount per entry → fresh entry animation */
+            role="dialog" aria-modal="true"
+            style={{
+                position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                zIndex: 100041, width: 'min(560px, 92vw)',
+                background: 'radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 55%, #050a14 100%)',
+                border: `1px solid rgba(${accentRgb}, 0.35)`,
+                borderRadius: '20px',
+                boxShadow: `0 30px 90px rgba(0,0,0,0.65), 0 0 60px rgba(${accentRgb}, 0.12)`,
+                overflow: 'hidden',
+                animation: 'loginCardIn 0.32s cubic-bezier(0.23,1,0.32,1)'
+            }}
+        >
+            {/* Decorative layers — same vocabulary as session warning, recoloured by palette */}
+            <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(59,130,246,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.035) 1px, transparent 1px)', backgroundSize: '40px 40px', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: '-140px', left: '-110px', width: '380px', height: '380px', background: `radial-gradient(circle, rgba(${accentRgb}, 0.18) 0%, transparent 70%)`, pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', bottom: '-140px', right: '-110px', width: '360px', height: '360px', background: `radial-gradient(circle, rgba(${accentRgb}, 0.10) 0%, transparent 70%)`, pointerEvents: 'none', animation: 'heroDrift 9s ease-in-out infinite reverse' }} />
+            <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, rgba(56,189,248,0.025) 0px, rgba(56,189,248,0.025) 1px, transparent 1px, transparent 3px)', pointerEvents: 'none', opacity: 0.5 }} />
+
+            {/* Section heading + accent bar + queue badge */}
+            <div style={{ position: 'relative', padding: '24px 32px 12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '3px', height: '16px', background: accent, borderRadius: '2px', boxShadow: `0 0 10px ${accent}`, flexShrink: 0 }} />
+                <span style={{ color: accentSoft, fontSize: '11px', fontWeight: '700', letterSpacing: '2.5px', textTransform: 'uppercase', fontFamily: 'monospace' }}>
+                    {labelText}
+                </span>
+                <div style={{ flex: 1, height: '1px', background: `rgba(${accentRgb}, 0.12)` }} />
+                {queuedExtra > 0 && (
+                    <span title={`${queuedExtra} more queued`} style={{
+                        fontSize: '10px', fontFamily: 'monospace', fontWeight: '700', letterSpacing: '1px',
+                        color: accentSoft, background: `rgba(${accentRgb}, 0.12)`,
+                        border: `1px solid rgba(${accentRgb}, 0.3)`, borderRadius: '999px',
+                        padding: '3px 10px', flexShrink: 0
+                    }}>+{queuedExtra}</span>
+                )}
+            </div>
+
+            {/* Body */}
+            <div style={{ position: 'relative', padding: '6px 32px 4px', textAlign: 'center' }}>
+                {/* Icon — checkmark for success, exclamation for error. Distinct shape, not just colour. */}
+                <div style={{
+                    width: '56px', height: '56px', margin: '4px auto 14px',
+                    borderRadius: '14px',
+                    background: `linear-gradient(135deg, ${accent}, ${accentDeep})`,
+                    boxShadow: `0 8px 24px rgba(${accentRgb}, 0.45), inset 0 1px 0 rgba(255,255,255,0.18)`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                    {isGood ? (
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7" /></svg>
+                    ) : (
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                    )}
+                </div>
+
+                <h2 style={{
+                    color: '#fff', fontSize: 'clamp(22px, 3vw, 28px)', fontWeight: '800',
+                    letterSpacing: '0.4px', lineHeight: 1.15, margin: '4px 0 12px',
+                    textShadow: `0 2px 16px rgba(${accentRgb}, 0.3)`
+                }}>{head.title}</h2>
+
+                {head.message && (
+                    <p style={{
+                        color: '#cbd5e1', fontSize: '13.5px', lineHeight: 1.6,
+                        margin: '0 0 18px', maxWidth: '440px',
+                        marginLeft: 'auto', marginRight: 'auto',
+                        whiteSpace: 'pre-line'
+                    }}>{head.message}</p>
+                )}
+
+                {/* Slim countdown bar — no big numeric counter, this is a quick auto-dismiss
+                    indicator (not a high-stakes timer like the session warning). */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', maxWidth: '320px', margin: '0 auto 22px' }}>
+                    <span style={{ color: accentSoft, fontSize: '10px', fontFamily: 'monospace', fontWeight: '700', letterSpacing: '1.5px', minWidth: '24px', textAlign: 'right' }}>{remaining}s</span>
+                    <div style={{ flex: 1, height: '4px', background: 'rgba(7,12,24,0.7)', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{
+                            width: `${ratio * 100}%`, height: '100%',
+                            background: `linear-gradient(90deg, ${accent}, ${accentSoft})`,
+                            borderRadius: '4px',
+                            transition: 'width 1s linear',
+                            boxShadow: `0 0 8px rgba(${accentRgb}, 0.5)`
+                        }} />
+                    </div>
+                </div>
+            </div>
+
+            {/* Footer — single dismiss button, palette-tinted */}
+            <div style={{ position: 'relative', padding: '0 32px 24px' }}>
+                <button
+                    autoFocus
+                    onClick={dismissAlert}
+                    style={{
+                        width: '100%', padding: '13px', borderRadius: '10px',
+                        background: `linear-gradient(135deg, ${accent}, ${accentDeep})`,
+                        border: 'none', color: '#fff',
+                        fontSize: '12px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase',
+                        cursor: 'pointer',
+                        boxShadow: `0 8px 24px rgba(${accentRgb}, 0.4)`,
+                        transition: 'box-shadow 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)'
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 10px 32px rgba(${accentRgb}, 0.6)`; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.boxShadow = `0 8px 24px rgba(${accentRgb}, 0.4)`; e.currentTarget.style.transform = 'translateY(0)'; }}
+                    onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.98)'; }}
+                    onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                >
+                    {queuedExtra > 0 ? `Dismiss · Next (${queuedExtra})` : 'Dismiss'}
                 </button>
             </div>
         </div>
