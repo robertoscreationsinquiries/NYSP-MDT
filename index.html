@@ -606,6 +606,13 @@ body::before {
 }
 .login-spin { animation: spin 0.7s linear infinite; }
 
+/* Countdown tick — subtle scale/opacity pulse synced to each second of the session warning */
+@keyframes countdownPulse {
+    0%   { transform: scale(1.04); opacity: 0.85; }
+    35%  { transform: scale(1);    opacity: 1; }
+    100% { transform: scale(1);    opacity: 1; }
+}
+
 /* Invalid-input shake — horizontal jitter, sharp easing for a tactile 'no' */
 @keyframes loginShake {
     0%, 100% { transform: translateX(0); }
@@ -2314,6 +2321,12 @@ const [isRecordingMicHotkey, setIsRecordingMicHotkey] = useState(false);
 // ══════════════════════════════════════════════════════════════════════════
 const [showLoginScreen, setShowLoginScreen] = useState(true);
 const [loginFadingOut, setLoginFadingOut] = useState(false);
+
+// ── Session-expiration warning state ──
+// Config comes from main-remote.js via window.SESSION_* (seconds). Sensible fallbacks
+// if the injection hasn't run (e.g. local-fallback boot).
+const [showSessionWarning, setShowSessionWarning] = useState(false);
+const [sessionCountdown, setSessionCountdown] = useState(0);
 const [loginUsername, setLoginUsername] = useState(() => localStorage.getItem('nysp_saved_username') || '');
 const [loginPassword, setLoginPassword] = useState(() => localStorage.getItem('nysp_saved_password') || '');
 const [loginError, setLoginError] = useState('');
@@ -10985,6 +10998,154 @@ return (
         </div>
     </div>
 )}
+
+{/* ────────────────────────────────────────────────────────── */}
+{/* SESSION EXPIRATION WARNING — full-screen modal, blocks input */}
+{/* ────────────────────────────────────────────────────────── */}
+{showSessionWarning && (() => {
+    const total = (typeof window !== 'undefined' && window.SESSION_WARNING_COUNTDOWN_SECONDS) || 30;
+    const remaining = Math.max(0, sessionCountdown);
+    const ratio = Math.max(0, Math.min(1, remaining / total));
+    const urgent = remaining <= Math.max(5, Math.ceil(total * 0.25));   // last quarter or 5s
+    const mm = String(Math.floor(remaining / 60)).padStart(1, '0');
+    const ss = String(remaining % 60).padStart(2, '0');
+    return (
+    <>
+        {/* Backdrop: 45% black, catches & swallows all clicks/keys behind the popup */}
+        <div
+            onClick={(e) => { e.stopPropagation(); }}
+            onMouseDown={(e) => { e.stopPropagation(); }}
+            onContextMenu={(e) => { e.preventDefault(); }}
+            style={{
+                position: 'fixed', inset: 0, zIndex: 100050,
+                background: 'rgba(0,0,0,0.45)',
+                backdropFilter: 'blur(2px)',
+                animation: 'fadeIn 200ms cubic-bezier(0.23,1,0.32,1)'
+            }}
+        />
+
+        {/* Popup */}
+        <div role="dialog" aria-modal="true" aria-labelledby="session-warning-title"
+            style={{
+                position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                zIndex: 100051, width: 'min(620px, 92vw)',
+                background: 'radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 55%, #050a14 100%)',
+                border: '1px solid rgba(59,130,246,0.35)',
+                borderRadius: '20px',
+                boxShadow: '0 30px 90px rgba(0,0,0,0.65), 0 0 60px rgba(56,189,248,0.12)',
+                overflow: 'hidden',
+                animation: 'loginCardIn 0.35s cubic-bezier(0.23,1,0.32,1)'
+            }}
+        >
+            {/* Decorative layers — same vocabulary as the login hero */}
+            <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(59,130,246,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.035) 1px, transparent 1px)', backgroundSize: '40px 40px', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: '-160px', left: '-120px', width: '420px', height: '420px', background: 'radial-gradient(circle, rgba(37,99,235,0.22) 0%, transparent 70%)', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', bottom: '-160px', right: '-120px', width: '400px', height: '400px', background: 'radial-gradient(circle, rgba(56,189,248,0.14) 0%, transparent 70%)', pointerEvents: 'none', animation: 'heroDrift 9s ease-in-out infinite reverse' }} />
+            <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, rgba(56,189,248,0.025) 0px, rgba(56,189,248,0.025) 1px, transparent 1px, transparent 3px)', pointerEvents: 'none', opacity: 0.6 }} />
+
+            {/* Top section heading + accent bar */}
+            <div style={{ position: 'relative', padding: '28px 36px 14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '3px', height: '18px', background: urgent ? '#ef4444' : '#38bdf8', borderRadius: '2px', boxShadow: `0 0 10px ${urgent ? '#ef4444' : '#38bdf8'}`, flexShrink: 0, transition: 'background 250ms ease-out, box-shadow 250ms ease-out' }} />
+                <span style={{ color: urgent ? '#fca5a5' : '#94a3b8', fontSize: '11px', fontWeight: '700', letterSpacing: '2.5px', textTransform: 'uppercase', fontFamily: 'monospace', transition: 'color 250ms ease-out' }}>
+                    {urgent ? 'Session Expiring' : 'Inactivity Detected'}
+                </span>
+                <div style={{ flex: 1, height: '1px', background: 'rgba(56,189,248,0.1)' }} />
+            </div>
+
+            {/* Body */}
+            <div style={{ position: 'relative', padding: '4px 36px 8px', textAlign: 'center' }}>
+                <h2 id="session-warning-title" style={{
+                    color: '#fff', fontSize: 'clamp(28px, 4vw, 38px)', fontWeight: '800', letterSpacing: '0.5px',
+                    textTransform: 'uppercase', lineHeight: 1.05, margin: '8px 0 14px',
+                    textShadow: '0 2px 16px rgba(37,99,235,0.35)'
+                }}>
+                    Wake Up!
+                </h2>
+                <p style={{ color: '#cbd5e1', fontSize: '14px', lineHeight: 1.55, margin: '0 0 22px', maxWidth: '460px', marginLeft: 'auto', marginRight: 'auto' }}>
+                    Your session will expire if you do not respond. Choose to continue your session or log out now.
+                </p>
+
+                {/* Big countdown */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', margin: '8px 0 26px' }}>
+                    <div style={{ color: urgent ? '#fca5a5' : '#7dd3fc', fontSize: '10px', fontWeight: '700', letterSpacing: '2.5px', textTransform: 'uppercase', fontFamily: 'monospace', transition: 'color 250ms ease-out' }}>
+                        Auto Logout In
+                    </div>
+                    <div
+                        key={remaining}   // re-trigger pulse each tick
+                        style={{
+                            fontFamily: 'monospace', fontSize: 'clamp(64px, 10vw, 96px)', fontWeight: '900',
+                            lineHeight: 1, letterSpacing: '2px',
+                            color: urgent ? '#fca5a5' : '#fff',
+                            textShadow: urgent
+                                ? '0 0 30px rgba(239,68,68,0.6), 0 4px 24px rgba(0,0,0,0.5)'
+                                : '0 0 30px rgba(56,189,248,0.45), 0 4px 24px rgba(0,0,0,0.5)',
+                            transition: 'color 250ms ease-out, text-shadow 250ms ease-out',
+                            animation: 'countdownPulse 1s cubic-bezier(0.23,1,0.32,1)'
+                        }}
+                    >
+                        {mm}:{ss}
+                    </div>
+
+                    {/* Progress bar — shrinks as time runs out */}
+                    <div style={{ width: '320px', maxWidth: '70vw', height: '5px', background: 'rgba(7,12,24,0.7)', borderRadius: '4px', overflow: 'hidden', marginTop: '4px' }}>
+                        <div style={{
+                            width: `${ratio * 100}%`, height: '100%',
+                            background: urgent
+                                ? 'linear-gradient(90deg, #ef4444, #f87171)'
+                                : 'linear-gradient(90deg, #2563eb, #38bdf8)',
+                            borderRadius: '4px',
+                            transition: 'width 1s linear, background 250ms ease-out',
+                            boxShadow: urgent ? '0 0 12px rgba(239,68,68,0.55)' : '0 0 10px rgba(56,189,248,0.45)'
+                        }} />
+                    </div>
+                </div>
+            </div>
+
+            {/* Footer actions */}
+            <div style={{ position: 'relative', padding: '0 36px 28px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <button
+                    onClick={() => { dismissSessionWarning(); handleLogout(); }}
+                    style={{
+                        padding: '14px', borderRadius: '10px',
+                        background: 'transparent',
+                        border: '1px solid rgba(248,113,113,0.4)',
+                        color: '#fca5a5',
+                        fontSize: '12px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase',
+                        cursor: 'pointer',
+                        transition: 'background 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)'
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)'; e.currentTarget.style.borderColor = 'rgba(248,113,113,0.7)'; e.currentTarget.style.color = '#fee2e2'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(248,113,113,0.4)'; e.currentTarget.style.color = '#fca5a5'; }}
+                    onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.98)'; }}
+                    onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+                >
+                    Log Out Now
+                </button>
+                <button
+                    autoFocus
+                    onClick={dismissSessionWarning}
+                    style={{
+                        padding: '14px', borderRadius: '10px',
+                        background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                        border: 'none',
+                        color: '#fff',
+                        fontSize: '12px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase',
+                        cursor: 'pointer',
+                        boxShadow: '0 8px 24px rgba(59,130,246,0.4)',
+                        transition: 'box-shadow 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)'
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 10px 32px rgba(59,130,246,0.6)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(59,130,246,0.4)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                    onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.98)'; }}
+                    onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                >
+                    Continue Session
+                </button>
+            </div>
+        </div>
+    </>
+    );
+})()}
 
 {!maintenanceActive && !showUpdateScreen && !showLoginScreen && !showLoader && (
         <div className="app-container">
