@@ -14,8 +14,8 @@ console.log('[REMOTE] main-remote.js executing...');
 // SESSION_WARNING_COUNTDOWN_SECONDS: once the popup is showing, how many seconds the
 //   countdown runs before the user is automatically logged out.
 // Both are injected into the renderer as window.SESSION_* below (see buildScript).
-const SESSION_INACTIVITY_SECONDS = 150;          // 5 minutes idle → warning appears
-const SESSION_WARNING_COUNTDOWN_SECONDS = 30;    // 30s countdown → auto logout
+const SESSION_INACTIVITY_SECONDS = 900;          // 15 minutes idle → warning appears
+const SESSION_WARNING_COUNTDOWN_SECONDS = 150;    // 30s countdown → auto logout
 
 // Defense-in-depth: catch any unhandled errors from async callbacks in this process
 // (e.g. HTTP parse errors from libraries) so they don't crash the renderer.
