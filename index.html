@@ -10292,6 +10292,131 @@ const handleLogout = () => {
 };
 
 
+// ════════════════════════════════════════════════════════════════════
+// SESSION EXPIRATION WARNING — inactivity detection + countdown
+// ════════════════════════════════════════════════════════════════════
+// All criteria that must hold for the warning to actually fire:
+//   1. User must be PAST login/loader (not on login/loader/maintenance/update screen)
+//   2. No 'activity event' fires during the idle window:
+//        - mousedown, keydown, wheel, touchstart, focus  → reset timer
+//        - mousemove → reset timer ONLY if cursor moved >40px since last reset
+//          (prevents micro-jitter / hand-on-mouse from blocking the timer forever)
+//   3. The warning isn't already showing (activity is ignored while popup is up,
+//      so accidental movement near zero can't silently rescue the session)
+// Timings come from window.SESSION_INACTIVITY_SECONDS / window.SESSION_WARNING_COUNTDOWN_SECONDS
+// (injected by main-remote.js). Fallbacks of 300 / 30 if those didn't inject.
+const SESSION_LOG = (...args) => console.log('[SESSION]', ...args);
+
+const dismissSessionWarning = React.useCallback(() => {
+    SESSION_LOG('Warning dismissed — session continued by user');
+    setShowSessionWarning(false);
+    setSessionCountdown(0);
+}, []);
+
+// 1) Idle watcher — any qualifying activity resets the timer.
+React.useEffect(() => {
+    const gateLogin = showLoginScreen;
+    const gateLoader = showLoader;
+    const gateMaint = maintenanceActive;
+    const gateUpdate = showUpdateScreen;
+
+    SESSION_LOG('Idle watcher effect ran. Gates:', { gateLogin, gateLoader, gateMaint, gateUpdate, alreadyWarning: showSessionWarning });
+
+    if (gateLogin || gateLoader || gateMaint || gateUpdate) {
+        SESSION_LOG('Watcher DISARMED — user is on a gating screen (login/loader/maintenance/update)');
+        return;
+    }
+    if (showSessionWarning) {
+        SESSION_LOG('Watcher DISARMED — warning popup is already showing (countdown effect is in charge)');
+        return;
+    }
+
+    const idleSeconds = (typeof window !== 'undefined' && window.SESSION_INACTIVITY_SECONDS) || 300;
+    const usingFallback = !(typeof window !== 'undefined' && window.SESSION_INACTIVITY_SECONDS);
+    SESSION_LOG(`Watcher ARMED — idle threshold: ${idleSeconds}s${usingFallback ? ' (FALLBACK — main-remote.js did not inject; push main-remote.js to GitHub)' : ''}`);
+    if (typeof window !== 'undefined' && window.SOUNDS && !window.SOUNDS.clientSessionExpirationWarning) {
+        SESSION_LOG('⚠️ Sound `clientSessionExpirationWarning` not in window.SOUNDS — push main-remote.js AND upload clientSessionExpirationWarning.mp3 to the repo root');
+    }
+
+    let idleTimer = null;
+    let lastMouseX = -9999, lastMouseY = -9999;
+    const MOUSE_MOVE_THRESHOLD_PX = 40;   // require ≥40px movement to count as activity
+    let activityCount = 0;
+    let lastResetAt = Date.now();
+
+    const armTimer = (reason) => {
+        if (idleTimer) clearTimeout(idleTimer);
+        lastResetAt = Date.now();
+        idleTimer = setTimeout(() => {
+            const countdownStart = (typeof window !== 'undefined' && window.SESSION_WARNING_COUNTDOWN_SECONDS) || 30;
+            SESSION_LOG(`⏰ IDLE EXPIRED — firing warning. Countdown ${countdownStart}s. Activity resets during this window: ${activityCount}`);
+            setSessionCountdown(countdownStart);
+            setShowSessionWarning(true);
+            try {
+                if (window.SOUNDS && window.SOUNDS.clientSessionExpirationWarning) {
+                    SESSION_LOG('🔊 Playing clientSessionExpirationWarning sound');
+                    const audio = new Audio(window.SOUNDS.clientSessionExpirationWarning);
+                    audio.volume = 0.6;
+                    audio.play().catch(err => SESSION_LOG('Sound playback blocked:', err?.message));
+                } else {
+                    SESSION_LOG('🔇 No sound played — window.SOUNDS.clientSessionExpirationWarning is missing');
+                }
+            } catch (e) { SESSION_LOG('Sound error:', e?.message); }
+        }, idleSeconds * 1000);
+        SESSION_LOG(`Timer (re)armed for ${idleSeconds}s — reason: ${reason}`);
+    };
+
+    const onActivity = (e) => {
+        // mousemove gets the threshold treatment — micro-movements (hand on mouse) shouldn't
+        // count. All other events are real intent and always reset.
+        if (e.type === 'mousemove') {
+            const dx = Math.abs(e.clientX - lastMouseX);
+            const dy = Math.abs(e.clientY - lastMouseY);
+            if (lastMouseX === -9999 || dx > MOUSE_MOVE_THRESHOLD_PX || dy > MOUSE_MOVE_THRESHOLD_PX) {
+                lastMouseX = e.clientX; lastMouseY = e.clientY;
+                activityCount++;
+                armTimer(`mousemove Δ${Math.max(dx, dy)}px`);
+            }
+            return;
+        }
+        activityCount++;
+        armTimer(e.type);
+    };
+
+    const events = ['mousedown', 'mousemove', 'keydown', 'wheel', 'touchstart', 'focus'];
+    events.forEach(ev => window.addEventListener(ev, onActivity, { passive: true }));
+    armTimer('initial arm');
+
+    // Heartbeat diagnostic — every 10s log how much idle time remains. Helps confirm
+    // the timer isn't being constantly reset by hidden activity.
+    const heartbeat = setInterval(() => {
+        const elapsedSec = Math.floor((Date.now() - lastResetAt) / 1000);
+        const remainSec = Math.max(0, idleSeconds - elapsedSec);
+        SESSION_LOG(`heartbeat: ${remainSec}s until warning (elapsed ${elapsedSec}s, ${activityCount} activity resets total)`);
+    }, 10000);
+
+    return () => {
+        SESSION_LOG('Watcher cleanup — removing listeners and clearing timer');
+        if (idleTimer) clearTimeout(idleTimer);
+        clearInterval(heartbeat);
+        events.forEach(ev => window.removeEventListener(ev, onActivity));
+    };
+}, [showLoginScreen, showLoader, maintenanceActive, showUpdateScreen, showSessionWarning]);
+
+// 2) Countdown ticker — runs only while the warning is visible. At zero → auto logout.
+React.useEffect(() => {
+    if (!showSessionWarning) return;
+    if (sessionCountdown <= 0) {
+        SESSION_LOG('⛔ Countdown reached zero — auto-logging out');
+        dismissSessionWarning();
+        handleLogout();
+        return;
+    }
+    SESSION_LOG(`countdown tick: ${sessionCountdown}s remaining`);
+    const t = setTimeout(() => setSessionCountdown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+}, [showSessionWarning, sessionCountdown, dismissSessionWarning]);
+
 
 // Auto-set department based on trooper settings
 
