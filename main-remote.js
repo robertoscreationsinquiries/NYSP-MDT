@@ -6,6 +6,17 @@
 
 console.log('[REMOTE] main-remote.js executing...');
 
+// ════════════════════════════════════════════════════════════
+// SESSION EXPIRATION WARNING — configurable timings (in SECONDS)
+// ════════════════════════════════════════════════════════════
+// SESSION_INACTIVITY_SECONDS: how long the user can be inactive (no key/mouse/tab
+//   activity inside the app) before the "Wake up!" warning popup appears.
+// SESSION_WARNING_COUNTDOWN_SECONDS: once the popup is showing, how many seconds the
+//   countdown runs before the user is automatically logged out.
+// Both are injected into the renderer as window.SESSION_* below (see buildScript).
+const SESSION_INACTIVITY_SECONDS = 150;          // 5 minutes idle → warning appears
+const SESSION_WARNING_COUNTDOWN_SECONDS = 30;    // 30s countdown → auto logout
+
 // Defense-in-depth: catch any unhandled errors from async callbacks in this process
 // (e.g. HTTP parse errors from libraries) so they don't crash the renderer.
 process.on('uncaughtException', (err) => {
@@ -706,7 +717,7 @@ if (USE_LOCAL_INDEX) {
 
     // Build sounds script directly from branch URL (same as original main.js)
     const GITHUB_SOUNDS_BASE = `https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH_ENCODED}`;
-    const soundsScript = `window.SOUNDS = { panicAlarm: '${GITHUB_SOUNDS_BASE}/panicAlarm.mp3', platePass: '${GITHUB_SOUNDS_BASE}/platePass.mp3', plateFail: '${GITHUB_SOUNDS_BASE}/plateFail.mp3', callAlert: '${GITHUB_SOUNDS_BASE}/CallIncoming.mp3', warrantAlert: '${GITHUB_SOUNDS_BASE}/warrantAlert.mp3', StartupSFX: '${GITHUB_SOUNDS_BASE}/StartupSFX.mp3', LoginAccessDenied: '${GITHUB_SOUNDS_BASE}/LoginAccessDenied.mp3', LoginIncorrect: '${GITHUB_SOUNDS_BASE}/LoginIncorrect.mp3', LoginPageCorrect: '${GITHUB_SOUNDS_BASE}/LoginPageCorrect.mp3', MIC_ACTIVESFX: '${GITHUB_SOUNDS_BASE}/MIC_ACTIVESFX.mp3', MIC_INACTIVESFX: '${GITHUB_SOUNDS_BASE}/MIC_INACTIVESFX.mp3', MIC_NOTAVAILABLESFX: '${GITHUB_SOUNDS_BASE}/MIC_NOTAVAILABLESFX.mp3', noCitizenSFX: '${GITHUB_SOUNDS_BASE}/noCitizenSFX.mp3' }; window.SOUNDS_BASE64 = window.SOUNDS; console.log('[SOUNDS] Ready from branch ${GITHUB_BRANCH}! Keys:', Object.keys(window.SOUNDS).join(', '));`;
+    const soundsScript = `window.SOUNDS = { panicAlarm: '${GITHUB_SOUNDS_BASE}/panicAlarm.mp3', platePass: '${GITHUB_SOUNDS_BASE}/platePass.mp3', plateFail: '${GITHUB_SOUNDS_BASE}/plateFail.mp3', callAlert: '${GITHUB_SOUNDS_BASE}/CallIncoming.mp3', warrantAlert: '${GITHUB_SOUNDS_BASE}/warrantAlert.mp3', StartupSFX: '${GITHUB_SOUNDS_BASE}/StartupSFX.mp3', LoginAccessDenied: '${GITHUB_SOUNDS_BASE}/LoginAccessDenied.mp3', LoginIncorrect: '${GITHUB_SOUNDS_BASE}/LoginIncorrect.mp3', LoginPageCorrect: '${GITHUB_SOUNDS_BASE}/LoginPageCorrect.mp3', MIC_ACTIVESFX: '${GITHUB_SOUNDS_BASE}/MIC_ACTIVESFX.mp3', MIC_INACTIVESFX: '${GITHUB_SOUNDS_BASE}/MIC_INACTIVESFX.mp3', MIC_NOTAVAILABLESFX: '${GITHUB_SOUNDS_BASE}/MIC_NOTAVAILABLESFX.mp3', noCitizenSFX: '${GITHUB_SOUNDS_BASE}/noCitizenSFX.mp3', clientSessionExpirationWarning: '${GITHUB_SOUNDS_BASE}/clientSessionExpirationWarning.mp3' }; window.SOUNDS_BASE64 = window.SOUNDS; console.log('[SOUNDS] Ready from branch ${GITHUB_BRANCH}! Keys:', Object.keys(window.SOUNDS).join(', '));`;
 
     Promise.all([
         // SHA for display
@@ -760,7 +771,7 @@ if (USE_LOCAL_INDEX) {
             window.SETTINGS_FILE_CONTENT = ${JSON.stringify(settings)};
             console.log('[PRELOAD] Settings injected BEFORE React loads');
         </script>`;
-        const buildScript = `<script>window.APP_COMMIT_SHA = '${commitSha}'; window.APP_GITHUB_BRANCH = '${GITHUB_BRANCH}';</script>`;
+        const buildScript = `<script>window.APP_COMMIT_SHA = '${commitSha}'; window.APP_GITHUB_BRANCH = '${GITHUB_BRANCH}'; window.SESSION_INACTIVITY_SECONDS = ${SESSION_INACTIVITY_SECONDS}; window.SESSION_WARNING_COUNTDOWN_SECONDS = ${SESSION_WARNING_COUNTDOWN_SECONDS};</script>`;
 
         html = html.replace('</head>', settingsScript + buildScript + '</head>');
         fs.writeFileSync(tempHtml, html, 'utf8');
