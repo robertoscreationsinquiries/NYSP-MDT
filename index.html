@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NY Law Enforcements CAD</title>
+    <title>NY Law Enforcements MDT</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -605,6 +605,13 @@ body::before {
     to   { opacity: 1; transform: translateY(0); }
 }
 .login-spin { animation: spin 0.7s linear infinite; }
+
+/* Pursuit Mode indicator — gentle breathing glow so the user keeps seeing it without
+   the pill turning into a strobe. */
+@keyframes pursuitPulse {
+    0%, 100% { box-shadow: 0 0 14px rgba(245,158,11,0.35); }
+    50%      { box-shadow: 0 0 22px rgba(245,158,11,0.65); }
+}
 
 /* Countdown tick — subtle scale/opacity pulse synced to each second of the session warning */
 @keyframes countdownPulse {
@@ -2202,6 +2209,20 @@ const [panicTriggerMode, setPanicTriggerMode] = useState('HOLD'); // 'HOLD' or '
 const [panicTriggerModeDraft, setPanicTriggerModeDraft] = useState('HOLD');
 React.useEffect(() => { panicEnabledRef.current = panicEnabled; }, [panicEnabled]);
 
+// ── Pursuit Mode state ──
+// pursuitEnabled = the SETTING toggle (the user can use pursuit mode at all)
+// pursuitActive  = the LIVE state (whether pursuit mode is currently on RIGHT NOW)
+// Refs mirror the live state so the global-shortcut handler (which is bound once with
+// stale closure state) can read the current value without re-binding on every change.
+const [pursuitEnabled, setPursuitEnabled] = useState(false);
+const [pursuitHotkey, setPursuitHotkey] = useState('');
+const [pursuitHotkeyDraft, setPursuitHotkeyDraft] = useState('');
+const [pursuitActive, setPursuitActive] = useState(false);
+const pursuitEnabledRef = React.useRef(false);
+const pursuitActiveRef = React.useRef(false);
+React.useEffect(() => { pursuitEnabledRef.current = pursuitEnabled; }, [pursuitEnabled]);
+React.useEffect(() => { pursuitActiveRef.current = pursuitActive; }, [pursuitActive]);
+
 // Department theme injection
 React.useEffect(() => {
     const dept = trooperSettings?.Department || selectedDepartment;
@@ -2536,6 +2557,13 @@ if (trimmedLine.startsWith('PANIC_ENABLED=')) {
 if (trimmedLine.startsWith('PANIC_HOTKEY=')) {
     const val = trimmedLine.split('=')[1]?.trim();
     if (val) { setPanicHotkey(val); setPanicHotkeyDraft(val); }
+}
+if (trimmedLine.startsWith('PURSUIT_ENABLED=')) {
+    setPursuitEnabled(trimmedLine.split('=')[1]?.trim() === 'TRUE');
+}
+if (trimmedLine.startsWith('PURSUIT_HOTKEY=')) {
+    const val = trimmedLine.split('=')[1]?.trim();
+    if (val) { setPursuitHotkey(val); setPursuitHotkeyDraft(val); }
 }
 if (trimmedLine.startsWith('PANIC_TRIGGER_MODE=')) {
     const val = trimmedLine.split('=')[1]?.trim();
@@ -3066,7 +3094,7 @@ useEffect(() => {
                 const severity = status === 'outage'
                     ? 'is currently experiencing a service outage'
                     : 'is currently experiencing degraded performance';
-                const msg = `⚠ SERVICE ALERT: ${name} ${severity}. Some CAD features may be unavailable or unstable. Please stand by.`;
+                const msg = `⚠ SERVICE ALERT: ${name} ${severity}. Some MDT features may be unavailable or unstable. Please stand by.`;
                 window[`__serviceMsg_${key}`] = msg;
                 window.LIVEANNOUNCEMENTS = { ...(window.LIVEANNOUNCEMENTS || {}), [announcementKey]: msg };
                 setLiveAnnouncements(prev => ({ ...prev, [announcementKey]: msg }));
@@ -4197,6 +4225,12 @@ React.useEffect(() => {
                 }
             }
         }
+        // ── Pursuit Mode toggle ──
+        // Single keypress flips the state. Ref read because this listener was bound
+        // with stale state; ref always reflects the latest.
+        if (id === 'pursuit-trigger' && pursuitEnabledRef.current) {
+            togglePursuitMode();
+        }
     });
     return () => window.electron?.removeAllListeners?.('global-shortcut-fired');
 }, [micHotkey, voiceActive, useMicrophone, loading, searchCooldown, voiceCooldown, activeView, keybindsRequireFocus]);
@@ -4323,7 +4357,7 @@ const FAQ_DATA = [
 
 const updateLogsData = [
     {
-        title: "CAD SYSTEM - BOLO addons, and much more!",
+        title: "MDT SYSTEM - BOLO addons, and much more!",
         version: "0.2.0",
         release_date: "04/08/2026",
         description: "Additions to the current BOLO system alongside extra content!",
@@ -4978,6 +5012,8 @@ MIC_HOTKEY=${micHotkey || ''}
 PANIC_ENABLED=${panicEnabled ? 'TRUE' : 'FALSE'}
 PANIC_HOTKEY=${panicHotkey || ''}
 PANIC_TRIGGER_MODE=${panicTriggerMode || 'HOLD'}
+PURSUIT_ENABLED=${pursuitEnabled ? 'TRUE' : 'FALSE'}
+PURSUIT_HOTKEY=${pursuitHotkey || ''}
 PHONETIC_MODE=${phoneticMode || 'POLICE'}
 ACKNOWLEDGE_KEYBIND=${acknowledgeKeybind || ''}
 ESC_TO_HOME=${escToHome ? 'TRUE' : 'FALSE'}
@@ -5022,6 +5058,8 @@ if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
                     if (key === 'PANIC_ENABLED') setPanicEnabled(val === 'TRUE');
                     if (key === 'PANIC_HOTKEY') { setPanicHotkey(val); setPanicHotkeyDraft(val); }
                     if (key === 'PANIC_TRIGGER_MODE') { setPanicTriggerMode(val); setPanicTriggerModeDraft(val); }
+                    if (key === 'PURSUIT_ENABLED') setPursuitEnabled(val === 'TRUE');
+                    if (key === 'PURSUIT_HOTKEY') { setPursuitHotkey(val); setPursuitHotkeyDraft(val); }
                     if (key === 'PHONETIC_MODE') setPhoneticMode(val);
                     if (key === 'MIC_DEVICE') setSelectedMicDevice(val);
                     if (key === 'SFX_MIC_ACTIVE') setSoundSettings(prev => ({ ...prev, MicActive: val === 'TRUE' }));
@@ -5231,7 +5269,13 @@ const playAlertSound = () => {
     console.log('[SOUND] soundSettings.callAlert:', soundSettings.callAlert);
     console.log('[SOUND] activeAlertAudioRef.current exists:', !!activeAlertAudioRef.current);
     console.log('[SOUND] activeAlertAudioRef.current paused:', activeAlertAudioRef.current ? activeAlertAudioRef.current.paused : 'N/A');
-    
+
+    // ── Pursuit mode hard-mute: refuse to play call alerts at all while pursuing.
+    if (pursuitActiveRef.current) {
+        console.log('[SOUND] 🚧 Pursuit Mode active — call alert suppressed');
+        return;
+    }
+
     if (!soundSettings.callAlert) {
         console.log('[SOUND] ⚠️ Sound disabled in settings, skipping');
         return;
@@ -5726,6 +5770,87 @@ React.useEffect(() => {
         window.electron?.ipcRenderer?.invoke('register-panic-shortcut', { key: null });
     };
 }, [panicEnabled, panicHotkey, panicTriggerMode, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey, panicCooldownUntil]);
+
+// ══════════════════════════════════════════════════════════════════
+// PURSUIT MODE — toggle handler, registration effect, sound + alert
+// ══════════════════════════════════════════════════════════════════
+// togglePursuitMode flips state, plays the appropriate sound, kills any in-flight
+// call alert (when activating), and pushes a success alert via showCustomError.
+// It's defined with useCallback so the global-shortcut handler's reference stays
+// stable across renders — though that handler actually reads via the ref pattern,
+// the callback shape is still cleaner this way.
+const togglePursuitMode = React.useCallback(() => {
+    const turningOn = !pursuitActiveRef.current;
+    setPursuitActive(turningOn);
+    if (turningOn) {
+        // Activating: stop any currently-playing call alert immediately. Don't wait
+        // for the next render — grab the ref and pause synchronously.
+        if (activeAlertAudioRef.current) {
+            try {
+                activeAlertAudioRef.current.pause();
+                activeAlertAudioRef.current.currentTime = 0;
+            } catch (_) {}
+            activeAlertAudioRef.current = null;
+            console.log('[PURSUIT] Killed in-flight call alert');
+        }
+        try {
+            if (window.SOUNDS && window.SOUNDS.PursuitModeActive) {
+                const a = new Audio(window.SOUNDS.PursuitModeActive);
+                a.volume = 0.6;
+                a.play().catch(() => {});
+            }
+        } catch (_) {}
+        showCustomError(
+            'YOU ARE NOW IN PURSUIT MODE.',
+            'Calls have been muted and you will not receive any notifications from CAD. You can disable this by pressing your selected hotkeys.',
+            true,   // isGood (green)
+            20      // 20s auto-dismiss
+        );
+        addLog('🚨 PURSUIT MODE ACTIVATED', 'info');
+    } else {
+        try {
+            if (window.SOUNDS && window.SOUNDS.PursuitModeNotActive) {
+                const a = new Audio(window.SOUNDS.PursuitModeNotActive);
+                a.volume = 0.6;
+                a.play().catch(() => {});
+            }
+        } catch (_) {}
+        showCustomError(
+            'YOU NO LONGER IN PURSUIT MODE.',
+            'Calls have been unmuted and you will now receive notifications.',
+            true,
+            20
+        );
+        addLog('✅ Pursuit Mode deactivated', 'info');
+    }
+}, [showCustomError, addLog]);
+
+// Register / unregister the pursuit hotkey with the OS global shortcut.
+// requireFocus is honoured per the user's "Only Fire When App is Focused" setting,
+// just like the mic hotkey — that's why the 🖥️ emoji appears in the description.
+React.useEffect(() => {
+    if (pursuitEnabled && pursuitHotkey && !isRecordingKeybind && !isRecordingMicHotkey) {
+        window.electron?.ipcRenderer?.invoke('register-pursuit-shortcut', {
+            key: pursuitHotkey,
+            requireFocus: keybindsRequireFocus
+        });
+    } else {
+        window.electron?.ipcRenderer?.invoke('register-pursuit-shortcut', { key: null });
+    }
+    return () => {
+        window.electron?.ipcRenderer?.invoke('register-pursuit-shortcut', { key: null });
+    };
+}, [pursuitEnabled, pursuitHotkey, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey]);
+
+// Disable-the-setting safeguard: if the user turns off the Pursuit Mode toggle while
+// pursuit is currently active, deactivate it immediately so they don't get stuck muted.
+React.useEffect(() => {
+    if (!pursuitEnabled && pursuitActive) {
+        setPursuitActive(false);
+        addLog('Pursuit Mode auto-deactivated (setting disabled)', 'info');
+    }
+}, [pursuitEnabled, pursuitActive, addLog]);
+
 
 React.useEffect(() => {
     if (!currentCallsRef.current || currentCallsRef.current.length === 0) return;
@@ -10402,12 +10527,12 @@ return (
                 This system has been permanently decommissioned.
             </p>
             <p style={{ color: '#64748b', fontSize: '14px', lineHeight: '1.8', marginBottom: '40px' }}>
-                We sincerely thank all officers who served with the New York CAD system. Your dedication with helping and serving the community has made a meaningful impact.
+                We sincerely thank all officers who served with the New York MDT system. Your dedication with helping and serving the community has made a meaningful impact.
             </p>
             <div style={{ color: '#475569', fontSize: '12px', letterSpacing: '3px', textTransform: 'uppercase', fontFamily: 'monospace' }}>
                 Thank you for everything.
             </div>
-            <div style={{ marginTop: '48px', color: '#1e293b', fontSize: '10px', letterSpacing: '2px', fontFamily: 'monospace' }}>NY · CAD · END OF SERVICE</div>
+            <div style={{ marginTop: '48px', color: '#1e293b', fontSize: '10px', letterSpacing: '2px', fontFamily: 'monospace' }}>NY · MDT · END OF SERVICE</div>
             {/* Dev-only exit button */}
             {trooperSettings?.BadgeID === '00706' && (
                 <button onClick={() => setShowShutdownScreen(false)} style={{ marginTop: '32px', padding: '8px 20px', background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: '8px', color: '#a78bfa', cursor: 'pointer', fontSize: '10px', fontWeight: '700', letterSpacing: '1px', textTransform: 'uppercase' }}>
@@ -10469,7 +10594,7 @@ return (
                 marginBottom: '16px',
                 letterSpacing: '1px'
             }}>
-                ORCRP CAD
+                ORCRP MDT
             </h1>
             
             <div style={{ 
@@ -10706,7 +10831,7 @@ return (
                 fontStyle: 'italic',
                 opacity: 0.7
             }}>
-                Thank you for using CAD APP • Licensed under GNU GPL
+                Thank you for using MDT APP • Licensed under GNU GPL
             </p>
         </div>
     </div>
@@ -10877,7 +11002,7 @@ return (
                     </div>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.35)', borderRadius: '8px', padding: '8px 16px', color: '#7dd3fc', fontSize: '13px', fontWeight: '600', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace', boxShadow: 'inset 0 1px 0 rgba(56,189,248,0.1)' }}>
                         <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#38bdf8', boxShadow: '0 0 6px #38bdf8' }} />
-                        Mobile Data Terminal · CAD
+                        Mobile Data Terminal · MDT
                     </div>
                 </div>
 
@@ -11002,7 +11127,7 @@ return (
                     ) : (
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.35)', borderRadius: '8px', padding: '8px 16px', color: '#7dd3fc', fontSize: '13px', fontWeight: '600', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace', boxShadow: 'inset 0 1px 0 rgba(56,189,248,0.1)' }}>
                             <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#38bdf8', boxShadow: '0 0 6px #38bdf8', animation: 'pulse-dot 1.4s ease-in-out infinite' }} />
-                            Initializing Terminal · Booting CAD
+                            Initializing Terminal · Booting MDT
                         </div>
                     )}
                 </div>
@@ -11483,6 +11608,30 @@ return (
 
             {/* Right side */}
             <div style={{ display:'flex',alignItems:'center',gap:'10px',padding:'0 16px',flexShrink:0,borderLeft:'1px solid #1c2333' }}>
+                {/* Pursuit Mode active indicator — only renders when pursuit is ON. Amber to
+                    match the setting's accent, with a pulsing dot so it's hard to miss.
+                    Clicking it toggles pursuit off — a quick escape hatch if the user can't
+                    remember the hotkey. */}
+                {pursuitActive && (
+                    <button
+                        onClick={() => togglePursuitMode()}
+                        title="Pursuit Mode is active — click to deactivate"
+                        style={{
+                            display:'flex',alignItems:'center',gap:'7px',
+                            padding:'5px 11px',
+                            background:'linear-gradient(135deg, rgba(245,158,11,0.18), rgba(217,119,6,0.18))',
+                            border:'1px solid rgba(245,158,11,0.55)',
+                            borderRadius:'999px',
+                            color:'#fcd34d',
+                            fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',
+                            cursor:'pointer',
+                            boxShadow:'0 0 14px rgba(245,158,11,0.35)',
+                            animation:'pursuitPulse 1.6s ease-in-out infinite'
+                        }}>
+                        <span style={{ width:'7px',height:'7px',borderRadius:'50%',background:'#fbbf24',boxShadow:'0 0 8px #fbbf24' }} />
+                        Pursuit
+                    </button>
+                )}
                 <div style={{ display:'flex',alignItems:'center',gap:'5px' }}>
                     <div style={{ width:'6px',height:'6px',borderRadius:'50%',background:selectedUserSession?'#3fb950':'#f85149',boxShadow:selectedUserSession?'0 0 5px rgba(63,185,80,0.6)':'0 0 5px rgba(248,81,73,0.6)',animation:selectedUserSession?'pulse 2s infinite':'none' }} />
                     <span style={{ color:selectedUserSession?'#3fb950':'#f85149',fontSize:'10px',fontWeight:'600',letterSpacing:'0.5px' }}>
@@ -12125,7 +12274,7 @@ return (
                         </div>
                         <div style={{ display:'flex',flexDirection:'column',gap:'5px' }}>
                             {[
-                                {l:'CAD Status',v:'ONLINE',ok:true},
+                                {l:'MDT Status',v:'ONLINE',ok:true},
                                 {l:'Database',v:tokenSaved?'CONNECTED':'DISCONNECTED',ok:tokenSaved},
                                 {l:'Active Session',v:selectedUserSession?`SESSION ${selectedUserSession==='1011898104670330920'?'1':selectedUserSession==='1390212294478397471'?'2':selectedUserSession==='1390212341005680650'?'3':'WL'}`:'NONE',ok:!!selectedUserSession},
                                 {l:'Groq AI',v:!!(window.GROQ_CONSOLE_API_KEY||localStorage.getItem('groqConsoleAPIKey'))?'ONLINE':'OFFLINE',ok:!!(window.GROQ_CONSOLE_API_KEY||localStorage.getItem('groqConsoleAPIKey'))},
@@ -12338,7 +12487,7 @@ return (
                 <div style={{ color:'#e2e8f0',fontSize:'18px',fontWeight:'700',letterSpacing:'0.3px' }}>License Plate Search</div>
                 <span style={{ padding:'2px 8px',background:'rgba(34,211,238,0.1)',border:'1px solid rgba(34,211,238,0.3)',borderRadius:'5px',color:'#22d3ee',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',fontFamily:'monospace' }}>VEHICLE REGISTRY</span>
             </div>
-            <div style={{ color:'#22d3ee',fontSize:'11px',fontFamily:'monospace',letterSpacing:'0.3px' }}>Query active vehicle registrations · NYSP CAD</div>
+            <div style={{ color:'#22d3ee',fontSize:'11px',fontFamily:'monospace',letterSpacing:'0.3px' }}>Query active vehicle registrations · NYSP MDT</div>
         </div>
     </div>
     <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
@@ -12932,7 +13081,7 @@ return (
                         <span style={{ color: 'white', fontSize: '22px', fontWeight: '800', letterSpacing: '2px', whiteSpace: 'nowrap' }}>CITIZEN DATABASE SEARCH</span>
                         <span style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '4px', padding: '2px 8px', color: '#60a5fa', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px', whiteSpace: 'nowrap' }}>CITIZEN REGISTRY</span>
                     </div>
-                    <p style={{ color: '#475569', fontSize: '13px', margin: '0 0 10px', whiteSpace: 'nowrap' }}>Query citizen records by ID · CAD</p>
+                    <p style={{ color: '#475569', fontSize: '13px', margin: '0 0 10px', whiteSpace: 'nowrap' }}>Query citizen records by ID · MDT</p>
                     <button
                         onClick={() => { if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); } else { setActiveView('home'); } }}
                         style={{ width: 'auto', padding: '7px 16px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '8px', color: '#93c5fd', cursor: 'pointer', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', display: 'inline-flex', alignItems: 'center', gap: '7px', transition: 'all 0.2s', whiteSpace: 'nowrap' }}
@@ -13309,7 +13458,7 @@ onError={(e) => {
                                 <div style={{ color:'#e2e8f0',fontSize:'18px',fontWeight:'700',letterSpacing:'0.3px' }}>System Configuration</div>
                                 <span style={{ padding:'2px 8px',background:'rgba(34,211,238,0.1)',border:'1px solid rgba(34,211,238,0.3)',borderRadius:'5px',color:'#22d3ee',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',fontFamily:'monospace' }}>PERSONAL PREFERENCES</span>
                             </div>
-                            <div style={{ color:'#22d3ee',fontSize:'11px',fontFamily:'monospace',letterSpacing:'0.3px' }}>Credentials, integrations, hotkeys, and visual settings · NYSP CAD</div>
+                            <div style={{ color:'#22d3ee',fontSize:'11px',fontFamily:'monospace',letterSpacing:'0.3px' }}>Credentials, integrations, hotkeys, and visual settings · NYSP MDT</div>
                         </div>
                     </div>
                     <div style={{ display:'flex',alignItems:'center',gap:'10px' }}>
@@ -13591,7 +13740,7 @@ onError={(e) => {
                                                 <li>Click <strong style={{ color: '#22d3ee' }}>Export to Local File</strong> at the bottom of Settings to persist the key across restarts.</li>
                                             </ol>
                                             <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(34,211,238,0.12)', color: '#64748b', fontSize: '10px', lineHeight: 1.6 }}>
-                                                <strong style={{ color: '#94a3b8' }}>Note:</strong> TeamSpeak must remain running on this machine for officer presence to update. The CAD reads ClientQuery locally — it does not connect to your TS server directly.
+                                                <strong style={{ color: '#94a3b8' }}>Note:</strong> TeamSpeak must remain running on this machine for officer presence to update. The MDT reads ClientQuery locally — it does not connect to your TS server directly.
                                             </div>
                                         </div>
                                     )}
@@ -13722,6 +13871,7 @@ onError={(e) => {
                             <div className="settings-section-card" style={S.section('#10b981', 'rgba(16,185,129,0.06)')}>
                                 <div style={S.sectionHead('#6ee7b7')}>🗄️ Hotkeys & Keybinds</div>
                                 <div style={S.sectionSub}>Configure keyboard shortcuts - conflicts are blocked automatically</div>
+                                <ToggleRow label="Only Fire When App is Focused" desc="Hotkeys won't trigger when you are on a different tab with this setting enabled. This only applies to settings with the 🖥️ emoji present." on={keybindsRequireFocus} accent="#3b82f6" onToggle={() => setKeybindsRequireFocus(v => !v)} />
                                 <ToggleRow label="Panic Button" desc="Enables the panic button hotkey system. AUTOHOTKEY APPLICATION REQUIRED!" on={panicEnabled} accent="#ef4444" onToggle={() => setPanicEnabled(v => !v)} />
 
                                 
@@ -13746,7 +13896,24 @@ onError={(e) => {
         <KeybindRecorder label="Panic Button Hotkey" desc="Hold this key for 2 seconds to trigger the panic alert 🖥️" active={panicHotkey} draft={panicHotkeyDraft} setDraft={setPanicHotkeyDraft} onSave={() => { setPanicHotkey(panicHotkeyDraft); addLog(`✅ Panic hotkey set to: ${panicHotkeyDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#ef4444" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
     </React.Fragment>
 )}
-                                <ToggleRow label="Only Fire When App is Focused" desc="Hotkeys won't trigger when you are on a different tab with this setting enabled. This only applies to settings with the 🖥️ emoji present." on={keybindsRequireFocus} accent="#3b82f6" onToggle={() => setKeybindsRequireFocus(v => !v)} />
+
+                                {/* ── Pursuit Mode toggle + conditional hotkey recorder ── */}
+                                <ToggleRow label="Pursuit Mode" desc="Enables the ability to enable pursuit mode. Pursuit mode disables all notifications to allow you to concentrate on priority calls." on={pursuitEnabled} accent="#f59e0b" onToggle={() => setPursuitEnabled(v => !v)} />
+{pursuitEnabled && (
+    <KeybindRecorder
+        label="Pursuit Mode Toggle"
+        desc="Press to toggle pursuit mode on/off — silences call alerts so you can focus 🖥️"
+        active={pursuitHotkey}
+        draft={pursuitHotkeyDraft}
+        setDraft={setPursuitHotkeyDraft}
+        onSave={() => { setPursuitHotkey(pursuitHotkeyDraft); addLog(`✅ Pursuit hotkey set to: ${pursuitHotkeyDraft}`, 'success'); }}
+        setRecording={setIsRecordingKeybind}
+        accent="#f59e0b"
+        conflictKey={panicHotkey}
+        conflictLabel="Panic Button"
+    />
+)}
+
 <KeybindRecorder label="Action Bar / Command Palette"desc="Opens the command palette overlay" active={actionBarKeybind} draft={keybindDraft} setDraft={setKeybindDraft} onSave={() => { setActionBarKeybind(keybindDraft); addLog(`✅ Action bar: ${keybindDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#3b82f6" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
                                 <KeybindRecorder label="Mic Toggle (Plate Search)" desc="Toggles voice-to-plate on the plate search page 🖥️" active={micHotkey} draft={micHotkeyDraft} setDraft={setMicHotkeyDraft} onSave={() => { setMicHotkey(micHotkeyDraft); addLog(`✅ Mic hotkey: ${micHotkeyDraft}`, 'success'); }} setRecording={setIsRecordingMicHotkey} accent="#10b981" conflictKey={actionBarKeybind} conflictLabel="Action Bar" />
 <KeybindRecorder label="Acknowledge Call(s)" desc="Instantly acknowledges all active unacknowledged dispatch calls 🖥️" active={acknowledgeKeybind} draft={acknowledgeKeybindDraft} setDraft={setAcknowledgeKeybindDraft} onSave={() => { setAcknowledgeKeybind(acknowledgeKeybindDraft); addLog(`✅ Acknowledge hotkey set to: ${acknowledgeKeybindDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#10b981" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
@@ -13795,7 +13962,7 @@ onError={(e) => {
                                                 <span style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', color: '#6b7280', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', padding: '2px 6px' }}>NOT EXPORTED</span>
                                             </div>
                                             <div style={{ color: '#4b5563', fontSize: '11px', marginBottom: '6px' }}>
-                                                View the CAD live on your phone via local WiFi — no internet needed. Your phone and PC must be on the same network.{' '}
+                                                View the MDT live on your phone via local WiFi — no internet needed. Your phone and PC must be on the same network.{' '}
                                                 <span onClick={() => setShowStreamingGuide(p => !p)} style={{ color: '#60a5fa', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '2px' }}>
                                                     {showStreamingGuide ? 'Hide setup guide.' : 'Click here to get step-by-step guide on setup.'}
                                                 </span>
@@ -14008,7 +14175,7 @@ onError={(e) => {
                                         // Deduplicate by keeping console buffer as primary (it has everything)
                                         let txt = consoleBufferRef.current.map(l => `[${l.timestamp}] [${l.type.toUpperCase()}] ${l.message}`).join('\n');
                                         patterns.forEach(p => { txt = txt.replace(p, '[REDACTED]'); });
-                                        const blob = new Blob([`CAD SYSTEM - Exported Logs\n${now.toLocaleString()}\n${'═'.repeat(60)}\n\n` + txt], { type: 'text/plain' });
+                                        const blob = new Blob([`MDT SYSTEM - Exported Logs\n${now.toLocaleString()}\n${'═'.repeat(60)}\n\n` + txt], { type: 'text/plain' });
                                         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
                                         addLog(`📥 ${filename}`, 'success');
                                     }} style={S.btn('#3b82f6', false)}>📄 Export Logs</button>
@@ -14786,7 +14953,7 @@ onError={(e) => {
                 letterSpacing: '2px',
                 textShadow: '0 0 30px rgba(59, 130, 246, 0.8)'
             }}>
-                ORCR CAD SYSTEM
+                ORCR MDT SYSTEM
             </h2>
 
             <div style={{
@@ -15159,7 +15326,7 @@ onError={(e) => {
                 <div style={{ width:'42px',height:'42px',background:'linear-gradient(135deg,rgba(239,68,68,0.18),rgba(220,38,38,0.08))',border:'1px solid rgba(239,68,68,0.35)',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px',boxShadow:'0 0 16px rgba(239,68,68,0.15), inset 0 1px 0 rgba(255,255,255,0.05)' }}>⏻</div>
                 <div>
                     <div style={{ color:'#fca5a5',fontSize:'15px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Quit Application</div>
-                    <div style={{ color:'#64748b',fontSize:'10px',letterSpacing:'1px',marginTop:'2px',fontFamily:'monospace' }}>This will close the CAD</div>
+                    <div style={{ color:'#64748b',fontSize:'10px',letterSpacing:'1px',marginTop:'2px',fontFamily:'monospace' }}>This will close the MDT</div>
                 </div>
             </div>
             <div style={{ color:'#cbd5e1',fontSize:'13px',lineHeight:1.6,marginBottom:'22px' }}>
@@ -15591,7 +15758,7 @@ onError={(e) => {
                         color: '#888888',
                         marginTop: '4px'
                     }}>
-                        CAD APPLICATION
+                        MDT APPLICATION
                     </div>
                 </div>
             </div>
@@ -15821,7 +15988,7 @@ if (window.electronAPI?.quit) {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid rgba(59,130,246,0.1)' }}>
                         <div>
                             <div style={{ color: '#93c5fd', fontSize: '12px', fontWeight: '800', letterSpacing: '1.5px', textTransform: 'uppercase' }}>Developers / Contributors</div>
-                            <div style={{ color: '#374151', fontSize: '11px', marginTop: '2px' }}>The team behind the CAD system</div>
+                            <div style={{ color: '#374151', fontSize: '11px', marginTop: '2px' }}>The team behind the MDT system</div>
                         </div>
                         <div style={{ background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '6px', padding: '4px 12px' }}>
                             <span style={{ color: '#60a5fa', fontSize: '10px', fontWeight: '700', letterSpacing: '2px' }}>DEVS</span>
@@ -16761,7 +16928,7 @@ if (window.electronAPI?.quit) {
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
                         <div style={{ width: '3px', height: '16px', background: 'linear-gradient(180deg, #3b82f6, #1e3a8a)', borderRadius: '2px' }} />
-                        <span style={{ color: '#475569', fontSize: '10px', fontWeight: '700', letterSpacing: '3px' }}>CAD</span>
+                        <span style={{ color: '#475569', fontSize: '10px', fontWeight: '700', letterSpacing: '3px' }}>MDT</span>
                     </div>
                     <div style={{ fontSize: '22px', fontWeight: '900', color: '#f1f5f9', letterSpacing: '-0.5px' }}>Shift Summary Report</div>
                 </div>
