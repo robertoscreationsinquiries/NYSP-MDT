@@ -415,6 +415,37 @@ ipcMain.handle('register-panic-shortcut', async (event, { key }) => {
     }
 });
 
+// ── Pursuit Mode shortcut ──
+// Separate from panic and mic so the three can coexist (a single _shortcutKey var would
+// clobber). Supports requireFocus exactly like mic/global, since pursuit can be toggled
+// while in-game with the app unfocused.
+let _pursuitShortcutKey = null;
+ipcMain.handle('register-pursuit-shortcut', async (event, { key, requireFocus }) => {
+    try {
+        if (_pursuitShortcutKey && globalShortcut.isRegistered(_pursuitShortcutKey)) {
+            globalShortcut.unregister(_pursuitShortcutKey);
+        }
+    } catch(_) {}
+    _pursuitShortcutKey = null;
+    if (!key) return { success: true };
+    try {
+        const converted = key
+            .replace('CTRL', 'CommandOrControl')
+            .replace('ALT', 'Alt')
+            .replace('SHIFT', 'Shift');
+        globalShortcut.register(converted, () => {
+            // When requireFocus is true, only fire if our window has focus.
+            // When false, fire regardless — that's the whole point of the 🖥️ keybinds.
+            if (requireFocus && !windowFocused) return;
+            mainWindow?.webContents.send('global-shortcut-fired', 'pursuit-trigger');
+        });
+        _pursuitShortcutKey = converted;
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
 let _micShortcutKey = null;
 ipcMain.handle('register-global-shortcut', async (event, { key, id, requireFocus }) => {
     try {
@@ -717,7 +748,7 @@ if (USE_LOCAL_INDEX) {
 
     // Build sounds script directly from branch URL (same as original main.js)
     const GITHUB_SOUNDS_BASE = `https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH_ENCODED}`;
-    const soundsScript = `window.SOUNDS = { panicAlarm: '${GITHUB_SOUNDS_BASE}/panicAlarm.mp3', platePass: '${GITHUB_SOUNDS_BASE}/platePass.mp3', plateFail: '${GITHUB_SOUNDS_BASE}/plateFail.mp3', callAlert: '${GITHUB_SOUNDS_BASE}/CallIncoming.mp3', warrantAlert: '${GITHUB_SOUNDS_BASE}/warrantAlert.mp3', StartupSFX: '${GITHUB_SOUNDS_BASE}/StartupSFX.mp3', LoginAccessDenied: '${GITHUB_SOUNDS_BASE}/LoginAccessDenied.mp3', LoginIncorrect: '${GITHUB_SOUNDS_BASE}/LoginIncorrect.mp3', LoginPageCorrect: '${GITHUB_SOUNDS_BASE}/LoginPageCorrect.mp3', MIC_ACTIVESFX: '${GITHUB_SOUNDS_BASE}/MIC_ACTIVESFX.mp3', MIC_INACTIVESFX: '${GITHUB_SOUNDS_BASE}/MIC_INACTIVESFX.mp3', MIC_NOTAVAILABLESFX: '${GITHUB_SOUNDS_BASE}/MIC_NOTAVAILABLESFX.mp3', noCitizenSFX: '${GITHUB_SOUNDS_BASE}/noCitizenSFX.mp3', clientSessionExpirationWarning: '${GITHUB_SOUNDS_BASE}/clientSessionExpirationWarning.mp3' }; window.SOUNDS_BASE64 = window.SOUNDS; console.log('[SOUNDS] Ready from branch ${GITHUB_BRANCH}! Keys:', Object.keys(window.SOUNDS).join(', '));`;
+    const soundsScript = `window.SOUNDS = { panicAlarm: '${GITHUB_SOUNDS_BASE}/panicAlarm.mp3', platePass: '${GITHUB_SOUNDS_BASE}/platePass.mp3', plateFail: '${GITHUB_SOUNDS_BASE}/plateFail.mp3', callAlert: '${GITHUB_SOUNDS_BASE}/CallIncoming.mp3', warrantAlert: '${GITHUB_SOUNDS_BASE}/warrantAlert.mp3', StartupSFX: '${GITHUB_SOUNDS_BASE}/StartupSFX.mp3', LoginAccessDenied: '${GITHUB_SOUNDS_BASE}/LoginAccessDenied.mp3', LoginIncorrect: '${GITHUB_SOUNDS_BASE}/LoginIncorrect.mp3', LoginPageCorrect: '${GITHUB_SOUNDS_BASE}/LoginPageCorrect.mp3', MIC_ACTIVESFX: '${GITHUB_SOUNDS_BASE}/MIC_ACTIVESFX.mp3', MIC_INACTIVESFX: '${GITHUB_SOUNDS_BASE}/MIC_INACTIVESFX.mp3', MIC_NOTAVAILABLESFX: '${GITHUB_SOUNDS_BASE}/MIC_NOTAVAILABLESFX.mp3', noCitizenSFX: '${GITHUB_SOUNDS_BASE}/noCitizenSFX.mp3', clientSessionExpirationWarning: '${GITHUB_SOUNDS_BASE}/clientSessionExpirationWarning.mp3', PursuitModeActive: '${GITHUB_SOUNDS_BASE}/PursuitModeActive.mp3', PursuitModeNotActive: '${GITHUB_SOUNDS_BASE}/PursuitModeNotActive.mp3' }; window.SOUNDS_BASE64 = window.SOUNDS; console.log('[SOUNDS] Ready from branch ${GITHUB_BRANCH}! Keys:', Object.keys(window.SOUNDS).join(', '));`;
 
     Promise.all([
         // SHA for display
