@@ -5141,21 +5141,43 @@ const showCustomError = React.useCallback((title, message, isGood = false, durat
 
 const dismissAlert = React.useCallback(() => {
     setAlertQueue(q => q.slice(1));
-    setAlertCountdown(0); // the next-head effect below will set the new value
+    setAlertCountdown(0); // the head-change effect below will set the new value
 }, []);
 
-// Whenever the head of the queue changes, restart the countdown with its duration.
+// "Primed" tracker: which head-id has had its countdown initialized to durationSec yet?
+// This prevents the tick effect from immediately auto-dismissing a newly-pushed entry,
+// because on the render where the queue first becomes non-empty, alertCountdown is still
+// 0 (from initial state or from a previous dismissAlert) — the head-change effect that
+// initializes it to durationSec runs AS A SEPARATE PASS. If the tick effect treats
+// "countdown <= 0" as time's up without first checking primed-ness, it dismisses the
+// entry on its very first render and the popup flashes for a single frame.
+const alertPrimedIdRef = React.useRef(null);
+
+// Whenever the head of the queue changes, restart the countdown with its duration AND
+// mark this head id as primed.
 React.useEffect(() => {
     if (alertQueue.length === 0) {
+        alertPrimedIdRef.current = null;
         if (alertCountdown !== 0) setAlertCountdown(0);
         return;
     }
-    setAlertCountdown(alertQueue[0].durationSec);
+    const head = alertQueue[0];
+    alertPrimedIdRef.current = head.id;
+    setAlertCountdown(head.durationSec);
 }, [alertQueue.length > 0 ? alertQueue[0].id : null]);   // re-run when head id changes
 
-// Tick the head's countdown; auto-dismiss at zero.
+// Tick the head's countdown; auto-dismiss at zero — but only AFTER the head has been
+// primed (otherwise we'd dismiss on the same render the entry was pushed, before the
+// head-change effect above got a chance to set the starting count).
 React.useEffect(() => {
     if (alertQueue.length === 0) return;
+    const head = alertQueue[0];
+    if (alertPrimedIdRef.current !== head.id) {
+        // This head hasn't been primed by the head-change effect yet — wait for that
+        // pass. The state update there will re-trigger this effect with a positive
+        // alertCountdown, and we'll fall through into the tick path on the next run.
+        return;
+    }
     if (alertCountdown <= 0) {
         dismissAlert();
         return;
@@ -14189,7 +14211,7 @@ onError={(e) => {
                                 <div style={S.sectionHead('#4ade80')}>💾 Export Settings</div>
                                 <div style={S.sectionSub}>Write all current settings to your CADSystemSettings.txt file</div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '12px' }}>
-                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','TeamSpeakAPIKey','EnableTeamSpeakIntegration','EnableSpotifyIntegration','SpotifyClientID','SpotifyRefreshToken','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE','PANIC_ENABLED','PANIC_HOTKEY','PANIC_TRIGGER_MODE','ACKNOWLEDGE_KEYBIND','PHONETIC_MODE','ESC_TO_HOME','MIC_DEVICE','SFX_MIC_ACTIVE','SFX_MIC_INACTIVE','SFX_MIC_NOTAVAILABLE'].map(k => (
+                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','TeamSpeakAPIKey','EnableTeamSpeakIntegration','EnableSpotifyIntegration','SpotifyClientID','SpotifyRefreshToken','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE','PANIC_ENABLED','PANIC_HOTKEY','PANIC_TRIGGER_MODE','PURSUIT_ENABLED','PURSUIT_HOTKEY','ACKNOWLEDGE_KEYBIND','PHONETIC_MODE','ESC_TO_HOME','MIC_DEVICE','SFX_MIC_ACTIVE','SFX_MIC_INACTIVE','SFX_MIC_NOTAVAILABLE'].map(k => (
                                         <span key={k} style={{ padding: '2px 7px', background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.18)', borderRadius: '4px', color: '#4ade80', fontSize: '10px', fontFamily: 'monospace' }}>{k}</span>
                                     ))}
                                     <span style={{ padding: '2px 7px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '4px', color: '#f87171', fontSize: '10px', fontFamily: 'monospace' }}>ActiveSession*</span>
