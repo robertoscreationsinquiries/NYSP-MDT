@@ -2367,6 +2367,8 @@ const [showSavePasswordPrompt, setShowSavePasswordPrompt] = useState(false);
 const [pendingSaveCredentials, setPendingSaveCredentials] = useState(null);
 const [isLoggingIn, setIsLoggingIn] = useState(false);
 const [authenticatedUser, setAuthenticatedUser] = useState(null);
+const authenticatedUserRef = React.useRef(null);
+React.useEffect(() => { authenticatedUserRef.current = authenticatedUser; }, [authenticatedUser]);
 const [showBanScreen, setShowBanScreen] = useState(false);
 const [banReason, setBanReason] = useState('');
 const [showLogoutScreen, setShowLogoutScreen] = useState(false);
@@ -2387,11 +2389,13 @@ const [serviceStatus, setServiceStatus] = useState({
 React.useEffect(() => {
     // Check maintenance status immediately on load
     checkMaintenanceStatus();
-    
-    // Check every 80 seconds
-    const interval = setInterval(checkMaintenanceStatus, 80000);
-    
-    return () => clearInterval(interval);
+
+    // ── DISABLED: this interval is replaced by CloudflareCache (runs every 30s).
+    // We still call checkMaintenanceStatus() ONCE here so the legacy "update screen
+    // on maintenance end" transition path keeps working on the first cycle, but the
+    // ongoing polling is the central poll's job now.
+    // const interval = setInterval(checkMaintenanceStatus, 80000);
+    // return () => clearInterval(interval);
 }, []);
 
 // ── BOLO POLLING — every 45s ──
@@ -2405,17 +2409,272 @@ React.useEffect(() => {
             .catch(() => {});
     };
     fetchBolos();
-    const id = setInterval(fetchBolos, 45000);
-    return () => clearInterval(id);
+    // ── DISABLED: replaced by CloudflareCache (30s central poll). Keeps the immediate
+    // fetch above so the BOLO list paints fast on first load / session change.
+    // const id = setInterval(fetchBolos, 45000);
+    // return () => clearInterval(id);
 }, [tokenSaved, selectedUserSession]);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CENTRALIZED CLOUDFLARE CACHE — single 30s poller for all read-style endpoints
+// ═══════════════════════════════════════════════════════════════════════════════
+// Before this existed, every feature (announcements, maintenance, BOLO, officers-config,
+// boot ban-check) had its OWN setInterval hitting Cloudflare. Spam-clicking login or
+// switching sessions would multiply requests. This collapses all of them into ONE poll:
+//
+//   • Initial fetch on app boot (so first paint has fresh data)
+//   • Then re-fetch every 30s
+//   • All consumers read from the cache state, not the network
+//
+// One-shot user actions (panic POST, presence heartbeat, login submit, BOLO POST, apex
+// reports) are NOT routed through the cache — those are events, not polled data.
+const CF_BASE = 'https://ny-cad-proxy.robertoscreationsinquiries.workers.dev';
+const CF_POLL_INTERVAL_MS = 30000;
+const cfPollTickRef = React.useRef(0);
+const [cfCache, setCfCache] = React.useState({
+    initialized: false,         // becomes true after first successful poll
+    lastPollAt: 0,
+    announcements: {},          // last seen window.LIVEANNOUNCEMENTS
+    maintenance: false,         // window.MAINTENANCE
+    officersDisabled: false,    // window.AVAILABLE_OFFICERS_DISABLED
+    bolos: [],
+    boloSession: null,          // which session the bolos slice was fetched for
+    userRecord: null,           // logged-in user's authoritative record from Worker
+});
+// Ref mirror for non-React-state readers (e.g. event handlers, async callbacks)
+const cfCacheRef = React.useRef(cfCache);
+React.useEffect(() => { cfCacheRef.current = cfCache; }, [cfCache]);
+
+// Snapshot of security-relevant fields at login time; the tamper detector compares
+// each poll's userRecord against this baseline. Only set when login succeeds.
+const securityBaselineRef = React.useRef(null);
+
+// Helper: shallow-compare lock objects {plateSearch, citizenSearch, callsTab, exportCitation}
+const _locksEqual = (a, b) => {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    const keys = ['plateSearch', 'citizenSearch', 'callsTab', 'exportCitation'];
+    return keys.every(k => !!a[k] === !!b[k]);
+};
+
+// Read the logged-in user's locks. Order of preference:
+//   1. cfCache.userRecord.locks  (freshest — from the central poll)
+//   2. authenticatedUser.locks   (from the original login response)
+//   3. {}                        (everything unlocked by default)
+// Each value is `true` when the feature is LOCKED.
+const featureLocks = React.useMemo(() => {
+    const fromCache = cfCache?.userRecord?.locks;
+    if (fromCache && typeof fromCache === 'object') return fromCache;
+    const fromAuth = authenticatedUser?.locks;
+    if (fromAuth && typeof fromAuth === 'object') return fromAuth;
+    return {};
+}, [cfCache?.userRecord, authenticatedUser]);
+
+// Programmatic check used by tab clicks, export buttons, etc.
+const isFeatureLocked = React.useCallback((key) => !!featureLocks[key], [featureLocks]);
+
+// Shows the standard "this feature is locked" toast via the alert queue. Centralizes the
+// copy so all four locked features speak the same way.
+const showLockedFeatureAlert = React.useCallback((featureLabel) => {
+    if (typeof showCustomError === 'function') {
+        showCustomError(
+            'Access Restricted',
+            `${featureLabel} has been disabled for your account by administration. Contact dispatch or command if this is in error.`,
+            false,
+            8
+        );
+    }
+}, []);
+
+// Defense-in-depth: even if some non-topbar path tries to activate a locked view
+// (deep link, restored state, programmatic navTo elsewhere), this effect bounces back
+// to home and surfaces the same alert. Belt-and-braces against UI being routed around.
+const _VIEW_LOCK_MAP = { search: { key: 'plateSearch', label: 'Plates' }, 'database-search': { key: 'citizenSearch', label: 'Citizens' }, calls: { key: 'callsTab', label: 'Calls' } };
+React.useEffect(() => {
+    const lock = _VIEW_LOCK_MAP[activeView];
+    if (lock && featureLocks[lock.key]) {
+        console.warn('[LOCKS] Blocked view activation:', activeView, '(feature', lock.key, 'is locked)');
+        showLockedFeatureAlert(lock.label);
+        setActiveView('home');
+        setHomeSubView('dashboard');
+    }
+}, [activeView, featureLocks, showLockedFeatureAlert]);
+
+
+
+const forceQuitForTamper = React.useCallback((reason) => {
+    console.error('[CF-CACHE] 🚨 TAMPER DETECTED:', reason);
+    try {
+        window.electron?.ipcRenderer?.invoke('force-quit-with-dialog', {
+            title: 'Connection Failed',
+            message: 'Connection failed.',
+            detail: 'Please restart the application.\n\n(' + reason + ')'
+        });
+    } catch (_) {}
+    // Belt and braces: if main is unreachable, blank the UI so the user can't keep using stale state
+    try { setShowLoginScreen(true); setAuthenticatedUser(null); } catch (_) {}
+}, []);
+
+// Single poll iteration — fetches ALL Cloudflare reads in parallel, updates state once.
+const runCloudflarePoll = React.useCallback(async (isInitial) => {
+    cfPollTickRef.current += 1;
+    const tick = cfPollTickRef.current;
+    console.log(`[CF-CACHE] Poll tick #${tick} starting (initial=${isInitial})`);
+
+    const session = selectedUserSessionRef.current;
+    const authUser = authenticatedUserRef.current; // ref mirror set in login effect below
+
+    // Run all reads in parallel; each one's failure is logged but does NOT abort the others.
+    const tasks = [
+        // Announcements
+        fetch(`${CF_BASE}/announcements`, { cache: 'no-store' })
+            .then(r => r.ok ? r.text() : null)
+            .then(txt => {
+                if (!txt) return null;
+                try { eval(txt); } catch (e) { console.warn('[CF-CACHE] announcements eval:', e?.message); return null; }
+                return window.LIVEANNOUNCEMENTS || {};
+            })
+            .catch(e => { console.warn('[CF-CACHE] announcements failed:', e?.message); return null; }),
+
+        // Maintenance
+        fetch(`${CF_BASE}/maintenance`, { cache: 'no-store' })
+            .then(r => r.ok ? r.text() : null)
+            .then(txt => {
+                if (!txt) return null;
+                try { eval(txt); } catch (e) { console.warn('[CF-CACHE] maintenance eval:', e?.message); return null; }
+                return !!window.MAINTENANCE;
+            })
+            .catch(e => { console.warn('[CF-CACHE] maintenance failed:', e?.message); return null; }),
+
+        // Officers-config flag
+        fetch(`${CF_BASE}/officers-config`, { cache: 'no-store' })
+            .then(r => r.ok ? r.text() : null)
+            .then(txt => {
+                if (!txt) return null;
+                try { eval(txt); } catch (e) { console.warn('[CF-CACHE] officers-config eval:', e?.message); return null; }
+                return !!window.AVAILABLE_OFFICERS_DISABLED;
+            })
+            .catch(e => { console.warn('[CF-CACHE] officers-config failed:', e?.message); return null; }),
+
+        // BOLO (session-scoped)
+        fetch(`${CF_BASE}/bolo${session ? `?session=${encodeURIComponent(session)}` : ''}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(d => d?.bolos || null)
+            .catch(e => { console.warn('[CF-CACHE] bolo failed:', e?.message); return null; }),
+
+        // Per-user re-check (only if logged in). Uses the existing /login endpoint with
+        // checkBanOnly:true. NOTE: your Worker currently only returns banned status here.
+        // For locks tamper-detection to fire, the Worker must also return `user.locks`
+        // and ideally a password hash/version in this response. See docs comment at bottom.
+        authUser ? (
+            fetch(`${CF_BASE}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: authUser.robloxUsername, checkBanOnly: true })
+            })
+            .then(r => r.ok ? r.json() : null)
+            .catch(e => { console.warn('[CF-CACHE] user re-check failed:', e?.message); return null; })
+        ) : Promise.resolve(null),
+    ];
+
+    const [annResult, maintResult, offResult, boloResult, userResult] = await Promise.all(tasks);
+
+    // Merge into a fresh snapshot (only overwrite fields we successfully fetched)
+    setCfCache(prev => {
+        const next = { ...prev, lastPollAt: Date.now(), initialized: true };
+        if (annResult !== null)   next.announcements    = annResult;
+        if (maintResult !== null) next.maintenance      = maintResult;
+        if (offResult !== null)   next.officersDisabled = offResult;
+        if (boloResult !== null) { next.bolos = boloResult; next.boloSession = session; }
+        if (userResult !== null)  next.userRecord       = userResult;
+        return next;
+    });
+
+    // ── Tamper detection ──
+    // Compare userResult against the baseline taken at login. Three trip conditions:
+    //   1. banned flipped to true
+    //   2. password / passwordHash mismatch (if Worker returns it)
+    //   3. locks object changed
+    // Only checks security-relevant fields per your spec; cosmetic changes are ignored.
+    if (authUser && userResult && securityBaselineRef.current) {
+        const baseline = securityBaselineRef.current;
+        const trips = [];
+        if (userResult.reason === 'banned' || userResult.banned === true) {
+            trips.push('account banned');
+        }
+        if (userResult.password && baseline.password && userResult.password !== baseline.password) {
+            trips.push('password changed');
+        }
+        if (userResult.locks !== undefined && !_locksEqual(userResult.locks, baseline.locks)) {
+            trips.push('feature locks changed');
+        }
+        if (trips.length > 0) {
+            forceQuitForTamper(trips.join(', '));
+            return;
+        }
+    }
+
+    console.log(`[CF-CACHE] Poll tick #${tick} done — ${Object.keys(annResult||{}).length} announcements, maint=${maintResult}, bolos=${(boloResult||[]).length}`);
+}, [forceQuitForTamper]);
+
+// Boot + interval. Fires ONCE immediately, then every 30s.
+React.useEffect(() => {
+    runCloudflarePoll(true);
+    const id = setInterval(() => runCloudflarePoll(false), CF_POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+}, [runCloudflarePoll]);
+
+// ── Cache-to-state bridges ──
+// These plug existing consumer state into the cache so the rest of the app keeps reading
+// from the same setters it always did. No call sites have to learn the cache exists.
+React.useEffect(() => {
+    if (!cfCache.initialized) return;
+    setLiveAnnouncements(prev => {
+        // Preserve in-app service alerts (those don't come from Cloudflare)
+        const preserved = {};
+        Object.entries(activeServiceAlertsRef.current || {}).forEach(([key, active]) => {
+            const aKey = `__service_${key}`;
+            if (active && window[`__serviceMsg_${key}`]) preserved[aKey] = window[`__serviceMsg_${key}`];
+        });
+        return { ...(cfCache.announcements || {}), ...preserved };
+    });
+    setLastAnnouncementCheck(cfCache.lastPollAt);
+}, [cfCache.announcements, cfCache.lastPollAt, cfCache.initialized]);
+
+React.useEffect(() => {
+    if (!cfCache.initialized) return;
+    // Mirror the old maintenance behaviour: detect transitions, write the previous flag
+    const previousStatus = localStorage.getItem('maintenanceWasActive') === 'true';
+    if (cfCache.maintenance && !previousStatus) {
+        localStorage.setItem('maintenanceWasActive', 'true');
+    } else if (!cfCache.maintenance && previousStatus) {
+        // Maintenance ended — preserve the old "show update screen" path elsewhere in the app
+        localStorage.setItem('maintenanceWasActive', 'false');
+    }
+    setMaintenanceActive(cfCache.maintenance);
+}, [cfCache.maintenance, cfCache.initialized]);
+
+React.useEffect(() => {
+    if (!cfCache.initialized) return;
+    window.AVAILABLE_OFFICERS_DISABLED = cfCache.officersDisabled;
+}, [cfCache.officersDisabled, cfCache.initialized]);
+
+React.useEffect(() => {
+    if (!cfCache.initialized) return;
+    if (cfCache.boloSession !== selectedUserSession) return; // ignore stale-session bolos
+    setBoloList(cfCache.bolos || []);
+}, [cfCache.bolos, cfCache.boloSession, cfCache.initialized, selectedUserSession]);
+
+
 
 // ═══════════════════════════════════════════════════════════════════════
 // AVAILABLE OFFICERS FEATURE FLAG — fetched from Cloudflare every 80s
 // ═══════════════════════════════════════════════════════════════════════
 React.useEffect(() => {
     checkOfficersFlag();
-    const interval = setInterval(checkOfficersFlag, 80000);
-    return () => clearInterval(interval);
+    // ── DISABLED: replaced by CloudflareCache (30s central poll).
+    // const interval = setInterval(checkOfficersFlag, 80000);
+    // return () => clearInterval(interval);
 }, []);
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -2767,11 +3026,12 @@ const response = await fetch(
     
     // Check immediately on mount
     checkAnnouncements();
-    
-    // Check every 15 seconds
-    const interval = setInterval(checkAnnouncements, 15000);
-    
-    return () => clearInterval(interval);
+
+    // ── DISABLED: replaced by CloudflareCache (30s central poll). The cache also
+    // re-fetches the logged-in user's record via /login?checkBanOnly=true on every
+    // tick, which subsumes the boot ban-check that used to live inside this interval.
+    // const interval = setInterval(checkAnnouncements, 15000);
+    // return () => clearInterval(interval);
 }, [authenticatedUser]);
 
 
@@ -2860,6 +3120,14 @@ useEffect(() => {
             }
             
             setAuthenticatedUser(user);
+            // Snapshot for tamper detector (uses re-fetched currentUser from Worker if available, else stored user)
+            const baselineSource = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : user;
+            securityBaselineRef.current = {
+                username: baselineSource.robloxUsername || user.robloxUsername,
+                password: baselineSource.password,
+                banned: !!baselineSource.banned,
+                locks: baselineSource.locks || user.locks || {}
+            };
             setTrooperName(user.robloxUsername);
             setTrooperBadge(user.badgeId);
             setShowLoginScreen(false);
@@ -4966,6 +5234,12 @@ useEffect(() => {
             
             if (currentUser) {
                 setAuthenticatedUser(user);
+                securityBaselineRef.current = {
+                    username: currentUser.robloxUsername || user.robloxUsername,
+                    password: currentUser.password,
+                    banned: !!currentUser.banned,
+                    locks: currentUser.locks || user.locks || {}
+                };
                 setShowLoginScreen(false);
                 console.log('[AUTH] Session restored');
                 setTrooperData({
@@ -10313,6 +10587,15 @@ if (window.MAINTENANCE === true && !(window.APP_GITHUB_BRANCH && window.APP_GITH
 
         console.log('[AUTH] ✅ Login successful for:', user.robloxUsername);
 
+        // Snapshot security-relevant fields for the CloudflareCache tamper detector
+        securityBaselineRef.current = {
+            username: user.robloxUsername,
+            password: user.password,
+            banned: !!user.banned,
+            locks: user.locks || {}
+        };
+        console.log('[CF-CACHE] Security baseline captured for', user.robloxUsername);
+
         setAuthenticatedUser(user);
         setTrooperData({
             robloxUsername: user.robloxUsername,
@@ -10380,6 +10663,7 @@ if (window.MAINTENANCE === true && !(window.APP_GITHUB_BRANCH && window.APP_GITH
 };
 const handleLogout = () => {
     console.log('[AUTH] Logging out');
+    securityBaselineRef.current = null;
     // Signal Cloudflare to remove this officer from the presence list
     if (trooperSettings?.BadgeID && trooperSettings.BadgeID !== 'N/A') {
         fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/presence/logout', {
@@ -11550,9 +11834,9 @@ return (
                 <span style={{ color:'#3d4756',fontSize:'9px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace',marginRight:'8px',flexShrink:0,userSelect:'none' }}>VIEWS</span>
                 {[
                     {l:'Home',k:'home-dash',icon:'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'},
-                    {l:'Calls',k:'calls',flash:callButtonFlash,icon:'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9'},
-                    {l:'Plates',k:'search',icon:'M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4'},
-                    {l:'Citizens',k:'database-search',icon:'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'},
+                    {l:'Calls',k:'calls',lockKey:'callsTab',flash:callButtonFlash,icon:'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9'},
+                    {l:'Plates',k:'search',lockKey:'plateSearch',icon:'M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4'},
+                    {l:'Citizens',k:'database-search',lockKey:'citizenSearch',icon:'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'},
                     {l:'Map',k:'map',mapKey:true,icon:'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7'},
                     {l:'Settings',k:'settings',icon:'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z',circle:'12 12 3'},
                     {groupBreak:true},
@@ -11569,6 +11853,8 @@ return (
                         </div>
                     );
                     const isHomeDash = item.k==='home-dash';
+                    // ── Per-user feature lock for this tab ──
+                    const locked = !!(item.lockKey && featureLocks[item.lockKey]);
                     const isActive = isHomeDash?(activeView==='home'&&homeSubView==='dashboard') :
                         item.mapKey?(activeView==='home'&&homeSubView==='map') :
                         item.k==='hist'?showHistoryPanel :
@@ -11580,7 +11866,7 @@ return (
                     const isPanel = !!item.panel;
                     const accent = isPanel ? '34,211,238' : '56,139,253'; // panels cyan, views blue
                     // VIEWS: solid filled tab when active. PANELS: ghost/outlined pill with a dot marker.
-                    const baseStyle = isPanel ? {
+                    let baseStyle = isPanel ? {
                         display:'flex',alignItems:'center',gap:'7px',padding:'7px 12px',borderRadius:'7px',
                         background:isActive?`rgba(${accent},0.14)`:'transparent',
                         border:`1px dashed ${isActive?`rgba(${accent},0.55)`:'rgba(255,255,255,0.12)'}`,
@@ -11600,10 +11886,28 @@ return (
                         animation:item.flash?'flash-red 1.5s infinite':'none',flexShrink:0,
                         boxShadow:isActive?`0 4px 14px rgba(${accent},0.4)`:'none'
                     };
+                    // ── Locked override — grey background, dimmed text, not-allowed cursor.
+                    // We still let the button be clickable so showLockedFeatureAlert can fire.
+                    if (locked) {
+                        baseStyle = {
+                            ...baseStyle,
+                            background: 'rgba(100,116,139,0.10)',
+                            border: '1px solid rgba(100,116,139,0.25)',
+                            color: '#64748b',
+                            cursor: 'not-allowed',
+                            boxShadow: 'none',
+                            opacity: 0.65
+                        };
+                    }
                     return (
                         <button key={i} disabled={!!item.disabled}
                             onClick={()=>{
                                 if(item.disabled) return;
+                                // ── Feature-lock gate ──
+                                if(locked){
+                                    showLockedFeatureAlert(item.l);
+                                    return;
+                                }
                                 if(isHomeDash){navTo('home', ()=>setHomeSubView('dashboard'));}
                                 else if(item.mapKey){navTo('home', ()=>{setHomeSubView(v=>v==='map'?'dashboard':'map');setShowDataPanel(false);setShowOfficersPanel(false);setShowHistoryPanel(false);setShowNotesPanel(false);});}
                                 else if(item.k==='hist'){setShowHistoryPanel(p=>!p);setShowDataPanel(false);setShowOfficersPanel(false);setShowSpotifyPanel(false);setShowNotesPanel(false);}
@@ -11623,6 +11927,12 @@ return (
                                 {item.circle?<><path d={item.icon}/><circle cx={item.circle.split(' ')[0]} cy={item.circle.split(' ')[1]} r={item.circle.split(' ')[2]}/></>:<path d={item.icon}/>}
                             </svg>
                             {item.l}
+                            {locked && (
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.85, marginLeft: '2px' }}>
+                                    <rect x="3" y="11" width="18" height="11" rx="2" />
+                                    <path d="M7 11V7a5 5 0 0110 0v4" />
+                                </svg>
+                            )}
                         </button>
                     );
                 })}
@@ -12908,22 +13218,39 @@ return (
                                     </button>
 
                                     
-                                    {!isDispatcher && <button onClick={() => {
-                                        const citationReg = registration?.parseFailed
-                                            ? { ...registration, timestamp: registration.registeredAt || '' }
-                                            : registration;
-                                        generateCitation(result, citationReg);
-                                    }}
-                                        style={{ width:'100%',marginTop:'8px',padding:'12px',background:'linear-gradient(180deg,#059669,#047857)',border:'1px solid rgba(52,211,153,0.5)',borderRadius:'8px',color:'white',fontSize:'12px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1.5px',fontFamily:'monospace',boxShadow:'0 0 18px rgba(16,185,129,0.18), inset 0 1px 0 rgba(255,255,255,0.15)',transition:'filter 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1), box-shadow 160ms ease-out',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px' }}
-                                        onMouseEnter={e=>{ e.currentTarget.style.filter='brightness(1.12)'; e.currentTarget.style.boxShadow='0 0 26px rgba(16,185,129,0.3), inset 0 1px 0 rgba(255,255,255,0.2)'; }}
-                                        onMouseLeave={e=>{ e.currentTarget.style.filter=''; e.currentTarget.style.boxShadow='0 0 18px rgba(16,185,129,0.18), inset 0 1px 0 rgba(255,255,255,0.15)'; }}
-                                        onMouseDown={e=>{ e.currentTarget.style.transform='scale(0.98)'; }}
-                                        onMouseUp={e=>{ e.currentTarget.style.transform=''; }}>
-                                        Export Pre-Filled Citation
-                                    </button>}
+                                    {!isDispatcher && (() => {
+                                        const exportLocked = !!featureLocks.exportCitation;
+                                        return (
+                                        <button
+                                            onClick={() => {
+                                                if (exportLocked) { showLockedFeatureAlert('Export Pre-Filled Citation'); return; }
+                                                const citationReg = registration?.parseFailed
+                                                    ? { ...registration, timestamp: registration.registeredAt || '' }
+                                                    : registration;
+                                                generateCitation(result, citationReg);
+                                            }}
+                                            style={exportLocked
+                                                ? { width:'100%',marginTop:'8px',padding:'12px',background:'rgba(100,116,139,0.15)',border:'1px solid rgba(100,116,139,0.35)',borderRadius:'8px',color:'#64748b',fontSize:'12px',fontWeight:'800',cursor:'not-allowed',textTransform:'uppercase',letterSpacing:'1.5px',fontFamily:'monospace',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',opacity:0.75 }
+                                                : { width:'100%',marginTop:'8px',padding:'12px',background:'linear-gradient(180deg,#059669,#047857)',border:'1px solid rgba(52,211,153,0.5)',borderRadius:'8px',color:'white',fontSize:'12px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1.5px',fontFamily:'monospace',boxShadow:'0 0 18px rgba(16,185,129,0.18), inset 0 1px 0 rgba(255,255,255,0.15)',transition:'filter 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1), box-shadow 160ms ease-out',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px' }
+                                            }
+                                            onMouseEnter={e=>{ if (!exportLocked) { e.currentTarget.style.filter='brightness(1.12)'; e.currentTarget.style.boxShadow='0 0 26px rgba(16,185,129,0.3), inset 0 1px 0 rgba(255,255,255,0.2)'; }}}
+                                            onMouseLeave={e=>{ if (!exportLocked) { e.currentTarget.style.filter=''; e.currentTarget.style.boxShadow='0 0 18px rgba(16,185,129,0.18), inset 0 1px 0 rgba(255,255,255,0.15)'; }}}
+                                            onMouseDown={e=>{ if (!exportLocked) e.currentTarget.style.transform='scale(0.98)'; }}
+                                            onMouseUp={e=>{ if (!exportLocked) e.currentTarget.style.transform=''; }}>
+                                            {exportLocked && (
+                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
+                                            )}
+                                            Export Pre-Filled Citation
+                                        </button>
+                                        );
+                                    })()}
 
 
-                                    {!isDispatcher && <button onClick={async () => {
+                                    {!isDispatcher && (() => {
+                                        const exportLocked = !!featureLocks.exportCitation;
+                                        return (
+                                        <button onClick={async () => {
+                                        if (exportLocked) { showLockedFeatureAlert('File Arrest Report'); return; }
                                         console.log('🚨 [ARREST] FILE ARREST/SUMMONS REPORT clicked');
                                         let ownerData = null, dataSource = null;
                                         if (searchResults?.robloxUser?.username) { ownerData = searchResults.robloxUser; dataSource = 'searchResults.robloxUser'; }
@@ -12937,13 +13264,21 @@ return (
                                             showCustomError('Error', 'Vehicle owner information not available.\n\nTry searching the license plate again.');
                                         }
                                     }}
-                                        style={{ width:'100%',marginTop:'8px',padding:'12px',background:'linear-gradient(180deg,#dc2626,#991b1b)',border:'1px solid rgba(239,68,68,0.5)',borderRadius:'8px',color:'white',fontSize:'12px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1.5px',fontFamily:'monospace',boxShadow:'0 0 18px rgba(239,68,68,0.2), inset 0 1px 0 rgba(255,255,255,0.15)',transition:'filter 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1), box-shadow 160ms ease-out',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px' }}
-                                        onMouseEnter={e=>{ e.currentTarget.style.filter='brightness(1.12)'; e.currentTarget.style.boxShadow='0 0 26px rgba(239,68,68,0.3), inset 0 1px 0 rgba(255,255,255,0.2)'; }}
-                                        onMouseLeave={e=>{ e.currentTarget.style.filter=''; e.currentTarget.style.boxShadow='0 0 18px rgba(239,68,68,0.2), inset 0 1px 0 rgba(255,255,255,0.15)'; }}
-                                        onMouseDown={e=>{ e.currentTarget.style.transform='scale(0.98)'; }}
-                                        onMouseUp={e=>{ e.currentTarget.style.transform=''; }}>
+                                        style={exportLocked
+                                            ? { width:'100%',marginTop:'8px',padding:'12px',background:'rgba(100,116,139,0.15)',border:'1px solid rgba(100,116,139,0.35)',borderRadius:'8px',color:'#64748b',fontSize:'12px',fontWeight:'800',cursor:'not-allowed',textTransform:'uppercase',letterSpacing:'1.5px',fontFamily:'monospace',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',opacity:0.75 }
+                                            : { width:'100%',marginTop:'8px',padding:'12px',background:'linear-gradient(180deg,#dc2626,#991b1b)',border:'1px solid rgba(239,68,68,0.5)',borderRadius:'8px',color:'white',fontSize:'12px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1.5px',fontFamily:'monospace',boxShadow:'0 0 18px rgba(239,68,68,0.2), inset 0 1px 0 rgba(255,255,255,0.15)',transition:'filter 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1), box-shadow 160ms ease-out',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px' }
+                                        }
+                                        onMouseEnter={e=>{ if (!exportLocked) { e.currentTarget.style.filter='brightness(1.12)'; e.currentTarget.style.boxShadow='0 0 26px rgba(239,68,68,0.3), inset 0 1px 0 rgba(255,255,255,0.2)'; }}}
+                                        onMouseLeave={e=>{ if (!exportLocked) { e.currentTarget.style.filter=''; e.currentTarget.style.boxShadow='0 0 18px rgba(239,68,68,0.2), inset 0 1px 0 rgba(255,255,255,0.15)'; }}}
+                                        onMouseDown={e=>{ if (!exportLocked) e.currentTarget.style.transform='scale(0.98)'; }}
+                                        onMouseUp={e=>{ if (!exportLocked) e.currentTarget.style.transform=''; }}>
+                                        {exportLocked && (
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
+                                        )}
                                         File Arrest Report
-                                    </button>}
+                                    </button>
+                                        );
+                                    })()}
                                 </>
                             )}
                         </div>
