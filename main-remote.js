@@ -391,6 +391,41 @@ ipcMain.on('quit-app', () => {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy();
     app.quit();
 });
+
+// ── Tamper-detect force quit ──
+// Called by the renderer when the central Cloudflare cache detects that a security-
+// relevant field on the logged-in user's record has changed mid-session (banned status,
+// password, or feature locks). Shows a native Windows messagebox blocking the app, then
+// hard-quits. This is intentionally NOT cancellable — the only path forward is restart.
+ipcMain.handle('force-quit-with-dialog', async (_e, { title, message, detail }) => {
+    try {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            await dialog.showMessageBox(mainWindow, {
+                type: 'error',
+                title: title || 'Connection Failed',
+                message: message || 'Connection failed',
+                detail: detail || 'Please restart the application.',
+                buttons: ['OK'],
+                noLink: true
+            });
+        } else {
+            await dialog.showMessageBox({
+                type: 'error',
+                title: title || 'Connection Failed',
+                message: message || 'Connection failed',
+                detail: detail || 'Please restart the application.',
+                buttons: ['OK'],
+                noLink: true
+            });
+        }
+    } catch (_) {}
+    try { globalShortcut.unregisterAll(); } catch (_) {}
+    try { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy(); } catch (_) {}
+    app.quit();
+    // Belt and braces in case .quit() is ignored mid-handler
+    setTimeout(() => process.exit(0), 100);
+    return { ok: true };
+});
 ipcMain.on('open-dev-tools', () => mainWindow?.webContents.openDevTools());
 ipcMain.on('toggle-compact-mode', () => {});
 
