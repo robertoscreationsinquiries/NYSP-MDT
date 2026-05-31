@@ -2464,9 +2464,15 @@ const _locksEqual = (a, b) => {
 // Each value is `true` when the feature is LOCKED.
 const featureLocks = React.useMemo(() => {
     const fromCache = cfCache?.userRecord?.locks;
-    if (fromCache && typeof fromCache === 'object') return fromCache;
+    if (fromCache && typeof fromCache === 'object') {
+        console.log('[LOCKS] from cfCache.userRecord:', JSON.stringify(fromCache));
+        return fromCache;
+    }
     const fromAuth = authenticatedUser?.locks;
-    if (fromAuth && typeof fromAuth === 'object') return fromAuth;
+    if (fromAuth && typeof fromAuth === 'object') {
+        console.log('[LOCKS] from authenticatedUser:', JSON.stringify(fromAuth));
+        return fromAuth;
+    }
     return {};
 }, [cfCache?.userRecord, authenticatedUser]);
 
@@ -2562,10 +2568,10 @@ const runCloudflarePoll = React.useCallback(async (isInitial) => {
             .then(d => d?.bolos || null)
             .catch(e => { console.warn('[CF-CACHE] bolo failed:', e?.message); return null; }),
 
-        // Per-user re-check (only if logged in). Uses the existing /login endpoint with
-        // checkBanOnly:true. NOTE: your Worker currently only returns banned status here.
-        // For locks tamper-detection to fire, the Worker must also return `user.locks`
-        // and ideally a password hash/version in this response. See docs comment at bottom.
+        // Per-user re-check (only if logged in). Calls /login with checkBanOnly:true.
+        // The Worker returns the FULL user record (with locks + passwordFingerprint) in the
+        // `.user` field, plus a top-level `reason: 'banned'` if applicable. We normalize
+        // both cases into a single object the tamper checker can read.
         authUser ? (
             fetch(`${CF_BASE}/login`, {
                 method: 'POST',
@@ -2573,6 +2579,20 @@ const runCloudflarePoll = React.useCallback(async (isInitial) => {
                 body: JSON.stringify({ username: authUser.robloxUsername, checkBanOnly: true })
             })
             .then(r => r.ok ? r.json() : null)
+            .then(json => {
+                if (!json) return null;
+                // Some Worker versions wrap the user under `.user`; some return it flat.
+                // Normalize to a single shape: the user object, with `reason` preserved.
+                const userObj = json.user || (json.username || json.robloxUsername ? json : null);
+                if (!userObj) {
+                    console.warn('[CF-CACHE] user re-check returned no user field:', json);
+                    return null;
+                }
+                if (json.reason) userObj.reason = json.reason;
+                if (json.bannedReason) userObj.bannedReason = json.bannedReason;
+                console.log('[CF-CACHE] user re-check OK:', userObj.robloxUsername, '| locks:', JSON.stringify(userObj.locks), '| banned:', userObj.banned, '| fp:', userObj.passwordFingerprint?.slice(0,8));
+                return userObj;
+            })
             .catch(e => { console.warn('[CF-CACHE] user re-check failed:', e?.message); return null; })
         ) : Promise.resolve(null),
     ];
@@ -2591,27 +2611,49 @@ const runCloudflarePoll = React.useCallback(async (isInitial) => {
     });
 
     // ── Tamper detection ──
-    // Compare userResult against the baseline taken at login. Three trip conditions:
-    //   1. banned flipped to true
-    //   2. password / passwordHash mismatch (if Worker returns it)
-    //   3. locks object changed
-    // Only checks security-relevant fields per your spec; cosmetic changes are ignored.
+    // Compare userResult against the baseline taken at login. Trip conditions:
+    //   1. banned flipped to true (either user.banned===true OR reason==='banned')
+    //   2. passwordFingerprint changed (SHA-256 hex of password, sent by Worker)
+    //   3. locks object changed (any of the 4 keys flipped)
+    // Each decision is logged so you can SEE in DevTools why it did/didn't trip.
     if (authUser && userResult && securityBaselineRef.current) {
         const baseline = securityBaselineRef.current;
         const trips = [];
-        if (userResult.reason === 'banned' || userResult.banned === true) {
-            trips.push('account banned');
-        }
-        if (userResult.password && baseline.password && userResult.password !== baseline.password) {
+
+        const nowBanned = userResult.reason === 'banned' || userResult.banned === true;
+        if (nowBanned && !baseline.banned) trips.push('account banned');
+
+        // Password change: only compare if BOTH sides have a fingerprint. If the Worker
+        // didn't send one (old Worker version), we skip this check rather than false-trip.
+        if (userResult.passwordFingerprint && baseline.passwordFingerprint
+                && userResult.passwordFingerprint !== baseline.passwordFingerprint) {
             trips.push('password changed');
         }
-        if (userResult.locks !== undefined && !_locksEqual(userResult.locks, baseline.locks)) {
-            trips.push('feature locks changed');
-        }
+
+        // Locks change: any of plateSearch / citizenSearch / callsTab / exportCitation differing.
+        // If userResult has no `locks` field at all, we treat that as "no locks set" — same as
+        // the baseline default — so a Worker that hasn't been updated yet doesn't trip.
+        const polledLocks = userResult.locks || {};
+        const baselineLocks = baseline.locks || {};
+        const locksChanged = !_locksEqual(polledLocks, baselineLocks);
+        if (locksChanged) trips.push('feature locks changed');
+
+        // Verbose decision log
+        console.log('[TAMPER] check:',
+            'banned:', baseline.banned, '→', nowBanned,
+            '| fp:', baseline.passwordFingerprint?.slice(0,8), '→', userResult.passwordFingerprint?.slice(0,8),
+            '| locks baseline:', JSON.stringify(baselineLocks),
+            '| locks now:', JSON.stringify(polledLocks),
+            '| trips:', trips);
+
         if (trips.length > 0) {
             forceQuitForTamper(trips.join(', '));
             return;
         }
+    } else if (authUser && !userResult) {
+        console.warn('[TAMPER] skipped — user re-check returned null (network or Worker error)');
+    } else if (authUser && !securityBaselineRef.current) {
+        console.warn('[TAMPER] skipped — no security baseline captured yet (login may have happened before baseline-capture code ran)');
     }
 
     console.log(`[CF-CACHE] Poll tick #${tick} done — ${Object.keys(annResult||{}).length} announcements, maint=${maintResult}, bolos=${(boloResult||[]).length}`);
@@ -3120,14 +3162,18 @@ useEffect(() => {
             }
             
             setAuthenticatedUser(user);
-            // Snapshot for tamper detector (uses re-fetched currentUser from Worker if available, else stored user)
+            // Snapshot for tamper detector — use re-fetched currentUser from Worker if
+            // available (it has the fresh passwordFingerprint), else fall back to stored.
             const baselineSource = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : user;
             securityBaselineRef.current = {
                 username: baselineSource.robloxUsername || user.robloxUsername,
-                password: baselineSource.password,
+                passwordFingerprint: baselineSource.passwordFingerprint || user.passwordFingerprint || null,
                 banned: !!baselineSource.banned,
                 locks: baselineSource.locks || user.locks || {}
             };
+            console.log('[CF-CACHE] Baseline (session restore):', securityBaselineRef.current.username,
+                        '| fp:', securityBaselineRef.current.passwordFingerprint?.slice(0,8),
+                        '| locks:', JSON.stringify(securityBaselineRef.current.locks));
             setTrooperName(user.robloxUsername);
             setTrooperBadge(user.badgeId);
             setShowLoginScreen(false);
@@ -5236,10 +5282,13 @@ useEffect(() => {
                 setAuthenticatedUser(user);
                 securityBaselineRef.current = {
                     username: currentUser.robloxUsername || user.robloxUsername,
-                    password: currentUser.password,
+                    passwordFingerprint: currentUser.passwordFingerprint || user.passwordFingerprint || null,
                     banned: !!currentUser.banned,
                     locks: currentUser.locks || user.locks || {}
                 };
+                console.log('[CF-CACHE] Baseline (sub-account restore):', securityBaselineRef.current.username,
+                            '| fp:', securityBaselineRef.current.passwordFingerprint?.slice(0,8),
+                            '| locks:', JSON.stringify(securityBaselineRef.current.locks));
                 setShowLoginScreen(false);
                 console.log('[AUTH] Session restored');
                 setTrooperData({
@@ -10587,14 +10636,18 @@ if (window.MAINTENANCE === true && !(window.APP_GITHUB_BRANCH && window.APP_GITH
 
         console.log('[AUTH] ✅ Login successful for:', user.robloxUsername);
 
-        // Snapshot security-relevant fields for the CloudflareCache tamper detector
+        // Snapshot security-relevant fields for the CloudflareCache tamper detector.
+        // We use the Worker's `passwordFingerprint` (SHA-256 hex) rather than the raw
+        // password so the comparison value never depends on plaintext being in-memory.
         securityBaselineRef.current = {
             username: user.robloxUsername,
-            password: user.password,
+            passwordFingerprint: user.passwordFingerprint || null,
             banned: !!user.banned,
             locks: user.locks || {}
         };
-        console.log('[CF-CACHE] Security baseline captured for', user.robloxUsername);
+        console.log('[CF-CACHE] Security baseline captured for', user.robloxUsername,
+                    '| fp:', user.passwordFingerprint?.slice(0,8),
+                    '| locks:', JSON.stringify(user.locks || {}));
 
         setAuthenticatedUser(user);
         setTrooperData({
