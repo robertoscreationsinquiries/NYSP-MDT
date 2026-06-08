@@ -1790,7 +1790,10 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
                     {hasConflict && <div style={{ color: '#fca5a5', fontSize: '11px', marginBottom: '8px', padding: '6px 10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px' }}>⚠ Conflicts with "{conflictLabel}" - choose a different combination</div>}
                     <button onClick={() => {
                         if (isSingleModifier) {
-                            showCustomError('Invalid Keybind', 'A single modifier key (e.g. CTRL, SHIFT) cannot be registered as a hotkey. Please use a combination such as CTRL+M.');
+                            // KeybindRecorder lives outside the main component so the React
+                            // showCustomError isn't in scope. Fall back to window.alert until
+                            // we lift this component or pass showCustomError down as a prop.
+                            try { window.alert('Invalid Keybind\n\nA single modifier key (e.g. CTRL, SHIFT) cannot be registered as a hotkey. Please use a combination such as CTRL+M.'); } catch(_) {}
                             setDraft(active);
                             return;
                         }
@@ -5467,45 +5470,49 @@ const dismissAlert = React.useCallback(() => {
     setAlertCountdown(0); // the head-change effect below will set the new value
 }, []);
 
-// "Primed" tracker: which head-id has had its countdown initialized to durationSec yet?
-// This prevents the tick effect from immediately auto-dismissing a newly-pushed entry,
-// because on the render where the queue first becomes non-empty, alertCountdown is still
-// 0 (from initial state or from a previous dismissAlert) — the head-change effect that
-// initializes it to durationSec runs AS A SEPARATE PASS. If the tick effect treats
-// "countdown <= 0" as time's up without first checking primed-ness, it dismisses the
-// entry on its very first render and the popup flashes for a single frame.
+// "Primed" tracker: which head-id has had its countdown initialized AND when?
+// The state-based approach (compare alertCountdown <= 0) fails because:
+//   • The head-change effect calls setAlertCountdown(durationSec) — QUEUED for next render
+//   • The tick effect runs on the SAME render the head changed (both deps fired)
+//   • Tick reads alertCountdown which is still 0 from initial state / previous dismiss
+//   • Tick auto-dismisses on the same frame the popup appeared
+// Refs are synchronous, state isn't. So we use a timestamp ref: tick refuses to dismiss
+// until the entry's durationSec has actually elapsed in WALL TIME since priming.
 const alertPrimedIdRef = React.useRef(null);
+const alertPrimedAtRef = React.useRef(0);
 
 // Whenever the head of the queue changes, restart the countdown with its duration AND
-// mark this head id as primed.
+// stamp the priming time (wall clock).
 React.useEffect(() => {
     if (alertQueue.length === 0) {
         alertPrimedIdRef.current = null;
+        alertPrimedAtRef.current = 0;
         if (alertCountdown !== 0) setAlertCountdown(0);
         return;
     }
     const head = alertQueue[0];
     alertPrimedIdRef.current = head.id;
+    alertPrimedAtRef.current = Date.now();
     setAlertCountdown(head.durationSec);
 }, [alertQueue.length > 0 ? alertQueue[0].id : null]);   // re-run when head id changes
 
-// Tick the head's countdown; auto-dismiss at zero — but only AFTER the head has been
-// primed (otherwise we'd dismiss on the same render the entry was pushed, before the
-// head-change effect above got a chance to set the starting count).
+// Tick the head's countdown; auto-dismiss at zero. Two guards:
+//   1. Head must be primed (ref matches current head id).
+//   2. Wall-clock time since priming must equal/exceed durationSec.
+// Guard 2 is what makes this robust against React state batching: even if alertCountdown
+// state hasn't caught up to the durationSec we set in the head-change effect, the wall
+// clock correctly says "only 0 ms has passed, do not dismiss".
 React.useEffect(() => {
     if (alertQueue.length === 0) return;
     const head = alertQueue[0];
-    if (alertPrimedIdRef.current !== head.id) {
-        // This head hasn't been primed by the head-change effect yet — wait for that
-        // pass. The state update there will re-trigger this effect with a positive
-        // alertCountdown, and we'll fall through into the tick path on the next run.
-        return;
-    }
-    if (alertCountdown <= 0) {
+    if (alertPrimedIdRef.current !== head.id) return;        // not primed yet
+    const elapsedMs = Date.now() - alertPrimedAtRef.current;
+    const totalMs = (head.durationSec || 15) * 1000;
+    if (elapsedMs >= totalMs) {
         dismissAlert();
         return;
     }
-    const t = setTimeout(() => setAlertCountdown(c => c - 1), 1000);
+    const t = setTimeout(() => setAlertCountdown(c => Math.max(0, c - 1)), 1000);
     return () => clearTimeout(t);
 }, [alertQueue.length, alertCountdown, dismissAlert]);
 
