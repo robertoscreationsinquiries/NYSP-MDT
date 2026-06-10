@@ -344,7 +344,7 @@ body::before {
             border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px;
             display: flex; gap: 12px; color: #fecaca; font-size: 14px;
         }
-.results-grid { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 380px) minmax(0, 1fr); gap: 18px; margin-top: 14px; align-items: stretch; }
+.results-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr); gap: 18px; margin-top: 14px; align-items: stretch; }
 .results-grid > * { display: flex; flex-direction: column; min-height: 100%; }
 .results-grid > * > * { flex: none; }
 .results-grid > * > [data-spacer] { flex: 1 1 auto; }
@@ -606,6 +606,28 @@ body::before {
     from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
     to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
+/* Government record cards — staggered entrance (delay set inline per index) */
+@keyframes recordCardIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+/* Attachment lightbox — backdrop fade + image pop */
+@keyframes lightboxBackdropIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+@keyframes lightboxImageIn {
+    from { opacity: 0; transform: scale(0.92); }
+    to   { opacity: 1; transform: scale(1); }
+}
+/* Attachment thumbnails — magnify hint on hover */
+.gov-attachment-thumb { position: relative; cursor: zoom-in; border-radius: 8px; overflow: hidden; border: 1px solid rgba(56,189,248,0.18); transition: transform 180ms cubic-bezier(0.23,1,0.32,1), border-color 180ms ease-out, box-shadow 180ms ease-out; flex-shrink: 0; }
+.gov-attachment-thumb:hover { transform: translateY(-2px) scale(1.04); border-color: rgba(56,189,248,0.65); box-shadow: 0 6px 18px rgba(56,189,248,0.25); }
+.gov-attachment-thumb::after { content: '⛶'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #fff; background: rgba(7,12,24,0.55); opacity: 0; transition: opacity 160ms ease-out; pointer-events: none; }
+.gov-attachment-thumb:hover::after { opacity: 1; }
+/* Record card hover lift */
+.gov-record-card { transition: transform 180ms cubic-bezier(0.23,1,0.32,1), box-shadow 180ms ease-out, border-color 180ms ease-out; }
+.gov-record-card:hover { transform: translateY(-1px); }
 @keyframes loginErrIn {
     from { opacity: 0; transform: translateY(-6px); }
     to   { opacity: 1; transform: translateY(0); }
@@ -1988,6 +2010,33 @@ const [plateGovStage, setPlateGovStage] = useState('');                // human-
 const [plateGovError, setPlateGovError] = useState('');
 const [expandedGovRecordId, setExpandedGovRecordId] = useState(null);  // raw-content expand toggle
 const plateGovRunIdRef = React.useRef(0);                              // cancels stale runs on new search
+
+// ── Custom in-app attachment viewer (lightbox) ──
+// Opens attachments in an overlay INSIDE the app (no browser tab). Stores the full
+// attachment list of the clicked record so ←/→ arrows page through siblings.
+const [attachmentViewer, setAttachmentViewer] = useState(null);        // null | { attachments: [...], index: number }
+const openAttachmentViewer = React.useCallback((attachments, index) => {
+    setAttachmentViewer({ attachments, index });
+}, []);
+const closeAttachmentViewer = React.useCallback(() => setAttachmentViewer(null), []);
+const stepAttachmentViewer = React.useCallback((dir) => {
+    setAttachmentViewer(v => {
+        if (!v) return v;
+        const next = (v.index + dir + v.attachments.length) % v.attachments.length;
+        return { ...v, index: next };
+    });
+}, []);
+// Keyboard: Esc closes, arrows navigate — bound only while the viewer is open.
+React.useEffect(() => {
+    if (!attachmentViewer) return;
+    const onKey = (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); closeAttachmentViewer(); }
+        else if (e.key === 'ArrowRight') { e.preventDefault(); stepAttachmentViewer(1); }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); stepAttachmentViewer(-1); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+}, [attachmentViewer ? true : false, closeAttachmentViewer, stepAttachmentViewer]);
 const [warrantFlash, setWarrantFlash] = useState(false);
 const [warrantChecking, setWarrantChecking] = useState(false);
 const [callButtonFlash, setCallButtonFlash] = useState(false);
@@ -12106,6 +12155,70 @@ return (
     );
 })()}
 
+{/* ────────────────────────────────────────────────────────── */}
+{/* ATTACHMENT VIEWER — custom in-app lightbox with prev/next   */}
+{/* ────────────────────────────────────────────────────────── */}
+{attachmentViewer && (() => {
+    const { attachments, index } = attachmentViewer;
+    const att = attachments[index];
+    const multi = attachments.length > 1;
+    const arrowStyle = {
+        width:'46px',height:'46px',borderRadius:'50%',
+        background:'rgba(7,12,24,0.75)',border:'1px solid rgba(56,189,248,0.35)',
+        color:'#7dd3fc',fontSize:'20px',cursor:'pointer',
+        display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,
+        transition:'background 150ms ease-out, border-color 150ms ease-out, transform 120ms cubic-bezier(0.23,1,0.32,1), box-shadow 150ms ease-out',
+        userSelect:'none'
+    };
+    const arrowHover = (e, on) => {
+        e.currentTarget.style.background = on ? 'rgba(56,189,248,0.18)' : 'rgba(7,12,24,0.75)';
+        e.currentTarget.style.borderColor = on ? 'rgba(56,189,248,0.7)' : 'rgba(56,189,248,0.35)';
+        e.currentTarget.style.boxShadow = on ? '0 0 18px rgba(56,189,248,0.35)' : 'none';
+        e.currentTarget.style.transform = on ? 'scale(1.08)' : 'scale(1)';
+    };
+    return (
+    <div onClick={closeAttachmentViewer}
+        style={{ position:'fixed',inset:0,zIndex:100060,background:'rgba(2,5,12,0.82)',backdropFilter:'blur(6px)',display:'flex',alignItems:'center',justifyContent:'center',gap:'18px',padding:'34px',animation:'lightboxBackdropIn 180ms ease-out' }}>
+
+        {/* Prev arrow */}
+        {multi && (
+            <button onClick={(e) => { e.stopPropagation(); stepAttachmentViewer(-1); }}
+                onMouseEnter={e=>arrowHover(e,true)} onMouseLeave={e=>arrowHover(e,false)}
+                onMouseDown={e=>{ e.currentTarget.style.transform='scale(0.95)'; }}
+                onMouseUp={e=>{ e.currentTarget.style.transform='scale(1.08)'; }}
+                title="Previous (←)" style={arrowStyle}>‹</button>
+        )}
+
+        {/* Image + chrome — clicks inside don't close */}
+        <div onClick={(e) => e.stopPropagation()} style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:'12px',maxWidth:'calc(100vw - 220px)',maxHeight:'calc(100vh - 100px)' }}>
+            <img key={att.url} src={att.proxyUrl || att.url} alt={att.filename}
+                style={{ maxWidth:'100%',maxHeight:'calc(100vh - 170px)',borderRadius:'12px',border:'1px solid rgba(56,189,248,0.3)',boxShadow:'0 30px 90px rgba(0,0,0,0.7), 0 0 50px rgba(56,189,248,0.12)',objectFit:'contain',animation:'lightboxImageIn 240ms cubic-bezier(0.23,1,0.32,1)' }} />
+            <div style={{ display:'flex',alignItems:'center',gap:'14px' }}>
+                <span style={{ color:'#94a3b8',fontSize:'11px',fontFamily:'monospace',maxWidth:'40vw',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{att.filename}</span>
+                {multi && (
+                    <span style={{ color:'#7dd3fc',fontSize:'11px',fontFamily:'monospace',fontWeight:'700',background:'rgba(56,189,248,0.1)',border:'1px solid rgba(56,189,248,0.3)',borderRadius:'999px',padding:'2px 10px' }}>{index + 1} / {attachments.length}</span>
+                )}
+                <button onClick={closeAttachmentViewer} title="Close (Esc)"
+                    style={{ background:'transparent',border:'1px solid rgba(148,163,184,0.3)',borderRadius:'7px',color:'#94a3b8',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',padding:'5px 12px',cursor:'pointer',transition:'color 140ms ease-out, border-color 140ms ease-out' }}
+                    onMouseEnter={e=>{ e.currentTarget.style.color='#e2e8f0'; e.currentTarget.style.borderColor='rgba(226,232,240,0.5)'; }}
+                    onMouseLeave={e=>{ e.currentTarget.style.color='#94a3b8'; e.currentTarget.style.borderColor='rgba(148,163,184,0.3)'; }}>
+                    Close
+                </button>
+            </div>
+        </div>
+
+        {/* Next arrow */}
+        {multi && (
+            <button onClick={(e) => { e.stopPropagation(); stepAttachmentViewer(1); }}
+                onMouseEnter={e=>arrowHover(e,true)} onMouseLeave={e=>arrowHover(e,false)}
+                onMouseDown={e=>{ e.currentTarget.style.transform='scale(0.95)'; }}
+                onMouseUp={e=>{ e.currentTarget.style.transform='scale(1.08)'; }}
+                title="Next (→)" style={arrowStyle}>›</button>
+        )}
+    </div>
+    );
+})()}
+
 {!maintenanceActive && !showUpdateScreen && !showLoginScreen && !showLoader && (
         <div className="app-container">
 
@@ -13774,25 +13887,19 @@ return (
                                 <div style={{ flex:'1 1 auto',minHeight:0,maxHeight:'560px',overflowY:'auto',display:'flex',flexDirection:'column',gap:'10px',paddingRight:'2px' }}>
                                     {plateGovRecords.map((record, index) => {
                                         const isWarrantType = record.type === 'Bench Warrant' || record.type === 'Arrest Warrant';
-                                        const badgeBg = record.type === 'Citation' || record.type === 'Mailed Citation' || record.type === 'Written Warning' ? 'rgba(234,179,8,0.2)'
-                                            : record.type === 'Vehicle Removal' ? 'rgba(168,85,247,0.2)'
-                                            : record.type === 'Summons' ? 'rgba(249,115,22,0.2)'
-                                            : record.type === 'Arrest' ? 'rgba(239,68,68,0.2)'
-                                            : record.type === 'Points Amend' ? 'rgba(34,197,94,0.2)'
-                                            : isWarrantType ? 'rgba(220,38,38,0.3)'
-                                            : 'rgba(59,130,246,0.2)';
-                                        const badgeBorder = record.type === 'Citation' ? 'rgba(234,179,8,0.4)'
-                                            : record.type === 'Summons' ? 'rgba(249,115,22,0.4)'
-                                            : record.type === 'Arrest' ? 'rgba(239,68,68,0.4)'
-                                            : record.type === 'Points Amend' ? 'rgba(34,197,94,0.4)'
-                                            : isWarrantType ? 'rgba(220,38,38,0.6)'
-                                            : 'rgba(59,130,246,0.4)';
-                                        const badgeFg = record.type === 'Citation' || record.type === 'Mailed Citation' || record.type === 'Written Warning' ? '#fbbf24'
-                                            : record.type === 'Summons' ? '#fb923c'
-                                            : record.type === 'Arrest' ? '#f87171'
-                                            : record.type === 'Points Amend' ? '#4ade80'
-                                            : isWarrantType ? '#fca5a5'
-                                            : '#93c5fd';
+                                        // One color system per type drives every accent on the card —
+                                        // dot, badge, divider, left border, label color — so each record
+                                        // reads as a single-voiced unit like the owner frame does.
+                                        const tc = isWarrantType ? { fg:'#fca5a5', rgb:'239,68,68' }
+                                            : record.type === 'Arrest' ? { fg:'#f87171', rgb:'239,68,68' }
+                                            : record.type === 'Summons' ? { fg:'#fb923c', rgb:'249,115,22' }
+                                            : record.type === 'Vehicle Removal' ? { fg:'#c084fc', rgb:'168,85,247' }
+                                            : record.type === 'Points Amend' ? { fg:'#4ade80', rgb:'34,197,94' }
+                                            : (record.type === 'Citation' || record.type === 'Mailed Citation' || record.type === 'Written Warning') ? { fg:'#fbbf24', rgb:'234,179,8' }
+                                            : { fg:'#7dd3fc', rgb:'56,189,248' };
+                                        const badgeBg = `rgba(${tc.rgb},0.16)`;
+                                        const badgeBorder = `rgba(${tc.rgb},${isWarrantType ? '0.55' : '0.35'})`;
+                                        const badgeFg = tc.fg;
                                         const lines = (record.content || '').split('\n').filter(l => l.trim());
                                         // Highlights the word "warrant" in red wherever it appears in a value/line
                                         const renderWithWarrantHighlight = (text, keyPrefix) => text.split(/(warrant)/gi).map((part, pi) =>
@@ -13801,14 +13908,17 @@ return (
                                                 : <React.Fragment key={`${keyPrefix}-${pi}`}>{part}</React.Fragment>
                                         );
                                         return (
-                                            <div key={record.id || index}
+                                            <div key={record.id || index} className="gov-record-card"
                                                 style={{
-                                                    background: isWarrantType ? 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(220,38,38,0.06))' : 'linear-gradient(135deg, rgba(30,58,138,0.12), rgba(59,130,246,0.04))',
-                                                    border: isWarrantType ? '1px solid rgba(239,68,68,0.35)' : '1px solid rgba(59,130,246,0.18)',
+                                                    background: `linear-gradient(180deg, rgba(${tc.rgb},0.10) 0%, rgba(8,16,32,0.55) 40%)`,
+                                                    border: `1px solid rgba(${tc.rgb},${isWarrantType ? '0.4' : '0.22'})`,
+                                                    borderLeft: `3px solid rgba(${tc.rgb},0.7)`,
                                                     borderRadius: '10px', overflow: 'hidden', position: 'relative', flexShrink: 0,
-                                                    animation: isWarrantType ? 'pulse-border-warrant 2s infinite' : 'none'
+                                                    boxShadow: `inset 0 1px 0 rgba(${tc.rgb},0.1)`,
+                                                    animation: `recordCardIn 320ms cubic-bezier(0.23,1,0.32,1) both${isWarrantType ? ', pulse-border-warrant 2s infinite' : ''}`,
+                                                    animationDelay: `${Math.min(index, 8) * 45}ms${isWarrantType ? ', 0ms' : ''}`
                                                 }}>
-                                                <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:isWarrantType?'linear-gradient(90deg,transparent,rgba(239,68,68,0.6),transparent)':'linear-gradient(90deg,transparent,rgba(59,130,246,0.4),transparent)' }} />
+                                                <div style={{ position:'absolute',top:0,left:0,right:0,height:'2px',background:`linear-gradient(90deg,transparent,rgba(${tc.rgb},0.55),transparent)` }} />
                                                 <div style={{ padding:'12px 14px' }}>
                                                     {/* Header: type badge + date + author */}
                                                     <div style={{ display:'flex',flexWrap:'wrap',alignItems:'center',gap:'8px',marginBottom:'10px',paddingBottom:'9px',borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
@@ -13834,14 +13944,14 @@ return (
                                                                     const colonIdx = clean.indexOf(':');
                                                                     const hasLabel = colonIdx > 0 && colonIdx < 30;
                                                                     return (
-                                                                        <div key={li} style={{ display:'flex',gap:'7px',padding:'2px 0',borderBottom: li < lines.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none' }}>
+                                                                        <div key={li} style={{ display:'flex',gap:'8px',padding:'2.5px 0',borderBottom: li < lines.length - 1 ? '1px solid rgba(255,255,255,0.035)' : 'none' }}>
                                                                             {hasLabel ? (
                                                                                 <>
-                                                                                    <span style={{ color:'#6b7280',fontSize:'10px',fontWeight:'700',minWidth:'92px',flexShrink:0,fontFamily:'monospace' }}>{clean.substring(0, colonIdx).trim()}</span>
-                                                                                    <span style={{ color:'#e2e8f0',fontSize:'10px',fontFamily:'monospace',wordBreak:'break-word' }}>{renderWithWarrantHighlight(clean.substring(colonIdx + 1).trim(), `v${li}`)}</span>
+                                                                                    <span style={{ color:`rgba(${tc.rgb},0.85)`,fontSize:'9.5px',fontWeight:'700',letterSpacing:'0.5px',textTransform:'uppercase',minWidth:'92px',flexShrink:0,fontFamily:'monospace',paddingTop:'1px' }}>{clean.substring(0, colonIdx).trim()}</span>
+                                                                                    <span style={{ color:'#e2e8f0',fontSize:'11px',fontFamily:'monospace',wordBreak:'break-word' }}>{renderWithWarrantHighlight(clean.substring(colonIdx + 1).trim(), `v${li}`)}</span>
                                                                                 </>
                                                                             ) : (
-                                                                                <span style={{ color:isHeader?'#93c5fd':'#cbd5e1',fontSize:'10px',fontWeight:isHeader?'700':'400',fontFamily:'monospace',letterSpacing:isHeader?'0.5px':'normal',wordBreak:'break-word' }}>{renderWithWarrantHighlight(clean, `l${li}`)}</span>
+                                                                                <span style={{ color:isHeader?tc.fg:'#94a3b8',fontSize:'10.5px',fontWeight:isHeader?'700':'400',fontFamily:'monospace',letterSpacing:isHeader?'0.5px':'normal',wordBreak:'break-word' }}>{renderWithWarrantHighlight(clean, `l${li}`)}</span>
                                                                             )}
                                                                         </div>
                                                                     );
@@ -13854,17 +13964,32 @@ return (
                                                     {record.attachments.length > 0 && (
                                                         <div>
                                                             <div style={{ color:'#64748b',fontSize:'8px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'6px' }}>Attachments ({record.attachments.length})</div>
-                                                            <div style={{ display:'flex',flexDirection:'column',gap:'7px' }}>
-                                                                {record.attachments.map((att, ai) => (
-                                                                    (att.contentType || '').startsWith('image/') ? (
-                                                                        <a key={ai} href={att.url} target="_blank" rel="noreferrer" style={{ display:'block' }}>
-                                                                            <img src={att.proxyUrl || att.url} alt={att.filename} style={{ maxWidth:'100%',maxHeight:'200px',borderRadius:'7px',border:'1px solid rgba(255,255,255,0.08)',display:'block' }} />
-                                                                        </a>
-                                                                    ) : (
-                                                                        <a key={ai} href={att.url} target="_blank" rel="noreferrer" style={{ color:'#7dd3fc',fontSize:'10px',fontFamily:'monospace',textDecoration:'none' }}>📎 {att.filename}</a>
-                                                                    )
-                                                                ))}
-                                                            </div>
+                                                            {(() => {
+                                                                const imageAtts = record.attachments.filter(a => (a.contentType || '').startsWith('image/'));
+                                                                const fileAtts = record.attachments.filter(a => !(a.contentType || '').startsWith('image/'));
+                                                                return (
+                                                                <>
+                                                                    {imageAtts.length > 0 && (
+                                                                        <div style={{ display:'flex',flexWrap:'wrap',gap:'7px' }}>
+                                                                            {imageAtts.map((att, ai) => (
+                                                                                <div key={ai} className="gov-attachment-thumb" title={`${att.filename} — click to view`}
+                                                                                    onClick={() => openAttachmentViewer(imageAtts, ai)}
+                                                                                    style={{ width:'74px',height:'74px' }}>
+                                                                                    <img src={att.proxyUrl || att.url} alt={att.filename} style={{ width:'100%',height:'100%',objectFit:'cover',display:'block' }} />
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                    {fileAtts.length > 0 && (
+                                                                        <div style={{ display:'flex',flexWrap:'wrap',gap:'6px',marginTop: imageAtts.length>0?'7px':'0' }}>
+                                                                            {fileAtts.map((att, ai) => (
+                                                                                <a key={ai} href={att.url} target="_blank" rel="noreferrer" style={{ color:'#7dd3fc',fontSize:'10px',fontFamily:'monospace',textDecoration:'none',background:'rgba(56,189,248,0.08)',border:'1px solid rgba(56,189,248,0.2)',borderRadius:'6px',padding:'4px 8px' }}>📎 {att.filename}</a>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </>
+                                                                );
+                                                            })()}
                                                         </div>
                                                     )}
                                                 </div>
