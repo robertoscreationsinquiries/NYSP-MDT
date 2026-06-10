@@ -1975,6 +1975,18 @@ const [loadingRoblox, setLoadingRoblox] = useState(false);
 const [robloxError, setRobloxError] = useState(null);
 const [robloxLoadingStage, setRobloxLoadingStage] = useState('');
 const [warrantInfo, setWarrantInfo] = useState(null);
+
+// ── Plate-tab government records (auto-loaded on plate search) ──
+// Merged flow: ONE paginated channel fetch yields BOTH the records list AND the
+// warrant flags (Bench/Arrest Warrant records are part of the same dataset), replacing
+// the separate checkWarrants() + searchPastRecords() calls for the plate tab.
+const [plateGovRecords, setPlateGovRecords] = useState(null);          // null = not started, [] = loaded empty
+const [plateGovLoading, setPlateGovLoading] = useState(false);
+const [plateGovProgress, setPlateGovProgress] = useState(0);           // 0..100
+const [plateGovStage, setPlateGovStage] = useState('');                // human-readable current step
+const [plateGovError, setPlateGovError] = useState('');
+const [expandedGovRecordId, setExpandedGovRecordId] = useState(null);  // raw-content expand toggle
+const plateGovRunIdRef = React.useRef(0);                              // cancels stale runs on new search
 const [warrantFlash, setWarrantFlash] = useState(false);
 const [warrantChecking, setWarrantChecking] = useState(false);
 const [callButtonFlash, setCallButtonFlash] = useState(false);
@@ -7440,6 +7452,15 @@ const lookupUser = async (plateOverride) => {
     setRobloxLoadingStage('');
     setWarrantInfo(null);
     setWarrantFlash(false);
+    // Reset the auto-loading government records panel for the new search.
+    // Bumping the run id also cancels any in-flight fetch from the previous plate.
+    plateGovRunIdRef.current++;
+    setPlateGovRecords(null);
+    setPlateGovLoading(false);
+    setPlateGovProgress(0);
+    setPlateGovStage('');
+    setPlateGovError('');
+    setExpandedGovRecordId(null);
     
     if (!effectivePlate) { setError('No input detected.'); addLog('No plate', 'error'); return; }
     if (!tokenSaved) { setError('Save token first'); addLog('No token', 'error'); return; }
@@ -7872,20 +7893,11 @@ console.log('   - Username:', memberData.user.username);
 
                         addLog(`Server name: ${serverName}`, 'success');
 
-                        // Fire warrant check immediately in parallel — don't wait for Roblox
-                        setWarrantChecking(true);
-                        setWarrantInfo(null);
-                        checkWarrants(regData.discordUserId).then(warrants => {
-                            setWarrantChecking(false);
-                            if (warrants) {
-                                setWarrantInfo(warrants);
-                                setWarrantFlash(true);
-                                playWarrantAlert();
-                                setTimeout(() => setWarrantFlash(false), 3000);
-                            } else {
-                                setWarrantInfo(null);
-                            }
-                        });
+                        // ── MERGED: one fetch for government records + warrants ──
+                        // fetchGovernmentProfile crawls the database channel once, builds the
+                        // records list for the plate tab's auto-loading panel, AND derives
+                        // warrant flags from the same dataset (feeding the warrant badge).
+                        fetchGovernmentProfile(regData.discordUserId);
                         
                         // ✅ Call lookupRobloxUser which sets result state
                         await lookupRobloxUser(serverName);
@@ -9766,6 +9778,162 @@ const channelId = trooperSettings?.DatabaseChannelID || editableTrooperSettings?
         showCustomError(`Error: ${e.message}.`);
     } finally {
         setLoadingHistory(false);
+    }
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// MERGED GOVERNMENT PROFILE FETCH (plate tab)
+// One paginated channel crawl produces BOTH:
+//   • the full government records list (citations, warnings, arrests, warrants...)
+//   • the warrant flags (derived from Bench/Arrest Warrant records in the same data)
+// Replaces the old split of checkWarrants() + searchPastRecords() for plate search.
+// Progress is reported via plateGovProgress (0-100) + plateGovStage (text).
+// ═══════════════════════════════════════════════════════════════════════
+const fetchGovernmentProfile = async (discordUserId) => {
+    const runId = ++plateGovRunIdRef.current;       // stale-run cancellation token
+    const isStale = () => plateGovRunIdRef.current !== runId;
+
+    console.log('🏛️ [GOV-PROFILE] Merged fetch started for', discordUserId, '(run', runId + ')');
+    setPlateGovLoading(true);
+    setPlateGovRecords(null);
+    setPlateGovError('');
+    setPlateGovProgress(0);
+    setPlateGovStage('Preparing search…');
+    setExpandedGovRecordId(null);
+    // Warrant badge enters checking state, driven by THIS fetch now
+    setWarrantChecking(true);
+    setWarrantInfo(null);
+
+    try {
+        if (!discordUserId || !discordToken) throw new Error('Missing user ID or Discord token');
+
+        let databaseChannelId = trooperSettings?.DatabaseChannelID || editableTrooperSettings?.DatabaseChannelID;
+        if (!databaseChannelId || databaseChannelId === 'N/A' || databaseChannelId.trim() === '') {
+            if (window.SETTINGS_FILE_CONTENT) {
+                const match = window.SETTINGS_FILE_CONTENT.match(/^DatabaseChannelID=(.+)$/m);
+                if (match) databaseChannelId = match[1].trim();
+            }
+        }
+        if (!databaseChannelId) throw new Error('Database Channel ID not configured');
+
+        // ── Phase 1: paginated fetch (progress 0 → 80) ──
+        setPlateGovStage('Searching for records…');
+        const cleanUserId = String(discordUserId).trim();
+        let allMessages = [];
+        let lastMessageId = null;
+        let pageCount = 0;
+        const maxPages = 200;
+        // We can't know total pages in advance. Soft-estimate against a typical channel
+        // size (assume ~25 pages) and clamp so the bar always moves but never lies past 80.
+        const SOFT_PAGE_ESTIMATE = 25;
+
+        while (pageCount < maxPages) {
+            if (isStale()) { console.log('🏛️ [GOV-PROFILE] Run', runId, 'cancelled (newer search started)'); return; }
+            pageCount++;
+            const url = lastMessageId
+                ? `https://discord.com/api/v9/channels/${databaseChannelId}/messages?limit=100&before=${lastMessageId}`
+                : `https://discord.com/api/v9/channels/${databaseChannelId}/messages?limit=100`;
+            const response = await fetch(url, { headers: { 'Authorization': discordToken } });
+            if (!response.ok) throw new Error(`Discord API error: ${response.status}`);
+            const messages = await response.json();
+            if (messages.length === 0) break;
+            allMessages = allMessages.concat(messages);
+            lastMessageId = messages[messages.length - 1].id;
+            const pct = Math.min(80, Math.round((pageCount / SOFT_PAGE_ESTIMATE) * 80));
+            setPlateGovProgress(pct);
+            setPlateGovStage(`Searching for records… (${allMessages.length} messages scanned)`);
+            if (messages.length < 100) break;
+        }
+        if (isStale()) return;
+
+        // ── Phase 2: classify + parse (progress 80 → 95) ──
+        setPlateGovStage('Converting and adding to UI…');
+        setPlateGovProgress(82);
+
+        const records = [];
+        let benchWarrants = 0;
+        let arrestWarrants = 0;
+
+        for (let i = 0; i < allMessages.length; i++) {
+            const msg = allMessages[i];
+            const content = msg.content || '';
+            const mentions = msg.mentions || [];
+            const isMentioned = mentions.some(m => m.id === cleanUserId) || content.includes(`<@${cleanUserId}>`);
+            const isAuthor = msg.author?.id === cleanUserId;
+            if (!isMentioned && !isAuthor) continue;
+
+            let recordType = null;
+            if (content.includes('**Traffic Citation**') || (content.includes('**Citation**') && !content.includes('**Mailed Citation**'))) recordType = 'Citation';
+            else if (content.includes('**Mailed Citation**')) recordType = 'Mailed Citation';
+            else if (content.includes('**Written Warning**')) recordType = 'Written Warning';
+            else if (content.includes('**Vehicle Removal**') || content.includes('**NYSDOT Removal Record**')) recordType = 'Vehicle Removal';
+            else if (content.includes('**Summons**')) recordType = 'Summons';
+            else if (content.includes('**Arrest Report**') || content.includes('**Arrest**')) recordType = 'Arrest';
+            else if (content.includes('**Points Amend**')) recordType = 'Points Amend';
+            else if (content.includes('**Bench Warrant**')) recordType = 'Bench Warrant';
+            else if (content.includes('**Arrest Warrant**')) recordType = 'Arrest Warrant';
+            if (!recordType) continue;
+
+            // ── Warrant derivation (replaces separate checkWarrants call) ──
+            // Same heuristic the old checker used: a 'points:' line means it's an arrest
+            // RECORD referencing the warrant, not a live warrant itself.
+            const lower = content.toLowerCase();
+            if (!lower.includes('points:')) {
+                if (recordType === 'Bench Warrant') benchWarrants++;
+                if (recordType === 'Arrest Warrant') arrestWarrants++;
+            }
+
+            const attachments = msg.attachments ? msg.attachments.map(att => ({
+                url: att.url, proxyUrl: att.proxy_url, filename: att.filename,
+                width: att.width, height: att.height, contentType: att.content_type
+            })) : [];
+
+            records.push({
+                id: msg.id,
+                type: recordType,
+                authorUsername: msg.author?.username || 'Unknown',
+                timestamp: msg.timestamp,
+                content,
+                attachments
+            });
+
+            // Stream progress through the parse phase
+            if (i % 200 === 0) setPlateGovProgress(82 + Math.min(13, Math.round((i / Math.max(1, allMessages.length)) * 13)));
+        }
+        if (isStale()) return;
+
+        // ── Phase 3: finalize (95 → 100) ──
+        setPlateGovStage('Finalizing…');
+        setPlateGovProgress(96);
+        records.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        // Feed the existing warrant badge from the SAME dataset
+        setWarrantChecking(false);
+        if (benchWarrants > 0 || arrestWarrants > 0) {
+            const w = { bench: benchWarrants, arrest: arrestWarrants };
+            setWarrantInfo(w);
+            setWarrantFlash(true);
+            playWarrantAlert();
+            setTimeout(() => setWarrantFlash(false), 3000);
+            addLog(`WARRANTS FOUND: Bench(${benchWarrants}) Arrest(${arrestWarrants})`, 'error');
+        } else {
+            setWarrantInfo(null);
+            addLog('✓ No active warrants', 'success');
+        }
+
+        setPlateGovRecords(records);
+        setPlateGovProgress(100);
+        setPlateGovStage('');
+        addLog(`✅ ${records.length} government record${records.length !== 1 ? 's' : ''} loaded`, 'success');
+        console.log('🏛️ [GOV-PROFILE] Done —', records.length, 'records, warrants:', benchWarrants, '/', arrestWarrants);
+    } catch (error) {
+        if (isStale()) return;
+        console.error('🏛️ [GOV-PROFILE] Error:', error);
+        setPlateGovError(error.message || 'Failed to load records');
+        setPlateGovRecords([]);
+        setWarrantChecking(false);
+    } finally {
+        if (!isStale()) setPlateGovLoading(false);
     }
 };
 
@@ -13370,14 +13538,127 @@ return (
                                     {/* Spacer pushes action buttons to the bottom edge of the card */}
                                     <div style={{ flex:'1 1 auto',minHeight:'14px' }} data-spacer="true" />
 
-                                    <button onClick={() => { setShowDatabaseHistory(true); const _uid = registration?.discordUserId || searchResults?.discordUserId || ''; setDatabaseSearchId(_uid); if (_uid) setTimeout(() => searchPastRecords(_uid), 100); }}
-                                        style={{ width:'100%',padding:'11px',background:'rgba(0,0,0,0.3)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'7px',color:'#94a3b8',fontSize:'11px',fontWeight:'700',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1.5px',fontFamily:'monospace',transition:'background 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)',display:'flex',alignItems:'center',justifyContent:'center',gap:'7px' }}
-                                        onMouseEnter={e=>{ e.currentTarget.style.background='rgba(56,189,253,0.08)'; e.currentTarget.style.borderColor='rgba(56,189,248,0.3)'; e.currentTarget.style.color='#e2e8f0'; }}
-                                        onMouseLeave={e=>{ e.currentTarget.style.background='rgba(0,0,0,0.3)'; e.currentTarget.style.borderColor='rgba(56,189,248,0.15)'; e.currentTarget.style.color='#94a3b8'; }}
-                                        onMouseDown={e=>{ e.currentTarget.style.transform='scale(0.98)'; }}
-                                        onMouseUp={e=>{ e.currentTarget.style.transform=''; }}>
-                                        View Government Records
-                                    </button>
+                                    {/* ── GOVERNMENT RECORDS — auto-loaded on plate search ──
+                                        Replaces the old "View Government Records" button. The fetch fires
+                                        automatically when the registered owner resolves; this panel shows
+                                        live progress then renders the records inline. */}
+                                    {(plateGovLoading || plateGovRecords !== null || plateGovError) && (
+                                        <div style={{ width:'100%',marginBottom:'8px',background:'rgba(7,12,24,0.55)',border:'1px solid rgba(56,189,248,0.18)',borderRadius:'10px',overflow:'hidden' }}>
+                                            {/* Panel header */}
+                                            <div style={{ display:'flex',alignItems:'center',gap:'9px',padding:'11px 14px',borderBottom:'1px solid rgba(56,189,248,0.12)' }}>
+                                                <div style={{ width:'3px',height:'14px',background:'#38bdf8',borderRadius:'2px',boxShadow:'0 0 8px #38bdf8',flexShrink:0 }} />
+                                                <span style={{ color:'#7dd3fc',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace' }}>Government Records</span>
+                                                <div style={{ flex:1 }} />
+                                                {plateGovRecords !== null && !plateGovLoading && (
+                                                    <span style={{ color:'#475569',fontSize:'10px',fontFamily:'monospace',fontWeight:'700' }}>{plateGovRecords.length} RECORD{plateGovRecords.length !== 1 ? 'S' : ''}</span>
+                                                )}
+                                            </div>
+
+                                            {/* LOADING — live progress: %, stage text, animated bar */}
+                                            {plateGovLoading && (
+                                                <div style={{ padding:'16px 14px' }}>
+                                                    <div style={{ display:'flex',alignItems:'baseline',gap:'10px',marginBottom:'8px' }}>
+                                                        <span style={{ fontFamily:'monospace',fontSize:'22px',fontWeight:'900',color:'#7dd3fc',lineHeight:1 }}>{plateGovProgress}%</span>
+                                                        <span style={{ color:'#64748b',fontSize:'11px',fontFamily:'monospace' }}>done</span>
+                                                    </div>
+                                                    <div style={{ height:'5px',background:'rgba(7,12,24,0.8)',borderRadius:'4px',overflow:'hidden',marginBottom:'8px' }}>
+                                                        <div style={{ width:`${plateGovProgress}%`,height:'100%',background:'linear-gradient(90deg,#2563eb,#38bdf8)',borderRadius:'4px',transition:'width 350ms cubic-bezier(0.23,1,0.32,1)',boxShadow:'0 0 10px rgba(56,189,248,0.5)' }} />
+                                                    </div>
+                                                    <div style={{ color:'#94a3b8',fontSize:'11px',fontFamily:'monospace',display:'flex',alignItems:'center',gap:'7px' }}>
+                                                        <span className="login-spin" style={{ width:'10px',height:'10px',border:'2px solid rgba(56,189,248,0.25)',borderTopColor:'#38bdf8',borderRadius:'50%',display:'inline-block',flexShrink:0 }} />
+                                                        {plateGovStage || 'Working…'}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* ERROR */}
+                                            {!plateGovLoading && plateGovError && (
+                                                <div style={{ padding:'13px 14px',color:'#fca5a5',fontSize:'12px',display:'flex',alignItems:'center',gap:'8px' }}>
+                                                    <XCircle size={14} style={{ flexShrink:0 }} />
+                                                    {plateGovError}
+                                                </div>
+                                            )}
+
+                                            {/* EMPTY */}
+                                            {!plateGovLoading && !plateGovError && plateGovRecords !== null && plateGovRecords.length === 0 && (
+                                                <div style={{ padding:'16px 14px',color:'#475569',fontSize:'12px',textAlign:'center',fontFamily:'monospace' }}>
+                                                    No government records on file for this citizen.
+                                                </div>
+                                            )}
+
+                                            {/* RECORDS LIST */}
+                                            {!plateGovLoading && plateGovRecords !== null && plateGovRecords.length > 0 && (
+                                                <div style={{ maxHeight:'420px',overflowY:'auto',padding:'10px',display:'flex',flexDirection:'column',gap:'8px' }}>
+                                                    {plateGovRecords.map(rec => {
+                                                        const isWarrantType = rec.type === 'Bench Warrant' || rec.type === 'Arrest Warrant';
+                                                        const isExpanded = expandedGovRecordId === rec.id;
+                                                        const typeColors = isWarrantType
+                                                            ? { fg:'#fca5a5', bg:'rgba(239,68,68,0.14)', border:'rgba(239,68,68,0.4)' }
+                                                            : rec.type === 'Arrest'
+                                                            ? { fg:'#fdba74', bg:'rgba(249,115,22,0.12)', border:'rgba(249,115,22,0.35)' }
+                                                            : rec.type === 'Written Warning'
+                                                            ? { fg:'#fde047', bg:'rgba(234,179,8,0.1)', border:'rgba(234,179,8,0.3)' }
+                                                            : { fg:'#7dd3fc', bg:'rgba(56,189,248,0.1)', border:'rgba(56,189,248,0.3)' };
+                                                        // Render raw content with "warrant" highlighted red (case-insensitive,
+                                                        // matches the user's custom warrant system keyword).
+                                                        const contentParts = (rec.content || '').split(/(warrant)/gi);
+                                                        return (
+                                                            <div key={rec.id} style={{ background:'rgba(15,23,42,0.6)',border:`1px solid ${isWarrantType ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.06)'}`,borderRadius:'9px',overflow:'hidden' }}>
+                                                                {/* Record card header — click to expand raw content */}
+                                                                <div onClick={() => setExpandedGovRecordId(isExpanded ? null : rec.id)}
+                                                                    style={{ display:'flex',alignItems:'center',gap:'9px',padding:'10px 12px',cursor:'pointer',userSelect:'none' }}>
+                                                                    <span style={{ fontSize:'10px',fontWeight:'800',fontFamily:'monospace',letterSpacing:'1px',textTransform:'uppercase',color:typeColors.fg,background:typeColors.bg,border:`1px solid ${typeColors.border}`,borderRadius:'5px',padding:'3px 8px',flexShrink:0 }}>{rec.type}</span>
+                                                                    <div style={{ flex:1,minWidth:0 }}>
+                                                                        <div style={{ color:'#94a3b8',fontSize:'11px',fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>
+                                                                            {new Date(rec.timestamp).toLocaleString()} · by {rec.authorUsername}
+                                                                        </div>
+                                                                    </div>
+                                                                    {rec.attachments.length > 0 && (
+                                                                        <span title={`${rec.attachments.length} attachment(s)`} style={{ color:'#64748b',fontSize:'10px',fontFamily:'monospace',flexShrink:0 }}>📎{rec.attachments.length}</span>
+                                                                    )}
+                                                                    <span style={{ color:'#475569',fontSize:'10px',transform:isExpanded?'rotate(180deg)':'none',transition:'transform 200ms cubic-bezier(0.23,1,0.32,1)',flexShrink:0 }}>▼</span>
+                                                                </div>
+
+                                                                {/* Expanded: raw message content + attachments */}
+                                                                {isExpanded && (
+                                                                    <div style={{ borderTop:'1px solid rgba(255,255,255,0.05)',padding:'12px' }}>
+                                                                        <div style={{ color:'#64748b',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'7px' }}>Raw Message Content</div>
+                                                                        <div style={{ background:'rgba(0,0,0,0.35)',border:'1px solid rgba(255,255,255,0.05)',borderRadius:'7px',padding:'10px 12px',color:'#cbd5e1',fontSize:'12px',lineHeight:1.6,whiteSpace:'pre-wrap',wordBreak:'break-word',fontFamily:'monospace' }}>
+                                                                            {contentParts.map((part, pi) =>
+                                                                                /^warrant$/i.test(part)
+                                                                                    ? <span key={pi} style={{ color:'#fff',background:'rgba(239,68,68,0.45)',border:'1px solid rgba(239,68,68,0.6)',borderRadius:'3px',padding:'0 4px',fontWeight:'800' }}>{part}</span>
+                                                                                    : <React.Fragment key={pi}>{part}</React.Fragment>
+                                                                            )}
+                                                                        </div>
+                                                                        {rec.attachments.length > 0 && (
+                                                                            <div style={{ marginTop:'10px' }}>
+                                                                                <div style={{ color:'#64748b',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'7px' }}>Attachments ({rec.attachments.length})</div>
+                                                                                <div style={{ display:'flex',flexDirection:'column',gap:'8px' }}>
+                                                                                    {rec.attachments.map((att, ai) => (
+                                                                                        (att.contentType || '').startsWith('image/') ? (
+                                                                                            <a key={ai} href={att.url} target="_blank" rel="noreferrer" style={{ display:'block' }}>
+                                                                                                <img src={att.proxyUrl || att.url} alt={att.filename}
+                                                                                                    style={{ maxWidth:'100%',maxHeight:'260px',borderRadius:'7px',border:'1px solid rgba(255,255,255,0.08)',display:'block' }} />
+                                                                                            </a>
+                                                                                        ) : (
+                                                                                            <a key={ai} href={att.url} target="_blank" rel="noreferrer"
+                                                                                                style={{ color:'#7dd3fc',fontSize:'11px',fontFamily:'monospace',textDecoration:'none',display:'flex',alignItems:'center',gap:'6px' }}>
+                                                                                                📎 {att.filename}
+                                                                                            </a>
+                                                                                        )
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
 
                                     
                                     {!isDispatcher && (() => {
