@@ -344,7 +344,7 @@ body::before {
             border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px;
             display: flex; gap: 12px; color: #fecaca; font-size: 14px;
         }
-.results-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr); gap: 18px; margin-top: 14px; align-items: stretch; }
+.results-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr); gap: 18px; margin-top: 14px; align-items: stretch; }
 .results-grid > * { display: flex; flex-direction: column; min-height: 100%; }
 .results-grid > * > * { flex: none; }
 .results-grid > * > [data-spacer] { flex: 1 1 auto; }
@@ -1467,7 +1467,7 @@ html, body {
 }
 
 @media (min-width: 1600px) {
-    .results-grid { grid-template-columns: minmax(0, 380px) minmax(0, 1fr); grid-template-rows: auto; }
+    .results-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr); grid-template-rows: auto; }
 }
 
 /* Grid overlay - separate element, behind everything */
@@ -2440,6 +2440,10 @@ const [isLoggingIn, setIsLoggingIn] = useState(false);
 const [authenticatedUser, setAuthenticatedUser] = useState(null);
 const authenticatedUserRef = React.useRef(null);
 React.useEffect(() => { authenticatedUserRef.current = authenticatedUser; }, [authenticatedUser]);
+// The exact key used to look up the user in the Worker's USERS table (case-sensitive).
+// authenticatedUser.robloxUsername can be a different case (e.g. DAREALROBZ vs DaRealRobz),
+// which would make the Worker's USERS[key] lookup miss. We capture the login-time key.
+const loginKeyRef = React.useRef(null);
 const [showBanScreen, setShowBanScreen] = useState(false);
 const [banReason, setBanReason] = useState('');
 const [showLogoutScreen, setShowLogoutScreen] = useState(false);
@@ -2647,7 +2651,7 @@ const runCloudflarePoll = React.useCallback(async (isInitial) => {
             fetch(`${CF_BASE}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: authUser.robloxUsername, checkBanOnly: true })
+                body: JSON.stringify({ username: (loginKeyRef.current || authUser.robloxUsername), checkBanOnly: true })
             })
             .then(r => r.ok ? r.json() : null)
             .then(json => {
@@ -3245,6 +3249,7 @@ useEffect(() => {
             console.log('[CF-CACHE] Baseline (session restore):', securityBaselineRef.current.username,
                         '| fp:', securityBaselineRef.current.passwordFingerprint?.slice(0,8),
                         '| locks:', JSON.stringify(securityBaselineRef.current.locks));
+            loginKeyRef.current = localStorage.getItem('nysp_saved_username') || baselineSource.robloxUsername || user.robloxUsername;
             setTrooperName(user.robloxUsername);
             setTrooperBadge(user.badgeId);
             setShowLoginScreen(false);
@@ -5360,6 +5365,7 @@ useEffect(() => {
                 console.log('[CF-CACHE] Baseline (sub-account restore):', securityBaselineRef.current.username,
                             '| fp:', securityBaselineRef.current.passwordFingerprint?.slice(0,8),
                             '| locks:', JSON.stringify(securityBaselineRef.current.locks));
+                loginKeyRef.current = localStorage.getItem('nysp_saved_username') || currentUser.robloxUsername || user.robloxUsername;
                 setShowLoginScreen(false);
                 console.log('[AUTH] Session restored');
                 setTrooperData({
@@ -10925,6 +10931,9 @@ if (window.MAINTENANCE === true && !(window.APP_GITHUB_BRANCH && window.APP_GITH
             banned: !!user.banned,
             locks: user.locks || {}
         };
+        // Exact case-sensitive key the user authenticated with — used for the 30s re-check
+        // so the Worker's USERS[key] lookup matches (robloxUsername may differ in case).
+        loginKeyRef.current = loginUsername.trim();
         console.log('[CF-CACHE] Security baseline captured for', user.robloxUsername,
                     '| fp:', user.passwordFingerprint?.slice(0,8),
                     '| locks:', JSON.stringify(user.locks || {}));
