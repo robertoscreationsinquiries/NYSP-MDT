@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2584,9 +2583,9 @@ const forceQuitForTamper = React.useCallback((reason) => {
     console.error('[CF-CACHE] 🚨 TAMPER DETECTED:', reason);
     try {
         window.electron?.ipcRenderer?.invoke('force-quit-with-dialog', {
-            title: 'Connection Failed',
-            message: 'Connection failed.',
-            detail: 'Please restart the application.\n\n(' + reason + ')'
+            title: 'Connection to application lost',
+            message: 'Connection to application lost',
+            detail: 'Your connection to the application was interrupted by the backend. Restart the application.'
         });
     } catch (_) {}
     // Belt and braces: if main is unreachable, blank the UI so the user can't keep using stale state
@@ -14635,6 +14634,7 @@ onError={(e) => {
 
                     // Tab definitions
                     const tabs = [
+                        { id: 'account',      label: 'Account',         icon: '🪪', accent: '#38bdf8', tags: ['account', 'standing', 'status', 'restriction', 'violation', 'profile', 'badge'] },
                         { id: 'auth',         label: 'Authentication',  icon: '🔒', accent: '#ef4444', tags: ['discord', 'groq', 'token', 'api', 'spotify', 'teamspeak', 'client', 'id'] },
                         { id: 'data',         label: 'Data Sources',    icon: '🗄️', accent: '#10b981', tags: ['channel', 'guild', 'database', 'registration', 'expiry'] },
                         { id: 'preferences',  label: 'Preferences',     icon: '⚙️', accent: '#f59e0b', tags: ['language', 'phonetic', 'time', 'date', 'integration', 'enable', 'spotify', 'teamspeak'] },
@@ -14695,6 +14695,122 @@ onError={(e) => {
                             <div>
 
                             {/* ── AUTHENTICATION ── */}
+                            {/* ── ACCOUNT — standing, restrictions, violations (Discord Account-Standing style) ── */}
+                            {activeT && activeT.id === 'account' && (() => {
+                                // Freshest record wins: central 30s poll → login snapshot → empty
+                                const acct = cfCache?.userRecord || authenticatedUser || {};
+                                const locks = featureLocks || {};
+                                const LOCK_META = {
+                                    plateSearch:    { label: 'Plate Search',            desc: 'Searching vehicles by license plate is disabled for your account.' },
+                                    citizenSearch:  { label: 'Citizen Search',          desc: 'Searching citizens by ID is disabled for your account.' },
+                                    callsTab:       { label: 'Dispatch Calls',          desc: 'Access to the live calls panel is disabled for your account.' },
+                                    exportCitation: { label: 'Citation & Report Export', desc: 'Exporting pre-filled citations and arrest reports is disabled for your account.' }
+                                };
+                                const activeLocks = Object.keys(LOCK_META).filter(k => !!locks[k]);
+                                const violations = Array.isArray(acct.violations) ? acct.violations : [];
+                                const isBanned = acct.banned === true;
+                                // Standing: 5 levels mirroring Discord's meter
+                                const STANDING = [
+                                    { id: 'clear',    label: 'All clear',    color: '#22c55e' },
+                                    { id: 'limited',  label: 'Limited',      color: '#fbbf24' },
+                                    { id: 'verylim',  label: 'Very limited', color: '#fb923c' },
+                                    { id: 'atrisk',   label: 'At risk',      color: '#f87171' },
+                                    { id: 'susp',     label: 'Suspended',    color: '#ef4444' }
+                                ];
+                                const standingIdx = isBanned ? 4 : activeLocks.length >= 3 ? 3 : activeLocks.length === 2 ? 2 : activeLocks.length === 1 ? 1 : 0;
+                                const standing = STANDING[standingIdx];
+                                return (
+                                <div className="settings-section-card" style={S.section('#38bdf8', 'rgba(56,189,248,0.06)')}>
+                                    <div style={S.sectionHead('#7dd3fc')}>🪪 Account</div>
+                                    <div style={S.sectionSub}>Your account status, active restrictions, and violation history</div>
+
+                                    {/* Profile strip */}
+                                    <div style={{ display:'flex',alignItems:'center',gap:'14px',padding:'14px 16px',background:'rgba(7,12,24,0.5)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'10px',marginBottom:'14px' }}>
+                                        <div style={{ width:'46px',height:'46px',borderRadius:'12px',background:'linear-gradient(135deg,#1e3a8a,#2563eb)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:'900',fontSize:'18px',flexShrink:0,boxShadow:'0 4px 14px rgba(37,99,235,0.35)' }}>
+                                            {(acct.firstName || acct.robloxUsername || '?').charAt(0).toUpperCase()}
+                                        </div>
+                                        <div style={{ flex:1,minWidth:0 }}>
+                                            <div style={{ color:'#f1f5f9',fontSize:'15px',fontWeight:'800' }}>{acct.firstName} {acct.lastName}</div>
+                                            <div style={{ color:'#64748b',fontSize:'11px',fontFamily:'monospace' }}>
+                                                @{acct.robloxUsername || '—'} · Badge {acct.badgeId || '—'} · {acct.department || '—'}{acct.callSign ? ` · ${acct.callSign}` : ''}{acct.patrolZone ? ` · Zone ${acct.patrolZone}` : ''}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Standing banner + 5-node meter */}
+                                    <div style={{ padding:'16px',background:`linear-gradient(180deg, rgba(${standingIdx===0?'34,197,94':standingIdx>=3?'239,68,68':'251,191,36'},0.08) 0%, rgba(7,12,24,0.5) 60%)`,border:`1px solid ${standing.color}44`,borderRadius:'10px',marginBottom:'14px' }}>
+                                        <div style={{ display:'flex',alignItems:'center',gap:'10px',marginBottom:'13px' }}>
+                                            <span style={{ width:'10px',height:'10px',borderRadius:'50%',background:standing.color,boxShadow:`0 0 12px ${standing.color}`,flexShrink:0 }} />
+                                            <div>
+                                                <div style={{ color:'#f1f5f9',fontSize:'14px',fontWeight:'800' }}>
+                                                    {standingIdx === 0 ? 'Your account is all clear' : standingIdx === 4 ? 'Your account is suspended' : `Your account is ${standing.label.toLowerCase()}`}
+                                                </div>
+                                                <div style={{ color:'#94a3b8',fontSize:'11.5px',lineHeight:1.5,marginTop:'2px' }}>
+                                                    {standingIdx === 0
+                                                        ? 'No restrictions are active. Keep following department policy to stay in good standing.'
+                                                        : standingIdx === 4
+                                                        ? (acct.bannedReason || 'Contact command for more information.')
+                                                        : `${activeLocks.length} feature restriction${activeLocks.length !== 1 ? 's are' : ' is'} currently active on your account.`}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {/* Meter */}
+                                        <div style={{ display:'flex',alignItems:'center',gap:'6px' }}>
+                                            {STANDING.map((s, si) => (
+                                                <div key={s.id} style={{ flex:1,display:'flex',flexDirection:'column',gap:'5px',alignItems:'center' }}>
+                                                    <div style={{ width:'100%',height:'5px',borderRadius:'4px',background: si <= standingIdx ? (si === standingIdx ? standing.color : `${standing.color}55`) : 'rgba(148,163,184,0.12)',boxShadow: si === standingIdx ? `0 0 10px ${standing.color}88` : 'none',transition:'background 300ms ease-out' }} />
+                                                    <span style={{ fontSize:'8.5px',fontFamily:'monospace',fontWeight:si===standingIdx?'800':'600',letterSpacing:'0.5px',textTransform:'uppercase',color: si === standingIdx ? standing.color : '#475569' }}>{s.label}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Active restrictions */}
+                                    <div style={{ color:'#94a3b8',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace',margin:'4px 0 8px' }}>Active Restrictions</div>
+                                    {activeLocks.length === 0 ? (
+                                        <div style={{ padding:'12px 14px',background:'rgba(34,197,94,0.06)',border:'1px solid rgba(34,197,94,0.2)',borderRadius:'9px',color:'#86efac',fontSize:'12px',marginBottom:'14px' }}>
+                                            ✓ No active restrictions
+                                        </div>
+                                    ) : (
+                                        <div style={{ display:'flex',flexDirection:'column',gap:'7px',marginBottom:'14px' }}>
+                                            {activeLocks.map(k => (
+                                                <div key={k} style={{ display:'flex',alignItems:'flex-start',gap:'10px',padding:'11px 13px',background:'rgba(239,68,68,0.07)',border:'1px solid rgba(239,68,68,0.25)',borderRadius:'9px' }}>
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fca5a5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0,marginTop:'1px' }}><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
+                                                    <div>
+                                                        <div style={{ color:'#fca5a5',fontSize:'12px',fontWeight:'800' }}>{LOCK_META[k].label}</div>
+                                                        <div style={{ color:'#94a3b8',fontSize:'11px',lineHeight:1.5,marginTop:'2px' }}>{LOCK_META[k].desc}</div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Violation history */}
+                                    <div style={{ color:'#94a3b8',fontSize:'10px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace',margin:'4px 0 8px' }}>Violation History</div>
+                                    {violations.length === 0 ? (
+                                        <div style={{ padding:'12px 14px',background:'rgba(7,12,24,0.45)',border:'1px solid rgba(148,163,184,0.12)',borderRadius:'9px',color:'#64748b',fontSize:'12px',fontFamily:'monospace' }}>
+                                            No violations on record.
+                                        </div>
+                                    ) : (
+                                        <div style={{ display:'flex',flexDirection:'column',gap:'8px' }}>
+                                            {violations.map((v, vi) => (
+                                                <div key={vi} style={{ padding:'12px 14px',background:'rgba(7,12,24,0.5)',border:'1px solid rgba(251,191,36,0.22)',borderLeft:'3px solid rgba(251,191,36,0.6)',borderRadius:'9px' }}>
+                                                    <div style={{ display:'flex',alignItems:'center',gap:'9px',marginBottom:'5px',flexWrap:'wrap' }}>
+                                                        {v.code && <span style={{ fontFamily:'monospace',fontSize:'10px',fontWeight:'800',letterSpacing:'1px',color:'#fbbf24',background:'rgba(251,191,36,0.12)',border:'1px solid rgba(251,191,36,0.35)',borderRadius:'5px',padding:'2px 8px' }}>{v.code}</span>}
+                                                        <span style={{ color:'#f1f5f9',fontSize:'12.5px',fontWeight:'700' }}>{v.rule || 'Policy violation'}</span>
+                                                        <div style={{ flex:1 }} />
+                                                        {v.date && <span style={{ color:'#475569',fontSize:'10px',fontFamily:'monospace' }}>{v.date}</span>}
+                                                    </div>
+                                                    {v.description && <div style={{ color:'#94a3b8',fontSize:'11.5px',lineHeight:1.55 }}>{v.description}</div>}
+                                                    {v.action && <div style={{ color:'#fb923c',fontSize:'10.5px',fontFamily:'monospace',marginTop:'5px' }}>Action taken: {v.action}</div>}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                );
+                            })()}
+
                             {activeT && activeT.id === 'auth' && (<>
                             <div className="settings-section-card" style={S.section('#ef4444', 'rgba(239,68,68,0.06)')}>
                                 <div style={S.sectionHead('#f87171')}>🔒 Authentication</div>
