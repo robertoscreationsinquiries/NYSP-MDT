@@ -15587,274 +15587,88 @@ onError={(e) => {
 )}
 
 {activeView === 'calls' && (
-    <div style={{
-        padding: '20px',
-        background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
-        minHeight: '100vh',
-        boxSizing: 'border-box',
-        WebkitMaskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)',
-        maskImage: 'radial-gradient(ellipse 95% 92% at 50% 50%, black 60%, transparent 100%)'
-    }}>
-        {/* ── HEADER ── */}
-        <div style={{ 
-            marginBottom: '20px', 
-            padding: '20px 28px', 
-            borderRadius: '14px', 
-            background: 'linear-gradient(135deg, rgba(25,15,15,0.98), rgba(138,30,30,0.35))', 
-            border: '1px solid rgba(239,68,68,0.2)', 
-            boxShadow: '0 4px 32px rgba(0,0,0,0.5)', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'space-between', 
-            gap: '16px', 
-            position: 'relative', 
-            overflow: 'hidden' 
-        }}>
-            {/* Glow */}
-            <div style={{ 
-                position: 'absolute', 
-                top: '-40%', 
-                right: '-5%', 
-                width: '35%', 
-                height: '200%', 
-                background: 'radial-gradient(circle, rgba(239,68,68,0.08) 0%, transparent 70%)', 
-                pointerEvents: 'none' 
-            }}></div>
+    <div style={{ padding:'20px', minHeight:'100vh', boxSizing:'border-box', background:'radial-gradient(ellipse at 50% 0%, #101a30 0%, #0a1220 45%, #070b14 100%)' }}>
 
-            {/* Left: icon + text */}
-            <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '14px', 
-                flex: 1, 
-                minWidth: 0, 
-                position: 'relative', 
-                zIndex: 1, 
-                flexWrap: 'wrap' 
-            }}>
-                <div style={{ 
-                    width: '52px', 
-                    height: '52px', 
-                    background: 'linear-gradient(135deg, #8a1e1e, #ef4444)', 
-                    borderRadius: '12px', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
-                    boxShadow: '0 4px 14px rgba(239,68,68,0.5)', 
-                    flexShrink: 0 
-                }}>
-                    <Terminal size={28} style={{ color: 'white' }} />
-                </div>
-                <div>
-                    <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '10px', 
-                        marginBottom: '4px' 
-                    }}>
-                        <span style={{ 
-                            color: 'white', 
-                            fontSize: '22px', 
-                            fontWeight: '800', 
-                            letterSpacing: '2px', 
-                            whiteSpace: 'nowrap' 
-                        }}>
-                            EMERGENCY CALLS
-                        </span>
-                        <span style={{ 
-                            background: 'rgba(239,68,68,0.15)', 
-                            border: '1px solid rgba(239,68,68,0.3)', 
-                            borderRadius: '4px', 
-                            padding: '2px 8px', 
-                            color: '#fca5a5', 
-                            fontSize: '10px', 
-                            fontWeight: '700', 
-                            letterSpacing: '1.5px', 
-                            whiteSpace: 'nowrap' 
-                        }}>
-                            911 DISPATCH
-                        </span>
-                        {(() => {
-                            const unacked = calls.filter(c => !acknowledgedCalls.includes(c.id) && !dismissedCalls.includes(c.id));
-                            const prio = unacked.filter(c => c.isPriority).length;
-                            const norm = unacked.length - prio;
-                            return (<>
-                                {prio > 0 && (
-                                    <span style={{ background:'linear-gradient(135deg,#b91c1c,#ef4444)',borderRadius:'999px',padding:'3px 11px',color:'#fff',fontSize:'10px',fontWeight:'900',letterSpacing:'1.5px',whiteSpace:'nowrap',fontFamily:'monospace',boxShadow:'0 0 14px rgba(239,68,68,0.5)',animation:'pursuitPulse 1.4s ease-in-out infinite' }}>
-                                        🚨 {prio} PRIORITY
-                                    </span>
-                                )}
-                                {norm > 0 && (
-                                    <span style={{ background:'rgba(59,130,246,0.15)',border:'1px solid rgba(59,130,246,0.4)',borderRadius:'999px',padding:'3px 11px',color:'#93c5fd',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',whiteSpace:'nowrap',fontFamily:'monospace' }}>
-                                        {norm} ACTIVE
-                                    </span>
-                                )}
-                            </>);
-                        })()}
-                    </div>
-                    <p style={{ 
-                        color: '#475569', 
-                        fontSize: '13px', 
-                        margin: '0 0 10px', 
-                        whiteSpace: 'nowrap' 
-                    }}>
-                        {selectedUserSession ? `${selectedUserSession === '1411101488146550784' ? 'Whitelisted Session' : `Session ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'}`} · Live emergency dispatch monitoring` : 'No session has been selected for monitoring.'}
-                    </p>
-                    <button
-                        onClick={() => { 
-                            stopAlertSound();
-                            if (visualEffects) { 
-                                setPageTransitioning(true); 
-                                setTimeout(() => { 
-                                    setActiveView('home'); 
-                                    setPageTransitioning(false); 
-                                }, 300); 
-                            } else { 
-                                setActiveView('home'); 
-                            } 
-                        }}
-                        style={{ 
-                            width: 'auto', 
-                            padding: '7px 16px', 
-                            background: 'rgba(239,68,68,0.1)', 
-                            border: '1px solid rgba(239,68,68,0.25)', 
-                            borderRadius: '8px', 
-                            color: '#fca5a5', 
-                            cursor: 'pointer', 
-                            fontSize: '12px', 
-                            fontWeight: '600', 
-                            letterSpacing: '1px', 
-                            display: 'inline-flex', 
-                            alignItems: 'center', 
-                            gap: '7px', 
-                            transition: 'all 0.2s', 
-                            whiteSpace: 'nowrap' 
-                        }}
-                        onMouseEnter={e => { 
-                            e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; 
-                            e.currentTarget.style.borderColor = 'rgba(239,68,68,0.5)'; 
-                            e.currentTarget.style.color = '#fff'; 
-                        }}
-                        onMouseLeave={e => { 
-                            e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; 
-                            e.currentTarget.style.borderColor = 'rgba(239,68,68,0.25)'; 
-                            e.currentTarget.style.color = '#fca5a5'; 
-                        }}
-                    >
-                        ← DASHBOARD
-                    </button>
-                </div>
+        {/* ── COMMAND BAR ── */}
+        <div style={{ display:'flex',alignItems:'center',gap:'14px',flexWrap:'wrap',padding:'14px 18px',marginBottom:'16px',background:'linear-gradient(180deg, rgba(15,23,42,0.85), rgba(8,13,26,0.9))',border:'1px solid rgba(239,68,68,0.22)',borderRadius:'12px',boxShadow:'0 4px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04)' }}>
+            <div style={{ display:'flex',alignItems:'center',gap:'10px',flexShrink:0 }}>
+                <div style={{ width:'3px',height:'22px',background:'#ef4444',borderRadius:'2px',boxShadow:'0 0 10px #ef4444' }} />
+                <span style={{ color:'#fff',fontSize:'16px',fontWeight:'900',letterSpacing:'3px',fontFamily:'monospace',textTransform:'uppercase' }}>Dispatch Calls</span>
+                <span style={{ background:'rgba(239,68,68,0.14)',border:'1px solid rgba(239,68,68,0.35)',borderRadius:'4px',padding:'2px 8px',color:'#fca5a5',fontSize:'9px',fontWeight:'800',letterSpacing:'2px',fontFamily:'monospace' }}>911</span>
             </div>
+            <span style={{ color:'#475569',fontSize:'11px',fontFamily:'monospace',flexShrink:0 }}>
+                {selectedUserSession ? (selectedUserSession === '1411101488146550784' ? 'WHITELISTED SESSION' : `SESSION ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'}`) + ' · LIVE' : 'NO SESSION SELECTED'}
+            </span>
+            <div style={{ flex:1 }} />
+            {(() => {
+                const unacked = calls.filter(c => !acknowledgedCalls.includes(c.id) && !dismissedCalls.includes(c.id));
+                const prio = unacked.filter(c => c.isPriority).length;
+                const norm = unacked.length - prio;
+                const acked = calls.length - unacked.length;
+                return (<>
+                    {prio > 0 && <span style={{ background:'linear-gradient(135deg,#b91c1c,#ef4444)',borderRadius:'999px',padding:'4px 12px',color:'#fff',fontSize:'10px',fontWeight:'900',letterSpacing:'1.5px',fontFamily:'monospace',boxShadow:'0 0 16px rgba(239,68,68,0.55)',animation:'pursuitPulse 1.4s ease-in-out infinite',flexShrink:0 }}>🚨 {prio} PRIORITY</span>}
+                    {norm > 0 && <span style={{ background:'rgba(56,189,248,0.1)',border:'1px solid rgba(56,189,248,0.35)',borderRadius:'999px',padding:'4px 12px',color:'#7dd3fc',fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace',flexShrink:0 }}>{norm} ACTIVE</span>}
+                    {acked > 0 && <span style={{ background:'rgba(34,197,94,0.08)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:'999px',padding:'4px 12px',color:'#86efac',fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace',flexShrink:0 }}>✓ {acked}</span>}
+                </>);
+            })()}
+            {tokenSaved && selectedUserSession && (
+                <select
+                    value={selectedUserSession}
+                    onChange={e => {
+                        stopAlertSound();
+                        const newSession = e.target.value;
+                        setSelectedUserSession(newSession);
+                        if (newSession && window._currentCalls) {
+                            const cutoff = Date.now() - 30 * 60 * 1000;
+                            const oldIds = window._currentCalls
+                                .filter(c => new Date(c.timestamp).getTime() < cutoff)
+                                .map(c => c.id);
+                            if (oldIds.length > 0) setAcknowledgedCalls(a => [...new Set([...a, ...oldIds])]);
+                        }
+                        addLog('✅ Session updated', 'success');
+                    }}
+                    style={{ padding:'7px 10px',background:'rgba(7,12,24,0.8)',border:'1px solid rgba(56,189,248,0.3)',borderRadius:'8px',color:'#cbd5e1',fontSize:'11px',fontWeight:'700',fontFamily:'monospace',cursor:'pointer',outline:'none',flexShrink:0 }}>
+                    <option value="" style={{ background:'#0f172a' }}>None (No Alerts)</option>
+                    <option value="1011898104670330920" style={{ background:'#0f172a' }}>Session 1</option>
+                    <option value="1390212294478397471" style={{ background:'#0f172a' }}>Session 2</option>
+                    <option value="1390212341005680650" style={{ background:'#0f172a' }}>Session 3</option>
+                    <option value="1411101488146550784" style={{ background:'#0f172a' }}>Whitelisted</option>
+                </select>
+            )}
+            <button
+                onClick={() => {
+                    stopAlertSound();
+                    if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); }
+                    else { setActiveView('home'); }
+                }}
+                style={{ padding:'7px 14px',background:'transparent',border:'1px solid rgba(148,163,184,0.3)',borderRadius:'8px',color:'#94a3b8',fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace',cursor:'pointer',transition:'color 140ms ease-out, border-color 140ms ease-out',flexShrink:0 }}
+                onMouseEnter={e=>{ e.currentTarget.style.color='#e2e8f0'; e.currentTarget.style.borderColor='rgba(226,232,240,0.5)'; }}
+                onMouseLeave={e=>{ e.currentTarget.style.color='#94a3b8'; e.currentTarget.style.borderColor='rgba(148,163,184,0.3)'; }}>
+                ← DASHBOARD
+            </button>
         </div>
 
-
-        {/* NO TOKEN STATE */}
+        {/* ── STATES ── */}
         {!tokenSaved ? (
-            <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                minHeight: '400px',
-                padding: '40px',
-                textAlign: 'center',
-                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.08))',
-                borderRadius: '16px',
-                border: '1px solid rgba(239, 68, 68, 0.3)'
-            }}>
-                <div style={{ 
-                    width: '80px', 
-                    height: '80px', 
-                    background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: '24px',
-                    boxShadow: '0 8px 24px rgba(239, 68, 68, 0.4)'
-                }}>
-                    <span style={{ fontSize: '48px', color: 'white' }}>⚠️</span>
+            <div style={{ display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'380px',padding:'40px',textAlign:'center',background:'linear-gradient(180deg, rgba(239,68,68,0.08), rgba(7,12,24,0.5))',borderRadius:'14px',border:'1px solid rgba(239,68,68,0.25)' }}>
+                <div style={{ width:'64px',height:'64px',background:'linear-gradient(135deg,#ef4444,#b91c1c)',borderRadius:'16px',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:'18px',boxShadow:'0 8px 28px rgba(239,68,68,0.4)' }}>
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
                 </div>
-                
-                <h2 style={{ color: '#fca5a5', fontSize: '28px', fontWeight: 'bold', marginBottom: '16px' }}>
-                    Account Token Required
-                </h2>
-                
-                <p style={{ 
-                    color: '#fecaca', 
-                    fontSize: '14px', 
-                    lineHeight: '1.8',
-                    maxWidth: '600px',
-                    marginBottom: '32px'
-                }}>
-                    An account token hasn't been entered yet. Please add your Discord token in Settings to access emergency calls.
-                </p>
-                
-                <button 
-                    onClick={() => {
-                        setActiveView('settings');
-                        setSettingsWarningDismissed(false);
-                        setContinueButtonEnabled(false);
-                    }}
-                    style={{
-                        padding: '14px 48px',
-                        background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                        color: 'white',
-                        border: '1px solid #991b1b',
-                        borderRadius: '10px',
-                        fontSize: '16px',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        transition: 'all 0.3s',
-                        boxShadow: '0 4px 16px rgba(239, 68, 68, 0.3)'
-                    }}
-                >
-                    GO TO SETTINGS
+                <div style={{ color:'#fca5a5',fontSize:'18px',fontWeight:'800',letterSpacing:'1px',textTransform:'uppercase',marginBottom:'8px',fontFamily:'monospace' }}>Authentication Required</div>
+                <div style={{ color:'#94a3b8',fontSize:'13px',maxWidth:'420px',lineHeight:1.6,marginBottom:'20px' }}>A Discord token must be configured before live dispatch monitoring can begin.</div>
+                <button onClick={() => { setActiveView('settings'); }}
+                    style={{ padding:'11px 26px',background:'linear-gradient(135deg,#ef4444,#b91c1c)',border:'none',borderRadius:'9px',color:'#fff',fontSize:'12px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',cursor:'pointer',boxShadow:'0 6px 20px rgba(239,68,68,0.4)' }}>
+                    Open Settings
                 </button>
             </div>
         ) : !selectedUserSession ? (
-            <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                minHeight: '400px',
-                padding: '40px',
-                textAlign: 'center',
-                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.08))',
-                borderRadius: '16px',
-                border: '1px solid rgba(245, 158, 11, 0.3)'
-            }}>
-                <div style={{ 
-                    width: '80px', 
-                    height: '80px', 
-                    background: 'linear-gradient(135deg, #eab308, #ca8a04)',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: '24px',
-                    boxShadow: '0 8px 24px rgba(245, 158, 11, 0.4)'
-                }}>
-                    <Terminal size={48} style={{ color: 'white' }} />
+            <div style={{ display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'380px',padding:'40px',textAlign:'center',background:'linear-gradient(180deg, rgba(245,158,11,0.06), rgba(7,12,24,0.5))',borderRadius:'14px',border:'1px solid rgba(245,158,11,0.25)' }}>
+                <div style={{ width:'64px',height:'64px',background:'linear-gradient(135deg,#f59e0b,#b45309)',borderRadius:'16px',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:'18px',boxShadow:'0 8px 28px rgba(245,158,11,0.35)' }}>
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
                 </div>
-                
-                <h2 style={{ color: '#fcd34d', fontSize: '28px', fontWeight: 'bold', marginBottom: '16px' }}>
-                    No Active Session Selected
-                </h2>
-                
-                <p style={{ 
-                    color: '#fef3c7', 
-                    fontSize: '14px', 
-                    lineHeight: '1.8',
-                    maxWidth: '600px',
-                    marginBottom: '24px'
-                }}>
-                    Select a session below to start monitoring emergency calls.
-                </p>
-
-                <div style={{ width: '100%', maxWidth: '360px', marginBottom: '16px' }}>
-                    <div style={{ fontSize: '11px', color: '#fcd34d', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '8px' }}>📡 Active Session</div>
+                <div style={{ color:'#fcd34d',fontSize:'18px',fontWeight:'800',letterSpacing:'1px',textTransform:'uppercase',marginBottom:'8px',fontFamily:'monospace' }}>No Session Selected</div>
+                <div style={{ color:'#94a3b8',fontSize:'13px',maxWidth:'420px',lineHeight:1.6,marginBottom:'22px' }}>Select a session to start monitoring live emergency calls.</div>
+                <div style={{ width:'100%',maxWidth:'340px' }}>
                     <select
                         value={selectedUserSession}
                         onChange={e => {
@@ -15870,400 +15684,134 @@ onError={(e) => {
                             }
                             addLog('✅ Session updated', 'success');
                         }}
-                        style={{ width: '100%', padding: '12px 14px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: '10px', color: '#fef3c7', fontSize: '14px', fontWeight: '600', cursor: 'pointer', outline: 'none' }}>
-                        <option value="" style={{ background: '#0f172a' }}>None (No Alerts)</option>
-                        <option value="1011898104670330920" style={{ background: '#0f172a' }}>Session 1</option>
-                        <option value="1390212294478397471" style={{ background: '#0f172a' }}>Session 2</option>
-                        <option value="1390212341005680650" style={{ background: '#0f172a' }}>Session 3</option>
-                        <option value="1411101488146550784" style={{ background: '#0f172a' }}>Whitelisted Session</option>
+                        style={{ width:'100%',padding:'12px 14px',background:'rgba(7,12,24,0.8)',border:'1px solid rgba(245,158,11,0.4)',borderRadius:'10px',color:'#fef3c7',fontSize:'14px',fontWeight:'600',cursor:'pointer',outline:'none' }}>
+                        <option value="" style={{ background:'#0f172a' }}>None (No Alerts)</option>
+                        <option value="1011898104670330920" style={{ background:'#0f172a' }}>Session 1</option>
+                        <option value="1390212294478397471" style={{ background:'#0f172a' }}>Session 2</option>
+                        <option value="1390212341005680650" style={{ background:'#0f172a' }}>Session 3</option>
+                        <option value="1411101488146550784" style={{ background:'#0f172a' }}>Whitelisted Session</option>
                     </select>
                 </div>
-
-                {selectedUserSession && (
-                    <button
-                        onClick={() => { setActiveView('calls'); }}
-                        style={{
-                            padding: '14px 48px',
-                            background: 'linear-gradient(135deg, #eab308, #ca8a04)',
-                            color: 'white',
-                            border: '1px solid #a16207',
-                            borderRadius: '10px',
-                            fontSize: '16px',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            transition: 'all 0.3s',
-                            boxShadow: '0 4px 16px rgba(245, 158, 11, 0.3)'
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 6px 24px rgba(245,158,11,0.5)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(245,158,11,0.3)'; e.currentTarget.style.transform = 'translateY(0)'; }}
-                    >
-                        ✓ Confirm Session Selection
-                    </button>
-                )}
+            </div>
+        ) : calls.length === 0 ? (
+            <div style={{ display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'380px',padding:'40px',textAlign:'center',background:'linear-gradient(180deg, rgba(34,197,94,0.05), rgba(7,12,24,0.5))',borderRadius:'14px',border:'1px solid rgba(34,197,94,0.2)' }}>
+                <div style={{ width:'64px',height:'64px',background:'linear-gradient(135deg,#22c55e,#15803d)',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:'18px',boxShadow:'0 8px 28px rgba(34,197,94,0.35)' }}>
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div style={{ color:'#86efac',fontSize:'18px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'6px' }}>All Clear</div>
+                <div style={{ color:'#64748b',fontSize:'13px',fontFamily:'monospace' }}>No active emergency calls in this session.</div>
             </div>
         ) : (
-            <div>
-                {/* INFO BAR */}
-                <div style={{
-                    background: 'rgba(59, 130, 246, 0.1)',
-                    border: '1px solid rgba(59, 130, 246, 0.3)',
-                    borderRadius: '10px',
-                    padding: '16px 20px',
-                    marginBottom: '20px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                }}>
-                    <div>
-                        <div style={{ color: '#60a5fa', fontSize: '12px', fontWeight: '600', marginBottom: '4px' }}>
-                            ACTIVE CALLS IN SESSION {selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : selectedUserSession === '1390212341005680650' ? '3' : 'WHITELISTED'}
-                        </div>
-                        <div style={{ color: '#93c5fd', fontSize: '11px' }}>
-                            Auto-refresh every 7 seconds
-                        </div>
-                    </div>
-                    <div style={{
-                        padding: '8px 16px',
-                        background: calls.length > 0 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)',
-                        border: `1px solid ${calls.length > 0 ? 'rgba(239, 68, 68, 0.4)' : 'rgba(16, 185, 129, 0.4)'}`,
-                        borderRadius: '8px',
-                        color: calls.length > 0 ? '#fca5a5' : '#6ee7b7',
-                        fontSize: '18px',
-                        fontWeight: '700',
-                        fontFamily: 'monospace'
-                    }}>
-                        {calls.length} CALL{calls.length !== 1 ? 'S' : ''}
-                    </div>
-                </div>
-                
-                {/* CALLS GRID */}
-                {calls.length === 0 ? (
-                    <div style={{
-                        textAlign: 'center',
-                        padding: '60px 40px',
-                        background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.05))',
-                        borderRadius: '16px',
-                        border: '1px solid rgba(16, 185, 129, 0.2)'
-                    }}>
-                        <div style={{
-                            fontSize: '64px',
-                            marginBottom: '16px'
+            <div style={{ display:'flex',flexDirection:'column',gap:'14px' }}>
+                {[...calls].sort((a, b) => {
+                    const pa = a.isPriority ? 0 : 1, pb = b.isPriority ? 0 : 1;
+                    if (pa !== pb) return pa - pb;
+                    const aa = acknowledgedCalls.includes(a.id) ? 1 : 0, ab = acknowledgedCalls.includes(b.id) ? 1 : 0;
+                    if (aa !== ab) return aa - ab;
+                    return b.timestampRaw - a.timestampRaw;
+                }).map((call, ci) => {
+                    const callAge = Math.floor((new Date() - call.timestampRaw) / 1000);
+                    const isOldCall = callAge > 480;
+                    const isAcknowledged = acknowledgedCalls.includes(call.id);
+                    const isPrio = !!call.isPriority;
+                    const rgb = isAcknowledged ? '34,197,94' : isPrio ? '239,68,68' : '56,189,248';
+                    const fg = isAcknowledged ? '#86efac' : isPrio ? '#fca5a5' : '#7dd3fc';
+                    return (
+                        <div key={call.id} className="gov-record-card" style={{
+                            display:'grid', gridTemplateColumns:'4px minmax(0,1fr)',
+                            background:`linear-gradient(90deg, rgba(${rgb},0.10) 0%, rgba(10,16,30,0.75) 30%)`,
+                            border:`1px solid rgba(${rgb},${isPrio && !isAcknowledged ? '0.5' : '0.25'})`,
+                            borderRadius:'12px', overflow:'hidden', position:'relative',
+                            boxShadow: isPrio && !isAcknowledged ? `0 8px 36px rgba(${rgb},0.35)` : '0 4px 18px rgba(0,0,0,0.35)',
+                            animation:`recordCardIn 320ms cubic-bezier(0.23,1,0.32,1) both${(isPrio || isOldCall) && !isAcknowledged ? ', flash-red 1.5s infinite' : ''}`,
+                            animationDelay:`${Math.min(ci, 6) * 40}ms${(isPrio || isOldCall) && !isAcknowledged ? ', 0ms' : ''}`
                         }}>
-                            ✅
-                        </div>
-                        <div style={{ color: '#6ee7b7', fontSize: '20px', fontWeight: '700', marginBottom: '8px' }}>
-                            ALL CLEAR
-                        </div>
-                        <div style={{ color: '#86efac', fontSize: '14px' }}>
-                            No active emergency calls at this time
-                        </div>
-                    </div>
-                ) : (
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(500px, 1fr))',
-                        gap: '20px'
-                    }}>
-                        {[...calls].sort((a, b) => {
-                            // PRIORITY calls first, then unacknowledged, then newest
-                            const pa = a.isPriority ? 0 : 1, pb = b.isPriority ? 0 : 1;
-                            if (pa !== pb) return pa - pb;
-                            const aa = acknowledgedCalls.includes(a.id) ? 1 : 0, ab = acknowledgedCalls.includes(b.id) ? 1 : 0;
-                            if (aa !== ab) return aa - ab;
-                            return b.timestampRaw - a.timestampRaw;
-                        }).map(call => {
-                            const callAge = Math.floor((new Date() - call.timestampRaw) / 1000);
-                            const isOldCall = callAge > 480; // 8 minutes = 480 seconds
-                            const isAcknowledged = acknowledgedCalls.includes(call.id);
-                            const isPrio = !!call.isPriority;
-                            
-                            return (
-                                <div 
-                                    key={call.id} 
-                                    style={{
-                                        background: isAcknowledged
-                                            ? 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.05))'
-                                            : isPrio
-                                                ? 'linear-gradient(170deg, rgba(239,68,68,0.22) 0%, rgba(127,29,29,0.28) 55%, rgba(10,10,18,0.6) 100%)'
-                                                : isOldCall
-                                                    ? 'linear-gradient(135deg, rgba(239,68,68,0.3), rgba(220,38,38,0.2))'
-                                                    : 'linear-gradient(135deg, rgba(30,58,138,0.2), rgba(59,130,246,0.1))',
-                                        border: `2px solid ${isAcknowledged ? 'rgba(16,185,129,0.5)' : isPrio ? '#ef4444' : isOldCall ? '#ef4444' : 'rgba(59,130,246,0.4)'}`,
-                                        borderRadius: '12px',
-                                        padding: '20px',
-                                        paddingTop: isPrio && !isAcknowledged ? '34px' : '20px',
-                                        position: 'relative',
-                                        overflow: 'hidden',
-                                        animation: !isAcknowledged && (isPrio || isOldCall) ? 'flash-red 1.5s infinite' : 'none',
-                                        boxShadow: isAcknowledged
-                                            ? '0 4px 16px rgba(16,185,129,0.15)'
-                                            : isPrio
-                                                ? '0 8px 40px rgba(239,68,68,0.45), inset 0 1px 0 rgba(255,255,255,0.08)'
-                                                : isOldCall
-                                                    ? '0 8px 32px rgba(239,68,68,0.5)'
-                                                    : '0 4px 16px rgba(0,0,0,0.3)'
-                                    }}
-                                >
-                                    {/* PRIORITY BANNER — full-width strip across the card top */}
+                            {/* status rail */}
+                            <div style={{ background:`rgba(${rgb},0.85)`,boxShadow:`0 0 12px rgba(${rgb},0.7)` }} />
+                            <div style={{ padding:'14px 18px' }}>
+                                {/* Row 1: identity + badges + timer */}
+                                <div style={{ display:'flex',alignItems:'center',gap:'10px',flexWrap:'wrap',marginBottom:'12px' }}>
+                                    <span style={{ width:'7px',height:'7px',borderRadius:'50%',background:fg,boxShadow:`0 0 8px ${fg}`,flexShrink:0,animation: isPrio && !isAcknowledged ? 'pursuitPulse 1.2s ease-in-out infinite' : 'none' }} />
+                                    <span style={{ color:'#fff',fontSize:'15px',fontWeight:'800' }}>{call.name}</span>
                                     {isPrio && (
-                                        <div style={{
-                                            position: 'absolute', top: 0, left: 0, right: 0, height: '24px',
-                                            background: isAcknowledged
-                                                ? 'linear-gradient(90deg, rgba(16,185,129,0.35), rgba(16,185,129,0.15))'
-                                                : 'linear-gradient(90deg, #b91c1c, #ef4444, #b91c1c)',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
-                                            color: '#fff', fontSize: '10px', fontWeight: '900',
-                                            letterSpacing: '3px', textTransform: 'uppercase', fontFamily: 'monospace',
-                                            textShadow: '0 1px 3px rgba(0,0,0,0.5)'
-                                        }}>
-                                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#fff', boxShadow: '0 0 6px #fff', animation: isAcknowledged ? 'none' : 'pursuitPulse 1.2s ease-in-out infinite' }} />
-                                            ⚠ Priority Call ⚠
-                                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#fff', boxShadow: '0 0 6px #fff', animation: isAcknowledged ? 'none' : 'pursuitPulse 1.2s ease-in-out infinite' }} />
-                                        </div>
-                                    )}                                    {/* URGENT OVERLAY */}
-                                    {isOldCall && !isAcknowledged && (
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: '10px',
-                                            right: '10px',
-                                            padding: '6px 12px',
-                                            background: 'rgba(239, 68, 68, 0.9)',
-                                            color: 'white',
-                                            fontSize: '11px',
-                                            fontWeight: '700',
-                                            borderRadius: '6px',
-                                            zIndex: 2,
-                                            animation: 'pulse 2s infinite'
-                                        }}>
-                                            ⚠️ URGENT: 8+ MIN
-                                        </div>
+                                        <span style={{ background: isAcknowledged ? 'rgba(34,197,94,0.15)' : 'linear-gradient(135deg,#b91c1c,#ef4444)',border: isAcknowledged ? '1px solid rgba(34,197,94,0.4)' : 'none',borderRadius:'5px',padding:'3px 10px',color: isAcknowledged ? '#86efac' : '#fff',fontSize:'9.5px',fontWeight:'900',letterSpacing:'2.5px',fontFamily:'monospace',textTransform:'uppercase',boxShadow: isAcknowledged ? 'none' : '0 0 14px rgba(239,68,68,0.5)' }}>⚠ Priority</span>
                                     )}
-
-
-                                    {/* CALL HEADER */}
-                                    <div style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'flex-start',
-                                        marginBottom: '16px',
-                                        paddingBottom: '12px',
-                                        borderBottom: '2px solid rgba(59, 130, 246, 0.3)'
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{
-                                                width: '48px',
-                                                height: '48px',
-                                                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                                                borderRadius: '10px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                fontSize: '24px',
-                                                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)'
-                                            }}>
-                                                🚨
-                                            </div>
-                                            <div>
-                                                <div style={{ color: 'white', fontSize: '17px', fontWeight: '700', marginBottom: '2px' }}>
-                                                    CALLER: {call.author}
-                                                </div>
-                                                <div style={{ color: '#93c5fd', fontSize: '11px' }}>
-                                                    {call.timestamp}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div style={{
-                                            fontSize: '18px',
-                                            fontWeight: '700',
-                                            fontFamily: 'monospace',
-                                            color: isOldCall ? '#fca5a5' : '#6ee7b7',
-                                            padding: '8px 16px',
-                                            background: isOldCall ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)',
-                                            borderRadius: '8px',
-                                            border: `1px solid ${isOldCall ? 'rgba(239, 68, 68, 0.4)' : 'rgba(16, 185, 129, 0.4)'}`,
-                                            minWidth: '80px',
-                                            textAlign: 'center'
-                                        }}>
-                                            {callTimers[call.id] || '0:00'}
-                                        </div>
+                                    {isAcknowledged && (
+                                        <span style={{ background:'rgba(34,197,94,0.12)',border:'1px solid rgba(34,197,94,0.35)',borderRadius:'5px',padding:'3px 10px',color:'#86efac',fontSize:'9.5px',fontWeight:'800',letterSpacing:'2px',fontFamily:'monospace',textTransform:'uppercase' }}>✓ Acknowledged</span>
+                                    )}
+                                    {isOldCall && !isAcknowledged && (
+                                        <span style={{ background:'rgba(245,158,11,0.12)',border:'1px solid rgba(245,158,11,0.35)',borderRadius:'5px',padding:'3px 10px',color:'#fcd34d',fontSize:'9.5px',fontWeight:'800',letterSpacing:'2px',fontFamily:'monospace',textTransform:'uppercase' }}>Stale</span>
+                                    )}
+                                    <span style={{ color:'#475569',fontSize:'10.5px',fontFamily:'monospace' }}>by {call.author} · {call.timestamp}</span>
+                                    <div style={{ flex:1 }} />
+                                    <span style={{ fontFamily:'monospace',fontSize:'15px',fontWeight:'800',color:fg,background:`rgba(${rgb},0.1)`,border:`1px solid rgba(${rgb},0.3)`,borderRadius:'8px',padding:'5px 13px',flexShrink:0 }}>
+                                        {callTimers[call.id] || '0:00'}
+                                    </span>
+                                </div>
+                                {/* Row 2: data fields — full width grid */}
+                                <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(230px, 1fr))',gap:'10px',marginBottom:'12px' }}>
+                                    <div style={{ background:'rgba(4,8,18,0.55)',border:'1px solid rgba(255,255,255,0.05)',borderRadius:'8px',padding:'9px 12px' }}>
+                                        <div style={{ color:`rgba(${rgb},0.9)`,fontSize:'9px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'4px' }}>Services Requested</div>
+                                        <div style={{ color:'#e2e8f0',fontSize:'13px',fontWeight:'600' }}>{call.services}</div>
                                     </div>
-
-                                    {/* CALL DETAILS */}
-                                    <div style={{ display: 'grid', gap: '14px', marginBottom: '16px' }}>
-                                        <div>
-                                            <div style={{ 
-                                                color: '#60a5fa', 
-                                                fontSize: '10px', 
-                                                fontWeight: '700',
-                                                textTransform: 'uppercase',
-                                                letterSpacing: '1.2px',
-                                                marginBottom: '6px'
-                                            }}>
-                                                💼 SERVICES REQUESTED
-                                            </div>
-                                            <div style={{ 
-                                                color: 'white', 
-                                                fontSize: '14px', 
-                                                fontWeight: '600',
-                                                background: 'rgba(59, 130, 246, 0.2)',
-                                                padding: '10px 14px',
-                                                borderRadius: '6px',
-                                                border: '1px solid rgba(59, 130, 246, 0.3)'
-                                            }}>
-                                                {call.services}
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <div style={{ 
-                                                color: '#60a5fa', 
-                                                fontSize: '10px', 
-                                                fontWeight: '700',
-                                                textTransform: 'uppercase',
-                                                letterSpacing: '1.2px',
-                                                marginBottom: '6px'
-                                            }}>
-                                                📋 INCIDENT DESCRIPTION
-                                            </div>
-                                            <div style={{ 
-                                                color: '#cbd5e1', 
-                                                fontSize: '13px',
-                                                lineHeight: '1.6',
-                                                background: 'rgba(15, 23, 42, 0.4)',
-                                                padding: '10px 14px',
-                                                borderRadius: '6px'
-                                            }}>
-                                                {call.description}
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <div style={{ 
-                                                color: '#60a5fa', 
-                                                fontSize: '10px', 
-                                                fontWeight: '700',
-                                                textTransform: 'uppercase',
-                                                letterSpacing: '1.2px',
-                                                marginBottom: '6px'
-                                            }}>
-                                                📍 LOCATION
-                                            </div>
-                                            <div style={{ 
-                                                color: 'white', 
-                                                fontSize: '15px',
-                                                fontWeight: '700',
-                                                background: 'rgba(239, 68, 68, 0.2)',
-                                                padding: '10px 14px',
-                                                borderRadius: '6px',
-                                                border: '1px solid rgba(239, 68, 68, 0.3)',
-                                                fontFamily: 'monospace'
-                                            }}>
-                                                {call.location}
-                                            </div>
-                                        </div>
+                                    <div style={{ background:'rgba(4,8,18,0.55)',border:'1px solid rgba(255,255,255,0.05)',borderRadius:'8px',padding:'9px 12px' }}>
+                                        <div style={{ color:`rgba(${rgb},0.9)`,fontSize:'9px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'4px' }}>Location</div>
+                                        <div style={{ color:'#fff',fontSize:'13px',fontWeight:'700',fontFamily:'monospace' }}>{call.location}</div>
                                     </div>
-
-                                    {/* ACTION BUTTONS */}
-                                    <div style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: '1fr 1fr',
-                                        gap: '12px'
-                                    }}>
-                                        {/* ACKNOWLEDGE BUTTON */}
-                                        <button 
-                                            onClick={() => {
-                                                if (!isAcknowledged) {
-                                                    logActivity(`Call placed by ${call.author || 'Unknown'} was acknowledged`);
-                                                    setAcknowledgedCalls([...acknowledgedCalls, call.id]);
-                                                    if (shiftStartTime && !shiftEndTime) setShiftAcknowledgedCount(p => p + 1);
-                                                    stopAlertSound();
-                                                    addLog(`✅ Call from ${call.author} acknowledged`, 'success');
-                                                }
-                                            }}
-                                            disabled={isAcknowledged}
-                                            style={{
-                                                padding: '14px 20px',
-                                                background: isAcknowledged 
-                                                    ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.1))'
-                                                    : 'linear-gradient(135deg, #10b981, #059669)',
-                                                color: 'white',
-                                                border: `2px solid ${isAcknowledged ? 'rgba(16, 185, 129, 0.3)' : '#047857'}`,
-                                                borderRadius: '10px',
-                                                cursor: isAcknowledged ? 'not-allowed' : 'pointer',
-                                                fontSize: '13px',
-                                                fontWeight: '700',
-                                                textTransform: 'uppercase',
-                                                letterSpacing: '0.5px',
-                                                transition: 'all 0.2s',
-                                                opacity: isAcknowledged ? 0.6 : 1,
-                                                boxShadow: isAcknowledged ? 'none' : '0 4px 16px rgba(16, 185, 129, 0.4)'
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                if (!isAcknowledged) {
-                                                    e.target.style.transform = 'translateY(-2px)';
-                                                    e.target.style.boxShadow = '0 6px 24px rgba(16, 185, 129, 0.6)';
-                                                }
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                if (!isAcknowledged) {
-                                                    e.target.style.transform = 'translateY(0)';
-                                                    e.target.style.boxShadow = '0 4px 16px rgba(16, 185, 129, 0.4)';
-                                                }
-                                            }}
-                                        >
-                                            {isAcknowledged ? '✓ ACKNOWLEDGED' : 'ACKNOWLEDGE'}
-                                        </button>
-
-                                        {/* DISMISS BUTTON */}
-                                        <button 
-                                            onClick={() => {
-                                                const remainingCalls = calls.filter(c => c.id !== call.id);
-                                                const hasUnackedRemaining = remainingCalls.some(c => !acknowledgedCallsRef.current.includes(c.id));
-                                                logActivity(`Call placed by ${call.author || 'Unknown'} was dismissed`);
-                                                setDismissedCalls([...dismissedCalls, call.id]);
-                                                if (shiftStartTime && !shiftEndTime) setShiftDismissedCount(p => p + 1);
-                                                setCalls(remainingCalls);
-                                                if (!hasUnackedRemaining) {
-                                                    stopAlertSound();
-                                                }
-                                                addLog(`🗑️ Call from ${call.author} dismissed`, 'info');
-                                            }}
-                                            style={{
-                                                padding: '14px 20px',
-                                                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                                                color: 'white',
-                                                border: '2px solid #991b1b',
-                                                borderRadius: '10px',
-                                                cursor: 'pointer',
-                                                fontSize: '13px',
-                                                fontWeight: '700',
-                                                textTransform: 'uppercase',
-                                                letterSpacing: '0.5px',
-                                                transition: 'all 0.2s',
-                                                boxShadow: '0 4px 16px rgba(239, 68, 68, 0.4)'
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                e.target.style.transform = 'translateY(-2px)';
-                                                e.target.style.boxShadow = '0 6px 24px rgba(239, 68, 68, 0.6)';
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.target.style.transform = 'translateY(0)';
-                                                e.target.style.boxShadow = '0 4px 16px rgba(239, 68, 68, 0.4)';
-                                            }}
-                                        >
-                                            DISMISS
-                                        </button>
+                                    <div style={{ gridColumn:'1 / -1',background:'rgba(4,8,18,0.55)',border:'1px solid rgba(255,255,255,0.05)',borderRadius:'8px',padding:'9px 12px' }}>
+                                        <div style={{ color:`rgba(${rgb},0.9)`,fontSize:'9px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'4px' }}>Incident Description</div>
+                                        <div style={{ color:'#cbd5e1',fontSize:'12.5px',lineHeight:1.6 }}>{call.description}</div>
                                     </div>
                                 </div>
-                            );
-                        })}
-                    </div>
-                )}
+                                {/* Row 3: actions */}
+                                <div style={{ display:'flex',gap:'10px',justifyContent:'flex-end' }}>
+                                    <button
+                                        onClick={() => {
+                                            if (!isAcknowledged) {
+                                                logActivity(`Call placed by ${call.author || 'Unknown'} was acknowledged`);
+                                                setAcknowledgedCalls([...acknowledgedCalls, call.id]);
+                                                if (shiftStartTime && !shiftEndTime) setShiftAcknowledgedCount(p => p + 1);
+                                                stopAlertSound();
+                                                addLog(`✅ Call from ${call.author} acknowledged`, 'success');
+                                            }
+                                        }}
+                                        disabled={isAcknowledged}
+                                        style={{ padding:'10px 22px',background: isAcknowledged ? 'rgba(34,197,94,0.12)' : 'linear-gradient(135deg,#10b981,#059669)',color: isAcknowledged ? '#4ade80' : '#fff',border: isAcknowledged ? '1px solid rgba(34,197,94,0.3)' : 'none',borderRadius:'9px',cursor: isAcknowledged ? 'not-allowed' : 'pointer',fontSize:'11px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',opacity: isAcknowledged ? 0.7 : 1,boxShadow: isAcknowledged ? 'none' : '0 4px 16px rgba(16,185,129,0.4)',transition:'transform 100ms cubic-bezier(0.23,1,0.32,1), box-shadow 160ms ease-out' }}
+                                        onMouseEnter={e => { if (!isAcknowledged) { e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.boxShadow='0 6px 22px rgba(16,185,129,0.55)'; } }}
+                                        onMouseLeave={e => { if (!isAcknowledged) { e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 4px 16px rgba(16,185,129,0.4)'; } }}
+                                        onMouseDown={e => { if (!isAcknowledged) e.currentTarget.style.transform='scale(0.97)'; }}
+                                        onMouseUp={e => { if (!isAcknowledged) e.currentTarget.style.transform='translateY(-1px)'; }}>
+                                        {isAcknowledged ? '✓ Acknowledged' : 'Acknowledge'}
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            const remainingCalls = calls.filter(c => c.id !== call.id);
+                                            const hasUnackedRemaining = remainingCalls.some(c => !acknowledgedCallsRef.current.includes(c.id));
+                                            logActivity(`Call placed by ${call.author || 'Unknown'} was dismissed`);
+                                            setDismissedCalls([...dismissedCalls, call.id]);
+                                            if (shiftStartTime && !shiftEndTime) setShiftDismissedCount(p => p + 1);
+                                            setCalls(remainingCalls);
+                                            if (!hasUnackedRemaining) {
+                                                stopAlertSound();
+                                            }
+                                            addLog(`🗑️ Call from ${call.author} dismissed`, 'info');
+                                        }}
+                                        style={{ padding:'10px 22px',background:'transparent',border:'1px solid rgba(239,68,68,0.4)',borderRadius:'9px',color:'#fca5a5',fontSize:'11px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',cursor:'pointer',transition:'background 140ms ease-out, color 140ms ease-out, border-color 140ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                                        onMouseEnter={e => { e.currentTarget.style.background='rgba(239,68,68,0.12)'; e.currentTarget.style.color='#fee2e2'; e.currentTarget.style.borderColor='rgba(239,68,68,0.7)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#fca5a5'; e.currentTarget.style.borderColor='rgba(239,68,68,0.4)'; }}
+                                        onMouseDown={e => { e.currentTarget.style.transform='scale(0.97)'; }}
+                                        onMouseUp={e => { e.currentTarget.style.transform='scale(1)'; }}>
+                                        Dismiss
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
         )}
     </div>
 )}
-
                 {/* USEFUL LINKS MODAL */}
 
 
