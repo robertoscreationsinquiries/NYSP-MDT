@@ -2322,6 +2322,16 @@ React.useEffect(() => {
 React.useEffect(() => { panicCooldownUntilRef.current = panicCooldownUntil; }, [panicCooldownUntil]);
 React.useEffect(() => { panicTriggerModeRef.current = panicTriggerMode; }, [panicTriggerMode]);
 const [phoneticMode, setPhoneticMode] = useState('POLICE'); // 'POLICE' or 'NATO'
+
+// ── Record export preferences ──
+// recordsPrefill: when ON (default/current behavior), exported citations & arrest reports
+// get placeholder text in fields the trooper fills manually (Place of Occurrence,
+// Location of Arrest, "// TO BE REVIEWED" markers). When OFF those fields stay blank.
+const [recordsPrefill, setRecordsPrefill] = useState(true);
+// offenseTimeOffset: when ON, Time of Offense on exports is backdated by N minutes
+// (reflects when the stop began, not when the PDF was exported). When OFF, exact current time.
+const [offenseTimeOffsetEnabled, setOffenseTimeOffsetEnabled] = useState(true);
+const [offenseTimeOffsetMinutes, setOffenseTimeOffsetMinutes] = useState(5);
 const [showPhoneticCompare, setShowPhoneticCompare] = useState(false);
 const [panicTapCount, setPanicTapCount] = useState(0);
 const panicTapCountRef = React.useRef(0);
@@ -2948,6 +2958,16 @@ if (trimmedLine.startsWith('PANIC_TRIGGER_MODE=')) {
 if (trimmedLine.startsWith('PHONETIC_MODE=')) {
     const val = trimmedLine.split('=')[1]?.trim();
     if (val) setPhoneticMode(val);
+}
+if (trimmedLine.startsWith('RECORDS_PREFILL=')) {
+    setRecordsPrefill(trimmedLine.split('=')[1]?.trim() !== 'FALSE');
+}
+if (trimmedLine.startsWith('OFFENSE_TIME_OFFSET_ENABLED=')) {
+    setOffenseTimeOffsetEnabled(trimmedLine.split('=')[1]?.trim() !== 'FALSE');
+}
+if (trimmedLine.startsWith('OFFENSE_TIME_OFFSET_MINUTES=')) {
+    const n = parseInt(trimmedLine.split('=')[1]?.trim(), 10);
+    if (!isNaN(n) && n >= 0 && n <= 999) setOffenseTimeOffsetMinutes(n);
 }
 if (trimmedLine.startsWith('ACKNOWLEDGE_KEYBIND=')) {
     const val = trimmedLine.split('=')[1]?.trim();
@@ -5415,6 +5435,9 @@ PANIC_TRIGGER_MODE=${panicTriggerMode || 'HOLD'}
 PURSUIT_ENABLED=${pursuitEnabled ? 'TRUE' : 'FALSE'}
 PURSUIT_HOTKEY=${pursuitHotkey || ''}
 PHONETIC_MODE=${phoneticMode || 'POLICE'}
+RECORDS_PREFILL=${recordsPrefill ? 'TRUE' : 'FALSE'}
+OFFENSE_TIME_OFFSET_ENABLED=${offenseTimeOffsetEnabled ? 'TRUE' : 'FALSE'}
+OFFENSE_TIME_OFFSET_MINUTES=${offenseTimeOffsetMinutes}
 ACKNOWLEDGE_KEYBIND=${acknowledgeKeybind || ''}
 ESC_TO_HOME=${escToHome ? 'TRUE' : 'FALSE'}
 DevConsoleEnabled=${showDevConsole ? 'TRUE' : 'FALSE'}
@@ -5461,6 +5484,9 @@ if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
                     if (key === 'PURSUIT_ENABLED') setPursuitEnabled(val === 'TRUE');
                     if (key === 'PURSUIT_HOTKEY') { setPursuitHotkey(val); setPursuitHotkeyDraft(val); }
                     if (key === 'PHONETIC_MODE') setPhoneticMode(val);
+                    if (key === 'RECORDS_PREFILL') setRecordsPrefill(val !== 'FALSE');
+                    if (key === 'OFFENSE_TIME_OFFSET_ENABLED') setOffenseTimeOffsetEnabled(val !== 'FALSE');
+                    if (key === 'OFFENSE_TIME_OFFSET_MINUTES') { const n = parseInt(val, 10); if (!isNaN(n) && n >= 0 && n <= 999) setOffenseTimeOffsetMinutes(n); }
                     if (key === 'MIC_DEVICE') setSelectedMicDevice(val);
                     if (key === 'SFX_MIC_ACTIVE') setSoundSettings(prev => ({ ...prev, MicActive: val === 'TRUE' }));
                     if (key === 'SFX_MIC_INACTIVE') setSoundSettings(prev => ({ ...prev, MicInactive: val === 'TRUE' }));
@@ -10203,11 +10229,31 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
         };
         
         // Helper function to safely set text fields
+        // WinAnsi sanitizer — pdf-lib's standard fonts can only encode Windows-1252.
+        // Characters outside it (CJK, emoji, most non-Latin scripts) throw at save time
+        // ("WinAnsi cannot encode ..."). We NFKD-normalize (é→e), keep ASCII + Latin-1 +
+        // the WinAnsi extras, and drop everything else so exports never crash.
+        const pdfSafe = (value) => {
+            let s = String(value ?? '');
+            try { s = s.normalize('NFKD').replace(/[\u0300-\u036f]/g, ''); } catch (_) {}
+            let out = '';
+            for (const ch of s) {
+                const c = ch.codePointAt(0);
+                if ((c >= 0x20 && c <= 0x7E) || ch === '\n' || ch === '\r' || ch === '\t') out += ch;
+                else if (c >= 0xA0 && c <= 0xFF) out += ch;
+                else if ('€‚ƒ„…†‡ˆ‰Š‹ŒŽ\u2018\u2019\u201C\u201D•–—˜™š›œžŸ'.includes(ch)) out += ch;
+                // else: dropped (not WinAnsi-encodable)
+            }
+            return out;
+        };
+
         const setField = (fieldName, value) => {
             try {
                 const field = form.getTextField(fieldName);
-                field.setText(String(value || ''));
-                addLog(`✔ Set text field ${fieldName}: ${value}`, 'success');
+                const safe = pdfSafe(value);
+                if (safe !== String(value ?? '')) addLog(`  ⚠ Sanitized non-encodable characters in ${fieldName}`, 'info');
+                field.setText(safe);
+                addLog(`✔ Set text field ${fieldName}: ${safe}`, 'success');
                 return true;
             } catch (e) {
                 return false;
@@ -10230,7 +10276,7 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
         const setFieldBold = (fieldName, value) => {
             try {
                 const field = form.getTextField(fieldName);
-                field.setText(String(value || ''));
+                field.setText(pdfSafe(value));
                 field.updateAppearances();
                 addLog(`✔ Set text field ${fieldName}: ${value}`, 'success');
                 return true;
@@ -10306,7 +10352,7 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
         trySetField(['Username (Defendant)', 'Username', 'Defendant', 'username', 'DefendantUsername'], finalOwner?.username || 'UNKNOWN');
 
         // Nickname (Defendant) - Roblox Display Name
-        trySetField(['Nickname (Defendant)', 'Nickname', 'nickname', 'DisplayName', 'DefendantNickname'], finalOwner?.displayName || 'UNKNOWN');
+        trySetField(['Nickname (Defendant)', 'Nickname', 'nickname', 'DisplayName', 'DefendantNickname'], (pdfSafe(finalOwner?.displayName || '').trim()) || finalOwner?.username || 'UNKNOWN');
 
         // RobloxID - EXACT field name: RblxID
         addLog(`Setting RblxID to: ${finalOwner?.userId || 'UNKNOWN'}`, 'info');
@@ -10410,12 +10456,13 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
             addLog('  No vehicle registration, skipping expiration date', 'info');
         }
         
-        // Time (current time - 5 minutes)
+        // Time of Offense — current time minus the configured grace offset (if enabled).
         const now = new Date();
-        const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
-const tzAbbr = fiveMinutesAgo.toLocaleTimeString('en-US', { timeZoneName: 'short' }).split(' ').pop();
-        const offenseTime = fiveMinutesAgo.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) + ` (${tzAbbr})`;
-        addLog(`Setting Time to: ${offenseTime} (5 minutes ago)`, 'info');
+        const graceMin = offenseTimeOffsetEnabled ? (offenseTimeOffsetMinutes || 0) : 0;
+        const offenseMoment = new Date(now.getTime() - graceMin * 60 * 1000);
+const tzAbbr = offenseMoment.toLocaleTimeString('en-US', { timeZoneName: 'short' }).split(' ').pop();
+        const offenseTime = offenseMoment.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) + ` (${tzAbbr})`;
+        addLog(`Setting Time to: ${offenseTime}${graceMin > 0 ? ` (${graceMin} min ago)` : ' (current time)'}`, 'info');
         trySetField(['Time', 'time', 'TimeOfOffense', 'TIME'], offenseTime);
         
         // Date of Offense - EXACT field name: DateOff_af_date (TODAY'S DATE)
@@ -10424,12 +10471,16 @@ const tzAbbr = fiveMinutesAgo.toLocaleTimeString('en-US', { timeZoneName: 'short
         const dateSet = setField('DateOff_af_date', todayDate);
         if (!dateSet) addLog(`❌ FAILED to set DateOff_af_date: ${todayDate}`, 'error');
         
-        // Place of Occurrence
-        trySetField([
-            'Place of Occurrence', 'PlaceOfOccurrence', 'Place', 'place', 'PLACE',
-            'PlaceOccurrence', 'Place_of_Occurrence', 'place of occurrence', 
-            'PLACE OF OCCURRENCE', 'PlaceOfOffense', 'Location'
-        ], '[ROADNAME/INTERSECTION] [SB/NB/WB/EB] // [OTHER DETAILS; "@ JUNKYARD" OR "BY JUNKYARD"]');
+        // Place of Occurrence — placeholder only when Record Placeholders is enabled
+        if (recordsPrefill) {
+            trySetField([
+                'Place of Occurrence', 'PlaceOfOccurrence', 'Place', 'place', 'PLACE',
+                'PlaceOccurrence', 'Place_of_Occurrence', 'place of occurrence', 
+                'PLACE OF OCCURRENCE', 'PlaceOfOffense', 'Location'
+            ], '[ROADNAME/INTERSECTION] [SB/NB/WB/EB] // [OTHER DETAILS; "@ JUNKYARD" OR "BY JUNKYARD"]');
+        } else {
+            addLog('Record Placeholders disabled — leaving Place of Occurrence blank', 'info');
+        }
         
         // Officer Badge/Shield - from settings or default
         const badgeId = trooperSettings?.BadgeID || 'N/A';
@@ -10661,11 +10712,27 @@ const generateArrestReport = async (ownerData = null) => {
         addLog('=== END FIELD LIST ===', 'info');
         
         // Helper function to safely set text fields
+        // pdfSafe strips characters WinAnsi can't encode (CJK, emoji, etc.) so exports
+        // for users with non-Latin display names don't crash at save time.
+        const pdfSafe = (value) => {
+            let s = String(value ?? '');
+            try { s = s.normalize('NFKD').replace(/[\u0300-\u036f]/g, ''); } catch (_) {}
+            let out = '';
+            for (const ch of s) {
+                const c = ch.codePointAt(0);
+                if ((c >= 0x20 && c <= 0x7E) || ch === '\n' || ch === '\r' || ch === '\t') out += ch;
+                else if (c >= 0xA0 && c <= 0xFF) out += ch;
+                else if ('€‚ƒ„…†‡ˆ‰Š‹ŒŽ\u2018\u2019\u201C\u201D•–—˜™š›œžŸ'.includes(ch)) out += ch;
+            }
+            return out;
+        };
         const setField = (fieldName, value) => {
             try {
                 const field = form.getTextField(fieldName);
-                field.setText(String(value || ''));
-                addLog(`✔ Set text field ${fieldName}: ${value}`, 'success');
+                const safe = pdfSafe(value);
+                if (safe !== String(value ?? '')) addLog(`  ⚠ Sanitized non-encodable characters in ${fieldName}`, 'info');
+                field.setText(safe);
+                addLog(`✔ Set text field ${fieldName}: ${safe}`, 'success');
                 return true;
             } catch (e) {
                 addLog(`✖ Failed to set ${fieldName}: ${e.message}`, 'error');
@@ -10718,8 +10785,12 @@ const getCurrentTime = () => {
         setField('Usern', finalOwner.username || 'UNKNOWN');
         addLog(`  Username: ${finalOwner.username}`, 'info');
         
-        setField('LocArres', 'TBC // TBC');
-        addLog(`  Location of Arrest: TBC // TBC`, 'info');
+        if (recordsPrefill) {
+            setField('LocArres', 'TBC // TBC');
+            addLog(`  Location of Arrest: TBC // TBC`, 'info');
+        } else {
+            addLog('  Record Placeholders disabled — leaving Location of Arrest blank', 'info');
+        }
         
         setField('IDNo1', badgeId);
         addLog(`  Badge Number (IDNo1): ${badgeId}`, 'info');
@@ -10730,14 +10801,20 @@ const getCurrentTime = () => {
         setField('ArresD_af_date', getTodayDate());
         addLog(`  Arrest Date: ${getTodayDate()}`, 'info');
 
-        setField('OffenD_af_date', `${getTodayDate()} // TO BE REVIEWED // TO BE REVIEWED`);
-        addLog(`  Offense Date: ${getTodayDate()} // TO BE REVIEWED // TO BE REVIEWED`, 'info');
+        const offenseDateValue = recordsPrefill
+            ? `${getTodayDate()} // TO BE REVIEWED // TO BE REVIEWED`
+            : getTodayDate();
+        setField('OffenD_af_date', offenseDateValue);
+        addLog(`  Offense Date: ${offenseDateValue}`, 'info');
         
         setField('ArrestOfc', `${firstName.toUpperCase()} ${lastName.toUpperCase()}`);
         addLog(`  Arresting Officer: ${firstName.toUpperCase()} ${lastName.toUpperCase()}`, 'info');
         
-        setField('Nick', finalOwner.displayName || 'UNKNOWN');
-        addLog(`  Nickname: ${finalOwner.displayName}`, 'info');
+        // Display name can be entirely non-Latin (e.g. 永遠の) — after sanitization it
+        // would be blank, so fall back to the username, then UNKNOWN.
+        const safeNick = (pdfSafe(finalOwner.displayName || '').trim()) || finalOwner.username || 'UNKNOWN';
+        setField('Nick', safeNick);
+        addLog(`  Nickname: ${safeNick}`, 'info');
         
         setField('RefNo', refNo);
         addLog(`  Reference Number: ${refNo}`, 'info');
@@ -10752,8 +10829,13 @@ const getCurrentTime = () => {
         setField('ArrestOfc2', `${firstName.toUpperCase()} ${lastName.toUpperCase()}`);
         addLog(`  Arresting Officer Signature (ArrestOfc2): ${firstName} ${lastName}`, 'info');
         
-        setField('Time', getCurrentTime());
-        addLog(`  Time: ${getCurrentTime()}`, 'info');
+        // Time — honors the Offense Time Offset preference, same as citations
+        const _graceMin = offenseTimeOffsetEnabled ? (offenseTimeOffsetMinutes || 0) : 0;
+        const _timeMoment = new Date(Date.now() - _graceMin * 60 * 1000);
+        const _timeTz = _timeMoment.toLocaleTimeString('en-US', { timeZoneName: 'short' }).split(' ').pop();
+        const _arrestTime = _timeMoment.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) + ` (${_timeTz})`;
+        setField('Time', _arrestTime);
+        addLog(`  Time: ${_arrestTime}${_graceMin > 0 ? ` (${_graceMin} min ago)` : ''}`, 'info');
         
         setField('Narrative', 'ENTER TROOPER\'S NARRATIVE HERE');
         addLog(`  Narrative: Pre-filled with placeholder`, 'info');
@@ -15067,6 +15149,31 @@ onError={(e) => {
                                 <div style={S.sectionHead('#fcd34d')}>⚙️ Personal Preferences</div>
                                 <div style={S.sectionSub}>Personalise how the application behaves for you</div>
 
+                                {/* ── RECORD EXPORT PREFERENCES ── */}
+                                <ToggleRow label="Record Placeholders" desc={'Pre-fills manual fields on exported records with placeholder text — Place of Occurrence on citations, Location of Arrest and the "TO BE REVIEWED" markers on arrest reports. Disable to leave those fields blank.'} on={recordsPrefill} accent="#22c55e" onToggle={() => setRecordsPrefill(v => !v)} />
+                                <ToggleRow label="Offense Time Offset" desc="Backdates the Time of Offense on exported citations and arrest reports by a set number of minutes, so the time reflects when the stop began rather than when you exported. Disable to use the exact current time." on={offenseTimeOffsetEnabled} accent="#38bdf8" onToggle={() => setOffenseTimeOffsetEnabled(v => !v)} />
+{offenseTimeOffsetEnabled && (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '12px 14px', background: 'rgba(56,189,248,0.05)', border: '1px solid rgba(56,189,248,0.15)', borderRadius: '9px', marginBottom: '7px' }}>
+        <div>
+            <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '600' }}>Minutes Back</div>
+            <div style={{ color: '#6b7280', fontSize: '11px', marginTop: '2px' }}>Time of Offense = current time minus this many minutes (0–999)</div>
+        </div>
+        <input
+            type="text"
+            inputMode="numeric"
+            value={offenseTimeOffsetMinutes}
+            onChange={(e) => {
+                // Numbers only — strip everything else, clamp 0..999
+                const digits = e.target.value.replace(/[^0-9]/g, '').slice(0, 3);
+                setOffenseTimeOffsetMinutes(digits === '' ? 0 : parseInt(digits, 10));
+            }}
+            style={{ width: '76px', padding: '9px 10px', background: 'rgba(7,12,24,0.7)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: '8px', color: '#7dd3fc', fontSize: '15px', fontWeight: '800', fontFamily: 'monospace', textAlign: 'center', outline: 'none', flexShrink: 0 }}
+            onFocus={e => { e.currentTarget.style.borderColor = 'rgba(56,189,248,0.7)'; e.currentTarget.style.boxShadow = '0 0 12px rgba(56,189,248,0.2)'; }}
+            onBlur={e => { e.currentTarget.style.borderColor = 'rgba(56,189,248,0.3)'; e.currentTarget.style.boxShadow = 'none'; }}
+        />
+    </div>
+)}
+
                                 {/* ── INTEGRATION TOGGLES ── */}
                                 <div style={{ background: 'rgba(34,211,238,0.04)', border: '1px solid rgba(34,211,238,0.14)', borderRadius: '10px', padding: '14px 16px', marginBottom: '8px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
@@ -15330,7 +15437,7 @@ onError={(e) => {
                                 <div style={S.sectionHead('#4ade80')}>💾 Export Settings</div>
                                 <div style={S.sectionSub}>Write all current settings to your CADSystemSettings.txt file</div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '12px' }}>
-                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','TeamSpeakAPIKey','EnableTeamSpeakIntegration','EnableSpotifyIntegration','SpotifyClientID','SpotifyRefreshToken','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE','PANIC_ENABLED','PANIC_HOTKEY','PANIC_TRIGGER_MODE','PURSUIT_ENABLED','PURSUIT_HOTKEY','ACKNOWLEDGE_KEYBIND','PHONETIC_MODE','ESC_TO_HOME','MIC_DEVICE','SFX_MIC_ACTIVE','SFX_MIC_INACTIVE','SFX_MIC_NOTAVAILABLE'].map(k => (
+                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','TeamSpeakAPIKey','EnableTeamSpeakIntegration','EnableSpotifyIntegration','SpotifyClientID','SpotifyRefreshToken','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE','PANIC_ENABLED','PANIC_HOTKEY','PANIC_TRIGGER_MODE','PURSUIT_ENABLED','PURSUIT_HOTKEY','ACKNOWLEDGE_KEYBIND','PHONETIC_MODE','RECORDS_PREFILL','OFFENSE_TIME_OFFSET_ENABLED','OFFENSE_TIME_OFFSET_MINUTES','ESC_TO_HOME','MIC_DEVICE','SFX_MIC_ACTIVE','SFX_MIC_INACTIVE','SFX_MIC_NOTAVAILABLE'].map(k => (
                                         <span key={k} style={{ padding: '2px 7px', background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.18)', borderRadius: '4px', color: '#4ade80', fontSize: '10px', fontFamily: 'monospace' }}>{k}</span>
                                     ))}
                                     <span style={{ padding: '2px 7px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '4px', color: '#f87171', fontSize: '10px', fontFamily: 'monospace' }}>ActiveSession*</span>
