@@ -2088,6 +2088,20 @@ const [acknowledgeKeybind, setAcknowledgeKeybind] = useState('');
 const [acknowledgeKeybindDraft, setAcknowledgeKeybindDraft] = useState('');
 const [escToHome, setEscToHome] = useState(true);
 const acknowledgedCallsRef = React.useRef([]);
+
+// ── Priority call classification ──
+// Case-insensitive, plural-aware (weapon|weapons, knife|knives, robbery|robberies...).
+// A call containing ANY of these is a PRIORITY call: distinct sound, popup, red card.
+const PRIORITY_CALL_REGEX = /\b(?:knife|knives|weapons?|guns?|firearms?|armed|shooters?|shootings?|shots?|shot\s+fired|shots\s+fired|stabbings?|stabbed|hostages?|pistols?|rifles?|shotguns?|bombs?|explosives?|grenades?|robber(?:y|ies)|carjackings?|kidnappings?|abductions?|officer\s+down|pursuits?|armed\s+robbery)\b/i;
+const isPriorityCall = React.useCallback((content) => PRIORITY_CALL_REGEX.test(String(content || '')), []);
+
+// Latest valid calls from the background poll, WITH classification. The alert-loop
+// manager derives everything from this — it's the single source of truth for sound.
+const [liveCalls, setLiveCalls] = useState([]);   // [{ id, content, isPriority }]
+// Which alert tier is currently looping: 'priority' | 'normal' | null
+const currentAlertTierRef = React.useRef(null);
+// Priority calls we've already shown the popup for (avoid re-popup every poll)
+const notifiedPriorityIdsRef = React.useRef(new Set());
 const acknowledgeKeybindRef = React.useRef('');
 const currentCallsRef = React.useRef([]);
 const [keybindsRequireFocus, setKeybindsRequireFocus] = useState(true);
@@ -2597,9 +2611,9 @@ const forceQuitForTamper = React.useCallback((reason) => {
     console.error('[CF-CACHE] 🚨 TAMPER DETECTED:', reason);
     try {
         window.electron?.ipcRenderer?.invoke('force-quit-with-dialog', {
-            title: 'Connection to application lost',
-            message: 'Connection to application lost',
-            detail: 'Your connection to the application was interrupted by the backend. Restart the application.'
+            title: 'Connection Interrupted',
+            message: 'Backend Error Code 503 (Connection Dropped During Response)',
+            detail: 'Your connection was suddenly interrupted. Restart the application.'
         });
     } catch (_) {}
     // Belt and braces: if main is unreachable, blank the UI so the user can't keep using stale state
@@ -5655,7 +5669,8 @@ React.useEffect(() => {
                             timestamp: new Date(msg.timestamp).toLocaleString(),
                             timestampRaw: new Date(msg.timestamp),
                             author: msg.author?.username || 'Unknown User',
-                            acknowledged: acknowledgedCalls.includes(msg.id)
+                            acknowledged: acknowledgedCalls.includes(msg.id),
+                            isPriority: isPriorityCall(msg.content)
                         };
                     });
                     
@@ -5852,7 +5867,17 @@ React.useEffect(() => {
 }, [activeView, settingsWarningDismissed, hasVisitedSettingsBefore]);
 
 React.useEffect(() => {
-    if (!selectedUserSession || !tokenSaved) return;
+    if (!selectedUserSession || !tokenSaved) {
+        // Session set to none / logged-out token state → no calls exist for us.
+        // Clearing liveCalls makes the alert-loop manager stop any looping sound.
+        setLiveCalls([]);
+        currentCallsRef.current = [];
+        window._currentCalls = [];
+        return;
+    }
+    // Session switched: clear immediately, then the instant poll below repopulates
+    // from the new session so the sound state "transforms smoothly" (re-check logic).
+    setLiveCalls([]);
     
     const checkForNewCalls = async () => {
         try {
@@ -5877,20 +5902,39 @@ React.useEffect(() => {
                 const currentCallIds = validCalls.map(c => c.id).sort().join(',');
                 const previousCallIds = (lastCallCount[selectedUserSession] || '');
                 
-                // Always keep currentCallsRef in sync with latest valid calls
+                // Always keep currentCallsRef in sync with latest valid calls — classified.
                 const mappedCalls = validCalls.map(m => ({
                     id: m.id,
-                    content: m.content
+                    content: m.content,
+                    isPriority: isPriorityCall(m.content)
                 }));
                 currentCallsRef.current = mappedCalls;
                 window._currentCalls = mappedCalls;
+                setLiveCalls(mappedCalls);   // feeds the alert-loop manager + UI badges
+
+                // Popup for NEW priority calls (once per call id)
+                mappedCalls.forEach(c => {
+                    if (c.isPriority && !notifiedPriorityIdsRef.current.has(c.id)
+                        && !acknowledgedCallsRef.current.includes(c.id)) {
+                        notifiedPriorityIdsRef.current.add(c.id);
+                        const snippet = (c.content || '').replace(/\s+/g, ' ').slice(0, 160);
+                        showCustomError(
+                            '🚨 PRIORITY CALL INCOMING',
+                            `A high-priority emergency call has been received in your session.\n\n"${snippet}${c.content.length > 160 ? '…' : ''}"\n\nAcknowledge it in the Calls tab or with your acknowledge hotkey.`,
+                            false,
+                            20
+                        );
+                        addLog('🚨 PRIORITY CALL detected', 'error');
+                    }
+                });
 
                 if (currentCallIds !== previousCallIds && validCalls.length > 0) {
                     const newCallIds = validCalls.filter(c => !previousCallIds.includes(c.id));
                     if (newCallIds.length > 0) {
                         const hasUnacknowledged = validCalls.some(c => !acknowledgedCallsRef.current.includes(c.id));
                         if (hasUnacknowledged) {
-                            playAlertSound();
+                            // Sound is handled by the alert-loop manager (derives from liveCalls);
+                            // here we only flash the topbar button.
                             setCallButtonFlash(true);
                             setTimeout(() => setCallButtonFlash(false), 10000);
                         }
@@ -5913,6 +5957,72 @@ React.useEffect(() => {
     const interval = setInterval(checkForNewCalls, 7000);
     return () => clearInterval(interval);
 }, [selectedUserSession, tokenSaved, discordToken, dismissedCalls, acknowledgedCalls]);
+
+// ═══════════════════════════════════════════════════════════════════════
+// ALERT-LOOP MANAGER — single authority over the looping call sounds.
+// Derives the desired tier from current state every time anything relevant
+// changes, then reconciles the actual audio to match:
+//   • any unacknowledged PRIORITY call  → loop SOUNDS.PriorityCallIncoming
+//   • else any unacknowledged normal    → loop SOUNDS.callAlert
+//   • else                              → silence
+// Silence is also forced when: logged out, session is none, pursuit mode is
+// active, or the callAlert sound setting is off. Because this derives from
+// liveCalls (which the poll refreshes per session), acknowledging the last
+// priority call automatically drops the loop down to the normal sound if
+// normal calls remain — and session switches re-check from scratch.
+// ═══════════════════════════════════════════════════════════════════════
+React.useEffect(() => {
+    const unacked = liveCalls.filter(c =>
+        !acknowledgedCalls.includes(c.id) && !dismissedCalls.includes(c.id));
+    const hasPriority = unacked.some(c => c.isPriority);
+    const hasNormal = unacked.some(c => !c.isPriority);
+
+    let desired = null;
+    if (!authenticatedUser) desired = null;                 // logged out
+    else if (!selectedUserSession) desired = null;          // session: none
+    else if (pursuitActive) desired = null;                 // pursuit mute
+    else if (!soundSettings.callAlert) desired = null;      // sound disabled in settings
+    else if (hasPriority) desired = 'priority';
+    else if (hasNormal) desired = 'normal';
+
+    const current = currentAlertTierRef.current;
+    if (desired === current && activeAlertAudioRef.current && !activeAlertAudioRef.current.paused) {
+        return; // already playing the right thing
+    }
+    if (desired === current && desired === null) return;
+
+    console.log(`[CALL-LOOP] tier change: ${current || 'silent'} → ${desired || 'silent'} (priority:${hasPriority} normal:${hasNormal})`);
+
+    // Stop whatever is playing
+    if (activeAlertAudioRef.current) {
+        try { activeAlertAudioRef.current.pause(); activeAlertAudioRef.current.currentTime = 0; } catch (_) {}
+        activeAlertAudioRef.current = null;
+    }
+    currentAlertTierRef.current = desired;
+    if (!desired) return;
+
+    const src = desired === 'priority' ? (window.SOUNDS && window.SOUNDS.PriorityCallIncoming) : (window.SOUNDS && window.SOUNDS.callAlert);
+    if (!src) {
+        console.log(`[CALL-LOOP] ⚠️ Sound for tier "${desired}" not in window.SOUNDS — ${desired === 'priority' ? 'upload PriorityCallIncoming.mp3 to the repo root and push main-remote.js' : 'callAlert missing'}`);
+        return;
+    }
+    try {
+        const audio = new Audio(src);
+        audio.volume = desired === 'priority' ? 0.75 : 0.6;
+        audio.loop = true;
+        activeAlertAudioRef.current = audio;
+        audio.play().catch(e => {
+            console.error('[CALL-LOOP] playback blocked:', e?.message);
+            activeAlertAudioRef.current = null;
+            currentAlertTierRef.current = null;
+        });
+        addLog(desired === 'priority' ? '🚨 PRIORITY CALL ALERT — LOOPING' : '🚨 Call alert — looping', desired === 'priority' ? 'error' : 'info');
+    } catch (e) {
+        console.error('[CALL-LOOP] error:', e?.message);
+        activeAlertAudioRef.current = null;
+        currentAlertTierRef.current = null;
+    }
+}, [liveCalls, acknowledgedCalls, dismissedCalls, selectedUserSession, authenticatedUser, pursuitActive, soundSettings.callAlert]);
 
 // Cleanup alert sound when leaving calls view
 React.useEffect(() => {
@@ -6304,11 +6414,14 @@ React.useEffect(() => {
 }, [pursuitEnabled, pursuitActive, addLog]);
 
 
-React.useEffect(() => {
-    if (!currentCallsRef.current || currentCallsRef.current.length === 0) return;
-    const allAcked = currentCallsRef.current.every(c => acknowledgedCalls.includes(c.id));
-    if (allAcked) stopAlertSound();
-}, [acknowledgedCalls]);
+// ── DISABLED: superseded by the ALERT-LOOP MANAGER, which derives silence from
+// acknowledgedCalls/dismissedCalls/liveCalls and stops the loop itself. Keeping two
+// authorities over activeAlertAudioRef caused fights (stale tier tracking).
+// React.useEffect(() => {
+//     if (!currentCallsRef.current || currentCallsRef.current.length === 0) return;
+//     const allAcked = currentCallsRef.current.every(c => acknowledgedCalls.includes(c.id));
+//     if (allAcked) stopAlertSound();
+// }, [acknowledgedCalls]);
 
 React.useEffect(() => { acknowledgeKeybindRef.current = acknowledgeKeybind; }, [acknowledgeKeybind]);
 
@@ -15561,6 +15674,23 @@ onError={(e) => {
                         }}>
                             911 DISPATCH
                         </span>
+                        {(() => {
+                            const unacked = calls.filter(c => !acknowledgedCalls.includes(c.id) && !dismissedCalls.includes(c.id));
+                            const prio = unacked.filter(c => c.isPriority).length;
+                            const norm = unacked.length - prio;
+                            return (<>
+                                {prio > 0 && (
+                                    <span style={{ background:'linear-gradient(135deg,#b91c1c,#ef4444)',borderRadius:'999px',padding:'3px 11px',color:'#fff',fontSize:'10px',fontWeight:'900',letterSpacing:'1.5px',whiteSpace:'nowrap',fontFamily:'monospace',boxShadow:'0 0 14px rgba(239,68,68,0.5)',animation:'pursuitPulse 1.4s ease-in-out infinite' }}>
+                                        🚨 {prio} PRIORITY
+                                    </span>
+                                )}
+                                {norm > 0 && (
+                                    <span style={{ background:'rgba(59,130,246,0.15)',border:'1px solid rgba(59,130,246,0.4)',borderRadius:'999px',padding:'3px 11px',color:'#93c5fd',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',whiteSpace:'nowrap',fontFamily:'monospace' }}>
+                                        {norm} ACTIVE
+                                    </span>
+                                )}
+                            </>);
+                        })()}
                     </div>
                     <p style={{ 
                         color: '#475569', 
@@ -15834,10 +15964,18 @@ onError={(e) => {
                         gridTemplateColumns: 'repeat(auto-fill, minmax(500px, 1fr))',
                         gap: '20px'
                     }}>
-                        {calls.map(call => {
+                        {[...calls].sort((a, b) => {
+                            // PRIORITY calls first, then unacknowledged, then newest
+                            const pa = a.isPriority ? 0 : 1, pb = b.isPriority ? 0 : 1;
+                            if (pa !== pb) return pa - pb;
+                            const aa = acknowledgedCalls.includes(a.id) ? 1 : 0, ab = acknowledgedCalls.includes(b.id) ? 1 : 0;
+                            if (aa !== ab) return aa - ab;
+                            return b.timestampRaw - a.timestampRaw;
+                        }).map(call => {
                             const callAge = Math.floor((new Date() - call.timestampRaw) / 1000);
                             const isOldCall = callAge > 480; // 8 minutes = 480 seconds
                             const isAcknowledged = acknowledgedCalls.includes(call.id);
+                            const isPrio = !!call.isPriority;
                             
                             return (
                                 <div 
@@ -15845,23 +15983,44 @@ onError={(e) => {
                                     style={{
                                         background: isAcknowledged
                                             ? 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.05))'
-                                            : isOldCall
-                                                ? 'linear-gradient(135deg, rgba(239,68,68,0.3), rgba(220,38,38,0.2))'
-                                                : 'linear-gradient(135deg, rgba(30,58,138,0.2), rgba(59,130,246,0.1))',
-                                        border: `2px solid ${isAcknowledged ? 'rgba(16,185,129,0.5)' : isOldCall ? '#ef4444' : 'rgba(59,130,246,0.4)'}`,
+                                            : isPrio
+                                                ? 'linear-gradient(170deg, rgba(239,68,68,0.22) 0%, rgba(127,29,29,0.28) 55%, rgba(10,10,18,0.6) 100%)'
+                                                : isOldCall
+                                                    ? 'linear-gradient(135deg, rgba(239,68,68,0.3), rgba(220,38,38,0.2))'
+                                                    : 'linear-gradient(135deg, rgba(30,58,138,0.2), rgba(59,130,246,0.1))',
+                                        border: `2px solid ${isAcknowledged ? 'rgba(16,185,129,0.5)' : isPrio ? '#ef4444' : isOldCall ? '#ef4444' : 'rgba(59,130,246,0.4)'}`,
                                         borderRadius: '12px',
                                         padding: '20px',
+                                        paddingTop: isPrio && !isAcknowledged ? '34px' : '20px',
                                         position: 'relative',
                                         overflow: 'hidden',
-                                        animation: !isAcknowledged && isOldCall ? 'flash-red 1.5s infinite' : 'none',
+                                        animation: !isAcknowledged && (isPrio || isOldCall) ? 'flash-red 1.5s infinite' : 'none',
                                         boxShadow: isAcknowledged
                                             ? '0 4px 16px rgba(16,185,129,0.15)'
-                                            : isOldCall
-                                                ? '0 8px 32px rgba(239,68,68,0.5)'
-                                                : '0 4px 16px rgba(0,0,0,0.3)'
+                                            : isPrio
+                                                ? '0 8px 40px rgba(239,68,68,0.45), inset 0 1px 0 rgba(255,255,255,0.08)'
+                                                : isOldCall
+                                                    ? '0 8px 32px rgba(239,68,68,0.5)'
+                                                    : '0 4px 16px rgba(0,0,0,0.3)'
                                     }}
                                 >
-                                    {/* URGENT OVERLAY */}
+                                    {/* PRIORITY BANNER — full-width strip across the card top */}
+                                    {isPrio && (
+                                        <div style={{
+                                            position: 'absolute', top: 0, left: 0, right: 0, height: '24px',
+                                            background: isAcknowledged
+                                                ? 'linear-gradient(90deg, rgba(16,185,129,0.35), rgba(16,185,129,0.15))'
+                                                : 'linear-gradient(90deg, #b91c1c, #ef4444, #b91c1c)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+                                            color: '#fff', fontSize: '10px', fontWeight: '900',
+                                            letterSpacing: '3px', textTransform: 'uppercase', fontFamily: 'monospace',
+                                            textShadow: '0 1px 3px rgba(0,0,0,0.5)'
+                                        }}>
+                                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#fff', boxShadow: '0 0 6px #fff', animation: isAcknowledged ? 'none' : 'pursuitPulse 1.2s ease-in-out infinite' }} />
+                                            ⚠ Priority Call ⚠
+                                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#fff', boxShadow: '0 0 6px #fff', animation: isAcknowledged ? 'none' : 'pursuitPulse 1.2s ease-in-out infinite' }} />
+                                        </div>
+                                    )}                                    {/* URGENT OVERLAY */}
                                     {isOldCall && !isAcknowledged && (
                                         <div style={{
                                             position: 'absolute',
