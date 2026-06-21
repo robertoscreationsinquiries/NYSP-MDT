@@ -673,6 +673,9 @@ ipcMain.handle('set-mini-mode', async (e, { enabled, width, height }) => {
     if (!mainWindow) return { success: false };
     if (enabled) {
         if (!_preMiniBounds) _preMiniBounds = mainWindow.getBounds();
+        // Mini-mode and fullscreen are contradictory — leave fullscreen and block it.
+        if (mainWindow.isFullScreen()) mainWindow.setFullScreen(false);
+        mainWindow.setFullScreenable(false);
         const w = Math.max(220, Math.min(900, Math.round(width || 340)));
         const h = Math.max(300, Math.min(1000, Math.round(height || 520)));
         mainWindow.setMinimumSize(220, 300);
@@ -689,6 +692,7 @@ ipcMain.handle('set-mini-mode', async (e, { enabled, width, height }) => {
         return { success: true };
     } else {
         mainWindow.setAlwaysOnTop(false);
+        mainWindow.setFullScreenable(true); // allow fullscreen again
         mainWindow.setMinimumSize(1200, 700);
         if (_preMiniBounds) { mainWindow.setBounds(_preMiniBounds); _preMiniBounds = null; }
         else mainWindow.setSize(1400, 900);
