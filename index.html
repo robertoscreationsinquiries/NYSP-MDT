@@ -46,60 +46,42 @@ body.mini-mode-active::before {
 }
 
 /* ── Mini-mode responsive reflow ──
-   The app is built for ≥1200px. At mini sizes we: drop the 1200px cap, stack the
-   sidebar above the content (so neither is squeezed), shrink the sidebar to a
-   compact rail, collapse every multi-column grid to one column, and make the whole
-   thing scroll vertically instead of clipping. Everything scales down a touch so
-   controls stay tappable without overflowing. */
+   The real layout is a fixed 52px topbar of nav tabs + per-view fixed panels that
+   already scroll internally (top:52px;bottom:0;overflow:auto). At mini widths the
+   problems are: (a) the topbar's tabs overflow horizontally and get clipped, and
+   (b) view grids/padding are sized for ≥1200px. We fix both without restructuring:
+   let the topbar scroll horizontally so every tab stays reachable, and collapse
+   multi-column grids to one column with tighter spacing. */
+
+/* Fill the whole window — drop the 1200px desktop cap and centering margins. */
 body.mini-mode-active .app-container {
     max-width: 100% !important;
-    flex-direction: column !important;
-    height: 100vh;
-}
-body.mini-mode-active .sidebar {
     width: 100% !important;
-    height: auto !important;
-    flex-direction: row !important;
-    flex-wrap: wrap;
-    padding: 8px !important;
-    gap: 4px;
-    overflow-x: auto;
-    box-shadow: none;
-}
-body.mini-mode-active .sidebar-header { display: none !important; }
-body.mini-mode-active .sidebar-button {
-    width: auto !important;
-    flex: 1 1 auto;
-    min-width: 0;
-    padding: 7px 9px !important;
-    font-size: 11px !important;
     margin: 0 !important;
-    white-space: nowrap;
 }
-body.mini-mode-active .main-content {
-    padding: 0 8px 8px !important;
-    flex: 1 1 auto;
-    overflow-y: auto;
-    overflow-x: hidden;
+
+/* Topbar: allow horizontal scroll so no nav tab is ever cut off. The topbar is the
+   first fixed 52px bar inside .app-container. */
+body.mini-mode-active .app-container > div[style*="height:'52px'"],
+body.mini-mode-active .app-container > div[style*="height: 52px"] {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
 }
-/* Collapse all multi-column layouts to a single column. */
+/* Collapse every multi-column results grid to a single column. */
 body.mini-mode-active .results-grid {
     grid-template-columns: 1fr !important;
     gap: 10px !important;
 }
-body.mini-mode-active .card {
-    padding: 12px !important;
-    max-width: 100% !important;
-}
-body.mini-mode-active .page-header {
-    padding: 14px 12px !important;
-    margin-bottom: 14px !important;
-}
-/* Tighten generic spacing so dense screens (Calls, Settings) fit. */
+/* Tighten cards/headers so dense screens fit the narrow width. */
+body.mini-mode-active .card { padding: 12px !important; max-width: 100% !important; }
+body.mini-mode-active .page-header { padding: 14px 12px !important; margin-bottom: 14px !important; }
 body.mini-mode-active .settings-section-card { padding: 12px !important; }
-body.mini-mode-active .box-header { padding: 10px 12px !important; }
-/* Let the user reach everything — never trap content behind the fold. */
-body.mini-mode-active #root { height: 100vh; overflow: hidden; display: flex; }
+/* Any view panel that uses an auto-fit/repeat grid inline → force single column.
+   Catches the calls data grid and similar repeat(auto-fit,...) layouts. */
+body.mini-mode-active [style*="repeat(auto-fit"],
+body.mini-mode-active [style*="repeat(auto-fill"] {
+    grid-template-columns: 1fr !important;
+}
 
 
 /* BETA watermark - rendered by JS below */
@@ -2430,8 +2412,9 @@ const [offenseTimeOffsetMinutes, setOffenseTimeOffsetMinutes] = useState(5);
 // NOT persisted — per spec the user re-adjusts it each session. So miniSize lives in
 // plain state seeded with a default and is never written to the settings file.
 const [miniMode, setMiniMode] = useState(false);
-const [miniWidth, setMiniWidth] = useState(340);
-const [miniHeight, setMiniHeight] = useState(520);
+// Default mini size — tripled per request. Clamped in main-remote to fit the screen.
+const [miniWidth, setMiniWidth] = useState(1020);
+const [miniHeight, setMiniHeight] = useState(1000);
 
 // ── Mini-mode driver ──
 // Toggling miniMode resizes/pins the Electron window and toggles a body class that
@@ -2448,15 +2431,6 @@ React.useEffect(() => {
         ipc.invoke('set-mini-mode', { enabled: false }).catch(() => {});
     }
 }, [miniMode]);
-
-React.useEffect(() => {
-    if (!miniMode) return;
-    const ipc = window.electron?.ipcRenderer;
-    if (!ipc) return;
-    // Debounce the live resize so dragging the slider doesn't spam IPC.
-    const t = setTimeout(() => ipc.invoke('set-mini-size', { width: miniWidth, height: miniHeight }).catch(() => {}), 40);
-    return () => clearTimeout(t);
-}, [miniWidth, miniHeight, miniMode]);
 const [showPhoneticCompare, setShowPhoneticCompare] = useState(false);
 const [panicTapCount, setPanicTapCount] = useState(0);
 const panicTapCountRef = React.useRef(0);
@@ -15404,28 +15378,8 @@ onError={(e) => {
 )}
 
                                 {/* ── MINI-MODE ── */}
-                                <ToggleRow label="Mini-Mode (Always on Top)" desc="Shrinks the app into a compact, rounded floating window pinned above all other applications — like a miniplayer — so it stays visible while you work. Adjust the size below; the size resets each launch." on={miniMode} accent="#a78bfa" onToggle={() => setMiniMode(v => !v)} />
-{miniMode && (
-    <div style={{ padding: '14px 16px', background: 'rgba(167,139,250,0.05)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: '9px', marginBottom: '7px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-            <span style={{ color: '#c4b5fd', fontSize: '12px', fontWeight: '700', letterSpacing: '0.5px' }}>Width</span>
-            <span style={{ color: '#a78bfa', fontSize: '12px', fontFamily: 'monospace', fontWeight: '800' }}>{miniWidth}px</span>
-        </div>
-        <input type="range" min="220" max="900" value={miniWidth}
-            onChange={e => setMiniWidth(parseInt(e.target.value, 10))}
-            style={{ width: '100%', accentColor: '#a78bfa', cursor: 'pointer', marginBottom: '14px' }} />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-            <span style={{ color: '#c4b5fd', fontSize: '12px', fontWeight: '700', letterSpacing: '0.5px' }}>Height</span>
-            <span style={{ color: '#a78bfa', fontSize: '12px', fontFamily: 'monospace', fontWeight: '800' }}>{miniHeight}px</span>
-        </div>
-        <input type="range" min="300" max="1000" value={miniHeight}
-            onChange={e => setMiniHeight(parseInt(e.target.value, 10))}
-            style={{ width: '100%', accentColor: '#a78bfa', cursor: 'pointer' }} />
-        <div style={{ color: '#6b7280', fontSize: '10.5px', marginTop: '10px', lineHeight: 1.5 }}>
-            Size is session-only and resets to default on next launch. Drag the top edge of the floating window to reposition it.
-        </div>
-    </div>
-)}
+                                <ToggleRow label="Mini-Mode (Always on Top)" desc="Shrinks the app into a compact, rounded floating window pinned above all other applications — like a miniplayer — so it stays visible while you work. Resize the window by dragging its edges." on={miniMode} accent="#a78bfa" onToggle={() => setMiniMode(v => !v)} />
+
 
                                 {/* ── INTEGRATION TOGGLES ── */}
                                 <div style={{ background: 'rgba(34,211,238,0.04)', border: '1px solid rgba(34,211,238,0.14)', borderRadius: '10px', padding: '14px 16px', marginBottom: '8px' }}>
