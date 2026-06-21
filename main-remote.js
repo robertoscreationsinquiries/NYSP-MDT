@@ -663,6 +663,52 @@ ipcMain.handle('export-pdf', async (event, { type }) => {
         return { success: true, path: outputPath };
     } catch(err) { return { success: false, error: err.message }; }
 });
+// ── Mini-mode ──
+// Spotify-miniplayer-style: shrink to a compact always-on-top window in the
+// bottom-right. We must clear the window's minimumSize (1200×700) first, or
+// setSize is silently clamped back up — that's why the old handler never shrank.
+// We remember the pre-mini bounds so exiting restores the exact prior layout.
+let _preMiniBounds = null;
+ipcMain.handle('set-mini-mode', async (e, { enabled, width, height }) => {
+    if (!mainWindow) return { success: false };
+    if (enabled) {
+        if (!_preMiniBounds) _preMiniBounds = mainWindow.getBounds();
+        const w = Math.max(220, Math.min(900, Math.round(width || 340)));
+        const h = Math.max(300, Math.min(1000, Math.round(height || 520)));
+        mainWindow.setMinimumSize(220, 300);
+        mainWindow.setResizable(true);
+        mainWindow.setAlwaysOnTop(true, 'screen-saver'); // highest practical level
+        mainWindow.setSize(w, h);
+        // Bottom-right of the current display's work area, with a small margin.
+        try {
+            const { screen } = require('electron');
+            const disp = screen.getDisplayMatching(mainWindow.getBounds());
+            const wa = disp.workArea;
+            mainWindow.setPosition(wa.x + wa.width - w - 16, wa.y + wa.height - h - 16);
+        } catch (_) {}
+        return { success: true };
+    } else {
+        mainWindow.setAlwaysOnTop(false);
+        mainWindow.setMinimumSize(1200, 700);
+        if (_preMiniBounds) { mainWindow.setBounds(_preMiniBounds); _preMiniBounds = null; }
+        else mainWindow.setSize(1400, 900);
+        return { success: true };
+    }
+});
+// Live slider resize while already in mini-mode (keeps it anchored bottom-right).
+ipcMain.handle('set-mini-size', async (e, { width, height }) => {
+    if (!mainWindow) return { success: false };
+    const w = Math.max(220, Math.min(900, Math.round(width || 340)));
+    const h = Math.max(300, Math.min(1000, Math.round(height || 520)));
+    mainWindow.setSize(w, h);
+    try {
+        const { screen } = require('electron');
+        const disp = screen.getDisplayMatching(mainWindow.getBounds());
+        const wa = disp.workArea;
+        mainWindow.setPosition(wa.x + wa.width - w - 16, wa.y + wa.height - h - 16);
+    } catch (_) {}
+    return { success: true };
+});
 ipcMain.handle('toggle-mini-mode', async (e, compact) => {
     mainWindow.setSize(compact ? 120 : 1400, compact ? 450 : 900);
     return { success: true };
