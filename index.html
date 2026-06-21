@@ -24,8 +24,8 @@ body {
 }
 
 /* ── Mini-mode ── Spotify-miniplayer aesthetic: rounded corners, tighter chrome.
-   The window itself is resized + pinned by the main process; this just makes the
-   in-window content read as a compact floating player. */
+   The window itself is resized + pinned by the main process; this reflows the
+   in-window content so it stays usable at small sizes (no overflow/clipping). */
 body.mini-mode-active {
     border-radius: 18px;
     overflow: hidden;
@@ -44,6 +44,62 @@ body.mini-mode-active::before {
     z-index: 99999;
     pointer-events: auto;
 }
+
+/* ── Mini-mode responsive reflow ──
+   The app is built for ≥1200px. At mini sizes we: drop the 1200px cap, stack the
+   sidebar above the content (so neither is squeezed), shrink the sidebar to a
+   compact rail, collapse every multi-column grid to one column, and make the whole
+   thing scroll vertically instead of clipping. Everything scales down a touch so
+   controls stay tappable without overflowing. */
+body.mini-mode-active .app-container {
+    max-width: 100% !important;
+    flex-direction: column !important;
+    height: 100vh;
+}
+body.mini-mode-active .sidebar {
+    width: 100% !important;
+    height: auto !important;
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    padding: 8px !important;
+    gap: 4px;
+    overflow-x: auto;
+    box-shadow: none;
+}
+body.mini-mode-active .sidebar-header { display: none !important; }
+body.mini-mode-active .sidebar-button {
+    width: auto !important;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 7px 9px !important;
+    font-size: 11px !important;
+    margin: 0 !important;
+    white-space: nowrap;
+}
+body.mini-mode-active .main-content {
+    padding: 0 8px 8px !important;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+/* Collapse all multi-column layouts to a single column. */
+body.mini-mode-active .results-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+}
+body.mini-mode-active .card {
+    padding: 12px !important;
+    max-width: 100% !important;
+}
+body.mini-mode-active .page-header {
+    padding: 14px 12px !important;
+    margin-bottom: 14px !important;
+}
+/* Tighten generic spacing so dense screens (Calls, Settings) fit. */
+body.mini-mode-active .settings-section-card { padding: 12px !important; }
+body.mini-mode-active .box-header { padding: 10px 12px !important; }
+/* Let the user reach everything — never trap content behind the fold. */
+body.mini-mode-active #root { height: 100vh; overflow: hidden; display: flex; }
 
 
 /* BETA watermark - rendered by JS below */
