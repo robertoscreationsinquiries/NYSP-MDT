@@ -23,6 +23,28 @@ body {
     background-repeat: no-repeat;
 }
 
+/* ── Mini-mode ── Spotify-miniplayer aesthetic: rounded corners, tighter chrome.
+   The window itself is resized + pinned by the main process; this just makes the
+   in-window content read as a compact floating player. */
+body.mini-mode-active {
+    border-radius: 18px;
+    overflow: hidden;
+}
+body.mini-mode-active #root,
+body.mini-mode-active .app-container {
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(56,189,248,0.18);
+}
+/* A subtle drag handle hint at the very top so the floating window can be moved. */
+body.mini-mode-active::before {
+    content: '';
+    position: fixed; top: 0; left: 0; right: 0; height: 22px;
+    -webkit-app-region: drag;
+    z-index: 99999;
+    pointer-events: auto;
+}
+
 
 /* BETA watermark - rendered by JS below */
 body::before {
@@ -2346,6 +2368,39 @@ const [recordsPrefill, setRecordsPrefill] = useState(true);
 // (reflects when the stop began, not when the PDF was exported). When OFF, exact current time.
 const [offenseTimeOffsetEnabled, setOffenseTimeOffsetEnabled] = useState(true);
 const [offenseTimeOffsetMinutes, setOffenseTimeOffsetMinutes] = useState(5);
+
+// ── Mini-mode ──
+// Persistent toggle (saves like other settings). The size, however, is intentionally
+// NOT persisted — per spec the user re-adjusts it each session. So miniSize lives in
+// plain state seeded with a default and is never written to the settings file.
+const [miniMode, setMiniMode] = useState(false);
+const [miniWidth, setMiniWidth] = useState(340);
+const [miniHeight, setMiniHeight] = useState(520);
+
+// ── Mini-mode driver ──
+// Toggling miniMode resizes/pins the Electron window and toggles a body class that
+// rounds the app's corners. While active, dragging the size slider live-resizes via
+// a separate IPC (keeps it anchored bottom-right). Size is session-only (never saved).
+React.useEffect(() => {
+    const ipc = window.electron?.ipcRenderer;
+    if (!ipc) return;
+    if (miniMode) {
+        document.body.classList.add('mini-mode-active');
+        ipc.invoke('set-mini-mode', { enabled: true, width: miniWidth, height: miniHeight }).catch(() => {});
+    } else {
+        document.body.classList.remove('mini-mode-active');
+        ipc.invoke('set-mini-mode', { enabled: false }).catch(() => {});
+    }
+}, [miniMode]);
+
+React.useEffect(() => {
+    if (!miniMode) return;
+    const ipc = window.electron?.ipcRenderer;
+    if (!ipc) return;
+    // Debounce the live resize so dragging the slider doesn't spam IPC.
+    const t = setTimeout(() => ipc.invoke('set-mini-size', { width: miniWidth, height: miniHeight }).catch(() => {}), 40);
+    return () => clearTimeout(t);
+}, [miniWidth, miniHeight, miniMode]);
 const [showPhoneticCompare, setShowPhoneticCompare] = useState(false);
 const [panicTapCount, setPanicTapCount] = useState(0);
 const panicTapCountRef = React.useRef(0);
@@ -2982,6 +3037,9 @@ if (trimmedLine.startsWith('OFFENSE_TIME_OFFSET_ENABLED=')) {
 if (trimmedLine.startsWith('OFFENSE_TIME_OFFSET_MINUTES=')) {
     const n = parseInt(trimmedLine.split('=')[1]?.trim(), 10);
     if (!isNaN(n) && n >= 0 && n <= 999) setOffenseTimeOffsetMinutes(n);
+}
+if (trimmedLine.startsWith('MINI_MODE=')) {
+    setMiniMode(trimmedLine.split('=')[1]?.trim() === 'TRUE');
 }
 if (trimmedLine.startsWith('ACKNOWLEDGE_KEYBIND=')) {
     const val = trimmedLine.split('=')[1]?.trim();
@@ -5452,6 +5510,7 @@ PHONETIC_MODE=${phoneticMode || 'POLICE'}
 RECORDS_PREFILL=${recordsPrefill ? 'TRUE' : 'FALSE'}
 OFFENSE_TIME_OFFSET_ENABLED=${offenseTimeOffsetEnabled ? 'TRUE' : 'FALSE'}
 OFFENSE_TIME_OFFSET_MINUTES=${offenseTimeOffsetMinutes}
+MINI_MODE=${miniMode ? 'TRUE' : 'FALSE'}
 ACKNOWLEDGE_KEYBIND=${acknowledgeKeybind || ''}
 ESC_TO_HOME=${escToHome ? 'TRUE' : 'FALSE'}
 DevConsoleEnabled=${showDevConsole ? 'TRUE' : 'FALSE'}
@@ -5501,6 +5560,7 @@ if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
                     if (key === 'RECORDS_PREFILL') setRecordsPrefill(val !== 'FALSE');
                     if (key === 'OFFENSE_TIME_OFFSET_ENABLED') setOffenseTimeOffsetEnabled(val !== 'FALSE');
                     if (key === 'OFFENSE_TIME_OFFSET_MINUTES') { const n = parseInt(val, 10); if (!isNaN(n) && n >= 0 && n <= 999) setOffenseTimeOffsetMinutes(n); }
+                    if (key === 'MINI_MODE') setMiniMode(val === 'TRUE');
                     if (key === 'MIC_DEVICE') setSelectedMicDevice(val);
                     if (key === 'SFX_MIC_ACTIVE') setSoundSettings(prev => ({ ...prev, MicActive: val === 'TRUE' }));
                     if (key === 'SFX_MIC_INACTIVE') setSoundSettings(prev => ({ ...prev, MicInactive: val === 'TRUE' }));
@@ -15287,6 +15347,30 @@ onError={(e) => {
     </div>
 )}
 
+                                {/* ── MINI-MODE ── */}
+                                <ToggleRow label="Mini-Mode (Always on Top)" desc="Shrinks the app into a compact, rounded floating window pinned above all other applications — like a miniplayer — so it stays visible while you work. Adjust the size below; the size resets each launch." on={miniMode} accent="#a78bfa" onToggle={() => setMiniMode(v => !v)} />
+{miniMode && (
+    <div style={{ padding: '14px 16px', background: 'rgba(167,139,250,0.05)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: '9px', marginBottom: '7px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+            <span style={{ color: '#c4b5fd', fontSize: '12px', fontWeight: '700', letterSpacing: '0.5px' }}>Width</span>
+            <span style={{ color: '#a78bfa', fontSize: '12px', fontFamily: 'monospace', fontWeight: '800' }}>{miniWidth}px</span>
+        </div>
+        <input type="range" min="220" max="900" value={miniWidth}
+            onChange={e => setMiniWidth(parseInt(e.target.value, 10))}
+            style={{ width: '100%', accentColor: '#a78bfa', cursor: 'pointer', marginBottom: '14px' }} />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+            <span style={{ color: '#c4b5fd', fontSize: '12px', fontWeight: '700', letterSpacing: '0.5px' }}>Height</span>
+            <span style={{ color: '#a78bfa', fontSize: '12px', fontFamily: 'monospace', fontWeight: '800' }}>{miniHeight}px</span>
+        </div>
+        <input type="range" min="300" max="1000" value={miniHeight}
+            onChange={e => setMiniHeight(parseInt(e.target.value, 10))}
+            style={{ width: '100%', accentColor: '#a78bfa', cursor: 'pointer' }} />
+        <div style={{ color: '#6b7280', fontSize: '10.5px', marginTop: '10px', lineHeight: 1.5 }}>
+            Size is session-only and resets to default on next launch. Drag the top edge of the floating window to reposition it.
+        </div>
+    </div>
+)}
+
                                 {/* ── INTEGRATION TOGGLES ── */}
                                 <div style={{ background: 'rgba(34,211,238,0.04)', border: '1px solid rgba(34,211,238,0.14)', borderRadius: '10px', padding: '14px 16px', marginBottom: '8px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
@@ -15550,7 +15634,7 @@ onError={(e) => {
                                 <div style={S.sectionHead('#4ade80')}>💾 Export Settings</div>
                                 <div style={S.sectionSub}>Write all current settings to your CADSystemSettings.txt file</div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '12px' }}>
-                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','TeamSpeakAPIKey','EnableTeamSpeakIntegration','EnableSpotifyIntegration','SpotifyClientID','SpotifyRefreshToken','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE','PANIC_ENABLED','PANIC_HOTKEY','PANIC_TRIGGER_MODE','PURSUIT_ENABLED','PURSUIT_HOTKEY','ACKNOWLEDGE_KEYBIND','PHONETIC_MODE','RECORDS_PREFILL','OFFENSE_TIME_OFFSET_ENABLED','OFFENSE_TIME_OFFSET_MINUTES','ESC_TO_HOME','MIC_DEVICE','SFX_MIC_ACTIVE','SFX_MIC_INACTIVE','SFX_MIC_NOTAVAILABLE'].map(k => (
+                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','TeamSpeakAPIKey','EnableTeamSpeakIntegration','EnableSpotifyIntegration','SpotifyClientID','SpotifyRefreshToken','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE','PANIC_ENABLED','PANIC_HOTKEY','PANIC_TRIGGER_MODE','PURSUIT_ENABLED','PURSUIT_HOTKEY','ACKNOWLEDGE_KEYBIND','PHONETIC_MODE','RECORDS_PREFILL','OFFENSE_TIME_OFFSET_ENABLED','OFFENSE_TIME_OFFSET_MINUTES','MINI_MODE','ESC_TO_HOME','MIC_DEVICE','SFX_MIC_ACTIVE','SFX_MIC_INACTIVE','SFX_MIC_NOTAVAILABLE'].map(k => (
                                         <span key={k} style={{ padding: '2px 7px', background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.18)', borderRadius: '4px', color: '#4ade80', fontSize: '10px', fontFamily: 'monospace' }}>{k}</span>
                                     ))}
                                     <span style={{ padding: '2px 7px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '4px', color: '#f87171', fontSize: '10px', fontFamily: 'monospace' }}>ActiveSession*</span>
