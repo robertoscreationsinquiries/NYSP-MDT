@@ -53,6 +53,10 @@ body.mini-mode-active::before {
    let the topbar scroll horizontally so every tab stays reachable, and collapse
    multi-column grids to one column with tighter spacing. */
 
+/* Elements tagged .mini-hide collapse entirely in mini-mode — branding, status,
+   and page headers that waste vertical/horizontal space in the compact window. */
+body.mini-mode-active .mini-hide { display: none !important; }
+
 /* Fill the whole window — drop the 1200px desktop cap and centering margins. */
 body.mini-mode-active .app-container {
     max-width: 100% !important;
@@ -2751,6 +2755,52 @@ React.useEffect(() => { cfCacheRef.current = cfCache; }, [cfCache]);
 // each poll's userRecord against this baseline. Only set when login succeeds.
 const securityBaselineRef = React.useRef(null);
 
+// ── Connection-loss detection ──
+// We track the last time the central poll successfully reached the backend. A watcher
+// (1s tick) checks elapsed silence: after CONNECTION_GRACE_MS (62s ≈ 2 missed 30s polls)
+// we surface a "Connection Lost" popup with a 60s countdown. If a poll succeeds in the
+// meantime, the popup clears (handled in runCloudflarePoll). If the countdown reaches 0
+// without reconnecting, we log the user out.
+const CONNECTION_GRACE_MS = 62000;       // silence before we declare a problem
+const CONNECTION_COUNTDOWN_S = 60;       // seconds to reconnect before logout
+const lastBackendContactRef = React.useRef(Date.now());
+const connectionLostRef = React.useRef(false);
+const [connectionLost, setConnectionLost] = React.useState(false);
+const [connectionCountdown, setConnectionCountdown] = React.useState(CONNECTION_COUNTDOWN_S);
+React.useEffect(() => { connectionLostRef.current = connectionLost; }, [connectionLost]);
+
+React.useEffect(() => {
+    // Only meaningful once logged in — no point warning on the login screen.
+    if (!authenticatedUser) { setConnectionLost(false); connectionLostRef.current = false; return; }
+    const tick = setInterval(() => {
+        const silentFor = Date.now() - lastBackendContactRef.current;
+        if (!connectionLostRef.current) {
+            // Not yet in "lost" state — enter it once we've been silent past the grace window.
+            if (silentFor >= CONNECTION_GRACE_MS) {
+                connectionLostRef.current = true;
+                setConnectionLost(true);
+                setConnectionCountdown(CONNECTION_COUNTDOWN_S);
+                console.warn(`[CONN] No backend contact for ${Math.round(silentFor/1000)}s — showing reconnect popup`);
+            }
+        } else {
+            // In "lost" state — count down. Reconnection is handled by the poll clearing
+            // connectionLost; here we only handle the timeout → logout path.
+            setConnectionCountdown(prev => {
+                const next = prev - 1;
+                if (next <= 0) {
+                    console.error('[CONN] Reconnect window expired — logging out');
+                    setConnectionLost(false);
+                    connectionLostRef.current = false;
+                    try { handleLogout(); } catch (_) { try { setShowLoginScreen(true); setAuthenticatedUser(null); } catch (__) {} }
+                    return 0;
+                }
+                return next;
+            });
+        }
+    }, 1000);
+    return () => clearInterval(tick);
+}, [authenticatedUser]);
+
 // Helper: shallow-compare lock objects {plateSearch, citizenSearch, callsTab, exportCitation}
 const _locksEqual = (a, b) => {
     if (!a && !b) return true;
@@ -2900,6 +2950,23 @@ const runCloudflarePoll = React.useCallback(async (isInitial) => {
     ];
 
     const [annResult, maintResult, offResult, boloResult, userResult] = await Promise.all(tasks);
+
+    // ── Connection-health tracking ──
+    // A poll "reached the backend" if ANY task returned non-null (network + Worker alive).
+    // If every task is null, the network or Cloudflare is unreachable this cycle. We stamp
+    // the last time we successfully heard back so a watcher can detect prolonged silence.
+    const anyReached = [annResult, maintResult, offResult, boloResult, userResult].some(r => r !== null);
+    if (anyReached) {
+        lastBackendContactRef.current = Date.now();
+        // If a reconnect popup is up, clear it — we're back.
+        if (connectionLostRef.current) {
+            connectionLostRef.current = false;
+            setConnectionLost(false);
+            console.log('[CONN] Reconnected to backend — clearing connection-lost popup');
+        }
+    } else {
+        console.warn('[CONN] Poll reached NOTHING this cycle (all endpoints null)');
+    }
 
     // Merge into a fresh snapshot (only overwrite fields we successfully fetched)
     setCfCache(prev => {
@@ -12413,6 +12480,62 @@ return (
 })()}
 
 {/* ────────────────────────────────────────────────────────── */}
+{/* ────────────────────────────────────────────────────────── */}
+{/* CONNECTION LOST POPUP — backend silent >62s, 60s reconnect window */}
+{/* ────────────────────────────────────────────────────────── */}
+{connectionLost && (() => {
+    const total = CONNECTION_COUNTDOWN_S;
+    const remaining = Math.max(0, connectionCountdown);
+    const ratio = Math.max(0, Math.min(1, remaining / total));
+    const accentRgb = '239,68,68';
+    return (
+    <>
+        <div
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onContextMenu={(e) => e.preventDefault()}
+            style={{ position: 'fixed', inset: 0, zIndex: 100050, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(3px)', animation: 'fadeIn 200ms cubic-bezier(0.23,1,0.32,1)' }}
+        />
+        <div
+            role="dialog" aria-modal="true"
+            style={{
+                position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                zIndex: 100051, width: 'min(520px, 92vw)',
+                background: 'radial-gradient(ellipse at 50% 0%, #2a0f14 0%, #14080b 55%, #070405 100%)',
+                border: `1px solid rgba(${accentRgb}, 0.4)`,
+                borderRadius: '20px',
+                boxShadow: `0 30px 90px rgba(0,0,0,0.7), 0 0 60px rgba(${accentRgb}, 0.18)`,
+                overflow: 'hidden',
+                animation: 'centeredCardIn 0.32s cubic-bezier(0.23,1,0.32,1)'
+            }}
+        >
+            <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(239,68,68,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(239,68,68,0.04) 1px, transparent 1px)', backgroundSize: '40px 40px', pointerEvents: 'none' }} />
+            <div style={{ position: 'relative', padding: '30px 30px 24px', textAlign: 'center' }}>
+                {/* Pulsing icon */}
+                <div style={{ width: '60px', height: '60px', margin: '0 auto 18px', borderRadius: '16px', background: 'linear-gradient(135deg, #ef4444, #b91c1c)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 28px rgba(239,68,68,0.45)', animation: 'pulse 1.6s ease-in-out infinite' }}>
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.58 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0M12 20h.01"/></svg>
+                </div>
+                <div style={{ color: '#fca5a5', fontSize: '20px', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: '10px' }}>Connection Lost</div>
+                <div style={{ color: '#cbd5e1', fontSize: '14px', lineHeight: 1.6, maxWidth: '400px', margin: '0 auto 22px' }}>
+                    Our connection to you has been interrupted. Attempting to reconnect..
+                </div>
+                {/* Countdown */}
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '8px', marginBottom: '14px' }}>
+                    <span style={{ fontFamily: 'monospace', fontSize: '40px', fontWeight: '900', color: '#ef4444', lineHeight: 1, textShadow: '0 0 24px rgba(239,68,68,0.4)' }}>{remaining}</span>
+                    <span style={{ color: '#94a3b8', fontSize: '13px', fontFamily: 'monospace' }}>seconds to reconnect</span>
+                </div>
+                <div style={{ height: '6px', background: 'rgba(0,0,0,0.45)', borderRadius: '5px', overflow: 'hidden' }}>
+                    <div style={{ width: `${ratio * 100}%`, height: '100%', background: 'linear-gradient(90deg, #b91c1c, #ef4444)', borderRadius: '5px', transition: 'width 1s linear', boxShadow: '0 0 12px rgba(239,68,68,0.5)' }} />
+                </div>
+                <div style={{ color: '#64748b', fontSize: '11px', fontFamily: 'monospace', marginTop: '14px' }}>
+                    You will be signed out if the connection cannot be restored.
+                </div>
+            </div>
+        </div>
+    </>
+    );
+})()}
+
 {/* CUSTOM ALERT POPUP — queue-driven, mirrors Session Expiration UI */}
 {/* ────────────────────────────────────────────────────────── */}
 {alertQueue.length > 0 && (() => {
@@ -12638,7 +12761,7 @@ return (
         <div style={{ position:'fixed',top:0,left:0,right:0,height:'52px',display:'flex',alignItems:'center',background:'linear-gradient(180deg,#0f1521 0%,#0b0f18 100%)',borderBottom:'1px solid #1c2333',zIndex:9999,boxShadow:'0 2px 12px rgba(0,0,0,0.4)' }}>
 
             {/* Logo */}
-            <div style={{ display:'flex',alignItems:'center',gap:'10px',padding:'0 18px',height:'100%',borderRight:'1px solid #1c2333',flexShrink:0,minWidth:'128px' }}>
+            <div className="mini-hide" style={{ display:'flex',alignItems:'center',gap:'10px',padding:'0 18px',height:'100%',borderRight:'1px solid #1c2333',flexShrink:0,minWidth:'128px' }}>
                 <div style={{ width:'30px',height:'30px',background:'linear-gradient(135deg,#3b82f6,#2563eb)',borderRadius:'8px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 2px 10px rgba(59,130,246,0.4)' }}>
                     <svg width="15" height="15" fill="white" viewBox="0 0 24 24"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/></svg>
                 </div>
@@ -12784,14 +12907,14 @@ return (
                         Pursuit
                     </button>
                 )}
-                <div style={{ display:'flex',alignItems:'center',gap:'5px' }}>
+                <div className="mini-hide" style={{ display:'flex',alignItems:'center',gap:'5px' }}>
                     <div style={{ width:'6px',height:'6px',borderRadius:'50%',background:selectedUserSession?'#3fb950':'#f85149',boxShadow:selectedUserSession?'0 0 5px rgba(63,185,80,0.6)':'0 0 5px rgba(248,81,73,0.6)',animation:selectedUserSession?'pulse 2s infinite':'none' }} />
                     <span style={{ color:selectedUserSession?'#3fb950':'#f85149',fontSize:'10px',fontWeight:'600',letterSpacing:'0.5px' }}>
                         {selectedUserSession?`SESSION ${selectedUserSession==='1011898104670330920'?'1':selectedUserSession==='1390212294478397471'?'2':selectedUserSession==='1390212341005680650'?'3':'WL'}`:'OFFLINE'}
                     </span>
                 </div>
-                <div style={{ width:'1px',height:'16px',background:'#1c2333' }} />
-                <span style={{ color:'#8b949e',fontSize:'10px',fontWeight:'500',whiteSpace:'nowrap' }}>
+                <div className="mini-hide" style={{ width:'1px',height:'16px',background:'#1c2333' }} />
+                <span className="mini-hide" style={{ color:'#8b949e',fontSize:'10px',fontWeight:'500',whiteSpace:'nowrap' }}>
                     {trooperSettings?.FirstName?.[0]&&`${trooperSettings.FirstName[0]}. `}{trooperSettings?.LastName}
                 </span>
             </div>
@@ -13629,7 +13752,7 @@ return (
 {activeView === 'search' && (
 <div style={{ position:'fixed',top:'52px',left:0,right:0,bottom:0,background:'radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 50%, #050a14 100%)',padding:'20px',boxSizing:'border-box',overflowY:'auto' }}>
 {/* Header card — matches home dashboard */}
-<div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'16px',padding:'14px 20px',marginBottom:'14px',background:'linear-gradient(135deg,rgba(30,58,138,0.25) 0%,rgba(15,30,60,0.4) 100%)',border:'1px solid rgba(56,189,248,0.18)',borderRadius:'12px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 0 24px rgba(14,165,233,0.04)' }}>
+<div className="mini-hide" style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'16px',padding:'14px 20px',marginBottom:'14px',background:'linear-gradient(135deg,rgba(30,58,138,0.25) 0%,rgba(15,30,60,0.4) 100%)',border:'1px solid rgba(56,189,248,0.18)',borderRadius:'12px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 0 24px rgba(14,165,233,0.04)' }}>
     <div style={{ display:'flex',alignItems:'center',gap:'14px' }}>
         <div style={{ width:'42px',height:'42px',background:'linear-gradient(135deg,#1e40af 0%,#0ea5e9 100%)',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 14px rgba(14,165,233,0.35), inset 0 1px 0 rgba(255,255,255,0.15)' }}>
             <Car size={22} style={{ color:'white' }} />
@@ -14493,7 +14616,7 @@ return (
     <div style={{ flex:1,overflowY:'auto',padding:'20px',boxSizing:'border-box' }}>
 
         {/* ── HEADER ── */}
-        <div style={{ marginBottom: '20px', padding: '20px 28px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,58,138,0.35))', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 4px 32px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', position: 'relative', overflow: 'hidden' }}>
+        <div className="mini-hide" style={{ marginBottom: '20px', padding: '20px 28px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,58,138,0.35))', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 4px 32px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', position: 'relative', overflow: 'hidden' }}>
 
             {/* Glow */}
             <div style={{ position: 'absolute', top: '-40%', right: '-5%', width: '35%', height: '200%', background: 'radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)', pointerEvents: 'none' }}></div>
