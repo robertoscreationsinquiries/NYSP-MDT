@@ -1895,6 +1895,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => (
 
 // Render BETA build badge
         (function() {
+            if (!window._appBootTime) window._appBootTime = Date.now();
             const badge = document.createElement('div');
             const sha = window.APP_COMMIT_SHA || 'dev';
             badge.textContent = `BETA BUILD - APP V. 0.2.0  •  ${sha}`;
@@ -2412,11 +2413,128 @@ const [offenseTimeOffsetMinutes, setOffenseTimeOffsetMinutes] = useState(5);
 // NOT persisted — per spec the user re-adjusts it each session. So miniSize lives in
 // plain state seeded with a default and is never written to the settings file.
 const [miniMode, setMiniMode] = useState(false);
+const [debugTab, setDebugTab] = useState('transport');
 // Default mini size — tripled per request. Clamped in main-remote to fit the screen.
 const [miniWidth, setMiniWidth] = useState(1020);
 const [miniHeight, setMiniHeight] = useState(1000);
 
-// ── Mini-mode driver ──
+// ── Debug metrics collector ──
+// Lazily wire a single shared AudioContext analyser that ALL `new Audio()` playback
+// routes through, so the Debug view can show a real output level meter. We patch the
+// Audio constructor once (idempotent) rather than editing every playback call site.
+if (typeof window !== 'undefined' && !window._debugAudioWired) {
+    window._debugAudioWired = true;
+    try {
+        const OrigAudio = window.Audio;
+        window.Audio = function (...args) {
+            const el = new OrigAudio(...args);
+            try {
+                if (!window._debugAudioCtx) {
+                    const AC = window.AudioContext || window.webkitAudioContext;
+                    if (AC) {
+                        window._debugAudioCtx = new AC();
+                        window._debugAnalyser = window._debugAudioCtx.createAnalyser();
+                        window._debugAnalyser.fftSize = 256;
+                        window._debugAnalyser.connect(window._debugAudioCtx.destination);
+                    }
+                }
+                if (window._debugAudioCtx && window._debugAnalyser) {
+                    el.addEventListener('play', () => {
+                        try {
+                            if (window._debugAudioCtx.state === 'suspended') window._debugAudioCtx.resume();
+                            if (!el._debugTapped) {
+                                el._debugTapped = true;
+                                const srcNode = window._debugAudioCtx.createMediaElementSource(el);
+                                srcNode.connect(window._debugAnalyser);
+                            }
+                        } catch (_) {}
+                    }, { once: false });
+                }
+            } catch (_) {}
+            return el;
+        };
+        window.Audio.prototype = OrigAudio.prototype;
+    } catch (_) {}
+}
+// Samples REAL, measurable signals on an interval and keeps a rolling history so the
+// Debug view can draw sparklines. Only runs while the Debug view is open (cheap when not).
+// Everything here is genuinely measurable in this Electron/Chromium app — no fake gauges.
+const [debugStats, setDebugStats] = useState({
+    cfPing: null, discordPing: null, heapUsedMB: null, heapTotalMB: null,
+    fps: null, domNodes: null, audioLevel: 0,
+    netType: null, downlink: null,
+    history: { cfPing: [], discordPing: [], heapUsedMB: [], fps: [], audioLevel: [] }
+});
+const debugFpsRef = React.useRef({ frames: 0, last: performance.now(), fps: 0 });
+React.useEffect(() => {
+    if (activeView !== 'debug') return;
+    let alive = true;
+    // FPS via requestAnimationFrame counting
+    let raf;
+    const tick = () => {
+        if (!alive) return;
+        const r = debugFpsRef.current;
+        r.frames++;
+        const now = performance.now();
+        if (now - r.last >= 1000) { r.fps = Math.round((r.frames * 1000) / (now - r.last)); r.frames = 0; r.last = now; }
+        raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+
+    const pushHist = (arr, val) => { const a = [...arr, val]; return a.length > 40 ? a.slice(-40) : a; };
+
+    const sample = async () => {
+        if (!alive) return;
+        // Cloudflare ping — real round-trip to the worker base
+        let cfPing = null;
+        try {
+            const t0 = performance.now();
+            await fetch(`${CF_BASE}/presence`, { method: 'GET', cache: 'no-store' }).catch(() => {});
+            cfPing = Math.round(performance.now() - t0);
+        } catch (_) {}
+        // Discord API ping — real round-trip (HEAD-ish GET to the gateway endpoint)
+        let discordPing = null;
+        try {
+            const t0 = performance.now();
+            await fetch('https://discord.com/api/v9/gateway', { method: 'GET', cache: 'no-store' }).catch(() => {});
+            discordPing = Math.round(performance.now() - t0);
+        } catch (_) {}
+        // Memory (Chromium-only performance.memory)
+        let heapUsedMB = null, heapTotalMB = null;
+        if (performance.memory) {
+            heapUsedMB = Math.round(performance.memory.usedJSHeapSize / 1048576);
+            heapTotalMB = Math.round(performance.memory.totalJSHeapSize / 1048576);
+        }
+        const fps = debugFpsRef.current.fps;
+        const domNodes = document.getElementsByTagName('*').length;
+        // Audio level from the shared analyser (set up by the audio system when a sound plays)
+        let audioLevel = 0;
+        try {
+            if (window._debugAnalyser) {
+                const buf = new Uint8Array(window._debugAnalyser.frequencyBinCount);
+                window._debugAnalyser.getByteFrequencyData(buf);
+                audioLevel = Math.round((buf.reduce((a, b) => a + b, 0) / buf.length / 255) * 100);
+            }
+        } catch (_) {}
+        const netType = navigator.connection?.effectiveType || null;
+        const downlink = navigator.connection?.downlink || null;
+
+        if (!alive) return;
+        setDebugStats(prev => ({
+            cfPing, discordPing, heapUsedMB, heapTotalMB, fps, domNodes, audioLevel, netType, downlink,
+            history: {
+                cfPing: pushHist(prev.history.cfPing, cfPing ?? 0),
+                discordPing: pushHist(prev.history.discordPing, discordPing ?? 0),
+                heapUsedMB: pushHist(prev.history.heapUsedMB, heapUsedMB ?? 0),
+                fps: pushHist(prev.history.fps, fps ?? 0),
+                audioLevel: pushHist(prev.history.audioLevel, audioLevel)
+            }
+        }));
+    };
+    sample();
+    const id = setInterval(sample, 2000);
+    return () => { alive = false; clearInterval(id); cancelAnimationFrame(raf); };
+}, [activeView]);
 // Toggling miniMode resizes/pins the Electron window and toggles a body class that
 // rounds the app's corners. While active, dragging the size slider live-resizes via
 // a separate IPC (keeps it anchored bottom-right). Size is session-only (never saved).
@@ -15617,6 +15735,7 @@ onError={(e) => {
                                 <div style={S.sectionHead('#fcd34d')}>🛠️ Developer Tools</div>
                                 <div style={S.sectionSub}>Diagnostic and troubleshooting utilities</div>
                                 <div style={{ display: 'grid', gap: '8px' }}>
+                                    <button onClick={() => setActiveView('debug')} style={S.btn('#22d3ee', false)}>🩺 Debug</button>
                                     <button onClick={() => { if (window.require) window.require('electron').ipcRenderer.send('open-dev-tools'); }} style={S.btn('#f59e0b', false)}>🔧 Open Electron Developer Tools</button>
                                     <button onClick={() => {
                                         const now = new Date();
@@ -15906,7 +16025,136 @@ onError={(e) => {
         )}
     </div>
 )}
-                {/* USEFUL LINKS MODAL */}
+
+{activeView === 'debug' && (() => {
+    // Inline sparkline — draws a rolling history array as an SVG polyline. No deps.
+    const Spark = ({ data, color, unit, max }) => {
+        const vals = (data && data.length) ? data : [0];
+        const peak = max || Math.max(...vals, 1);
+        const W = 280, H = 54;
+        const pts = vals.map((v, i) => {
+            const x = (i / Math.max(vals.length - 1, 1)) * W;
+            const y = H - (Math.min(v, peak) / peak) * (H - 6) - 3;
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(' ');
+        const lastV = vals[vals.length - 1];
+        return (
+            <div style={{ position:'relative' }}>
+                <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display:'block' }}>
+                    <defs>
+                        <linearGradient id={`sg-${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+                            <stop offset="100%" stopColor={color} stopOpacity="0" />
+                        </linearGradient>
+                    </defs>
+                    <polyline points={`0,${H} ${pts} ${W},${H}`} fill={`url(#sg-${color.replace('#','')})`} stroke="none" />
+                    <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+                </svg>
+                <div style={{ position:'absolute', top:2, right:4, fontFamily:'monospace', fontSize:'13px', fontWeight:'800', color }}>
+                    {lastV == null ? '—' : lastV}{unit}
+                </div>
+            </div>
+        );
+    };
+    // A metric card: label, big live value, optional sparkline.
+    const Metric = ({ label, value, unit, accent, data, max, hint }) => (
+        <div style={{ background:'rgba(7,12,24,0.55)', border:`1px solid ${accent}22`, borderRadius:'10px', padding:'13px 15px' }}>
+            <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', marginBottom:'2px' }}>
+                <span style={{ color:'#94a3b8', fontSize:'10px', fontWeight:'700', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'monospace' }}>{label}</span>
+                <span style={{ color:accent, fontSize:'17px', fontWeight:'900', fontFamily:'monospace' }}>{value == null ? '—' : value}<span style={{ fontSize:'11px', opacity:0.7 }}>{unit}</span></span>
+            </div>
+            {hint && <div style={{ color:'#475569', fontSize:'10px', marginBottom: data ? '8px' : 0 }}>{hint}</div>}
+            {data && <Spark data={data} color={accent} unit={unit} max={max} />}
+        </div>
+    );
+
+    const TABS = [
+        { id:'transport', label:'Transport', icon:'📡' },
+        { id:'system',    label:'System',    icon:'🖥️' },
+        { id:'audio',     label:'Audio',     icon:'🔊' }
+    ];
+    const tab = debugTab || 'transport';
+    const ds = debugStats;
+    const buildStr = `v0.2.0 · ${(window.APP_COMMIT_SHA || 'dev')}${window.APP_GITHUB_BRANCH && window.APP_GITHUB_BRANCH !== 'main' ? ` · ${window.APP_GITHUB_BRANCH}` : ''}`;
+    const uptimeSec = Math.floor((Date.now() - (window._appBootTime || Date.now())) / 1000);
+    const uptimeStr = `${Math.floor(uptimeSec/60)}m ${uptimeSec%60}s`;
+
+    return (
+    <div style={{ position:'fixed', top:'52px', left:0, right:0, bottom:0, background:'radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 50%, #050a14 100%)', display:'flex', boxSizing:'border-box' }}>
+        {/* Left tab rail */}
+        <div style={{ width:'180px', flexShrink:0, borderRight:'1px solid rgba(56,189,248,0.15)', padding:'18px 12px', display:'flex', flexDirection:'column', gap:'5px', background:'rgba(7,12,24,0.4)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'8px', padding:'0 8px 14px' }}>
+                <div style={{ width:'3px', height:'18px', background:'#22d3ee', borderRadius:'2px', boxShadow:'0 0 8px #22d3ee' }} />
+                <span style={{ color:'#67e8f9', fontSize:'13px', fontWeight:'900', letterSpacing:'2px', fontFamily:'monospace', textTransform:'uppercase' }}>Debug</span>
+            </div>
+            {TABS.map(t => {
+                const active = tab === t.id;
+                return (
+                    <button key={t.id} onClick={() => setDebugTab(t.id)}
+                        style={{ display:'flex', alignItems:'center', gap:'9px', padding:'10px 12px', borderRadius:'9px', cursor:'pointer', textAlign:'left',
+                            background: active ? 'rgba(34,211,238,0.12)' : 'transparent',
+                            border: `1px solid ${active ? 'rgba(34,211,238,0.4)' : 'transparent'}`,
+                            color: active ? '#67e8f9' : '#94a3b8', fontSize:'12.5px', fontWeight: active ? '800' : '600', fontFamily:'monospace',
+                            transition:'background 140ms ease-out, color 140ms ease-out' }}>
+                        <span>{t.icon}</span>{t.label}
+                    </button>
+                );
+            })}
+            <div style={{ flex:1 }} />
+            <button onClick={() => setActiveView('settings')}
+                style={{ padding:'9px 12px', borderRadius:'8px', cursor:'pointer', background:'transparent', border:'1px solid rgba(148,163,184,0.25)', color:'#94a3b8', fontSize:'10px', fontWeight:'800', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'monospace' }}>
+                ← Settings
+            </button>
+        </div>
+
+        {/* Content */}
+        <div style={{ flex:1, padding:'20px 24px', overflowY:'auto' }}>
+            {tab === 'transport' && (<>
+                <div style={{ color:'#67e8f9', fontSize:'11px', fontWeight:'800', letterSpacing:'2px', textTransform:'uppercase', fontFamily:'monospace', marginBottom:'4px' }}>Transport</div>
+                <div style={{ color:'#475569', fontSize:'11px', marginBottom:'16px' }}>Live network health to the backends this app depends on. Sampled every 2s.</div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(280px, 1fr))', gap:'12px' }}>
+                    <Metric label="Cloudflare Ping" value={ds.cfPing} unit="ms" accent="#22d3ee" data={ds.history.cfPing} hint="Round-trip to the CAD proxy worker" />
+                    <Metric label="Discord API Ping" value={ds.discordPing} unit="ms" accent="#a78bfa" data={ds.history.discordPing} hint="Round-trip to discord.com/api gateway" />
+                    <Metric label="Network Type" value={ds.netType ? ds.netType.toUpperCase() : 'N/A'} unit="" accent="#38bdf8" hint="Effective connection class (if reported)" />
+                    <Metric label="Downlink Estimate" value={ds.downlink} unit=" Mbps" accent="#34d399" hint="Approx. bandwidth (if reported by the OS)" />
+                </div>
+            </>)}
+
+            {tab === 'system' && (<>
+                <div style={{ color:'#67e8f9', fontSize:'11px', fontWeight:'800', letterSpacing:'2px', textTransform:'uppercase', fontFamily:'monospace', marginBottom:'4px' }}>System</div>
+                <div style={{ color:'#475569', fontSize:'11px', marginBottom:'16px' }}>Build identity and live runtime health of the application.</div>
+                <div style={{ background:'rgba(34,211,238,0.06)', border:'1px solid rgba(34,211,238,0.25)', borderRadius:'10px', padding:'13px 15px', marginBottom:'12px' }}>
+                    <div style={{ color:'#94a3b8', fontSize:'10px', fontWeight:'700', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'monospace', marginBottom:'4px' }}>Current Build</div>
+                    <div style={{ color:'#67e8f9', fontSize:'15px', fontWeight:'800', fontFamily:'monospace', wordBreak:'break-all' }}>{buildStr}</div>
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(280px, 1fr))', gap:'12px' }}>
+                    <Metric label="JS Heap Used" value={ds.heapUsedMB} unit=" MB" accent="#f59e0b" data={ds.history.heapUsedMB} hint={ds.heapTotalMB ? `of ${ds.heapTotalMB} MB allocated` : 'Chromium heap (if exposed)'} />
+                    <Metric label="Render FPS" value={ds.fps} unit=" fps" accent="#34d399" data={ds.history.fps} max={60} hint="Animation frame rate" />
+                    <Metric label="DOM Nodes" value={ds.domNodes} unit="" accent="#a78bfa" hint="Total elements in the document" />
+                    <Metric label="Session Uptime" value={uptimeStr} unit="" accent="#38bdf8" hint="Time since the app booted" />
+                </div>
+            </>)}
+
+            {tab === 'audio' && (<>
+                <div style={{ color:'#67e8f9', fontSize:'11px', fontWeight:'800', letterSpacing:'2px', textTransform:'uppercase', fontFamily:'monospace', marginBottom:'4px' }}>Audio</div>
+                <div style={{ color:'#475569', fontSize:'11px', marginBottom:'16px' }}>Live output level and sound-system status. Play a sound to see the meter move.</div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(280px, 1fr))', gap:'12px' }}>
+                    <Metric label="Output Level" value={ds.audioLevel} unit="%" accent="#22c55e" data={ds.history.audioLevel} max={100} hint="Real-time level of app audio playback" />
+                    <Metric label="Sounds Loaded" value={window.SOUNDS ? Object.keys(window.SOUNDS).length : 0} unit="" accent="#38bdf8" hint="Audio assets available to the app" />
+                </div>
+                {/* Live VU bar */}
+                <div style={{ marginTop:'14px', background:'rgba(7,12,24,0.55)', border:'1px solid rgba(34,197,94,0.22)', borderRadius:'10px', padding:'15px' }}>
+                    <div style={{ color:'#94a3b8', fontSize:'10px', fontWeight:'700', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'monospace', marginBottom:'10px' }}>Output Meter</div>
+                    <div style={{ height:'16px', background:'rgba(0,0,0,0.4)', borderRadius:'8px', overflow:'hidden' }}>
+                        <div style={{ height:'100%', width:`${ds.audioLevel}%`, background:'linear-gradient(90deg,#22c55e,#fbbf24,#ef4444)', borderRadius:'8px', transition:'width 120ms linear' }} />
+                    </div>
+                </div>
+            </>)}
+        </div>
+    </div>
+    );
+})()}
+
 
 
 {soundsOutOfDate && (
