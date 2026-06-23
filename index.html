@@ -16697,37 +16697,42 @@ onError={(e) => {
 
             {/* LIST VIEW */}
 {!selectedUpdateEntry && (
-                <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '13px' }}>
                     {updateLogsData.map((update, idx) => (
                         <div key={idx} className="gov-record-card" onClick={() => setSelectedUpdateEntry(update)} style={{
                             background: 'linear-gradient(180deg, rgba(56,189,248,0.08) 0%, rgba(8,16,32,0.55) 40%)',
                             border: '1px solid rgba(56,189,248,0.2)', borderLeft: '4px solid rgba(56,189,248,0.7)',
-                            borderRadius: '13px', padding: '22px 24px', position: 'relative', overflow: 'hidden', cursor: 'pointer',
+                            borderRadius: '13px', padding: '16px 18px', position: 'relative', cursor: 'pointer',
+                            height: 'auto', flexShrink: 0, overflow: 'visible',
+                            display: 'flex', flexDirection: 'column', gap: '10px',
                             animation: 'recordCardIn 320ms cubic-bezier(0.23,1,0.32,1) both', animationDelay: (Math.min(idx,8)*45) + 'ms'
                         }}>
-                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(56,189,248,0.55), transparent)' }} />
-                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', marginBottom: '12px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22d3ee', boxShadow: '0 0 9px #22d3ee', flexShrink: 0 }} />
-                                    <span style={{ color: '#67e8f9', fontSize: '16px', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase', fontFamily: 'monospace', lineHeight: 1.35 }}>{update.title}</span>
+                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(56,189,248,0.55), transparent)', borderTopLeftRadius: '13px', borderTopRightRadius: '13px' }} />
+                            {/* Row 1: title (wraps) + version chip */}
+                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '14px', flexShrink: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '9px', minWidth: 0, flex: 1 }}>
+                                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#22d3ee', boxShadow: '0 0 8px #22d3ee', flexShrink: 0, marginTop: '5px' }} />
+                                    <span style={{ color: '#67e8f9', fontSize: '13.5px', fontWeight: '800', letterSpacing: '0.5px', textTransform: 'uppercase', fontFamily: 'monospace', lineHeight: 1.4, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{update.title}</span>
                                 </div>
-                                <div style={{ background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.3)', borderRadius: '9px', padding: '8px 14px', textAlign: 'center', flexShrink: 0 }}>
-                                    <div style={{ color: '#fff', fontSize: '17px', fontWeight: '900', fontFamily: 'monospace', lineHeight: 1 }}>{update.version}</div>
-                                    <div style={{ color: '#64748b', fontSize: '10px', marginTop: '4px', fontFamily: 'monospace' }}>{update.release_date || 'N/A'}</div>
+                                <div style={{ background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.3)', borderRadius: '8px', padding: '6px 12px', textAlign: 'center', flexShrink: 0 }}>
+                                    <div style={{ color: '#fff', fontSize: '14px', fontWeight: '900', fontFamily: 'monospace', lineHeight: 1 }}>{update.version}</div>
+                                    <div style={{ color: '#64748b', fontSize: '9px', marginTop: '3px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{update.release_date || 'N/A'}</div>
                                 </div>
                             </div>
-                            <div style={{ color: '#cbd5e1', fontSize: '14px', lineHeight: '1.65', marginBottom: '15px' }}>{update.description}</div>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-                                <div style={{ display: 'flex', gap: '7px', flexWrap: 'wrap' }}>
-                                    {update.new && update.new.length > 0 && <span style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '6px', padding: '4px 10px', color: '#4ade80', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', fontFamily: 'monospace' }}>+{update.new.length} NEW</span>}
-                                    {update.bugs && update.bugs.length > 0 && <span style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', padding: '4px 10px', color: '#f87171', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', fontFamily: 'monospace' }}>{update.bugs.length} FIXES</span>}
-                                    {update.modifications && update.modifications.length > 0 && <span style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '6px', padding: '4px 10px', color: '#fbbf24', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', fontFamily: 'monospace' }}>{update.modifications.length} CHANGES</span>}
-                                    {update.removed && update.removed.length > 0 && <span style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px', padding: '4px 10px', color: '#fca5a5', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', fontFamily: 'monospace' }}>{update.removed.length} REMOVED</span>}
-                                    {update.planned && update.planned.length > 0 && <span style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: '6px', padding: '4px 10px', color: '#a78bfa', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', fontFamily: 'monospace' }}>{update.planned.length} PLANNED</span>}
+                            {/* Row 2: description (wraps freely, never clipped) */}
+                            <div style={{ color: '#cbd5e1', fontSize: '12.5px', lineHeight: '1.6', flexShrink: 0, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{update.description}</div>
+                            {/* Row 3: change pills + view affordance */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', flexShrink: 0 }}>
+                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                    {update.new && update.new.length > 0 && <span style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '6px', padding: '3px 9px', color: '#4ade80', fontSize: '10.5px', fontWeight: '800', letterSpacing: '0.5px', fontFamily: 'monospace' }}>+{update.new.length} NEW</span>}
+                                    {update.bugs && update.bugs.length > 0 && <span style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', padding: '3px 9px', color: '#f87171', fontSize: '10.5px', fontWeight: '800', letterSpacing: '0.5px', fontFamily: 'monospace' }}>{update.bugs.length} FIXES</span>}
+                                    {update.modifications && update.modifications.length > 0 && <span style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '6px', padding: '3px 9px', color: '#fbbf24', fontSize: '10.5px', fontWeight: '800', letterSpacing: '0.5px', fontFamily: 'monospace' }}>{update.modifications.length} CHANGES</span>}
+                                    {update.removed && update.removed.length > 0 && <span style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px', padding: '3px 9px', color: '#fca5a5', fontSize: '10.5px', fontWeight: '800', letterSpacing: '0.5px', fontFamily: 'monospace' }}>{update.removed.length} REMOVED</span>}
+                                    {update.planned && update.planned.length > 0 && <span style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: '6px', padding: '3px 9px', color: '#a78bfa', fontSize: '10.5px', fontWeight: '800', letterSpacing: '0.5px', fontFamily: 'monospace' }}>{update.planned.length} PLANNED</span>}
                                 </div>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '7px', color: '#67e8f9', fontSize: '12px', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase', fontFamily: 'monospace', flexShrink: 0 }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#67e8f9', fontSize: '11px', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase', fontFamily: 'monospace', flexShrink: 0 }}>
                                     View Log
-                                    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
+                                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
                                 </span>
                             </div>
                         </div>
