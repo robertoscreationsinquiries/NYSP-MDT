@@ -2255,6 +2255,23 @@ const [showHistoryPanel, setShowHistoryPanel] = useState(false);
 
 // ── Notes feature: multiple named notepads, persisted to localStorage ──
 const [showNotesPanel, setShowNotesPanel] = useState(false);
+
+// ── Timer side panel ──
+// Wall-clock based (refs hold the source of truth; state only drives re-render) so
+// React batching can't drift the countdown. `timerDuration` = total seconds set by the
+// user. `timerRemaining` = seconds left (display). `timerRunning`/`timerPaused` drive UI.
+// When it hits 0 we loop TIMER_SIDEPANEL until the user dismisses (timerFinished).
+const [showTimerPanel, setShowTimerPanel] = useState(false);
+const [timerDuration, setTimerDuration] = useState(300);   // default 5:00
+const [timerRemaining, setTimerRemaining] = useState(300);
+const [timerRunning, setTimerRunning] = useState(false);
+const [timerPaused, setTimerPaused] = useState(false);
+const [timerFinished, setTimerFinished] = useState(false);
+const [timerEditing, setTimerEditing] = useState(false);
+const [timerEditValue, setTimerEditValue] = useState('');
+const timerEndAtRef = React.useRef(null);      // wall-clock ms when timer should hit 0
+const timerRemainingRef = React.useRef(300);   // last known remaining (for pause)
+const timerFinishAudioRef = React.useRef(null); // the looping end-sound Audio instance
 const [notepads, setNotepads] = useState(() => {
     try {
         const saved = localStorage.getItem('mdtNotepads');
@@ -2559,7 +2576,102 @@ React.useEffect(() => {
         ipc.invoke('set-mini-mode', { enabled: false }).catch(() => {});
     }
 }, [miniMode]);
-const [showPhoneticCompare, setShowPhoneticCompare] = useState(false);
+
+// ── Timer engine ──
+// Wall-clock countdown: we store the target end time and recompute remaining each tick,
+// so it stays accurate regardless of React batching or tab throttling.
+const formatTimerDisplay = (totalSec) => {
+    const s = Math.max(0, Math.round(totalSec));
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    const pad = (n) => String(n).padStart(2, '0');
+    // Hours only shown when the timer exceeds 60 minutes.
+    if (s >= 3600) return `${h}:${pad(m)}:${pad(sec)}`;
+    return `${pad(m)}:${pad(sec)}`;
+};
+const playTimerFinishLoop = () => {
+    try {
+        if (window.SOUNDS && window.SOUNDS.TIMER_SIDEPANEL) {
+            const a = new Audio(window.SOUNDS.TIMER_SIDEPANEL);
+            a.loop = true; a.volume = 0.6;
+            a.play().catch(() => {});
+            timerFinishAudioRef.current = a;
+        }
+    } catch (_) {}
+};
+const stopTimerFinishLoop = () => {
+    try { if (timerFinishAudioRef.current) { timerFinishAudioRef.current.pause(); timerFinishAudioRef.current.currentTime = 0; timerFinishAudioRef.current = null; } } catch (_) {}
+};
+const startTimer = () => {
+    if (timerRemaining <= 0) return;
+    setTimerFinished(false); stopTimerFinishLoop();
+    timerEndAtRef.current = Date.now() + timerRemaining * 1000;
+    setTimerRunning(true); setTimerPaused(false); setTimerEditing(false);
+};
+const pauseTimer = () => {
+    if (!timerRunning) return;
+    // Freeze remaining at the current wall-clock delta.
+    const rem = Math.max(0, Math.round((timerEndAtRef.current - Date.now()) / 1000));
+    timerRemainingRef.current = rem;
+    setTimerRemaining(rem);
+    setTimerRunning(false); setTimerPaused(true);
+};
+const endTimer = () => {
+    // Full stop + reset to the chosen duration.
+    setTimerRunning(false); setTimerPaused(false); setTimerFinished(false);
+    stopTimerFinishLoop();
+    timerEndAtRef.current = null;
+    setTimerRemaining(timerDuration);
+    timerRemainingRef.current = timerDuration;
+};
+const dismissTimerAlarm = () => {
+    stopTimerFinishLoop();
+    setTimerFinished(false);
+    setTimerRemaining(timerDuration);
+    timerRemainingRef.current = timerDuration;
+};
+const addTimerSeconds = (secs) => {
+    // Adding time works whether idle or running.
+    if (timerRunning) {
+        timerEndAtRef.current = (timerEndAtRef.current || Date.now()) + secs * 1000;
+        const rem = Math.max(0, Math.round((timerEndAtRef.current - Date.now()) / 1000));
+        setTimerRemaining(rem); timerRemainingRef.current = rem;
+        setTimerDuration(d => d + secs);
+    } else {
+        setTimerFinished(false); stopTimerFinishLoop();
+        setTimerDuration(d => { const nd = d + secs; setTimerRemaining(nd); timerRemainingRef.current = nd; return nd; });
+    }
+};
+React.useEffect(() => {
+    if (!timerRunning) return;
+    const id = setInterval(() => {
+        const rem = Math.max(0, (timerEndAtRef.current - Date.now()) / 1000);
+        setTimerRemaining(rem);
+        timerRemainingRef.current = rem;
+        if (rem <= 0) {
+            clearInterval(id);
+            setTimerRunning(false);
+            setTimerFinished(true);
+            playTimerFinishLoop();
+        }
+    }, 200); // 200ms for a smooth ring without wasting cycles
+    return () => clearInterval(id);
+}, [timerRunning]);
+
+// Play the TIMER_UPSIDEPANEL chime once at launch (loaded from GitHub like other sounds).
+React.useEffect(() => {
+    const t = setTimeout(() => {
+        try {
+            if (window.SOUNDS && window.SOUNDS.TIMER_UPSIDEPANEL) {
+                const a = new Audio(window.SOUNDS.TIMER_UPSIDEPANEL);
+                a.volume = 0.4;
+                a.play().catch(() => {});
+            }
+        } catch (_) {}
+    }, 1200); // small delay so the sound system is ready
+    return () => clearTimeout(t);
+}, []);
 const [panicTapCount, setPanicTapCount] = useState(0);
 const panicTapCountRef = React.useRef(0);
 const panicTapTimerRef = React.useRef(null);
@@ -12793,6 +12905,7 @@ return (
                     {l:'History',k:'hist',panel:true,icon:'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'},
                     {l:'Data',k:'data',panel:true,icon:'M4 6h16M4 10h16M4 14h16M4 18h16'},
                     {l:'Notes',k:'notes',panel:true,icon:'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z'},
+                    {l:'Timer',k:'timer',panel:true,icon:'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'},
                     ...(enableSpotifyIntegration ? [{l:'Spotify',k:'spotify',panel:true,icon:'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3'}] : []),
                 ].map((item,i)=>{
                     if(item.groupBreak) return (
@@ -12810,6 +12923,7 @@ return (
                         item.k==='data'?showDataPanel :
                         item.k==='officers'?showOfficersPanel :
                         item.k==='notes'?showNotesPanel :
+                        item.k==='timer'?showTimerPanel :
                         item.k==='spotify'?showSpotifyPanel :
                         activeView===item.k;
                     const isPanel = !!item.panel;
@@ -12862,7 +12976,8 @@ return (
                                 else if(item.k==='hist'){setShowHistoryPanel(p=>!p);setShowDataPanel(false);setShowOfficersPanel(false);setShowSpotifyPanel(false);setShowNotesPanel(false);}
                                 else if(item.k==='data'){setShowDataPanel(p=>!p);setShowOfficersPanel(false);setShowHistoryPanel(false);setShowSpotifyPanel(false);setShowNotesPanel(false);}
                                 else if(item.k==='officers'){setShowOfficersPanel(p=>!p);setShowDataPanel(false);setShowHistoryPanel(false);setShowSpotifyPanel(false);setShowNotesPanel(false);}
-                                else if(item.k==='notes'){setShowNotesPanel(p=>!p);setShowOfficersPanel(false);setShowDataPanel(false);setShowHistoryPanel(false);setShowSpotifyPanel(false);}
+                                else if(item.k==='notes'){setShowNotesPanel(p=>!p);setShowOfficersPanel(false);setShowDataPanel(false);setShowHistoryPanel(false);setShowSpotifyPanel(false);setShowTimerPanel(false);}
+                                else if(item.k==='timer'){setShowTimerPanel(p=>!p);setShowNotesPanel(false);setShowOfficersPanel(false);setShowDataPanel(false);setShowHistoryPanel(false);setShowSpotifyPanel(false);}
                                 else if(item.k==='spotify'){setShowSpotifyPanel(p=>!p);setShowOfficersPanel(false);setShowDataPanel(false);setShowHistoryPanel(false);setShowNotesPanel(false);}
                                 else{navTo(item.k, ()=>{ if(item.k==='calls')setCallButtonFlash(false); });}
                             }}
@@ -13098,6 +13213,159 @@ return (
             </>
             );
         })()}
+        {showTimerPanel && (() => {
+            const total = timerDuration > 0 ? timerDuration : 1;
+            const elapsed = Math.min(total, total - timerRemaining);
+            const progress = Math.max(0, Math.min(1, elapsed / total)); // 0..1 of time gone by
+            const R = 88, C = 2 * Math.PI * R;
+            const accent = timerFinished ? '#ef4444' : timerRunning ? '#22d3ee' : '#7dd3fc';
+            const commitEdit = () => {
+                // Parse h:m:s OR m:s OR plain seconds from the edit field.
+                const raw = (timerEditValue || '').trim();
+                let secs = 0;
+                if (raw.includes(':')) {
+                    const parts = raw.split(':').map(p => parseInt(p, 10) || 0);
+                    if (parts.length === 3) secs = parts[0]*3600 + parts[1]*60 + parts[2];
+                    else if (parts.length === 2) secs = parts[0]*60 + parts[1];
+                    else secs = parts[0] || 0;
+                } else {
+                    secs = parseInt(raw, 10) || 0;
+                }
+                secs = Math.max(0, Math.min(86399, secs));
+                setTimerDuration(secs); setTimerRemaining(secs); timerRemainingRef.current = secs;
+                setTimerEditing(false); setTimerRunning(false); setTimerPaused(false); setTimerFinished(false); stopTimerFinishLoop();
+            };
+            const PRESETS = [30, 60, 120, 180, 320, 360];
+            return (
+            <>
+                <div onClick={()=>setShowTimerPanel(false)} style={{ position:'fixed',top:'52px',left:0,right:'380px',bottom:0,background:'rgba(0,0,0,0.4)',zIndex:7999,animation:'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }} />
+                <div style={{ position:'fixed',top:'52px',right:0,bottom:0,width:'380px',background:'linear-gradient(180deg,rgba(15,30,60,0.95) 0%,rgba(10,20,40,0.97) 100%)',backdropFilter:'blur(8px)',borderLeft:'1px solid rgba(56,189,248,0.25)',boxShadow:'-8px 0 32px rgba(0,0,0,0.5), inset 1px 0 0 rgba(56,189,248,0.1)',zIndex:8000,display:'flex',flexDirection:'column',animation:'panelSlideIn 220ms cubic-bezier(0.23, 1, 0.32, 1)' }}>
+                    <div style={{ position:'absolute',left:'-3px',top:'50%',transform:'translateY(-50%)',width:'3px',height:'48px',background:'#22d3ee',borderRadius:'3px 0 0 3px',boxShadow:'0 0 12px rgba(34,211,238,0.5)' }} />
+
+                    {/* Header */}
+                    <div style={{ display:'flex',alignItems:'center',gap:'10px',padding:'16px 18px',borderBottom:'1px solid rgba(56,189,248,0.12)',flexShrink:0 }}>
+                        <div style={{ width:'28px',height:'28px',borderRadius:'7px',background:'linear-gradient(135deg,#22d3ee,#0891b2)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 2px 10px rgba(34,211,238,0.35)' }}>
+                            <svg width="15" height="15" fill="none" stroke="white" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </div>
+                        <div style={{ flex:1,minWidth:0 }}>
+                            <div style={{ color:'#e2e8f0',fontSize:'13px',fontWeight:'700',letterSpacing:'0.5px' }}>TIMER</div>
+                            <div style={{ color:'#5b7299',fontSize:'9px',fontWeight:'600',letterSpacing:'1px',fontFamily:'monospace',textTransform:'uppercase' }}>{timerFinished ? 'Time is up' : timerRunning ? 'Running' : timerPaused ? 'Paused' : 'Ready'}</div>
+                        </div>
+                        <button onClick={()=>setShowTimerPanel(false)} title="Close"
+                            style={{ display:'flex',alignItems:'center',justifyContent:'center',width:'28px',height:'28px',borderRadius:'7px',background:'transparent',border:'1px solid rgba(255,255,255,0.1)',color:'#64748b',cursor:'pointer',flexShrink:0,transition:'all 150ms ease-out' }}
+                            onMouseEnter={e=>{e.currentTarget.style.color='#f87171';e.currentTarget.style.borderColor='rgba(248,113,113,0.4)';}} onMouseLeave={e=>{e.currentTarget.style.color='#64748b';e.currentTarget.style.borderColor='rgba(255,255,255,0.1)';}}>
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+
+                    {/* Body */}
+                    <div style={{ flex:1,display:'flex',flexDirection:'column',alignItems:'center',padding:'24px 20px',gap:'22px',overflowY:'auto' }}>
+                        {/* Circular timer */}
+                        <div style={{ position:'relative',width:'220px',height:'220px',flexShrink:0 }}>
+                            <svg width="220" height="220" viewBox="0 0 220 220" style={{ transform:'rotate(-90deg)' }}>
+                                <circle cx="110" cy="110" r={R} fill="none" stroke="rgba(56,189,248,0.1)" strokeWidth="12" />
+                                <circle cx="110" cy="110" r={R} fill="none" stroke={accent} strokeWidth="12" strokeLinecap="round"
+                                    strokeDasharray={C} strokeDashoffset={C * (1 - progress)}
+                                    style={{ transition: timerRunning ? 'stroke-dashoffset 200ms linear, stroke 200ms ease-out' : 'stroke-dashoffset 280ms cubic-bezier(0.23,1,0.32,1), stroke 200ms ease-out', filter: `drop-shadow(0 0 6px ${accent})` }} />
+                            </svg>
+                            {/* Center display */}
+                            <div style={{ position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'4px' }}>
+                                {timerEditing ? (
+                                    <input autoFocus value={timerEditValue}
+                                        onChange={e=>setTimerEditValue(e.target.value)}
+                                        onKeyDown={e=>{ if(e.key==='Enter') commitEdit(); if(e.key==='Escape') setTimerEditing(false); }}
+                                        onBlur={commitEdit}
+                                        placeholder="m:s or h:m:s"
+                                        style={{ width:'150px',textAlign:'center',background:'rgba(7,12,24,0.8)',border:'1px solid rgba(56,189,248,0.4)',borderRadius:'8px',color:'#e2e8f0',fontSize:'26px',fontWeight:'800',fontFamily:'monospace',outline:'none',padding:'6px' }} />
+                                ) : (
+                                    <div onClick={()=>{ if(!timerRunning){ setTimerEditValue(formatTimerDisplay(timerRemaining)); setTimerEditing(true); } }}
+                                        title={timerRunning ? '' : 'Click to edit'}
+                                        style={{ fontSize:'40px',fontWeight:'800',fontFamily:'monospace',color: timerFinished ? '#fca5a5' : '#e2e8f0',letterSpacing:'1px',cursor: timerRunning ? 'default' : 'pointer',lineHeight:1,userSelect:'none' }}>
+                                        {formatTimerDisplay(timerRemaining)}
+                                    </div>
+                                )}
+                                <div style={{ color: timerFinished ? '#f87171' : '#5b7299',fontSize:'10px',fontWeight:'700',letterSpacing:'2px',fontFamily:'monospace',textTransform:'uppercase' }}>
+                                    {timerFinished ? 'FINISHED' : timerRunning ? `${Math.round(progress*100)}% ELAPSED` : 'CLICK TIME TO EDIT'}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Dismiss alarm button (only when finished) */}
+                        {timerFinished && (
+                            <button onClick={dismissTimerAlarm}
+                                style={{ width:'100%',padding:'13px',borderRadius:'11px',border:'none',cursor:'pointer',background:'linear-gradient(135deg,#ef4444,#b91c1c)',color:'#fff',fontSize:'12px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',boxShadow:'0 8px 24px rgba(239,68,68,0.4)',animation:'pulse 1.4s ease-in-out infinite' }}>
+                                Dismiss Alarm
+                            </button>
+                        )}
+
+                        {/* Preset add buttons */}
+                        {!timerFinished && (
+                            <div style={{ width:'100%' }}>
+                                <div style={{ color:'#5b7299',fontSize:'9px',fontWeight:'800',letterSpacing:'2px',fontFamily:'monospace',textTransform:'uppercase',marginBottom:'9px',textAlign:'center' }}>Add Time</div>
+                                <div style={{ display:'grid',gridTemplateColumns:'repeat(3, 1fr)',gap:'8px' }}>
+                                    {PRESETS.map(secs => (
+                                        <button key={secs} onClick={()=>addTimerSeconds(secs)}
+                                            style={{ padding:'10px 0',borderRadius:'9px',background:'rgba(56,189,248,0.08)',border:'1px solid rgba(56,189,248,0.22)',color:'#7dd3fc',fontSize:'12px',fontWeight:'800',fontFamily:'monospace',cursor:'pointer',transition:'background 140ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                                            onMouseEnter={e=>e.currentTarget.style.background='rgba(56,189,248,0.2)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(56,189,248,0.08)'}
+                                            onMouseDown={e=>e.currentTarget.style.transform='scale(0.94)'} onMouseUp={e=>e.currentTarget.style.transform='scale(1)'}>
+                                            +{secs}s
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Control buttons */}
+                        {!timerFinished && (
+                            <div style={{ display:'flex',gap:'9px',width:'100%' }}>
+                                {!timerRunning ? (
+                                    <button onClick={startTimer} disabled={timerRemaining<=0}
+                                        style={{ flex:1,padding:'13px',borderRadius:'11px',border:'none',cursor:timerRemaining>0?'pointer':'not-allowed',background:timerRemaining>0?'linear-gradient(135deg,#22c55e,#16a34a)':'rgba(255,255,255,0.04)',color:timerRemaining>0?'#fff':'#475569',fontSize:'12px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',transition:'transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                                        onMouseDown={e=>{if(timerRemaining>0)e.currentTarget.style.transform='scale(0.97)';}} onMouseUp={e=>e.currentTarget.style.transform='scale(1)'}>
+                                        Start
+                                    </button>
+                                ) : (
+                                    <button onClick={pauseTimer}
+                                        style={{ flex:1,padding:'13px',borderRadius:'11px',border:'none',cursor:'pointer',background:'linear-gradient(135deg,#f59e0b,#d97706)',color:'#fff',fontSize:'12px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',transition:'transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                                        onMouseDown={e=>e.currentTarget.style.transform='scale(0.97)'} onMouseUp={e=>e.currentTarget.style.transform='scale(1)'}>
+                                        Pause
+                                    </button>
+                                )}
+                                <button onClick={endTimer}
+                                    style={{ flex:1,padding:'13px',borderRadius:'11px',border:'1px solid rgba(239,68,68,0.3)',cursor:'pointer',background:'rgba(239,68,68,0.1)',color:'#f87171',fontSize:'12px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',transition:'background 140ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                                    onMouseEnter={e=>e.currentTarget.style.background='rgba(239,68,68,0.2)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(239,68,68,0.1)'}
+                                    onMouseDown={e=>e.currentTarget.style.transform='scale(0.97)'} onMouseUp={e=>e.currentTarget.style.transform='scale(1)'}>
+                                    End
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </>
+            );
+        })()}
+        {/* Timer mini-notification (bottom-right) — shows when timer is active and panel closed */}
+        {(timerRunning || timerFinished || timerPaused) && !showTimerPanel && (
+            <div onClick={()=>{ setShowTimerPanel(true); setShowNotesPanel(false); setShowDataPanel(false); setShowOfficersPanel(false); setShowHistoryPanel(false); setShowSpotifyPanel(false); }}
+                title="Open timer"
+                style={{ position:'fixed',bottom:'18px',right:'18px',zIndex:9500,display:'flex',alignItems:'center',gap:'11px',padding:'11px 15px',borderRadius:'13px',cursor:'pointer',
+                    background: timerFinished ? 'linear-gradient(135deg,rgba(40,12,14,0.97),rgba(20,8,10,0.97))' : 'linear-gradient(135deg,rgba(15,30,60,0.97),rgba(10,20,40,0.97))',
+                    border: `1px solid ${timerFinished ? 'rgba(239,68,68,0.45)' : 'rgba(56,189,248,0.35)'}`,
+                    boxShadow: timerFinished ? '0 12px 36px rgba(239,68,68,0.3)' : '0 12px 36px rgba(0,0,0,0.5)',
+                    backdropFilter:'blur(8px)', animation: timerFinished ? 'pulse 1.4s ease-in-out infinite' : 'panelSlideIn 240ms cubic-bezier(0.23,1,0.32,1)' }}>
+                <div style={{ width:'34px',height:'34px',borderRadius:'9px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,
+                    background: timerFinished ? 'linear-gradient(135deg,#ef4444,#b91c1c)' : 'linear-gradient(135deg,#22d3ee,#0891b2)',
+                    boxShadow: timerFinished ? '0 2px 12px rgba(239,68,68,0.5)' : '0 2px 12px rgba(34,211,238,0.4)' }}>
+                    <svg width="18" height="18" fill="none" stroke="white" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <div style={{ display:'flex',flexDirection:'column',lineHeight:1.2 }}>
+                    <span style={{ color: timerFinished ? '#fca5a5' : '#7dd3fc', fontSize:'9px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace',textTransform:'uppercase' }}>
+                        {timerFinished ? 'Time is up' : timerPaused ? 'Paused' : 'Timer'}
+                    </span>
+                    <span style={{ color:'#e2e8f0',fontSize:'18px',fontWeight:'800',fontFamily:'monospace',letterSpacing:'0.5px' }}>{formatTimerDisplay(timerRemaining)}</span>
+                </div>
+            </div>
+        )}
         {showDataPanel && (
             <>
                 <div onClick={()=>setShowDataPanel(false)} style={{ position:'fixed',top:'52px',left:0,right:'320px',bottom:0,background:'rgba(0,0,0,0.4)',zIndex:7999,animation:'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }} />
