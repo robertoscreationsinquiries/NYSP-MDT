@@ -2659,19 +2659,7 @@ React.useEffect(() => {
     return () => clearInterval(id);
 }, [timerRunning]);
 
-// Play the TIMER_UPSIDEPANEL chime once at launch (loaded from GitHub like other sounds).
-React.useEffect(() => {
-    const t = setTimeout(() => {
-        try {
-            if (window.SOUNDS && window.SOUNDS.TIMER_UPSIDEPANEL) {
-                const a = new Audio(window.SOUNDS.TIMER_UPSIDEPANEL);
-                a.volume = 0.4;
-                a.play().catch(() => {});
-            }
-        } catch (_) {}
-    }, 1200); // small delay so the sound system is ready
-    return () => clearTimeout(t);
-}, []);
+const [showPhoneticCompare, setShowPhoneticCompare] = useState(false);
 const [panicTapCount, setPanicTapCount] = useState(0);
 const panicTapCountRef = React.useRef(0);
 const panicTapTimerRef = React.useRef(null);
