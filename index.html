@@ -670,6 +670,12 @@ body::before {
     from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
     to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
+/* For FLEX-centered modals (backdrop uses align/justify center). Scale only — no
+   translate — so the card animates in place instead of flashing from off-center. */
+@keyframes modalCardIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
+}
 /* Government record cards — staggered entrance (delay set inline per index) */
 @keyframes recordCardIn {
     from { opacity: 0; transform: translateY(10px); }
@@ -16542,7 +16548,7 @@ onError={(e) => {
             width: '100%', maxWidth: '860px', height: '75vh',
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
             boxShadow: '0 30px 90px rgba(0,0,0,0.65), 0 0 60px rgba(56,189,248,0.1)',
-            animation: 'centeredCardIn 0.32s cubic-bezier(0.23,1,0.32,1)'
+            animation: 'modalCardIn 0.3s cubic-bezier(0.23,1,0.32,1)'
         }}>
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '13px', padding: '17px 20px', flexShrink: 0, borderBottom: '1px solid rgba(56,189,248,0.15)', position: 'relative' }}>
@@ -16556,12 +16562,12 @@ onError={(e) => {
                     </button>
                 )}
                 <div style={{ width: '3px', height: '26px', background: '#22d3ee', borderRadius: '2px', boxShadow: '0 0 10px #22d3ee', flexShrink: 0, position: 'relative', zIndex: 1 }} />
-                <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
-                    <div style={{ color: '#fff', fontSize: '15px', fontWeight: '900', letterSpacing: '2px', fontFamily: 'monospace', textTransform: 'uppercase' }}>
+                <div style={{ flex: 1, minWidth: 0, position: 'relative', zIndex: 1 }}>
+                    <div style={{ color: '#fff', fontSize: '15px', fontWeight: '900', letterSpacing: '2px', fontFamily: 'monospace', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {selectedUpdateEntry ? selectedUpdateEntry.title : 'Update Log'}
                     </div>
                     <div style={{ color: '#67e8f9', fontSize: '10.5px', marginTop: '2px', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
-                        {selectedUpdateEntry ? `Version ${selectedUpdateEntry.version} · Full changelog` : 'Changelog & version history'}
+                        {selectedUpdateEntry ? ('Version ' + selectedUpdateEntry.version + ' · Full changelog') : 'Changelog & version history'}
                     </div>
                 </div>
                 <button onClick={() => { setSelectedUpdateEntry(null); setShowUpdateLog(false); }} title="Close"
@@ -16574,44 +16580,41 @@ onError={(e) => {
 
             {/* LIST VIEW */}
             {!selectedUpdateEntry && (
-                <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '11px' }}>
+                <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {updateLogsData.map((update, idx) => (
-                        <div key={idx} className="gov-record-card" style={{
+                        <div key={idx} className="gov-record-card" onClick={() => setSelectedUpdateEntry(update)} style={{
                             background: 'linear-gradient(180deg, rgba(56,189,248,0.08) 0%, rgba(8,16,32,0.55) 40%)',
                             border: '1px solid rgba(56,189,248,0.2)', borderLeft: '3px solid rgba(56,189,248,0.7)',
-                            borderRadius: '11px', padding: '15px 18px', position: 'relative', overflow: 'hidden',
-                            animation: 'recordCardIn 320ms cubic-bezier(0.23,1,0.32,1) both', animationDelay: `${Math.min(idx,8)*45}ms`
+                            borderRadius: '11px', padding: '16px 18px', position: 'relative', overflow: 'hidden', cursor: 'pointer',
+                            animation: 'recordCardIn 320ms cubic-bezier(0.23,1,0.32,1) both', animationDelay: (Math.min(idx,8)*45) + 'ms'
                         }}>
                             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(56,189,248,0.55), transparent)' }} />
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
-                                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22d3ee', boxShadow: '0 0 8px #22d3ee', flexShrink: 0 }} />
-                                        <span style={{ color: '#67e8f9', fontSize: '12px', fontWeight: '800', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace' }}>{update.title}</span>
-                                    </div>
-                                    <div style={{ color: '#94a3b8', fontSize: '12px', lineHeight: '1.55', paddingLeft: '14px' }}>{update.description}</div>
-                                    <div style={{ display: 'flex', gap: '6px', marginTop: '10px', flexWrap: 'wrap', paddingLeft: '14px' }}>
-                                        {update.new?.length > 0 && <span style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '5px', padding: '2px 8px', color: '#4ade80', fontSize: '10px', fontWeight: '800', letterSpacing: '1px', fontFamily: 'monospace' }}>+{update.new.length} NEW</span>}
-                                        {update.bugs?.length > 0 && <span style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '5px', padding: '2px 8px', color: '#f87171', fontSize: '10px', fontWeight: '800', letterSpacing: '1px', fontFamily: 'monospace' }}>{update.bugs.length} FIXES</span>}
-                                        {update.modifications?.length > 0 && <span style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '5px', padding: '2px 8px', color: '#fbbf24', fontSize: '10px', fontWeight: '800', letterSpacing: '1px', fontFamily: 'monospace' }}>{update.modifications.length} CHANGES</span>}
-                                        {update.removed?.length > 0 && <span style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '5px', padding: '2px 8px', color: '#fca5a5', fontSize: '10px', fontWeight: '800', letterSpacing: '1px', fontFamily: 'monospace' }}>{update.removed.length} REMOVED</span>}
-                                        {update.planned?.length > 0 && <span style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: '5px', padding: '2px 8px', color: '#a78bfa', fontSize: '10px', fontWeight: '800', letterSpacing: '1px', fontFamily: 'monospace' }}>{update.planned.length} PLANNED</span>}
-                                    </div>
+                            {/* Title row: dot + title (wraps), version chip pinned right */}
+                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '14px', marginBottom: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22d3ee', boxShadow: '0 0 8px #22d3ee', flexShrink: 0 }} />
+                                    <span style={{ color: '#67e8f9', fontSize: '12.5px', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase', fontFamily: 'monospace', lineHeight: 1.35 }}>{update.title}</span>
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px', flexShrink: 0 }}>
-                                    <div style={{ background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.3)', borderRadius: '9px', padding: '7px 14px', textAlign: 'center' }}>
-                                        <div style={{ color: '#475569', fontSize: '8px', fontWeight: '800', letterSpacing: '2px', marginBottom: '2px', fontFamily: 'monospace' }}>VERSION</div>
-                                        <div style={{ color: '#fff', fontSize: '14px', fontWeight: '900', fontFamily: 'monospace' }}>{update.version}</div>
-                                        <div style={{ color: '#475569', fontSize: '9px', marginTop: '3px', fontFamily: 'monospace' }}>{update.release_date || 'N/A'}</div>
-                                    </div>
-                                    <button onClick={() => setSelectedUpdateEntry(update)}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.3)', borderRadius: '8px', color: '#67e8f9', fontSize: '10.5px', fontWeight: '800', cursor: 'pointer', letterSpacing: '1px', textTransform: 'uppercase', fontFamily: 'monospace', transition: 'background 140ms ease-out', whiteSpace: 'nowrap' }}
-                                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(34,211,238,0.22)'; }}
-                                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(34,211,238,0.1)'; }}>
-                                        View Log
-                                        <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
-                                    </button>
+                                <div style={{ background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.3)', borderRadius: '8px', padding: '5px 11px', textAlign: 'center', flexShrink: 0 }}>
+                                    <div style={{ color: '#fff', fontSize: '13px', fontWeight: '900', fontFamily: 'monospace', lineHeight: 1 }}>{update.version}</div>
+                                    <div style={{ color: '#475569', fontSize: '8.5px', marginTop: '3px', fontFamily: 'monospace' }}>{update.release_date || 'N/A'}</div>
                                 </div>
+                            </div>
+                            {/* Description — full width, wraps freely */}
+                            <div style={{ color: '#94a3b8', fontSize: '12px', lineHeight: '1.6', marginBottom: '11px' }}>{update.description}</div>
+                            {/* Footer: change pills + view affordance */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                    {update.new && update.new.length > 0 && <span style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '5px', padding: '2px 8px', color: '#4ade80', fontSize: '10px', fontWeight: '800', letterSpacing: '0.5px', fontFamily: 'monospace' }}>+{update.new.length} NEW</span>}
+                                    {update.bugs && update.bugs.length > 0 && <span style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '5px', padding: '2px 8px', color: '#f87171', fontSize: '10px', fontWeight: '800', letterSpacing: '0.5px', fontFamily: 'monospace' }}>{update.bugs.length} FIXES</span>}
+                                    {update.modifications && update.modifications.length > 0 && <span style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '5px', padding: '2px 8px', color: '#fbbf24', fontSize: '10px', fontWeight: '800', letterSpacing: '0.5px', fontFamily: 'monospace' }}>{update.modifications.length} CHANGES</span>}
+                                    {update.removed && update.removed.length > 0 && <span style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '5px', padding: '2px 8px', color: '#fca5a5', fontSize: '10px', fontWeight: '800', letterSpacing: '0.5px', fontFamily: 'monospace' }}>{update.removed.length} REMOVED</span>}
+                                    {update.planned && update.planned.length > 0 && <span style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: '5px', padding: '2px 8px', color: '#a78bfa', fontSize: '10px', fontWeight: '800', letterSpacing: '0.5px', fontFamily: 'monospace' }}>{update.planned.length} PLANNED</span>}
+                                </div>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#67e8f9', fontSize: '10.5px', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase', fontFamily: 'monospace', flexShrink: 0 }}>
+                                    View Log
+                                    <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
+                                </span>
                             </div>
                         </div>
                     ))}
@@ -16622,17 +16625,20 @@ onError={(e) => {
             {selectedUpdateEntry && (
                 <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '11px' }}>
                     {[
-                        { arr: selectedUpdateEntry.new, label: '✦ New Features', rgb: '34,197,94', fg: '#6ee7b7' },
-                        { arr: selectedUpdateEntry.bugs, label: '! Bug Fixes', rgb: '239,68,68', fg: '#fca5a5' },
-                        { arr: selectedUpdateEntry.modifications, label: '◈ Modifications', rgb: '245,158,11', fg: '#fde68a' },
-                        { arr: selectedUpdateEntry.removed, label: '✕ Removed', rgb: '220,38,38', fg: '#fca5a5' },
-                        { arr: selectedUpdateEntry.planned, label: '◎ Planned', rgb: '139,92,246', fg: '#c4b5fd' }
-                    ].map((sec, si) => (sec.arr?.length > 0 && (
-                        <div key={si} style={{ background: `linear-gradient(180deg, rgba(${sec.rgb},0.08) 0%, rgba(8,16,32,0.4) 50%)`, border: `1px solid rgba(${sec.rgb},0.2)`, borderLeft: `3px solid rgba(${sec.rgb},0.75)`, borderRadius: '10px', padding: '14px 18px', animation: 'recordCardIn 300ms cubic-bezier(0.23,1,0.32,1) both', animationDelay: `${si*50}ms` }}>
-                            <div style={{ color: sec.fg, fontSize: '10px', fontWeight: '800', letterSpacing: '2px', marginBottom: '11px', textTransform: 'uppercase', fontFamily: 'monospace' }}>{sec.label}</div>
+                        { arr: selectedUpdateEntry.new, label: 'New Features', rgb: '34,197,94', fg: '#6ee7b7' },
+                        { arr: selectedUpdateEntry.bugs, label: 'Bug Fixes', rgb: '239,68,68', fg: '#fca5a5' },
+                        { arr: selectedUpdateEntry.modifications, label: 'Modifications', rgb: '245,158,11', fg: '#fde68a' },
+                        { arr: selectedUpdateEntry.removed, label: 'Removed', rgb: '220,38,38', fg: '#fca5a5' },
+                        { arr: selectedUpdateEntry.planned, label: 'Planned', rgb: '139,92,246', fg: '#c4b5fd' }
+                    ].map((sec, si) => (sec.arr && sec.arr.length > 0 && (
+                        <div key={si} style={{ background: 'linear-gradient(180deg, rgba(' + sec.rgb + ',0.08) 0%, rgba(8,16,32,0.4) 50%)', border: '1px solid rgba(' + sec.rgb + ',0.2)', borderLeft: '3px solid rgba(' + sec.rgb + ',0.75)', borderRadius: '10px', padding: '14px 18px', animation: 'recordCardIn 300ms cubic-bezier(0.23,1,0.32,1) both', animationDelay: (si*50) + 'ms' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '11px' }}>
+                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'rgb(' + sec.rgb + ')', boxShadow: '0 0 8px rgb(' + sec.rgb + ')' }} />
+                                <span style={{ color: sec.fg, fontSize: '10px', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase', fontFamily: 'monospace' }}>{sec.label}</span>
+                            </div>
                             {sec.arr.map((item, i) => (
                                 <div key={i} style={{ color: sec.fg, fontSize: '12px', lineHeight: '1.7', paddingLeft: '15px', position: 'relative', marginBottom: '5px', opacity: 0.92 }}>
-                                    <span style={{ position: 'absolute', left: 0, color: `rgb(${sec.rgb})`, fontWeight: '700' }}>›</span>{item}
+                                    <span style={{ position: 'absolute', left: 0, color: 'rgb(' + sec.rgb + ')', fontWeight: '700' }}>&rsaquo;</span>{item}
                                 </div>
                             ))}
                         </div>
@@ -17268,20 +17274,19 @@ if (window.electronAPI?.quit) {
         zIndex: 2000, backdropFilter: 'blur(8px)', padding: '20px', animation: 'fadeIn 0.2s ease-out'
     }} onClick={e => { if (e.target === e.currentTarget) setShowFAQ(false); }}>
         <div style={{
-            background: 'radial-gradient(ellipse at 50% 0%, #1f1a08 0%, #14100a 55%, #0a0805 100%)',
-            border: '1px solid rgba(251,191,36,0.28)', borderRadius: '18px',
+            background: 'radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 55%, #050a14 100%)',
+            border: '1px solid rgba(56,189,248,0.28)', borderRadius: '18px',
             width: '100%', maxWidth: '860px', height: '75vh',
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
-            boxShadow: '0 30px 90px rgba(0,0,0,0.65), 0 0 60px rgba(251,191,36,0.1)',
-            animation: 'centeredCardIn 0.32s cubic-bezier(0.23,1,0.32,1)'
+            boxShadow: '0 30px 90px rgba(0,0,0,0.65), 0 0 60px rgba(56,189,248,0.1)',
+            animation: 'modalCardIn 0.3s cubic-bezier(0.23,1,0.32,1)'
         }}>
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '13px', padding: '17px 20px', flexShrink: 0, borderBottom: '1px solid rgba(251,191,36,0.15)', position: 'relative' }}>
-                <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(251,191,36,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(251,191,36,0.035) 1px, transparent 1px)', backgroundSize: '38px 38px', pointerEvents: 'none' }} />
-                <div style={{ width: '3px', height: '26px', background: '#fbbf24', borderRadius: '2px', boxShadow: '0 0 10px #fbbf24', flexShrink: 0, position: 'relative', zIndex: 1 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '13px', padding: '17px 20px', flexShrink: 0, borderBottom: '1px solid rgba(56,189,248,0.15)', position: 'relative' }}>
+                <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(56,189,248,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,0.035) 1px, transparent 1px)', backgroundSize: '38px 38px', pointerEvents: 'none' }} />
+                <div style={{ width: '3px', height: '26px', background: '#22d3ee', borderRadius: '2px', boxShadow: '0 0 10px #22d3ee', flexShrink: 0, position: 'relative', zIndex: 1 }} />
                 <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
                     <div style={{ color: '#fff', fontSize: '15px', fontWeight: '900', letterSpacing: '2px', fontFamily: 'monospace', textTransform: 'uppercase' }}>FAQ</div>
-                    <div style={{ color: '#fcd34d', fontSize: '10.5px', marginTop: '2px', fontFamily: 'monospace', letterSpacing: '0.5px' }}>Frequently asked questions</div>
+                    <div style={{ color: '#67e8f9', fontSize: '10.5px', marginTop: '2px', fontFamily: 'monospace', letterSpacing: '0.5px' }}>Frequently asked questions</div>
                 </div>
                 <button onClick={() => setShowFAQ(false)} title="Close"
                     style={{ width: '32px', height: '32px', minWidth: '32px', borderRadius: '9px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.22)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 140ms ease-out, border-color 140ms ease-out', flexShrink: 0, padding: 0, position: 'relative', zIndex: 1 }}
@@ -17290,20 +17295,18 @@ if (window.electronAPI?.quit) {
                     <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-
-            {/* Content */}
             <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {FAQ_DATA.map((faq, index) => (
                     <div key={index} className="gov-record-card" style={{
-                        background: 'linear-gradient(180deg, rgba(251,191,36,0.07) 0%, rgba(20,16,8,0.55) 40%)',
-                        border: '1px solid rgba(251,191,36,0.18)', borderLeft: '3px solid rgba(251,191,36,0.65)',
+                        background: 'linear-gradient(180deg, rgba(56,189,248,0.07) 0%, rgba(8,16,32,0.55) 40%)',
+                        border: '1px solid rgba(56,189,248,0.18)', borderLeft: '3px solid rgba(56,189,248,0.6)',
                         borderRadius: '11px', padding: '15px 18px', position: 'relative', overflow: 'hidden',
-                        animation: 'recordCardIn 320ms cubic-bezier(0.23,1,0.32,1) both', animationDelay: `${Math.min(index,8)*40}ms`
+                        animation: 'recordCardIn 320ms cubic-bezier(0.23,1,0.32,1) both', animationDelay: (Math.min(index,8)*40) + 'ms'
                     }}>
-                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(251,191,36,0.5), transparent)' }} />
+                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(56,189,248,0.5), transparent)' }} />
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '7px' }}>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#fbbf24', boxShadow: '0 0 8px #fbbf24', flexShrink: 0 }} />
-                            <span style={{ fontSize: '9px', color: '#fbbf24', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase', fontFamily: 'monospace' }}>{faq.category}</span>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22d3ee', boxShadow: '0 0 8px #22d3ee', flexShrink: 0 }} />
+                            <span style={{ fontSize: '9px', color: '#67e8f9', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase', fontFamily: 'monospace' }}>{faq.category}</span>
                         </div>
                         <div style={{ fontSize: '13px', fontWeight: '700', color: '#f1f5f9', marginBottom: '8px', lineHeight: '1.45', paddingLeft: '14px' }}>{faq.question}</div>
                         <div style={{ fontSize: '12px', color: '#94a3b8', lineHeight: '1.65', paddingLeft: '14px' }}>{faq.answer}</div>
@@ -17314,6 +17317,7 @@ if (window.electronAPI?.quit) {
     </div>
 )}
 
+
 {showCredits && (
     <div key={`credits-${creditsKey}`} style={{
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -17321,20 +17325,19 @@ if (window.electronAPI?.quit) {
         zIndex: 2000, backdropFilter: 'blur(8px)', padding: '20px', animation: 'fadeIn 0.2s ease-out'
     }} onClick={e => { if (e.target === e.currentTarget) setShowCredits(false); }}>
         <div style={{
-            background: 'radial-gradient(ellipse at 50% 0%, #2a0f24 0%, #14081a 55%, #08050a 100%)',
-            border: '1px solid rgba(244,114,182,0.28)', borderRadius: '18px',
+            background: 'radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 55%, #050a14 100%)',
+            border: '1px solid rgba(56,189,248,0.28)', borderRadius: '18px',
             width: '100%', maxWidth: '860px', height: '75vh',
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
-            boxShadow: '0 30px 90px rgba(0,0,0,0.65), 0 0 60px rgba(244,114,182,0.1)',
-            animation: 'centeredCardIn 0.32s cubic-bezier(0.23,1,0.32,1)'
+            boxShadow: '0 30px 90px rgba(0,0,0,0.65), 0 0 60px rgba(56,189,248,0.1)',
+            animation: 'modalCardIn 0.3s cubic-bezier(0.23,1,0.32,1)'
         }}>
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '13px', padding: '17px 20px', flexShrink: 0, borderBottom: '1px solid rgba(244,114,182,0.15)', position: 'relative' }}>
-                <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(244,114,182,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(244,114,182,0.035) 1px, transparent 1px)', backgroundSize: '38px 38px', pointerEvents: 'none' }} />
-                <div style={{ width: '3px', height: '26px', background: '#f472b6', borderRadius: '2px', boxShadow: '0 0 10px #f472b6', flexShrink: 0, position: 'relative', zIndex: 1 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '13px', padding: '17px 20px', flexShrink: 0, borderBottom: '1px solid rgba(56,189,248,0.15)', position: 'relative' }}>
+                <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(56,189,248,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,0.035) 1px, transparent 1px)', backgroundSize: '38px 38px', pointerEvents: 'none' }} />
+                <div style={{ width: '3px', height: '26px', background: '#22d3ee', borderRadius: '2px', boxShadow: '0 0 10px #22d3ee', flexShrink: 0, position: 'relative', zIndex: 1 }} />
                 <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
                     <div style={{ color: '#fff', fontSize: '15px', fontWeight: '900', letterSpacing: '2px', fontFamily: 'monospace', textTransform: 'uppercase' }}>Credits</div>
-                    <div style={{ color: '#f9a8d4', fontSize: '10.5px', marginTop: '2px', fontFamily: 'monospace', letterSpacing: '0.5px' }}>Development team & contributors</div>
+                    <div style={{ color: '#67e8f9', fontSize: '10.5px', marginTop: '2px', fontFamily: 'monospace', letterSpacing: '0.5px' }}>Development team & contributors</div>
                 </div>
                 <button onClick={() => setShowCredits(false)} title="Close"
                     style={{ width: '32px', height: '32px', minWidth: '32px', borderRadius: '9px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.22)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 140ms ease-out, border-color 140ms ease-out', flexShrink: 0, padding: 0, position: 'relative', zIndex: 1 }}
@@ -17343,67 +17346,28 @@ if (window.electronAPI?.quit) {
                     <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-
-            {/* Content */}
-            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                {/* Developers section */}
-                <div style={{ background: 'linear-gradient(180deg, rgba(56,189,248,0.08) 0%, rgba(8,16,32,0.4) 50%)', border: '1px solid rgba(56,189,248,0.2)', borderRadius: '13px', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(56,189,248,0.55), transparent)' }} />
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid rgba(56,189,248,0.12)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22d3ee', boxShadow: '0 0 8px #22d3ee' }} />
-                            <div>
-                                <div style={{ color: '#67e8f9', fontSize: '12px', fontWeight: '800', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace' }}>Developers / Contributors</div>
-                                <div style={{ color: '#475569', fontSize: '10.5px', marginTop: '2px' }}>The team behind the MDT system</div>
-                            </div>
-                        </div>
-                        <div style={{ background: 'rgba(34,211,238,0.12)', border: '1px solid rgba(34,211,238,0.3)', borderRadius: '6px', padding: '4px 12px' }}>
-                            <span style={{ color: '#67e8f9', fontSize: '10px', fontWeight: '800', letterSpacing: '2px', fontFamily: 'monospace' }}>DEVS</span>
-                        </div>
-                    </div>
-                    <div style={{ padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {creditsData.developers.map((dev, idx) => (
-                            <div key={idx} style={{ background: 'rgba(4,8,18,0.5)', border: '1px solid rgba(56,189,248,0.1)', borderLeft: '3px solid rgba(56,189,248,0.5)', borderRadius: '9px', padding: '12px 14px', transition: 'background 140ms ease-out, border-color 140ms ease-out' }}
-                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(56,189,248,0.07)'; e.currentTarget.style.borderLeftColor = '#22d3ee'; }}
-                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(4,8,18,0.5)'; e.currentTarget.style.borderLeftColor = 'rgba(56,189,248,0.5)'; }}>
-                                <div style={{ color: '#f1f5f9', fontSize: '13px', fontWeight: '700', marginBottom: '4px' }}>{dev.name}</div>
-                                <div style={{ color: '#94a3b8', fontSize: '11px', lineHeight: '1.55' }}>{dev.reason}</div>
-                            </div>
-                        ))}
-                    </div>
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22d3ee', boxShadow: '0 0 8px #22d3ee' }} />
+                    <span style={{ color: '#67e8f9', fontSize: '11px', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase', fontFamily: 'monospace' }}>Developers / Contributors</span>
+                    <div style={{ flex: 1, height: '1px', background: 'rgba(56,189,248,0.18)' }} />
                 </div>
-
-                {/* Testers section */}
-                <div style={{ background: 'linear-gradient(180deg, rgba(34,197,94,0.08) 0%, rgba(8,20,12,0.4) 50%)', border: '1px solid rgba(34,197,94,0.18)', borderRadius: '13px', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(34,197,94,0.5), transparent)' }} />
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid rgba(34,197,94,0.12)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 8px #4ade80' }} />
-                            <div>
-                                <div style={{ color: '#86efac', fontSize: '12px', fontWeight: '800', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace' }}>Testers</div>
-                                <div style={{ color: '#475569', fontSize: '10.5px', marginTop: '2px' }}>Quality assurance & feedback</div>
-                            </div>
-                        </div>
-                        <div style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '6px', padding: '4px 12px' }}>
-                            <span style={{ color: '#86efac', fontSize: '10px', fontWeight: '800', letterSpacing: '2px', fontFamily: 'monospace' }}>QA</span>
-                        </div>
+                {creditsData.developers.map((dev, idx) => (
+                    <div key={idx} className="gov-record-card" style={{
+                        background: 'linear-gradient(180deg, rgba(56,189,248,0.07) 0%, rgba(8,16,32,0.55) 40%)',
+                        border: '1px solid rgba(56,189,248,0.18)', borderLeft: '3px solid rgba(56,189,248,0.6)',
+                        borderRadius: '11px', padding: '14px 16px', position: 'relative', overflow: 'hidden',
+                        animation: 'recordCardIn 320ms cubic-bezier(0.23,1,0.32,1) both', animationDelay: (Math.min(idx,8)*40) + 'ms'
+                    }}>
+                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(56,189,248,0.5), transparent)' }} />
+                        <div style={{ color: '#f1f5f9', fontSize: '13px', fontWeight: '700', marginBottom: '4px' }}>{dev.name}</div>
+                        <div style={{ color: '#94a3b8', fontSize: '11.5px', lineHeight: '1.55' }}>{dev.reason}</div>
                     </div>
-                    <div style={{ padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {creditsData.testers.map((tester, idx) => (
-                            <div key={idx} style={{ background: 'rgba(4,8,18,0.5)', border: '1px solid rgba(34,197,94,0.1)', borderLeft: '3px solid rgba(34,197,94,0.4)', borderRadius: '9px', padding: '12px 14px', transition: 'background 140ms ease-out, border-color 140ms ease-out' }}
-                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(34,197,94,0.06)'; e.currentTarget.style.borderLeftColor = '#22c55e'; }}
-                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(4,8,18,0.5)'; e.currentTarget.style.borderLeftColor = 'rgba(34,197,94,0.4)'; }}>
-                                <div style={{ color: '#f1f5f9', fontSize: '13px', fontWeight: '700', marginBottom: '4px' }}>{tester.name}</div>
-                                <div style={{ color: '#94a3b8', fontSize: '11px', lineHeight: '1.55' }}>{tester.reason}</div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                ))}
             </div>
         </div>
     </div>
 )}
-
 {showDatabaseHistory && (
     <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -18177,61 +18141,72 @@ if (window.electronAPI?.quit) {
 {showUsefulLinks && (
     <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-        background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 2000, backdropFilter: 'blur(8px)', padding: '20px', animation: 'fadeIn 0.2s ease-out'
+        background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 2000, backdropFilter: 'blur(6px)', padding: '20px', animation: 'fadeIn 0.2s ease-out'
     }} onClick={e => { if (e.target === e.currentTarget) setShowUsefulLinks(false); }}>
         <div style={{
-            background: 'radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 55%, #050a14 100%)',
-            border: '1px solid rgba(56,189,248,0.28)', borderRadius: '18px',
+            background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 50%, #0f1419 100%)',
+            border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px',
             width: '100%', maxWidth: '860px', height: '75vh',
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
-            boxShadow: '0 30px 90px rgba(0,0,0,0.65), 0 0 60px rgba(56,189,248,0.1)',
-            animation: 'centeredCardIn 0.32s cubic-bezier(0.23,1,0.32,1)'
+            boxShadow: '0 4px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)'
         }}>
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '13px', padding: '17px 20px', flexShrink: 0, borderBottom: '1px solid rgba(56,189,248,0.15)', position: 'relative' }}>
-                <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(56,189,248,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,0.035) 1px, transparent 1px)', backgroundSize: '38px 38px', pointerEvents: 'none' }} />
-                <div style={{ width: '3px', height: '26px', background: '#22d3ee', borderRadius: '2px', boxShadow: '0 0 10px #22d3ee', flexShrink: 0, position: 'relative', zIndex: 1 }} />
+            <div style={{
+                display: 'flex', alignItems: 'center', gap: '16px', padding: '20px 24px', flexShrink: 0,
+                background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,58,138,0.4))',
+                borderBottom: '1px solid rgba(59,130,246,0.2)', position: 'relative', overflow: 'hidden'
+            }}>
+                <div style={{ position: 'absolute', top: '-60%', right: '-5%', width: '40%', height: '220%', background: 'radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 70%)', pointerEvents: 'none' }} />
+                <div style={{ width: '44px', height: '44px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(59,130,246,0.4)', flexShrink: 0 }}>
+                    <svg width="22" height="22" fill="none" stroke="white" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                </div>
                 <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
-                    <div style={{ color: '#fff', fontSize: '15px', fontWeight: '900', letterSpacing: '2px', fontFamily: 'monospace', textTransform: 'uppercase' }}>Useful Links</div>
-                    <div style={{ color: '#67e8f9', fontSize: '10.5px', marginTop: '2px', fontFamily: 'monospace', letterSpacing: '0.5px' }}>{selectedDepartment === 'NYSP' ? 'New York State Police' : selectedDepartment === 'DISPATCHER' ? 'Dispatcher' : 'East Greenbush Police Department'}</div>
+                    <div style={{ color: 'white', fontSize: '16px', fontWeight: '800', letterSpacing: '1px' }}>USEFUL LINKS</div>
+                    <div style={{ color: '#60a5fa', fontSize: '11px', marginTop: '2px', fontWeight: '500' }}>{selectedDepartment === 'NYSP' ? 'New York State Police' : selectedDepartment === 'DISPATCHER' ? 'Dispatcher' : 'East Greenbush Police Department'}</div>
                 </div>
                 {/* Department pill */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: selectedDepartment === 'NYSP' ? 'rgba(56,189,248,0.1)' : 'rgba(34,197,94,0.1)', border: `1px solid ${selectedDepartment === 'NYSP' ? 'rgba(56,189,248,0.3)' : 'rgba(34,197,94,0.3)'}`, borderRadius: '999px', padding: '5px 12px', marginRight: '4px', position: 'relative', zIndex: 1 }}>
-                    <Shield size={12} style={{ color: selectedDepartment === 'NYSP' ? '#67e8f9' : '#4ade80' }} />
-                    <span style={{ fontSize: '10px', fontWeight: '800', letterSpacing: '1px', fontFamily: 'monospace', color: selectedDepartment === 'NYSP' ? '#67e8f9' : selectedDepartment === 'DISPATCHER' ? '#fbbf24' : '#4ade80' }}>{selectedDepartment === 'NYSP' ? 'NYSP' : selectedDepartment === 'DISPATCHER' ? 'DISPATCH' : 'EGPD'}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: selectedDepartment === 'NYSP' ? 'rgba(59,130,246,0.1)' : 'rgba(16,185,129,0.1)', border: `1px solid ${selectedDepartment === 'NYSP' ? 'rgba(59,130,246,0.25)' : 'rgba(16,185,129,0.25)'}`, borderRadius: '20px', padding: '5px 12px', marginRight: '8px', position: 'relative', zIndex: 1 }}>
+                    <Shield size={12} style={{ color: selectedDepartment === 'NYSP' ? '#60a5fa' : '#34d399' }} />
+                    <span style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '1px', color: selectedDepartment === 'NYSP' ? '#60a5fa' : selectedDepartment === 'DISPATCHER' ? '#f59e0b' : '#34d399' }}>{selectedDepartment === 'NYSP' ? 'NYSP' : selectedDepartment === 'DISPATCHER' ? 'DISPATCH' : 'EGPD'}</span>
                 </div>
-                <button onClick={() => setShowUsefulLinks(false)} title="Close"
-                    style={{ width: '32px', height: '32px', minWidth: '32px', borderRadius: '9px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.22)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 140ms ease-out, border-color 140ms ease-out', flexShrink: 0, padding: 0, position: 'relative', zIndex: 1 }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.22)'; }}>
-                    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
+<button
+    onClick={() => setShowUsefulLinks(false)}
+    style={{ width: '32px', height: '32px', minWidth: '32px', minHeight: '32px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0, padding: 0 }}
+    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)'; }}
+    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'; }}
+>
+    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+</button>
             </div>
 
             {/* Links grid */}
-            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '18px 20px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '20px 24px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '10px' }}>
                     {USEFUL_LINKS[selectedDepartment || 'NYSP'].map((link, index) => (
                         <a key={index} href="#" rel="noopener noreferrer"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                if (window.require) {
-                                    try { const { shell } = window.require('electron'); shell.openExternal(link.url); }
-                                    catch(_) { window.open(link.url, '_blank'); }
-                                } else { window.open(link.url, '_blank'); }
-                            }}
-                            className="gov-record-card"
-                            style={{ background: 'linear-gradient(180deg, rgba(56,189,248,0.07) 0%, rgba(8,16,32,0.5) 45%)', border: '1px solid rgba(56,189,248,0.15)', borderLeft: '3px solid rgba(56,189,248,0.55)', borderRadius: '11px', padding: '14px 16px', textDecoration: 'none', display: 'flex', gap: '12px', alignItems: 'flex-start', position: 'relative', overflow: 'hidden', animation: 'recordCardIn 320ms cubic-bezier(0.23,1,0.32,1) both', animationDelay: `${Math.min(index,10)*35}ms` }}
-                            onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(180deg, rgba(56,189,248,0.14) 0%, rgba(8,16,32,0.5) 45%)'; e.currentTarget.style.borderLeftColor = '#22d3ee'; e.currentTarget.style.transform = 'translateX(3px)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'linear-gradient(180deg, rgba(56,189,248,0.07) 0%, rgba(8,16,32,0.5) 45%)'; e.currentTarget.style.borderLeftColor = 'rgba(56,189,248,0.55)'; e.currentTarget.style.transform = 'translateX(0)'; }}>
-                            <div style={{ width: '34px', height: '34px', background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.3)', borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px' }}>
-                                <svg width="15" height="15" fill="none" stroke="#67e8f9" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+    onClick={(e) => {
+        e.preventDefault();
+        if (window.require) {
+            try {
+                const { shell } = window.require('electron');
+                shell.openExternal(link.url);
+            } catch(_) { window.open(link.url, '_blank'); }
+        } else {
+            window.open(link.url, '_blank');
+        }
+    }}
+                            style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(59,130,246,0.08)', borderLeft: '3px solid rgba(59,130,246,0.2)', borderRadius: '10px', padding: '14px 16px', textDecoration: 'none', display: 'flex', gap: '12px', alignItems: 'flex-start', transition: 'all 0.15s' }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.05)'; e.currentTarget.style.borderLeftColor = '#3b82f6'; e.currentTarget.style.transform = 'translateX(3px)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.borderLeftColor = 'rgba(59,130,246,0.2)'; e.currentTarget.style.transform = 'translateX(0)'; }}
+                        >
+                            <div style={{ width: '32px', height: '32px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px' }}>
+                                <svg width="15" height="15" fill="none" stroke="#60a5fa" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ color: '#f1f5f9', fontSize: '13px', fontWeight: '700', marginBottom: '4px', lineHeight: '1.3' }}>{link.title}</div>
-                                <div style={{ color: '#22d3ee', fontSize: '9px', fontWeight: '800', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '5px', fontFamily: 'monospace' }}>{link.category}</div>
-                                <div style={{ color: '#94a3b8', fontSize: '11px', lineHeight: '1.55' }}>{link.description}</div>
+                                <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700', marginBottom: '3px', lineHeight: '1.3' }}>{link.title}</div>
+                                <div style={{ color: '#3b82f6', fontSize: '9px', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '5px' }}>{link.category}</div>
+                                <div style={{ color: '#6b7280', fontSize: '11px', lineHeight: '1.5' }}>{link.description}</div>
                             </div>
                         </a>
                     ))}
