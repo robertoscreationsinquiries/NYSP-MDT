@@ -12360,28 +12360,13 @@ return (
 
                 <div style={{ position: 'relative', zIndex: 1 }}>
                     <div style={{ position: 'relative', display: 'inline-block', overflow: 'hidden' }}>
-                        <div style={{ color: '#fff', fontSize: 'clamp(46px, 5.5vw, 68px)', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase', textShadow: '0 4px 24px rgba(37,99,235,0.35)', lineHeight: 0.95 }}>NYSP</div>
+                        <div style={{ color: '#fff', fontSize: 'clamp(46px, 5.5vw, 68px)', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase', textShadow: '0 4px 24px rgba(37,99,235,0.35)', lineHeight: 0.95 }}>Cross-Department</div>
                         <div style={{ color: '#7dd3fc', fontSize: 'clamp(18px, 2vw, 26px)', fontWeight: '700', letterSpacing: '3px', textTransform: 'uppercase', fontFamily: 'monospace', marginTop: '6px', marginBottom: '18px', textShadow: '0 2px 12px rgba(56,189,248,0.3)' }}>Mobile Data Terminal</div>
                         {/* light sweep across the wordmark */}
                         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.18) 48%, transparent 62%)', backgroundSize: '250% 100%', pointerEvents: 'none', animation: 'loginSweep 6s ease-in-out infinite' }} />
                     </div>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.35)', borderRadius: '8px', padding: '8px 16px', color: '#7dd3fc', fontSize: '13px', fontWeight: '600', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace', boxShadow: 'inset 0 1px 0 rgba(56,189,248,0.1)' }}>
-                        <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#38bdf8', boxShadow: '0 0 6px #38bdf8' }} />
-                        v{typeof APP_VERSION !== 'undefined' ? APP_VERSION : '-'}{typeof window !== 'undefined' && window.APP_COMMIT_SHA ? ` · ${window.APP_COMMIT_SHA.slice(0,7)}` : ''}
-                    </div>
                 </div>
 
-                {/* terminal status strip — adds technical texture */}
-                <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: '9px', fontFamily: 'monospace', fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingLeft: '1px' }}>
-                        <span style={{ color: '#38bdf8' }}>▸</span>
-                        <span style={{ color: '#64748b', fontWeight: '500' }}>New York State Police</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingLeft: '1px' }}>
-                        <span style={{ color: '#38bdf8' }}>▸</span>
-                        <span style={{ color: '#64748b', fontWeight: '500' }}>Secure Terminal · Est. 2025</span>
-                    </div>
-                </div>
             </div>
 
             {/* RIGHT — form panel (darker, separated by a hairline) */}
@@ -12450,20 +12435,9 @@ return (
                         <svg width="14" height="14" fill="none" stroke="#38bdf8" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                         <span style={{ color: '#64748b', fontSize: '11px', fontFamily: 'monospace', letterSpacing: '0.5px', lineHeight: 1.5 }}>End-to-end encrypted credential check</span>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        {[
-                            { label: 'SECURE', color: '34,197,94' },
-                            { label: 'CAD v0.2.0', color: '56,189,248' },
-                            { label: 'NYSP NETWORK', color: '167,139,250' }
-                        ].map((chip, i) => (
-                            <div key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 11px', borderRadius: '999px', background: `rgba(${chip.color},0.08)`, border: `1px solid rgba(${chip.color},0.25)` }}>
-                                <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: `rgb(${chip.color})`, boxShadow: `0 0 6px rgb(${chip.color})` }} />
-                                <span style={{ color: `rgb(${chip.color})`, fontSize: '9.5px', fontWeight: '800', letterSpacing: '1.5px', fontFamily: 'monospace' }}>{chip.label}</span>
-                            </div>
-                        ))}
-                    </div>
+                
                     <div style={{ color: '#475569', fontSize: '10px', fontFamily: 'monospace', letterSpacing: '0.5px', marginTop: '16px', lineHeight: 1.6, textAlign: 'center' }}>
-                        Unauthorized access is prohibited · All sessions are monitored
+                        Unauthorized access is prohibited · v{typeof APP_VERSION !== 'undefined' ? APP_VERSION : '-'}{typeof window !== 'undefined' && window.APP_COMMIT_SHA ? ` · ${window.APP_COMMIT_SHA.slice(0,7)}` : ''}
                     </div>
                 </div>
 
