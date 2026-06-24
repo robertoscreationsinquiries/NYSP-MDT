@@ -12260,25 +12260,21 @@ return (
 
                 <div style={{ position: 'relative', zIndex: 1 }}>
                     <div style={{ position: 'relative', display: 'inline-block', overflow: 'hidden' }}>
-                        <div style={{ color: '#fff', fontSize: 'clamp(40px, 5vw, 60px)', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase', textShadow: '0 4px 24px rgba(37,99,235,0.35)', lineHeight: 0.98, marginBottom: '18px' }}>NEW YORK<br/>STATE POLICE</div>
+                        <div style={{ color: '#fff', fontSize: 'clamp(40px, 5vw, 60px)', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase', textShadow: '0 4px 24px rgba(37,99,235,0.35)', lineHeight: 0.98, marginBottom: '18px' }}>NEW YORK STATES<br/>MOBILE DATA TERMINAL</div>
                         {/* light sweep across the wordmark */}
                         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.18) 48%, transparent 62%)', backgroundSize: '250% 100%', pointerEvents: 'none', animation: 'loginSweep 6s ease-in-out infinite' }} />
                     </div>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.35)', borderRadius: '8px', padding: '8px 16px', color: '#7dd3fc', fontSize: '13px', fontWeight: '600', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace', boxShadow: 'inset 0 1px 0 rgba(56,189,248,0.1)' }}>
                         <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#38bdf8', boxShadow: '0 0 6px #38bdf8' }} />
-                        Mobile Data Terminal · MDT
+                        v{typeof APP_VERSION !== 'undefined' ? APP_VERSION : '-'} · {typeof window !== 'undefined' && window.APP_COMMIT_SHA ? window.APP_COMMIT_SHA.slice(0,7) : '-------'}
                     </div>
                 </div>
 
                 {/* terminal status strip — adds technical texture */}
                 <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: '7px', fontFamily: 'monospace', fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981', animation: 'pulse-dot 2s ease-in-out infinite' }} />
-                        <span style={{ color: '#94a3b8', fontWeight: '600' }}>System Online · Secure Connection</span>
-                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingLeft: '1px' }}>
                         <span style={{ color: '#475569' }}>▸</span>
-                        <span style={{ color: '#64748b', fontWeight: '500' }}>NYSP Network · Authorized Personnel Only</span>
+                        <span style={{ color: '#64748b', fontWeight: '500' }}>EST. 2025</span>
                     </div>
                 </div>
             </div>
@@ -12343,10 +12339,6 @@ return (
                     {isLoggingIn ? <><Loader2 size={16} className="login-spin" /><span>AUTHENTICATING...</span></> : <><Shield size={16} /><span>AUTHENTICATE</span></>}
                 </button>
 
-                {/* Version footer inside the form column */}
-                <div style={{ textAlign: 'center', marginTop: '20px', color: '#475569', fontSize: '10px', fontWeight: '600', letterSpacing: '1px', fontFamily: 'monospace' }}>
-                    v{typeof APP_VERSION !== 'undefined' ? APP_VERSION : '-'} · {typeof window !== 'undefined' && window.APP_COMMIT_SHA ? window.APP_COMMIT_SHA.slice(0,7) : '-------'}
-                </div>
               </div>
             </div>
         </div>
@@ -12638,7 +12630,7 @@ return (
     const title = isInternet ? 'No Internet Connection' : 'Server Unreachable';
     const description = isInternet
         ? 'Your device appears to be offline. Check your internet connection — we\u2019ll reconnect automatically once it\u2019s back.'
-        : 'We can\u2019t reach the NYSP MDT servers right now. Your internet is working, so this is on our end. Attempting to reconnect..';
+        : 'We can\u2019t reach our backend servers right now. Your internet is working, so this is an error on our end. Attempting to reconnect..';
     return (
     <>
         <div
