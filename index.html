@@ -2872,8 +2872,39 @@ const CONNECTION_COUNTDOWN_S = 60;       // seconds to reconnect before logout
 const lastBackendContactRef = React.useRef(Date.now());
 const connectionLostRef = React.useRef(false);
 const [connectionLost, setConnectionLost] = React.useState(false);
+const [connectionLostKind, setConnectionLostKind] = React.useState('cloudflare'); // 'internet' | 'cloudflare'
 const [connectionCountdown, setConnectionCountdown] = React.useState(CONNECTION_COUNTDOWN_S);
+const connectionCountdownRef = React.useRef(CONNECTION_COUNTDOWN_S);
+React.useEffect(() => { connectionCountdownRef.current = connectionCountdown; }, [connectionCountdown]);
 React.useEffect(() => { connectionLostRef.current = connectionLost; }, [connectionLost]);
+
+// Diagnose WHY the backend went silent: is the user's internet down, or is it just
+// Cloudflare (our Worker) that's unreachable? We probe a couple of neutral third-party
+// hosts with `no-cors` — if ANY resolves, the internet works and the fault is Cloudflare;
+// if none resolve (and navigator reports offline), it's the user's connection.
+const diagnoseConnectionKind = async () => {
+    // Fast first signal: the browser's own online flag.
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'internet';
+    const probes = [
+        'https://www.gstatic.com/generate_204',
+        'https://www.cloudflare.com/cdn-cgi/trace',
+        'https://www.bing.com/favicon.ico'
+    ];
+    const tryProbe = (urlStr) => new Promise((resolve) => {
+        const ctrl = new AbortController();
+        const to = setTimeout(() => { ctrl.abort(); resolve(false); }, 4000);
+        fetch(urlStr, { mode: 'no-cors', cache: 'no-store', signal: ctrl.signal })
+            .then(() => { clearTimeout(to); resolve(true); })
+            .catch(() => { clearTimeout(to); resolve(false); });
+    });
+    try {
+        const results = await Promise.all(probes.map(tryProbe));
+        // Any third-party host reachable → internet is fine → it's Cloudflare that's down.
+        return results.some(Boolean) ? 'cloudflare' : 'internet';
+    } catch (_) {
+        return 'internet';
+    }
+};
 
 React.useEffect(() => {
     // Only meaningful once logged in — no point warning on the login screen.
@@ -2886,9 +2917,18 @@ React.useEffect(() => {
                 connectionLostRef.current = true;
                 setConnectionLost(true);
                 setConnectionCountdown(CONNECTION_COUNTDOWN_S);
-                console.warn(`[CONN] No backend contact for ${Math.round(silentFor/1000)}s — showing reconnect popup`);
+                console.warn(`[CONN] No backend contact for ${Math.round(silentFor/1000)}s — diagnosing…`);
+                diagnoseConnectionKind().then(kind => {
+                    setConnectionLostKind(kind);
+                    console.warn(`[CONN] Diagnosis: ${kind === 'internet' ? 'USER INTERNET down' : 'CLOUDFLARE unreachable (internet OK)'}`);
+                });
             }
         } else {
+            // While lost, re-diagnose periodically so the message stays accurate if the
+            // user's internet returns but Cloudflare is still down (or vice versa).
+            if (connectionCountdownRef.current % 5 === 0) {
+                diagnoseConnectionKind().then(kind => setConnectionLostKind(kind));
+            }
             // In "lost" state — count down. Reconnection is handled by the poll clearing
             // connectionLost; here we only handle the timeout → logout path.
             setConnectionCountdown(prev => {
@@ -11575,7 +11615,7 @@ if (window.MAINTENANCE === true && !(window.APP_GITHUB_BRANCH && window.APP_GITH
 
     } catch (error) {
         console.error('[AUTH] Login error:', error);
-        setLoginError('Connection error. Please check your internet connection and try again.');
+        setLoginError('We encountered an error while logging in. Check #service-updates on Discord for any known issues. If the problem persists, contact support.');
         setIsLoggingIn(false);
     }
 };
@@ -12594,6 +12634,11 @@ return (
     const remaining = Math.max(0, connectionCountdown);
     const ratio = Math.max(0, Math.min(1, remaining / total));
     const accentRgb = '239,68,68';
+    const isInternet = connectionLostKind === 'internet';
+    const title = isInternet ? 'No Internet Connection' : 'Server Unreachable';
+    const description = isInternet
+        ? 'Your device appears to be offline. Check your internet connection — we\u2019ll reconnect automatically once it\u2019s back.'
+        : 'We can\u2019t reach the NYSP MDT servers right now. Your internet is working, so this is on our end. Attempting to reconnect..';
     return (
     <>
         <div
@@ -12617,13 +12662,24 @@ return (
         >
             <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(239,68,68,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(239,68,68,0.04) 1px, transparent 1px)', backgroundSize: '40px 40px', pointerEvents: 'none' }} />
             <div style={{ position: 'relative', padding: '30px 30px 24px', textAlign: 'center' }}>
-                {/* Pulsing icon */}
+                {/* Pulsing icon — wifi-off for internet, server/cloud-off for Cloudflare */}
                 <div style={{ width: '60px', height: '60px', margin: '0 auto 18px', borderRadius: '16px', background: 'linear-gradient(135deg, #ef4444, #b91c1c)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 28px rgba(239,68,68,0.45)', animation: 'pulse 1.6s ease-in-out infinite' }}>
-                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.58 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0M12 20h.01"/></svg>
+                    {isInternet ? (
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.58 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0M12 20h.01"/></svg>
+                    ) : (
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 1l22 22M22 12.5A4.5 4.5 0 0018 8h-1.8M8 8a5 5 0 00-2 .4M3.5 7.5a4.5 4.5 0 00.5 8.5h11"/><line x1="6" y1="20" x2="6.01" y2="20"/><line x1="10" y1="20" x2="10.01" y2="20"/></svg>
+                    )}
                 </div>
-                <div style={{ color: '#fca5a5', fontSize: '20px', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: '10px' }}>Connection Lost</div>
-                <div style={{ color: '#cbd5e1', fontSize: '14px', lineHeight: 1.6, maxWidth: '400px', margin: '0 auto 22px' }}>
-                    Our connection to you has been interrupted. Attempting to reconnect..
+                <div style={{ color: '#fca5a5', fontSize: '20px', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: '10px' }}>{title}</div>
+                <div style={{ color: '#cbd5e1', fontSize: '14px', lineHeight: 1.6, maxWidth: '420px', margin: '0 auto 16px' }}>
+                    {description}
+                </div>
+                {/* Diagnosis chip */}
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '5px 12px', borderRadius: '999px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', marginBottom: '20px' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px #ef4444' }} />
+                    <span style={{ color: '#fca5a5', fontSize: '10px', fontWeight: '800', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'monospace' }}>
+                        {isInternet ? 'Local network offline' : 'Server-side outage'}
+                    </span>
                 </div>
                 {/* Countdown */}
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '8px', marginBottom: '14px' }}>
