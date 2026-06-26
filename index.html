@@ -2462,30 +2462,71 @@ const pursuitActiveRef = React.useRef(false);
 React.useEffect(() => { pursuitEnabledRef.current = pursuitEnabled; }, [pursuitEnabled]);
 React.useEffect(() => { pursuitActiveRef.current = pursuitActive; }, [pursuitActive]);
 
-// Department theme injection
+// Department theme injection — reskins the whole MDT per department so each feels
+// specialized. NYSP navy/gold · EGPD black/silver · EGFD dark red · DOT dark amber.
+// Drives CSS vars + a body[data-dept] hook. Also exposes --dept-screen-bg / --dept-glow
+// so the login → loader → dashboard backgrounds can flood with the department's theme.
 React.useEffect(() => {
-    const dept = trooperSettings?.Department || selectedDepartment;
+    const dept = trooperSettings?.Department || selectedDepartment || 'NYSP';
     let styleEl = document.getElementById('dept-theme');
     if (!styleEl) { styleEl = document.createElement('style'); styleEl.id = 'dept-theme'; document.head.appendChild(styleEl); }
-    if (dept === 'NYSP') {
-        // NYSP: deep navy + gold
-        styleEl.textContent = `
-            .btn-primary, button[style*="linear-gradient(135deg, #3b82f6"] { background: linear-gradient(135deg, #1a3a6e, #1e4080) !important; }
-            .mdt-progress-bar-inner { background: linear-gradient(90deg, #c9a227, #f0c040) !important; }
-            .box-header { background: linear-gradient(135deg, rgba(26,58,110,0.9), rgba(15,30,70,0.95)) !important; border-bottom-color: rgba(201,162,39,0.3) !important; }
-            :root { --accent: #c9a227; --accent-light: #f0c040; --accent-dim: rgba(201,162,39,0.2); --accent-border: rgba(201,162,39,0.35); --primary: #1a3a6e; --primary-light: #1e4080; }
-        `;
-    } else if (dept === 'EGPD') {
-        // EGPD: near-black + white/silver
-        styleEl.textContent = `
-            .btn-primary, button[style*="linear-gradient(135deg, #3b82f6"] { background: linear-gradient(135deg, #1a1a1a, #2a2a2a) !important; }
-            .mdt-progress-bar-inner { background: linear-gradient(90deg, #9ca3af, #e5e7eb) !important; }
-            .box-header { background: linear-gradient(135deg, rgba(20,20,20,0.95), rgba(10,10,10,0.98)) !important; border-bottom-color: rgba(156,163,175,0.3) !important; }
-            :root { --accent: #d1d5db; --accent-light: #f9fafb; --accent-dim: rgba(209,213,219,0.15); --accent-border: rgba(209,213,219,0.3); --primary: #111111; --primary-light: #222222; }
-        `;
-    } else {
-        styleEl.textContent = ''; // default blue
-    }
+    document.body.setAttribute('data-dept', dept);
+
+    const THEMES = {
+        NYSP: {
+            primary: '#1a3a6e', primaryLight: '#1e4080',
+            accent: '#c9a227', accentLight: '#f0c040', accentRgb: '201,162,39',
+            bgTint: 'radial-gradient(ellipse at 15% 15%, rgba(30,58,138,0.22) 0%, transparent 45%), radial-gradient(ellipse at 85% 85%, rgba(5,46,22,0.18) 0%, transparent 45%)',
+            progress: 'linear-gradient(90deg, #c9a227, #f0c040)',
+            screenBg: 'radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 50%, #050a14 100%)',
+            glowRgb: '37,99,235'
+        },
+        EGPD: {
+            primary: '#1f1f1f', primaryLight: '#333333',
+            accent: '#d1d5db', accentLight: '#f9fafb', accentRgb: '209,213,219',
+            bgTint: 'radial-gradient(ellipse at 15% 15%, rgba(70,70,70,0.32) 0%, transparent 50%), radial-gradient(ellipse at 85% 85%, rgba(20,20,20,0.5) 0%, transparent 50%)',
+            progress: 'linear-gradient(90deg, #9ca3af, #f9fafb)',
+            screenBg: 'radial-gradient(ellipse at 50% 0%, #1c1c1c 0%, #111111 50%, #050505 100%)',
+            glowRgb: '150,150,150'
+        },
+        EGFD: {
+            primary: '#7f1d1d', primaryLight: '#991b1b',
+            accent: '#ef4444', accentLight: '#f87171', accentRgb: '239,68,68',
+            bgTint: 'radial-gradient(ellipse at 15% 15%, rgba(127,29,29,0.38) 0%, transparent 48%), radial-gradient(ellipse at 85% 85%, rgba(60,10,10,0.42) 0%, transparent 50%)',
+            progress: 'linear-gradient(90deg, #b91c1c, #f87171)',
+            screenBg: 'radial-gradient(ellipse at 50% 0%, #2a0f0f 0%, #1a0808 50%, #0a0303 100%)',
+            glowRgb: '185,28,28'
+        },
+        DOT: {
+            primary: '#854d0e', primaryLight: '#a16207',
+            accent: '#eab308', accentLight: '#facc15', accentRgb: '234,179,8',
+            bgTint: 'radial-gradient(ellipse at 15% 15%, rgba(133,77,14,0.38) 0%, transparent 48%), radial-gradient(ellipse at 85% 85%, rgba(60,45,5,0.42) 0%, transparent 50%)',
+            progress: 'linear-gradient(90deg, #a16207, #facc15)',
+            screenBg: 'radial-gradient(ellipse at 50% 0%, #2a200a 0%, #1a1405 50%, #0a0803 100%)',
+            glowRgb: '161,98,7'
+        }
+    };
+    const t = THEMES[dept] || THEMES.NYSP;
+
+    styleEl.textContent = `
+        :root {
+            --accent: ${t.accent}; --accent-light: ${t.accentLight};
+            --accent-dim: rgba(${t.accentRgb},0.2); --accent-border: rgba(${t.accentRgb},0.35);
+            --primary: ${t.primary}; --primary-light: ${t.primaryLight};
+            --dept-screen-bg: ${t.screenBg}; --dept-glow: ${t.glowRgb};
+        }
+        body[data-dept="${dept}"] { background-image: ${t.bgTint} !important; }
+        body[data-dept="${dept}"] .btn-primary,
+        body[data-dept="${dept}"] button[style*="linear-gradient(135deg, #3b82f6"],
+        body[data-dept="${dept}"] button[style*="linear-gradient(135deg,#3b82f6"] {
+            background: linear-gradient(135deg, ${t.primary}, ${t.primaryLight}) !important;
+        }
+        body[data-dept="${dept}"] .mdt-progress-bar-inner { background: ${t.progress} !important; }
+        body[data-dept="${dept}"] .box-header {
+            background: linear-gradient(135deg, rgba(${t.accentRgb},0.12), rgba(0,0,0,0.4)) !important;
+            border-bottom-color: rgba(${t.accentRgb},0.3) !important;
+        }
+    `;
 }, [trooperSettings?.Department, selectedDepartment]);
 React.useEffect(() => { panicCooldownUntilRef.current = panicCooldownUntil; }, [panicCooldownUntil]);
 React.useEffect(() => { panicTriggerModeRef.current = panicTriggerMode; }, [panicTriggerMode]);
@@ -12429,19 +12470,19 @@ return (
 )}
 
 {!maintenanceActive && !showUpdateScreen && introDone && showLoginScreen && (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 50%, #050a14 100%)', display: 'flex', zIndex: 100002, animation: loginFadingOut ? 'fadeOut 0.4s ease-out forwards' : 'fadeIn 0.4s ease-out', overflow: 'hidden' }}>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'radial-gradient(ellipse at 50% 0%, #1e2230 0%, #15171f 50%, #0c0d12 100%)', display: 'flex', zIndex: 100002, animation: loginFadingOut ? 'fadeOut 0.4s ease-out forwards' : 'fadeIn 0.4s ease-out', overflow: 'hidden' }}>
         {/* Ambient background — grid + drifting glows, full screen */}
-        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(59,130,246,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.035) 1px, transparent 1px)', backgroundSize: '44px 44px', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', top: '-220px', left: '-180px', width: '680px', height: '680px', background: 'radial-gradient(circle, rgba(37,99,235,0.18) 0%, transparent 70%)', pointerEvents: 'none', animation: 'heroDrift 11s ease-in-out infinite' }} />
-        <div style={{ position: 'absolute', bottom: '-220px', right: '-180px', width: '560px', height: '560px', background: 'radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 70%)', pointerEvents: 'none', animation: 'heroDrift 13s ease-in-out infinite reverse' }} />
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(148,163,184,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.04) 1px, transparent 1px)', backgroundSize: '44px 44px', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '-220px', left: '-180px', width: '680px', height: '680px', background: 'radial-gradient(circle, rgba(148,163,184,0.14) 0%, transparent 70%)', pointerEvents: 'none', animation: 'heroDrift 11s ease-in-out infinite' }} />
+        <div style={{ position: 'absolute', bottom: '-220px', right: '-180px', width: '560px', height: '560px', background: 'radial-gradient(circle, rgba(148,163,184,0.08) 0%, transparent 70%)', pointerEvents: 'none', animation: 'heroDrift 13s ease-in-out infinite reverse' }} />
 
         <div style={{ position: 'relative', zIndex: 1, width: '100%', display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', animation: 'loginCardIn 0.5s cubic-bezier(0.23,1,0.32,1)' }}>
 
             {/* LEFT — full-height hero/branding (owns the left half of the screen) */}
             <div style={{ position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: '26px', padding: '0 7vw' }}>
                 {/* layered glows: blue + cyan, to match the CAD card palette */}
-                <div style={{ position: 'absolute', top: '42%', left: '-160px', transform: 'translateY(-50%)', width: '520px', height: '520px', background: 'radial-gradient(circle, rgba(37,99,235,0.18) 0%, transparent 65%)', pointerEvents: 'none', zIndex: 0 }} />
-                <div style={{ position: 'absolute', top: '70%', left: '20%', width: '360px', height: '360px', background: 'radial-gradient(circle, rgba(56,189,248,0.1) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0, animation: 'heroDrift 10s ease-in-out infinite' }} />
+                <div style={{ position: 'absolute', top: '42%', left: '-160px', transform: 'translateY(-50%)', width: '520px', height: '520px', background: 'radial-gradient(circle, rgba(148,163,184,0.14) 0%, transparent 65%)', pointerEvents: 'none', zIndex: 0 }} />
+                <div style={{ position: 'absolute', top: '70%', left: '20%', width: '360px', height: '360px', background: 'radial-gradient(circle, rgba(203,213,225,0.07) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0, animation: 'heroDrift 10s ease-in-out infinite' }} />
                 {/* CRT scanline texture — police-terminal feel */}
                 <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, rgba(56,189,248,0.025) 0px, rgba(56,189,248,0.025) 1px, transparent 1px, transparent 3px)', pointerEvents: 'none', zIndex: 0, opacity: 0.6 }} />
 
@@ -12544,20 +12585,20 @@ return (
 )}
 
 {!maintenanceActive && !showUpdateScreen && introDone && showLoader && (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100001, background: 'radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 50%, #050a14 100%)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100001, background: 'var(--dept-screen-bg, radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 50%, #050a14 100%))', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Animated background grid + drifting glows (matches login) */}
-        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(59,130,246,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.035) 1px, transparent 1px)', backgroundSize: '44px 44px', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', top: '-220px', left: '-180px', width: '680px', height: '680px', background: 'radial-gradient(circle, rgba(37,99,235,0.18) 0%, transparent 70%)', pointerEvents: 'none', animation: 'heroDrift 11s ease-in-out infinite' }} />
-        <div style={{ position: 'absolute', bottom: '-220px', right: '-180px', width: '560px', height: '560px', background: 'radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 70%)', pointerEvents: 'none', animation: 'heroDrift 13s ease-in-out infinite reverse' }} />
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(var(--dept-glow, 37,99,235),0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(var(--dept-glow, 37,99,235),0.04) 1px, transparent 1px)', backgroundSize: '44px 44px', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '-220px', left: '-180px', width: '680px', height: '680px', background: 'radial-gradient(circle, rgba(var(--dept-glow, 37,99,235),0.16) 0%, transparent 70%)', pointerEvents: 'none', animation: 'heroDrift 11s ease-in-out infinite' }} />
+        <div style={{ position: 'absolute', bottom: '-220px', right: '-180px', width: '560px', height: '560px', background: 'radial-gradient(circle, rgba(var(--dept-glow, 37,99,235),0.1) 0%, transparent 70%)', pointerEvents: 'none', animation: 'heroDrift 13s ease-in-out infinite reverse' }} />
 
         {/* Full-bleed split — mirrors the login layout for a seamless transition */}
         <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', minHeight: 0, animation: 'loginCardIn 0.5s cubic-bezier(0.23,1,0.32,1)' }}>
 
             {/* LEFT — hero, identical treatment to the login hero (scanlines, brackets, sweep, cyan) */}
             <div style={{ position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: '26px', padding: '0 7vw' }}>
-                <div style={{ position: 'absolute', top: '42%', left: '-160px', transform: 'translateY(-50%)', width: '520px', height: '520px', background: 'radial-gradient(circle, rgba(37,99,235,0.18) 0%, transparent 65%)', pointerEvents: 'none', zIndex: 0 }} />
-                <div style={{ position: 'absolute', top: '70%', left: '20%', width: '360px', height: '360px', background: 'radial-gradient(circle, rgba(56,189,248,0.1) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0, animation: 'heroDrift 10s ease-in-out infinite' }} />
+                <div style={{ position: 'absolute', top: '42%', left: '-160px', transform: 'translateY(-50%)', width: '520px', height: '520px', background: 'radial-gradient(circle, rgba(var(--dept-glow, 37,99,235),0.16) 0%, transparent 65%)', pointerEvents: 'none', zIndex: 0 }} />
+                <div style={{ position: 'absolute', top: '70%', left: '20%', width: '360px', height: '360px', background: 'radial-gradient(circle, rgba(var(--dept-glow, 37,99,235),0.08) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0, animation: 'heroDrift 10s ease-in-out infinite' }} />
                 <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, rgba(56,189,248,0.025) 0px, rgba(56,189,248,0.025) 1px, transparent 1px, transparent 3px)', pointerEvents: 'none', zIndex: 0, opacity: 0.6 }} />
 
                 <div style={{ position: 'relative', zIndex: 1 }}>
@@ -14000,7 +14041,7 @@ return (
 
 {/* DASHBOARD SUBVIEW */}
         {homeSubView === 'dashboard' && (
-            <div style={{ flex:1,overflowY:'auto',background:'radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 50%, #050a14 100%)',padding:'20px',display:'flex',flexDirection:'column',gap:'14px',position:'relative' }}>
+            <div style={{ flex:1,overflowY:'auto',background:'var(--dept-screen-bg, radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 50%, #050a14 100%))',padding:'20px',display:'flex',flexDirection:'column',gap:'14px',position:'relative' }}>
 {/* Header card */}
                 <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'16px',padding:'16px 22px',background:'linear-gradient(135deg,rgba(30,58,138,0.25) 0%,rgba(15,30,60,0.4) 100%)',border:'1px solid rgba(56,189,248,0.18)',borderRadius:'12px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 0 24px rgba(14,165,233,0.04)',flexShrink:0 }}>
                     <div style={{ display:'flex',alignItems:'center',gap:'14px' }}>
@@ -14258,7 +14299,7 @@ return (
 }}>
 
 {activeView === 'search' && (
-<div style={{ position:'fixed',top:'52px',left:0,right:0,bottom:0,background:'radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 50%, #050a14 100%)',padding:'20px',boxSizing:'border-box',overflowY:'auto' }}>
+<div style={{ position:'fixed',top:'52px',left:0,right:0,bottom:0,background:'var(--dept-screen-bg, radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 50%, #050a14 100%))',padding:'20px',boxSizing:'border-box',overflowY:'auto' }}>
 {/* Header card — matches home dashboard */}
 <div className="mini-hide" style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'16px',padding:'14px 20px',marginBottom:'14px',background:'linear-gradient(135deg,rgba(30,58,138,0.25) 0%,rgba(15,30,60,0.4) 100%)',border:'1px solid rgba(56,189,248,0.18)',borderRadius:'12px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 0 24px rgba(14,165,233,0.04)' }}>
     <div style={{ display:'flex',alignItems:'center',gap:'14px' }}>
@@ -15493,7 +15534,7 @@ onError={(e) => {
 )}
 
 {activeView === 'settings' && (
-<div className="settings-root" style={{ position:'fixed',top:'52px',left:0,right:0,bottom:0,background:'radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 50%, #050a14 100%)',padding:'20px',boxSizing:'border-box',overflowY:'auto' }}>
+<div className="settings-root" style={{ position:'fixed',top:'52px',left:0,right:0,bottom:0,background:'var(--dept-screen-bg, radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 50%, #050a14 100%))',padding:'20px',boxSizing:'border-box',overflowY:'auto' }}>
 
         {!settingsWarningDismissed ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 88px)', padding: '40px', textAlign: 'center' }}>
@@ -16715,7 +16756,7 @@ onError={(e) => {
     const uptimeStr = `${Math.floor(uptimeSec/60)}m ${uptimeSec%60}s`;
 
     return (
-    <div style={{ position:'fixed', top:'52px', left:0, right:0, bottom:0, background:'radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 50%, #050a14 100%)', display:'flex', boxSizing:'border-box' }}>
+    <div style={{ position:'fixed', top:'52px', left:0, right:0, bottom:0, background:'var(--dept-screen-bg, radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 50%, #050a14 100%))', display:'flex', boxSizing:'border-box' }}>
         {/* Left tab rail */}
         <div style={{ width:'180px', flexShrink:0, borderRight:'1px solid rgba(56,189,248,0.15)', padding:'18px 12px', display:'flex', flexDirection:'column', gap:'5px', background:'rgba(7,12,24,0.4)' }}>
             <div style={{ display:'flex', alignItems:'center', gap:'8px', padding:'0 8px 14px' }}>
