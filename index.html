@@ -11674,7 +11674,10 @@ if (window.MAINTENANCE === true && !(window.APP_GITHUB_BRANCH && window.APP_GITH
             badge: user.badgeId
         });
 
-        if (!user.callSign) {
+        // callSign is optional (some departments — e.g. EGFD, DOT — may not use NYSP-style
+        // callsigns). Only a missing badge/identity is genuinely corrupt. Fall back to the
+        // badge ID when no callSign is present so these records still log in cleanly.
+        if (!user.callSign && !user.badgeId) {
             setShowDataCorruptedError(true);
             setIsLoggingIn(false);
             return;
