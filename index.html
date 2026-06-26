@@ -2332,6 +2332,19 @@ const sessionStatsRef = React.useRef({
     loginAt: null,
     logged: false // guard so we only send once per session
 });
+// Call this the moment a login succeeds (any path). Stamps the start time and resets
+// the per-session counters. Done as a direct call rather than an effect, because the
+// authenticatedUser effect could miss if the value was already set before it mounted.
+const beginSession = () => {
+    const st = sessionStatsRef.current;
+    st.loginAt = Date.now();
+    st.logged = false;
+    st.platesSearched = 0;
+    st.citizensSearched = 0;
+    st.citationsExported = 0;
+    st.arrestsExported = 0;
+    console.log('[SESSION-LOG] Session started at', new Date(st.loginAt).toLocaleString());
+};
 const [mapUrl, setMapUrl] = useState(null);
 const [homeSubView, setHomeSubView] = useState('dashboard');
 const [historySearch, setHistorySearch] = useState('');
@@ -3777,6 +3790,7 @@ useEffect(() => {
             setTrooperName(user.robloxUsername);
             setTrooperBadge(user.badgeId);
             setShowLoginScreen(false);
+            beginSession();
             console.log('[AUTH] ✅ Session restored');
             
         } catch (e) {
@@ -5880,6 +5894,7 @@ useEffect(() => {
             
             if (currentUser) {
                 setAuthenticatedUser(user);
+                beginSession();
                 securityBaselineRef.current = {
                     username: currentUser.robloxUsername || user.robloxUsername,
                     passwordFingerprint: currentUser.passwordFingerprint || user.passwordFingerprint || null,
@@ -11627,6 +11642,7 @@ if (window.MAINTENANCE === true && !(window.APP_GITHUB_BRANCH && window.APP_GITH
                     '| locks:', JSON.stringify(user.locks || {}));
 
         setAuthenticatedUser(user);
+        beginSession();
         setTrooperData({
             robloxUsername: user.robloxUsername,
             patrolZone: user.patrolZone,
