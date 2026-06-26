@@ -11698,8 +11698,15 @@ if (window.MAINTENANCE === true && !(window.APP_GITHUB_BRANCH && window.APP_GITH
 const flushSessionLog = (viaBeacon) => {
     try {
         const st = sessionStatsRef.current;
-        if (!st || st.logged || !st.loginAt) return; // nothing to send / already sent
-        if (!authenticatedUser && !trooperSettings?.BadgeID) return;
+        console.log('[SESSION-LOG] flush called · viaBeacon:', viaBeacon, '· stats:', st);
+        if (!st || st.logged || !st.loginAt) {
+            console.warn('[SESSION-LOG] SKIPPED —', !st ? 'no stats ref' : st.logged ? 'already logged this session' : 'no loginAt timestamp (login effect never set it)');
+            return;
+        }
+        if (!authenticatedUser && !trooperSettings?.BadgeID) {
+            console.warn('[SESSION-LOG] SKIPPED — no authenticatedUser and no badge');
+            return;
+        }
         st.logged = true;
         const start = new Date(st.loginAt);
         const end = new Date();
@@ -11720,11 +11727,15 @@ const flushSessionLog = (viaBeacon) => {
             date: end.toLocaleDateString()
         };
         const url = 'https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/session-log';
+        console.log('[SESSION-LOG] SENDING payload:', payload);
         if (viaBeacon && navigator.sendBeacon) {
             // sendBeacon survives the page unloading — ideal for exit.
-            navigator.sendBeacon(url, new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+            const ok = navigator.sendBeacon(url, new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+            console.log('[SESSION-LOG] sendBeacon queued:', ok);
         } else {
-            fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), keepalive: true }).catch(() => {});
+            fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), keepalive: true })
+                .then(() => console.log('[SESSION-LOG] fetch sent OK'))
+                .catch((e) => console.warn('[SESSION-LOG] fetch failed', e));
         }
     } catch (_) {}
 };
