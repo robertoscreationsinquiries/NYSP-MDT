@@ -2319,6 +2319,19 @@ React.useEffect(() => {
 const [showQuitConfirm, setShowQuitConfirm] = useState(false);
 const [boloLightboxImage, setBoloLightboxImage] = useState(null);
 const [activityLog, setActivityLog] = useState([]);
+
+// ── Session usage stats ──
+// Counters live in a ref (no re-renders) and are incremented at the same points we
+// already call logActivity. On logout/exit we send ONE POST to Cloudflare with the
+// totals, so this costs a single extra request per session (not per action).
+const sessionStatsRef = React.useRef({
+    platesSearched: 0,
+    citizensSearched: 0,
+    citationsExported: 0,
+    arrestsExported: 0,
+    loginAt: null,
+    logged: false // guard so we only send once per session
+});
 const [mapUrl, setMapUrl] = useState(null);
 const [homeSubView, setHomeSubView] = useState('dashboard');
 const [historySearch, setHistorySearch] = useState('');
@@ -2349,6 +2362,19 @@ const logActivity = React.useCallback((msg) => {
     const ts = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setActivityLog(prev => [{ ts, msg, id: Date.now() }, ...prev].slice(0, 200));
 }, []);
+
+// Stamp the session start when the user becomes authenticated (covers all login paths),
+// and reset the per-session counters fresh.
+React.useEffect(() => {
+    if (authenticatedUser && !sessionStatsRef.current.loginAt) {
+        sessionStatsRef.current.loginAt = Date.now();
+        sessionStatsRef.current.logged = false;
+        sessionStatsRef.current.platesSearched = 0;
+        sessionStatsRef.current.citizensSearched = 0;
+        sessionStatsRef.current.citationsExported = 0;
+        sessionStatsRef.current.arrestsExported = 0;
+    }
+}, [authenticatedUser]);
 const [maintenanceActive, setMaintenanceActive] = React.useState(false);
 const [lastMaintenanceCheck, setLastMaintenanceCheck] = React.useState(Date.now());
 const [showUpdateScreen, setShowUpdateScreen] = React.useState(false);
@@ -6958,6 +6984,8 @@ React.useEffect(() => {
 
 useEffect(() => {
     const handleBeforeUnload = (e) => {
+        // Send the session usage log before the window closes (beacon survives unload).
+        try { flushSessionLog(true); } catch(_) {}
         e.preventDefault();
         e.returnValue = ''; // Chrome requires returnValue to be set
         return ''; // For older browsers
@@ -6968,7 +6996,7 @@ useEffect(() => {
     return () => {
         window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-}, []);
+}, [authenticatedUser, trooperSettings]);
 
 const parseWithGroqAI = async (block, apiKey) => {
     console.log('═══════════════════════════════════════════════════');
@@ -7648,12 +7676,14 @@ IMPORTANT: Return ONLY a JSON array with ${vehicleBlocks.length} objects, one fo
         batchText += `Vehicle ${index + 1}:\n${blockText}\n\n`;
     });
     
-    batchText += `Each registration has these fields on separate lines in this order:
+    batchText += `Each registration has (often) these fields on separate lines in this order:
 Year, Make, Model, Color, Vehicle Type, State, License Plate.
 Some entries may also start with a @username or <@id> line - ignore that line.
 Make may be a real brand (Toyota, Honda, GMC, Hyundai, Tesla, etc.) or a fictional game brand (Bremen, Bremmen, Koritsu, Comrader, Hamotsu, Delton, Eva, Senseon, Turismo, Ganetto, Mita, Roamer, etc.) - accept all of them as valid.
 Type may include values like "Sedan", "SUV", "Crossover", "MPV/Minivan", "Truck", "Hatchback", "Coupe", "Van", "Convertible", etc.
 State may be a full state name like "New York" or abbreviation like "NY" - convert full names to 2-letter codes.
+
+Sometimes a message may contain multiple registrations in one message, each vehicle format often starts with a number so you could easily separate them that way. Be mindful of this.
 
 Return format:
 [
@@ -8136,6 +8166,7 @@ const lookupUser = async (plateOverride) => {
     setSearchProgress(0);
 
     const searchedPlate = effectivePlate.toUpperCase();
+    try { sessionStatsRef.current.platesSearched += 1; } catch(_) {}
 
     try {
         setSearchProgress(10);
@@ -9408,6 +9439,7 @@ console.log('🔍 [DEBUG] Setting search results:', {
 });
 
         logActivity(`Citizen searched → ${robloxUserData?.username || serverName || discordUserId}${warrants ? ' · ⚠ WARRANT' : ''}`);
+        try { sessionStatsRef.current.citizensSearched += 1; } catch(_) {}
         setShiftSearchHistory(prev => [...prev, {
             citizenId: discordUserId,
             username: robloxUserData?.username || serverName || 'UNKNOWN',
@@ -11188,6 +11220,7 @@ addLog('All available fields filled', 'success');
                 
                 addLog('✔ Citation opened in browser', 'success');
                 logActivity(`Exported Citation → ${finalOwner.username || 'Unknown'} · ${finalVehicle.plate || 'No plate'}`);
+                try { sessionStatsRef.current.citationsExported += 1; } catch(_) {}
                 console.log('📄 [PDF] Opened in default browser');
                 
             } catch (err) {
@@ -11486,6 +11519,7 @@ const getCurrentTime = () => {
         
         addLog('✔ Arrest/Summons Report opened in new tab', 'success');
         logActivity(`Exported Arrest Report → ${finalOwner.username || 'Unknown'}`);
+        try { sessionStatsRef.current.arrestsExported += 1; } catch(_) {}
         
     } catch (err) {
         console.error('PDF Export Error:', err);
@@ -11657,8 +11691,47 @@ if (window.MAINTENANCE === true && !(window.APP_GITHUB_BRANCH && window.APP_GITH
         setIsLoggingIn(false);
     }
 };
+// ── Session log flush ──
+// Sends ONE POST with the full session summary (counts + officer identity + timing).
+// Guarded by `logged` so logout-then-exit can't double-send. Uses sendBeacon on exit
+// so the request survives the window closing. Kept to a single request per session.
+const flushSessionLog = (viaBeacon) => {
+    try {
+        const st = sessionStatsRef.current;
+        if (!st || st.logged || !st.loginAt) return; // nothing to send / already sent
+        if (!authenticatedUser && !trooperSettings?.BadgeID) return;
+        st.logged = true;
+        const start = new Date(st.loginAt);
+        const end = new Date();
+        const payload = {
+            username: loginKeyRef.current || localStorage.getItem('nysp_saved_username') || authenticatedUser?.robloxUsername || 'Unknown',
+            officerName: `${trooperSettings?.FirstName || ''} ${trooperSettings?.LastName || ''}`.trim() || 'Unknown',
+            badge: trooperSettings?.BadgeID || 'N/A',
+            platesSearched: st.platesSearched || 0,
+            citizensSearched: st.citizensSearched || 0,
+            citationsExported: st.citationsExported || 0,
+            arrestsExported: st.arrestsExported || 0,
+            startTime: start.toISOString(),
+            endTime: end.toISOString(),
+            startTimeLocal: start.toLocaleString(),
+            endTimeLocal: end.toLocaleString(),
+            durationSeconds: Math.max(0, Math.round((end - start) / 1000)),
+            month: end.toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+            date: end.toLocaleDateString()
+        };
+        const url = 'https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/session-log';
+        if (viaBeacon && navigator.sendBeacon) {
+            // sendBeacon survives the page unloading — ideal for exit.
+            navigator.sendBeacon(url, new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+        } else {
+            fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), keepalive: true }).catch(() => {});
+        }
+    } catch (_) {}
+};
+
 const handleLogout = () => {
     console.log('[AUTH] Logging out');
+    flushSessionLog(false); // send session stats before clearing identity
     securityBaselineRef.current = null;
     // Signal Cloudflare to remove this officer from the presence list
     if (trooperSettings?.BadgeID && trooperSettings.BadgeID !== 'N/A') {
@@ -14447,7 +14520,11 @@ return (
                                     key={idx}
                                     onClick={() => {
                                         setRegistration(reg);
-                                        if (!reg.parseFailed && tokenSaved && reg.discordUserId && reg.discordUserId !== 'Unknown') {
+                                        // Improperly-registered entries STILL have a discordUserId
+                                        // extracted from the raw message — so look up the owner for
+                                        // them too. (Previously `!reg.parseFailed` blocked this,
+                                        // causing "Roblox Username not found" on improper entries.)
+                                        if (tokenSaved && reg.discordUserId && reg.discordUserId !== 'Unknown') {
                                             const memberUrl = `https://discord.com/api/v9/guilds/888585906020311060/members/${reg.discordUserId}`;
                                             fetch(memberUrl, { headers: { 'Authorization': discordToken } }).then(resp => { if (resp.ok) return resp.json(); }).then(memberData => {
                                                 if (memberData) {
