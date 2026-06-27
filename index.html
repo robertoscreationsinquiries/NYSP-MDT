@@ -2529,29 +2529,32 @@ React.useEffect(() => {
             --dept-screen-bg: ${t.screenBg}; --dept-glow: ${t.glowRgb};
         }
         body[data-dept="${dept}"] { background-image: ${t.bgTint} !important; }
+        /* Primary buttons — React renders #3b82f6 as rgb(59, 130, 246) */
         body[data-dept="${dept}"] .btn-primary,
-        body[data-dept="${dept}"] button[style*="linear-gradient(135deg, #3b82f6"],
-        body[data-dept="${dept}"] button[style*="linear-gradient(135deg,#3b82f6"] {
-            background: linear-gradient(135deg, ${t.primary}, ${t.primaryLight}) !important;
+        body[data-dept="${dept}"] [style*="rgb(59, 130, 246)"],
+        body[data-dept="${dept}"] [style*="rgb(37, 99, 235)"] {
+            background-image: linear-gradient(135deg, ${t.primary}, ${t.primaryLight}) !important;
         }
         body[data-dept="${dept}"] .mdt-progress-bar-inner { background: ${t.progress} !important; }
         body[data-dept="${dept}"] .box-header {
             background: linear-gradient(135deg, rgba(${t.accentRgb},0.12), rgba(0,0,0,0.4)) !important;
             border-bottom-color: rgba(${t.accentRgb},0.3) !important;
         }
-        /* Recolor cyan dashboard accents to the dept accent (stylesheet !important beats inline). */
-        body[data-dept="${dept}"] [style*="rgba(56,189,248,0.15)"] { border-color: rgba(${t.accentRgb},0.25) !important; }
-        body[data-dept="${dept}"] [style*="rgba(56,189,248,0.1)"] { border-color: rgba(${t.accentRgb},0.18) !important; }
-        body[data-dept="${dept}"] [style*="rgba(56,189,248,0.08)"] { border-color: rgba(${t.accentRgb},0.14) !important; }
-        body[data-dept="${dept}"] [style*="rgba(56,189,248,0.25)"] { border-color: rgba(${t.accentRgb},0.4) !important; }
-        body[data-dept="${dept}"] [style*="rgba(56,189,248,0.28)"] { border-color: rgba(${t.accentRgb},0.42) !important; }
-        /* Loader screen accents + ENTER APP button → dept */
-        .loader-screen-root [style*="rgba(59,130,246"] { border-color: rgba(${t.accentRgb},0.3) !important; }
-        .loader-screen-root [style*="rgba(56,189,248"] { border-color: rgba(${t.accentRgb},0.3) !important; }
-        .loader-screen-root button[style*="#38bdf8"],
-        .loader-screen-root button[style*="#3b82f6"],
-        .loader-screen-root button[style*="#2563eb"] {
-            background: linear-gradient(135deg, ${t.primary}, ${t.primaryLight}) !important;
+        /* Recolor cyan dashboard accents to the dept accent. React renders rgba with
+           spaces: rgba(56, 189, 248, 0.15) — selectors must match that exact form. */
+        body[data-dept="${dept}"] [style*="rgba(56, 189, 248, 0.15)"] { border-color: rgba(${t.accentRgb},0.25) !important; }
+        body[data-dept="${dept}"] [style*="rgba(56, 189, 248, 0.1)"] { border-color: rgba(${t.accentRgb},0.18) !important; }
+        body[data-dept="${dept}"] [style*="rgba(56, 189, 248, 0.08)"] { border-color: rgba(${t.accentRgb},0.14) !important; }
+        body[data-dept="${dept}"] [style*="rgba(56, 189, 248, 0.25)"] { border-color: rgba(${t.accentRgb},0.4) !important; }
+        body[data-dept="${dept}"] [style*="rgba(56, 189, 248, 0.28)"] { border-color: rgba(${t.accentRgb},0.42) !important; }
+        body[data-dept="${dept}"] [style*="rgb(34, 211, 238)"] { background-color: ${t.accent} !important; box-shadow: 0 0 6px ${t.accent} !important; }
+        /* Loader screen accents + ENTER APP button → dept (rgb() forms) */
+        .loader-screen-root [style*="rgba(59, 130, 246"],
+        .loader-screen-root [style*="rgba(56, 189, 248"] { border-color: rgba(${t.accentRgb},0.3) !important; }
+        .loader-screen-root [style*="rgb(59, 130, 246)"],
+        .loader-screen-root [style*="rgb(37, 99, 235)"],
+        .loader-screen-root [style*="rgb(56, 189, 248)"] {
+            background-image: linear-gradient(135deg, ${t.primary}, ${t.primaryLight}) !important;
             box-shadow: 0 8px 24px rgba(${t.accentRgb},0.4) !important;
         }
     `;
@@ -2559,36 +2562,38 @@ React.useEffect(() => {
 
 // Login-screen grey override — pre-auth the department is unknown, so neutralize the
 // blue form, button, fields, and strokes to slate. Active only on the login screen.
+// NOTE: React renders inline hex colors as rgb() in the DOM (#3b82f6 → rgb(59, 130, 246)),
+// so selectors MUST target the rgb() form with React's exact spacing, not the hex.
 React.useEffect(() => {
     let el = document.getElementById('login-grey-theme');
     if (!el) { el = document.createElement('style'); el.id = 'login-grey-theme'; document.head.appendChild(el); }
     if (showLoginScreen && !authenticatedUser) {
-        const G = '148,163,184';
+        const G = '148, 163, 184';
+        const greyGrad = 'linear-gradient(135deg, rgb(100, 116, 139), rgb(71, 85, 105))';
         el.textContent = `
-            /* Blue borders → grey */
-            .login-screen-root [style*="rgba(59,130,246"] { border-color: rgba(${G},0.28) !important; }
-            .login-screen-root [style*="rgba(56,189,248"] { border-color: rgba(${G},0.28) !important; }
-            .login-screen-root [style*="rgba(37,99,235"] { border-color: rgba(${G},0.28) !important; }
-            /* The AUTHENTICATE button — actual gradient starts with #3b82f6 */
-            .login-screen-root button[style*="#3b82f6"],
-            .login-screen-root button[style*="#2563eb"],
-            .login-screen-root button[style*="#38bdf8"] {
-                background: linear-gradient(135deg, #64748b, #475569) !important;
-                box-shadow: 0 8px 24px rgba(100,116,139,0.4) !important;
-                border-color: rgba(${G},0.4) !important;
+            /* Blue gradient backgrounds (button, icon badge) → grey. React renders
+               '#3b82f6' as 'rgb(59, 130, 246)' and the gradient with rgb() parts. */
+            .login-screen-root [style*="rgb(59, 130, 246)"],
+            .login-screen-root [style*="rgb(37, 99, 235)"],
+            .login-screen-root [style*="rgb(56, 189, 248)"] {
+                background-image: ${greyGrad} !important;
+                background-color: rgb(100, 116, 139) !important;
+                border-color: rgba(${G}, 0.4) !important;
+                box-shadow: 0 8px 24px rgba(100, 116, 139, 0.4) !important;
             }
-            /* Any element using the blue gradient as a background → grey */
-            .login-screen-root [style*="linear-gradient(135deg, #3b82f6"],
-            .login-screen-root [style*="linear-gradient(135deg,#3b82f6"] {
-                background: linear-gradient(135deg, #64748b, #475569) !important;
+            /* Blue rgba borders/glows (rendered with spaces) → grey */
+            .login-screen-root [style*="rgba(59, 130, 246"],
+            .login-screen-root [style*="rgba(56, 189, 248"],
+            .login-screen-root [style*="rgba(37, 99, 235"] {
+                border-color: rgba(${G}, 0.28) !important;
             }
-            /* Blue glows / box-shadows → neutral */
-            .login-screen-root [style*="rgba(37,99,235,0.35)"] { box-shadow: none !important; }
-            .login-screen-root input:focus { border-color: rgba(${G},0.5) !important; box-shadow: 0 0 0 3px rgba(${G},0.12) !important; }
-            /* Blue accent dots/icons commonly set to #38bdf8 / #3b82f6 fills */
-            .login-screen-root [style*="background: #38bdf8"],
-            .login-screen-root [style*="background:#38bdf8"],
-            .login-screen-root [style*="background: #3b82f6"] { background: #94a3b8 !important; box-shadow: 0 0 6px #94a3b8 !important; }
+            /* Solid blue accent dots (background: #3b82f6 → rgb(59, 130, 246)) → slate */
+            .login-screen-root [style*="background-color: rgb(59, 130, 246)"],
+            .login-screen-root [style*="background: rgb(59, 130, 246)"] {
+                background-color: rgb(148, 163, 184) !important;
+                box-shadow: 0 0 6px rgb(148, 163, 184) !important;
+            }
+            .login-screen-root input:focus { border-color: rgba(${G}, 0.5) !important; box-shadow: 0 0 0 3px rgba(${G}, 0.12) !important; }
         `;
     } else { el.textContent = ''; }
 }, [showLoginScreen, authenticatedUser]);
