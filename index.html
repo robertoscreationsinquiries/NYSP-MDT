@@ -2355,14 +2355,14 @@ const [streamingCooldown, setStreamingCooldown] = useState(false);
 const [streamingStatus, setStreamingStatus] = useState('');
 const [showStreamingGuide, setShowStreamingGuide] = useState(false);
 const isDispatcher = (trooperSettings?.Department || selectedDepartment) === 'DISPATCHER';
-// Resolve the current department to its full display name + the rank/role word used
-// when addressing the user (Trooper vs Officer vs Firefighter vs Worker).
+// Department display name + the word used to address the user.
+// EGFD/DOT → "Unit", EGPD → "Officer", NYSP → "Trooper".
 const currentDept = trooperSettings?.Department || selectedDepartment || 'NYSP';
 const DEPT_DISPLAY = {
     NYSP: { name: 'New York State Police', role: 'Trooper' },
     EGPD: { name: 'East Greenbush Police Department', role: 'Officer' },
-    EGFD: { name: 'East Greenbush Fire Department', role: 'Firefighter' },
-    DOT: { name: 'Department of Transportation', role: 'Worker' },
+    EGFD: { name: 'East Greenbush Fire Department', role: 'Unit' },
+    DOT: { name: 'Department of Transportation', role: 'Unit' },
     DISPATCHER: { name: 'Dispatch', role: 'Dispatcher' }
 };
 const deptInfo = DEPT_DISPLAY[currentDept] || DEPT_DISPLAY.NYSP;
@@ -2539,18 +2539,13 @@ React.useEffect(() => {
             background: linear-gradient(135deg, rgba(${t.accentRgb},0.12), rgba(0,0,0,0.4)) !important;
             border-bottom-color: rgba(${t.accentRgb},0.3) !important;
         }
-
-        /* ── Accent remap: recolor the hardcoded cyan/sky (56,189,248) + blue (59,130,246)
-              inline accents used across the dashboard frames to the department accent.
-              Stylesheet !important beats inline styles, so this reskins every frame —
-              borders, header bars, chips, glowing dots — without editing each element. */
+        /* Recolor cyan dashboard accents to the dept accent (stylesheet !important beats inline). */
         body[data-dept="${dept}"] [style*="rgba(56,189,248,0.15)"] { border-color: rgba(${t.accentRgb},0.25) !important; }
-        body[data-dept="${dept}"] [style*="rgba(56,189,248,0.1)"]:not(.dept-keep) { border-color: rgba(${t.accentRgb},0.18) !important; }
+        body[data-dept="${dept}"] [style*="rgba(56,189,248,0.1)"] { border-color: rgba(${t.accentRgb},0.18) !important; }
         body[data-dept="${dept}"] [style*="rgba(56,189,248,0.08)"] { border-color: rgba(${t.accentRgb},0.14) !important; }
         body[data-dept="${dept}"] [style*="rgba(56,189,248,0.25)"] { border-color: rgba(${t.accentRgb},0.4) !important; }
         body[data-dept="${dept}"] [style*="rgba(56,189,248,0.28)"] { border-color: rgba(${t.accentRgb},0.42) !important; }
-
-        /* Loader screen — recolor its blue (59,130,246 / 37,99,235) accents + ENTER APP button */
+        /* Loader screen accents + ENTER APP button → dept */
         .loader-screen-root [style*="rgba(59,130,246"] { border-color: rgba(${t.accentRgb},0.3) !important; }
         .loader-screen-root [style*="rgba(56,189,248"] { border-color: rgba(${t.accentRgb},0.3) !important; }
         .loader-screen-root button[style*="#38bdf8"],
@@ -2562,24 +2557,26 @@ React.useEffect(() => {
     `;
 }, [trooperSettings?.Department, selectedDepartment]);
 
-// Login-screen accent override — the login form uses blue (59,130,246). Before the user
-// is authenticated we want it NEUTRAL GREY (department unknown). This stays active only
-// while the login screen is up; once a department is known the dashboard rules take over.
+// Login-screen grey override — pre-auth the department is unknown, so neutralize the
+// blue form, button, fields, and strokes to slate. Active only on the login screen.
 React.useEffect(() => {
     let el = document.getElementById('login-grey-theme');
     if (!el) { el = document.createElement('style'); el.id = 'login-grey-theme'; document.head.appendChild(el); }
     if (showLoginScreen && !authenticatedUser) {
-        const G = '148,163,184'; // slate-400
+        const G = '148,163,184';
         el.textContent = `
-            [style*="rgba(59,130,246"] { border-color: rgba(${G},0.28) !important; }
-            .login-screen-root [style*="linear-gradient(135deg, #2563eb"],
-            .login-screen-root [style*="linear-gradient(135deg,#2563eb"],
-            .login-screen-root button[style*="#38bdf8"] { background: linear-gradient(135deg, #64748b, #475569) !important; box-shadow: 0 8px 24px rgba(100,116,139,0.4) !important; }
+            .login-screen-root [style*="rgba(59,130,246"] { border-color: rgba(${G},0.28) !important; }
+            .login-screen-root [style*="rgba(56,189,248"] { border-color: rgba(${G},0.28) !important; }
+            .login-screen-root button[style*="linear-gradient(135deg, #2563eb"],
+            .login-screen-root button[style*="linear-gradient(135deg,#2563eb"],
+            .login-screen-root button[style*="#38bdf8"],
+            .login-screen-root button[style*="linear-gradient(135deg, #38bdf8"] {
+                background: linear-gradient(135deg, #64748b, #475569) !important;
+                box-shadow: 0 8px 24px rgba(100,116,139,0.4) !important;
+            }
             .login-screen-root input:focus { border-color: rgba(${G},0.5) !important; }
         `;
-    } else {
-        el.textContent = '';
-    }
+    } else { el.textContent = ''; }
 }, [showLoginScreen, authenticatedUser]);
 React.useEffect(() => { panicCooldownUntilRef.current = panicCooldownUntil; }, [panicCooldownUntil]);
 React.useEffect(() => { panicTriggerModeRef.current = panicTriggerMode; }, [panicTriggerMode]);
@@ -14103,7 +14100,7 @@ return (
                         </div>
                         <div>
                             <div style={{ display:'flex',alignItems:'center',gap:'10px',marginBottom:'4px' }}>
-                                <div style={{ color:'#e2e8f0',fontSize:'22px',fontWeight:'700',letterSpacing:'0.3px',lineHeight:'1.1' }}>{deptDisplayName}</div>
+                                <div style={{ color:'#e2e8f0',fontSize:'22px',fontWeight:'700',letterSpacing:'0.3px',lineHeight:'1.1' }}>New York State Police</div>
                                 <span style={{ padding:'2px 8px',background:'rgba(34,211,238,0.1)',border:'1px solid rgba(34,211,238,0.3)',borderRadius:'5px',color:'#22d3ee',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',fontFamily:'monospace' }}>EST. 2025</span>
                             </div>
                             <div style={{ color:'#22d3ee',fontSize:'12px',marginTop:'2px',fontFamily:'monospace',letterSpacing:'0.3px' }}>
@@ -14123,36 +14120,23 @@ return (
                 {/* 3-col grid: Officer Info | System Status | Shift Management */}
                 <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px',flexShrink:0 }}>
 
-                    {/* Unit Information */}
+                    {/* Officer Information */}
                     <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'10px',padding:'14px 16px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
                         <div style={{ display:'flex',alignItems:'center',gap:'8px',marginBottom:'12px' }}>
                             <div style={{ width:'2px',height:'12px',background:'#22d3ee',borderRadius:'2px',boxShadow:'0 0 6px #22d3ee' }} />
-                            <span style={{ color:'#22d3ee',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Unit Information</span>
+                            <span style={{ color:'#22d3ee',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Officer Information</span>
                         </div>
                         <div style={{ background:'rgba(0,0,0,0.25)',border:'1px solid rgba(56,189,248,0.1)',borderRadius:'7px',padding:'10px 12px',marginBottom:'8px' }}>
-                            <div style={{ color:'#475569',fontSize:'9px',fontWeight:'600',letterSpacing:'1.2px',textTransform:'uppercase',marginBottom:'4px',fontFamily:'monospace' }}>Unit Name</div>
+                            <div style={{ color:'#475569',fontSize:'9px',fontWeight:'600',letterSpacing:'1.2px',textTransform:'uppercase',marginBottom:'4px',fontFamily:'monospace' }}>Officer Name</div>
                             <div style={{ color:'#e2e8f0',fontSize:'15px',fontWeight:'700',fontFamily:'monospace',letterSpacing:'0.3px' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName}</div>
                         </div>
                         <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px' }}>
-                            {(() => {
-                                // Build the field list, then hide department-specific fields:
-                                //  · EGFD: no Badge ID, Zone, or Reg. Expiry
-                                //  · DOT:  no Badge ID or Zone
-                                let fields = [
-                                    { l:'Badge ID', v:`#${trooperSettings?.BadgeID||'—'}`, key:'badge' },
-                                    { l:'Zone', v:trooperSettings?.Zone||'—', key:'zone' },
-                                    { l:'Username', v:trooperSettings?.Username||'—', key:'username' },
-                                    { l:'Reg. Expiry', v:editableTrooperSettings?.expDate||'—', key:'expiry' }
-                                ];
-                                if (currentDept === 'EGFD') fields = fields.filter(f => !['badge','zone','expiry'].includes(f.key));
-                                else if (currentDept === 'DOT') fields = fields.filter(f => !['badge','zone'].includes(f.key));
-                                return fields.map(({l,v},i)=>(
-                                    <div key={i} style={{ background:'rgba(0,0,0,0.25)',border:'1px solid rgba(56,189,248,0.08)',borderRadius:'6px',padding:'8px 10px' }}>
-                                        <div style={{ color:'#475569',fontSize:'8px',fontWeight:'600',letterSpacing:'1.2px',textTransform:'uppercase',marginBottom:'3px',fontFamily:'monospace' }}>{l}</div>
-                                        <div style={{ color:'#e2e8f0',fontSize:'12px',fontWeight:'700',fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{v}</div>
-                                    </div>
-                                ));
-                            })()}
+                            {[{l:'Badge ID',v:`#${trooperSettings?.BadgeID||'—'}`},{l:'Zone',v:trooperSettings?.Zone||'—'},{l:'Username',v:trooperSettings?.Username||'—'},{l:'Reg. Expiry',v:editableTrooperSettings?.expDate||'—'}].map(({l,v},i)=>(
+                                <div key={i} style={{ background:'rgba(0,0,0,0.25)',border:'1px solid rgba(56,189,248,0.08)',borderRadius:'6px',padding:'8px 10px' }}>
+                                    <div style={{ color:'#475569',fontSize:'8px',fontWeight:'600',letterSpacing:'1.2px',textTransform:'uppercase',marginBottom:'3px',fontFamily:'monospace' }}>{l}</div>
+                                    <div style={{ color:'#e2e8f0',fontSize:'12px',fontWeight:'700',fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{v}</div>
+                                </div>
+                            ))}
                         </div>
                     </div>
 
