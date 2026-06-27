@@ -2549,8 +2549,8 @@ React.useEffect(() => {
         .loader-screen-root [style*="rgba(59,130,246"] { border-color: rgba(${t.accentRgb},0.3) !important; }
         .loader-screen-root [style*="rgba(56,189,248"] { border-color: rgba(${t.accentRgb},0.3) !important; }
         .loader-screen-root button[style*="#38bdf8"],
-        .loader-screen-root button[style*="linear-gradient(135deg, #2563eb"],
-        .loader-screen-root button[style*="linear-gradient(135deg,#2563eb"] {
+        .loader-screen-root button[style*="#3b82f6"],
+        .loader-screen-root button[style*="#2563eb"] {
             background: linear-gradient(135deg, ${t.primary}, ${t.primaryLight}) !important;
             box-shadow: 0 8px 24px rgba(${t.accentRgb},0.4) !important;
         }
@@ -2565,16 +2565,30 @@ React.useEffect(() => {
     if (showLoginScreen && !authenticatedUser) {
         const G = '148,163,184';
         el.textContent = `
+            /* Blue borders → grey */
             .login-screen-root [style*="rgba(59,130,246"] { border-color: rgba(${G},0.28) !important; }
             .login-screen-root [style*="rgba(56,189,248"] { border-color: rgba(${G},0.28) !important; }
-            .login-screen-root button[style*="linear-gradient(135deg, #2563eb"],
-            .login-screen-root button[style*="linear-gradient(135deg,#2563eb"],
-            .login-screen-root button[style*="#38bdf8"],
-            .login-screen-root button[style*="linear-gradient(135deg, #38bdf8"] {
+            .login-screen-root [style*="rgba(37,99,235"] { border-color: rgba(${G},0.28) !important; }
+            /* The AUTHENTICATE button — actual gradient starts with #3b82f6 */
+            .login-screen-root button[style*="#3b82f6"],
+            .login-screen-root button[style*="#2563eb"],
+            .login-screen-root button[style*="#38bdf8"] {
                 background: linear-gradient(135deg, #64748b, #475569) !important;
                 box-shadow: 0 8px 24px rgba(100,116,139,0.4) !important;
+                border-color: rgba(${G},0.4) !important;
             }
-            .login-screen-root input:focus { border-color: rgba(${G},0.5) !important; }
+            /* Any element using the blue gradient as a background → grey */
+            .login-screen-root [style*="linear-gradient(135deg, #3b82f6"],
+            .login-screen-root [style*="linear-gradient(135deg,#3b82f6"] {
+                background: linear-gradient(135deg, #64748b, #475569) !important;
+            }
+            /* Blue glows / box-shadows → neutral */
+            .login-screen-root [style*="rgba(37,99,235,0.35)"] { box-shadow: none !important; }
+            .login-screen-root input:focus { border-color: rgba(${G},0.5) !important; box-shadow: 0 0 0 3px rgba(${G},0.12) !important; }
+            /* Blue accent dots/icons commonly set to #38bdf8 / #3b82f6 fills */
+            .login-screen-root [style*="background: #38bdf8"],
+            .login-screen-root [style*="background:#38bdf8"],
+            .login-screen-root [style*="background: #3b82f6"] { background: #94a3b8 !important; box-shadow: 0 0 6px #94a3b8 !important; }
         `;
     } else { el.textContent = ''; }
 }, [showLoginScreen, authenticatedUser]);
