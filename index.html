@@ -2480,10 +2480,14 @@ React.useEffect(() => { pursuitActiveRef.current = pursuitActive; }, [pursuitAct
 // Drives CSS vars + a body[data-dept] hook. Also exposes --dept-screen-bg / --dept-glow
 // so the login → loader → dashboard backgrounds can flood with the department's theme.
 React.useEffect(() => {
-    const dept = trooperSettings?.Department || selectedDepartment || 'NYSP';
+    // On the login screen (pre-auth) force a NEUTRAL dept so a prior session's theme
+    // doesn't leak onto the login button/icon. The grey-login effect handles login styling.
+    const onLogin = showLoginScreen && !authenticatedUser;
+    const dept = onLogin ? 'NEUTRAL' : (trooperSettings?.Department || selectedDepartment || 'NYSP');
     let styleEl = document.getElementById('dept-theme');
     if (!styleEl) { styleEl = document.createElement('style'); styleEl.id = 'dept-theme'; document.head.appendChild(styleEl); }
     document.body.setAttribute('data-dept', dept);
+    if (dept === 'NEUTRAL') { styleEl.textContent = ''; return; }
 
     const THEMES = {
         NYSP: {
@@ -2529,11 +2533,14 @@ React.useEffect(() => {
             --dept-screen-bg: ${t.screenBg}; --dept-glow: ${t.glowRgb};
         }
         body[data-dept="${dept}"] { background-image: ${t.bgTint} !important; }
-        /* Primary buttons — React renders #3b82f6 as rgb(59, 130, 246) */
+        /* Primary buttons — match BACKGROUND usage only (not blue text). React renders
+           background:'#3b82f6' as 'background-color: rgb(59, 130, 246)' and gradients as
+           'background-image: linear-gradient(..., rgb(59, 130, 246), rgb(37, 99, 235))'. */
         body[data-dept="${dept}"] .btn-primary,
-        body[data-dept="${dept}"] [style*="rgb(59, 130, 246)"],
-        body[data-dept="${dept}"] [style*="rgb(37, 99, 235)"] {
+        body[data-dept="${dept}"] [style*="background-color: rgb(59, 130, 246)"],
+        body[data-dept="${dept}"] [style*="linear-gradient(135deg, rgb(59, 130, 246)"] {
             background-image: linear-gradient(135deg, ${t.primary}, ${t.primaryLight}) !important;
+            background-color: ${t.primary} !important;
         }
         body[data-dept="${dept}"] .mdt-progress-bar-inner { background: ${t.progress} !important; }
         body[data-dept="${dept}"] .box-header {
@@ -2547,18 +2554,18 @@ React.useEffect(() => {
         body[data-dept="${dept}"] [style*="rgba(56, 189, 248, 0.08)"] { border-color: rgba(${t.accentRgb},0.14) !important; }
         body[data-dept="${dept}"] [style*="rgba(56, 189, 248, 0.25)"] { border-color: rgba(${t.accentRgb},0.4) !important; }
         body[data-dept="${dept}"] [style*="rgba(56, 189, 248, 0.28)"] { border-color: rgba(${t.accentRgb},0.42) !important; }
-        body[data-dept="${dept}"] [style*="rgb(34, 211, 238)"] { background-color: ${t.accent} !important; box-shadow: 0 0 6px ${t.accent} !important; }
         /* Loader screen accents + ENTER APP button → dept (rgb() forms) */
         .loader-screen-root [style*="rgba(59, 130, 246"],
         .loader-screen-root [style*="rgba(56, 189, 248"] { border-color: rgba(${t.accentRgb},0.3) !important; }
-        .loader-screen-root [style*="rgb(59, 130, 246)"],
-        .loader-screen-root [style*="rgb(37, 99, 235)"],
-        .loader-screen-root [style*="rgb(56, 189, 248)"] {
+        .loader-screen-root [style*="linear-gradient(135deg, rgb(59, 130, 246)"],
+        .loader-screen-root [style*="background-color: rgb(59, 130, 246)"],
+        .loader-screen-root [style*="background-color: rgb(37, 99, 235)"] {
             background-image: linear-gradient(135deg, ${t.primary}, ${t.primaryLight}) !important;
-            box-shadow: 0 8px 24px rgba(${t.accentRgb},0.4) !important;
+            background-color: ${t.primary} !important;
+            box-shadow: 0 6px 18px rgba(${t.accentRgb},0.28) !important;
         }
     `;
-}, [trooperSettings?.Department, selectedDepartment]);
+}, [trooperSettings?.Department, selectedDepartment, showLoginScreen, authenticatedUser]);
 
 // Login-screen grey override — pre-auth the department is unknown, so neutralize the
 // blue form, button, fields, and strokes to slate. Active only on the login screen.
@@ -2571,27 +2578,20 @@ React.useEffect(() => {
         const G = '148, 163, 184';
         const greyGrad = 'linear-gradient(135deg, rgb(100, 116, 139), rgb(71, 85, 105))';
         el.textContent = `
-            /* Blue gradient backgrounds (button, icon badge) → grey. React renders
-               '#3b82f6' as 'rgb(59, 130, 246)' and the gradient with rgb() parts. */
-            .login-screen-root [style*="rgb(59, 130, 246)"],
-            .login-screen-root [style*="rgb(37, 99, 235)"],
-            .login-screen-root [style*="rgb(56, 189, 248)"] {
+            /* Blue gradient/solid BACKGROUNDS (button, icon badge) → grey. Scoped to
+               background usage so blue TEXT is never affected. */
+            .login-screen-root [style*="linear-gradient(135deg, rgb(59, 130, 246)"],
+            .login-screen-root [style*="background-color: rgb(59, 130, 246)"],
+            .login-screen-root [style*="background-color: rgb(37, 99, 235)"] {
                 background-image: ${greyGrad} !important;
                 background-color: rgb(100, 116, 139) !important;
-                border-color: rgba(${G}, 0.4) !important;
-                box-shadow: 0 8px 24px rgba(100, 116, 139, 0.4) !important;
+                box-shadow: 0 6px 18px rgba(100, 116, 139, 0.28) !important;
             }
-            /* Blue rgba borders/glows (rendered with spaces) → grey */
+            /* Blue rgba borders → grey */
             .login-screen-root [style*="rgba(59, 130, 246"],
             .login-screen-root [style*="rgba(56, 189, 248"],
             .login-screen-root [style*="rgba(37, 99, 235"] {
                 border-color: rgba(${G}, 0.28) !important;
-            }
-            /* Solid blue accent dots (background: #3b82f6 → rgb(59, 130, 246)) → slate */
-            .login-screen-root [style*="background-color: rgb(59, 130, 246)"],
-            .login-screen-root [style*="background: rgb(59, 130, 246)"] {
-                background-color: rgb(148, 163, 184) !important;
-                box-shadow: 0 0 6px rgb(148, 163, 184) !important;
             }
             .login-screen-root input:focus { border-color: rgba(${G}, 0.5) !important; box-shadow: 0 0 0 3px rgba(${G}, 0.12) !important; }
         `;
@@ -6022,7 +6022,8 @@ useEffect(() => {
                     patrolZone: user.patrolZone,
                     firstName: user.firstName,
                     lastName: user.lastName,
-                    badgeId: user.badgeId
+                    badgeId: user.badgeId,
+                    department: user.department || 'NYSP'
                 });
                 
                 setTrooperSettings({
@@ -11758,7 +11759,8 @@ if (window.MAINTENANCE === true && !(window.APP_GITHUB_BRANCH && window.APP_GITH
             patrolZone: user.patrolZone,
             firstName: user.firstName,
             lastName: user.lastName,
-            badgeId: user.badgeId
+            badgeId: user.badgeId,
+            department: user.department || 'NYSP'
         });
 
         localStorage.setItem('nysp_authenticated_user', JSON.stringify(user));
@@ -14139,24 +14141,40 @@ return (
                 {/* 3-col grid: Officer Info | System Status | Shift Management */}
                 <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px',flexShrink:0 }}>
 
-                    {/* Officer Information */}
+                    {/* Unit Information */}
                     <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'10px',padding:'14px 16px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
                         <div style={{ display:'flex',alignItems:'center',gap:'8px',marginBottom:'12px' }}>
                             <div style={{ width:'2px',height:'12px',background:'#22d3ee',borderRadius:'2px',boxShadow:'0 0 6px #22d3ee' }} />
-                            <span style={{ color:'#22d3ee',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Officer Information</span>
+                            <span style={{ color:'#22d3ee',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Unit Information</span>
                         </div>
                         <div style={{ background:'rgba(0,0,0,0.25)',border:'1px solid rgba(56,189,248,0.1)',borderRadius:'7px',padding:'10px 12px',marginBottom:'8px' }}>
-                            <div style={{ color:'#475569',fontSize:'9px',fontWeight:'600',letterSpacing:'1.2px',textTransform:'uppercase',marginBottom:'4px',fontFamily:'monospace' }}>Officer Name</div>
+                            <div style={{ color:'#475569',fontSize:'9px',fontWeight:'600',letterSpacing:'1.2px',textTransform:'uppercase',marginBottom:'4px',fontFamily:'monospace' }}>Unit Name</div>
                             <div style={{ color:'#e2e8f0',fontSize:'15px',fontWeight:'700',fontFamily:'monospace',letterSpacing:'0.3px' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName}</div>
                         </div>
-                        <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px' }}>
-                            {[{l:'Badge ID',v:`#${trooperSettings?.BadgeID||'—'}`},{l:'Zone',v:trooperSettings?.Zone||'—'},{l:'Username',v:trooperSettings?.Username||'—'},{l:'Reg. Expiry',v:editableTrooperSettings?.expDate||'—'}].map(({l,v},i)=>(
-                                <div key={i} style={{ background:'rgba(0,0,0,0.25)',border:'1px solid rgba(56,189,248,0.08)',borderRadius:'6px',padding:'8px 10px' }}>
-                                    <div style={{ color:'#475569',fontSize:'8px',fontWeight:'600',letterSpacing:'1.2px',textTransform:'uppercase',marginBottom:'3px',fontFamily:'monospace' }}>{l}</div>
-                                    <div style={{ color:'#e2e8f0',fontSize:'12px',fontWeight:'700',fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{v}</div>
+                        {(() => {
+                            // Dept-specific field hiding. EGFD: no Badge ID, Zone, Reg. Expiry.
+                            // DOT: no Badge ID, Zone. Remaining fields reflow to fill gaps.
+                            let fields = [
+                                { l:'Badge ID', v:`#${trooperSettings?.BadgeID||'—'}`, key:'badge' },
+                                { l:'Zone', v:trooperSettings?.Zone||'—', key:'zone' },
+                                { l:'Username', v:trooperSettings?.Username||'—', key:'username' },
+                                { l:'Reg. Expiry', v:editableTrooperSettings?.expDate||'—', key:'expiry' }
+                            ];
+                            if (currentDept === 'EGFD') fields = fields.filter(f => !['badge','zone','expiry'].includes(f.key));
+                            else if (currentDept === 'DOT') fields = fields.filter(f => !['badge','zone'].includes(f.key));
+                            // Single remaining field spans full width; otherwise two columns.
+                            const cols = fields.length === 1 ? '1fr' : '1fr 1fr';
+                            return (
+                                <div style={{ display:'grid',gridTemplateColumns:cols,gap:'6px' }}>
+                                    {fields.map(({l,v},i)=>(
+                                        <div key={i} style={{ background:'rgba(0,0,0,0.25)',border:'1px solid rgba(56,189,248,0.08)',borderRadius:'6px',padding:'8px 10px' }}>
+                                            <div style={{ color:'#475569',fontSize:'8px',fontWeight:'600',letterSpacing:'1.2px',textTransform:'uppercase',marginBottom:'3px',fontFamily:'monospace' }}>{l}</div>
+                                            <div style={{ color:'#e2e8f0',fontSize:'12px',fontWeight:'700',fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{v}</div>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
+                            );
+                        })()}
                     </div>
 
                     {/* System Status */}
@@ -15844,7 +15862,9 @@ onError={(e) => {
                                 <div style={{ marginTop: '18px', padding: '14px 16px', background: 'rgba(15,30,60,0.4)', border: '1px solid rgba(56,189,248,0.1)', borderRadius: '10px' }}>
                                     <div style={{ color: '#64748b', fontSize: '9px', fontFamily: 'monospace', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '8px' }}>Signed in as</div>
                                     <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '700' }}>{trooperSettings?.Username || 'Unknown'}</div>
-                                    <div style={{ color: '#64748b', fontSize: '10px', marginTop: '2px', fontFamily: 'monospace' }}>Badge #{trooperSettings?.BadgeID || '—'}</div>
+                                    {currentDept !== 'EGFD' && currentDept !== 'DOT' && (
+                                        <div style={{ color: '#64748b', fontSize: '10px', marginTop: '2px', fontFamily: 'monospace' }}>Badge #{trooperSettings?.BadgeID || '—'}</div>
+                                    )}
                                 </div>
                             </div>
 
@@ -15889,7 +15909,7 @@ onError={(e) => {
                                         <div style={{ flex:1,minWidth:0 }}>
                                             <div style={{ color:'#f1f5f9',fontSize:'15px',fontWeight:'800' }}>{acct.firstName} {acct.lastName}</div>
                                             <div style={{ color:'#64748b',fontSize:'11px',fontFamily:'monospace' }}>
-                                                @{acct.robloxUsername || '—'} · Badge {acct.badgeId || '—'} · {acct.department || '—'}{acct.callSign ? ` · ${acct.callSign}` : ''}{acct.patrolZone ? ` · Zone ${acct.patrolZone}` : ''}
+                                                @{acct.robloxUsername || '—'}{(acct.department !== 'EGFD' && acct.department !== 'DOT') ? ` · Badge ${acct.badgeId || '—'}` : ''} · {acct.department || '—'}{acct.callSign ? ` · ${acct.callSign}` : ''}{(acct.patrolZone && acct.department !== 'EGFD' && acct.department !== 'DOT') ? ` · Zone ${acct.patrolZone}` : ''}
                                             </div>
                                         </div>
                                     </div>
