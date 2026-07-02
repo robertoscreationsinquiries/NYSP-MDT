@@ -2963,6 +2963,10 @@ const [sessionCountdown, setSessionCountdown] = useState(0);
 const [alertQueue, setAlertQueue] = useState([]);          // [{ id, title, message, isGood, durationSec }, ...]
 const [alertCountdown, setAlertCountdown] = useState(0);   // seconds remaining for the head entry
 const [loginUsername, setLoginUsername] = useState(() => localStorage.getItem('nysp_saved_username') || '');
+// Client-side brute-force throttle: timestamps of recent failed logins.
+// After 5 failures within 60s, logins are blocked until the window clears.
+// (Defense-in-depth — the Worker enforces the real per-IP limit server-side.)
+const failedLoginTimesRef = React.useRef([]);
 const [loginPassword, setLoginPassword] = useState(() => localStorage.getItem('nysp_saved_password') || '');
 const [loginError, setLoginError] = useState('');
 const [loginShake, setLoginShake] = useState(false);
@@ -11713,6 +11717,17 @@ if (window.MAINTENANCE === true && !(window.APP_GITHUB_BRANCH && window.APP_GITH
     }
 
     setLoginError('');
+
+    // ── Client-side lockout: 5 failed attempts within 60s → wait out the window ──
+    const nowTs = Date.now();
+    failedLoginTimesRef.current = failedLoginTimesRef.current.filter(t => nowTs - t < 60000);
+    if (failedLoginTimesRef.current.length >= 5) {
+        const waitSec = Math.ceil((60000 - (nowTs - failedLoginTimesRef.current[0])) / 1000);
+        setLoginError(`Too many failed attempts. Please wait ${waitSec}s before trying again.`);
+        triggerLoginShake();
+        return;
+    }
+
     setIsLoggingIn(true);
 
     try {
@@ -11728,6 +11743,12 @@ if (window.MAINTENANCE === true && !(window.APP_GITHUB_BRANCH && window.APP_GITH
         const result = await response.json();
 
         if (!result.success) {
+            if (result.reason === 'rate_limited' || response.status === 429) {
+                setLoginError(`Too many login attempts from your connection. Please wait ${result.retryAfter || 60}s and try again.`);
+                triggerLoginShake();
+                setIsLoggingIn(false);
+                return;
+            }
             if (result.reason === 'banned') {
                 if (soundSettings?.LoginAccessDenied && SOUNDS.LoginAccessDenied) {
                     try {
@@ -11740,6 +11761,8 @@ if (window.MAINTENANCE === true && !(window.APP_GITHUB_BRANCH && window.APP_GITH
                 setShowBanScreen(true);
                 setShowLoginScreen(false);
             } else {
+                // Record the failure for the client-side lockout window.
+                failedLoginTimesRef.current.push(Date.now());
                 if (soundSettings?.LoginIncorrect && SOUNDS.LoginIncorrect) {
                     try {
                         const audio = new Audio(SOUNDS.LoginIncorrect);
@@ -11793,7 +11816,10 @@ if (window.MAINTENANCE === true && !(window.APP_GITHUB_BRANCH && window.APP_GITH
             department: user.department || 'NYSP'
         });
 
-        localStorage.setItem('nysp_authenticated_user', JSON.stringify(user));
+        // SECURITY: never persist the password (or any credential material) to localStorage.
+        // The Worker may return the full USERS record; strip sensitive fields before storing.
+        const { password: _pw, ...safeUser } = user;
+        localStorage.setItem('nysp_authenticated_user', JSON.stringify(safeUser));
         localStorage.setItem('nysp_username', user.robloxUsername);
 
         // Offer to save credentials if not already saved or if they changed
@@ -14795,9 +14821,8 @@ return (
                                     </div>
                                     <div style={{ flex:1, minWidth:0 }}>
                                         <div style={{ color:'#fff', fontSize:'17px', fontWeight:'900', letterSpacing:'2px', textTransform:'uppercase', textShadow:'0 2px 8px rgba(0,0,0,0.5)', lineHeight:1.1 }}>⚠ Vehicle Reported Stolen</div>
-                                        <div style={{ color:'#fecaca', fontSize:'12px', fontWeight:'600', letterSpacing:'0.5px', marginTop:'4px', fontFamily:'monospace' }}>This vehicle is flagged as STOLEN in its registration. Exercise caution and follow protocol.</div>
+                                        <div style={{ color:'#fecaca', fontSize:'12px', fontWeight:'600', letterSpacing:'0.5px', marginTop:'4px', fontFamily:'monospace' }}>This vehicle is flagged as STOLEN in its registration. Exercise caution.</div>
                                     </div>
-                                    <div style={{ flexShrink:0, padding:'6px 12px', borderRadius:'8px', background:'#ef4444', color:'#fff', fontSize:'11px', fontWeight:'900', letterSpacing:'1.5px', fontFamily:'monospace', boxShadow:'0 0 12px rgba(239,68,68,0.7)' }}>STOLEN</div>
                                 </div>
                             </div>
                         )}
