@@ -2922,7 +2922,7 @@ const triggerPanicActivate = React.useCallback(async () => {
     // Notify Cloudflare so other officers get alerted via their poll
     fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/panic', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ badge: ts?.BadgeID, name: `${ts?.FirstName} ${ts?.LastName}`, session: sess })
+        body: JSON.stringify({ badge: ts?.BadgeID, name: `${ts?.FirstName} ${ts?.LastName}`, session: sess, ...getRequestAuth() })
     }).catch(() => {});
     try {
         const result = await window.electron?.ipcRenderer?.invoke('trigger-panic-roblox');
@@ -3063,6 +3063,21 @@ React.useEffect(() => { cfCacheRef.current = cfCache; }, [cfCache]);
 // Snapshot of security-relevant fields at login time; the tamper detector compares
 // each poll's userRecord against this baseline. Only set when login succeeds.
 const securityBaselineRef = React.useRef(null);
+
+// ── Request auth for write/read-back routes ──
+// Proves the caller is a logged-in user WITHOUT sending the password: we send the
+// username + the passwordFingerprint the Worker issued at login. The Worker verifies
+// the fingerprint matches that user's real fingerprint before honoring the request.
+// This gates /panic, /bolo, /session-log, and the checkBanOnly re-check against
+// anonymous griefing and record enumeration.
+function getRequestAuth() {
+    const b = securityBaselineRef.current;
+    return {
+        authUsername: (loginKeyRef.current || b?.username || null),
+        authFingerprint: (b?.passwordFingerprint || null)
+    };
+}
+
 
 // ── Connection-loss detection ──
 // We track the last time the central poll successfully reached the backend. A watcher
@@ -3289,7 +3304,7 @@ const runCloudflarePoll = React.useCallback(async (isInitial) => {
             fetch(`${CF_BASE}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: (loginKeyRef.current || authUser.robloxUsername), checkBanOnly: true })
+                body: JSON.stringify({ username: (loginKeyRef.current || authUser.robloxUsername), checkBanOnly: true, ...getRequestAuth() })
             })
             .then(r => r.ok ? r.json() : null)
             .then(json => {
@@ -3747,7 +3762,7 @@ React.useEffect(() => {
                     const banResp = await fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username: authenticatedUser.robloxUsername, checkBanOnly: true })
+                        body: JSON.stringify({ username: authenticatedUser.robloxUsername, checkBanOnly: true, ...getRequestAuth() })
                     });
                     if (banResp.ok) {
                         const banResult = await banResp.json();
@@ -11911,7 +11926,8 @@ const flushSessionLog = (viaBeacon) => {
             endTimeLocal: end.toLocaleString(),
             durationSeconds: Math.max(0, Math.round((end - start) / 1000)),
             month: end.toLocaleString('en-US', { month: 'long', year: 'numeric' }),
-            date: end.toLocaleDateString()
+            date: end.toLocaleDateString(),
+            ...getRequestAuth()
         };
         const url = 'https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/session-log';
         console.log('[SESSION-LOG] SENDING payload:', payload);
@@ -17554,7 +17570,7 @@ onError={(e) => {
                     if(boloCooldownUntil && Date.now() < boloCooldownUntil) return;
                     if(!boloForm.session) { showCustomError('Session Required', 'Please select which session this BOLO should appear in.'); return; }
                     if(!boloForm.plate && !boloForm.description) { showCustomError('Missing Info', 'Please enter at least a license plate or vehicle description.'); return; }
-                    const payload = { ...boloForm, issuedBy: `${trooperSettings?.FirstName} ${trooperSettings?.LastName}` };
+                    const payload = { ...boloForm, issuedBy: `${trooperSettings?.FirstName} ${trooperSettings?.LastName}`, ...getRequestAuth() };
                     fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/bolo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
                         .then(()=>{
                             const session = selectedUserSession ? `?session=${encodeURIComponent(selectedUserSession)}` : '';
