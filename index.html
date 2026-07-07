@@ -895,6 +895,11 @@ html, body {
     width: 100%;
     min-height: 100vh;
     overflow-x: hidden;
+    /* Pin the base UI font explicitly. Previously the app relied on the browser's
+       default sans-serif, which can differ between the dev run and the packaged app,
+       causing the whole UI to render in the wrong typeface. This locks it to the
+       intended Segoe UI stack with safe fallbacks. */
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, 'Roboto', 'Helvetica Neue', Arial, sans-serif;
 }
 @keyframes ripple-effect {
     0% {
