@@ -1327,6 +1327,28 @@ function _spotifyStopPolling() {
 // Honest limitation: Chromium exposes the GPU *process's* CPU and RAM, but NOT the
 // GPU's core utilization percentage. There is no API for that. We report what is real
 // and label it accordingly rather than inventing a GPU-usage gauge.
+// ── Eco Mode (main-process side) ──
+// The renderer toggles this. The single biggest measured cost was the window rendering
+// at 144 FPS on a static screen. Capping the frame rate to 30 FPS cuts GPU-process and
+// renderer churn substantially with no visible difference on a data terminal.
+// setFrameRate requires backgroundThrottling to behave; we also let the OS throttle
+// when the window isn't focused.
+ipcMain.handle('set-eco-mode', (_e, { enabled, frameRate, throttle } = {}) => {
+    try {
+        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+            // Frame rate: caller supplies the target (30/40/50/60). Clamp to Electron's
+            // valid range. Falls back to 30 (eco) / 60 (normal) if unspecified.
+            let fps = typeof frameRate === 'number' ? frameRate : (enabled ? 30 : 60);
+            fps = Math.max(30, Math.min(60, fps));
+            mainWindow.webContents.setFrameRate(fps);
+            mainWindow.webContents.setBackgroundThrottling(throttle !== false);
+        }
+        return { ok: true, frameRate: (typeof frameRate === 'number' ? frameRate : (enabled ? 30 : 60)) };
+    } catch (e) {
+        return { ok: false, error: e.message };
+    }
+});
+
 ipcMain.handle('get-app-metrics', () => {
     try {
         const metrics = app.getAppMetrics();
