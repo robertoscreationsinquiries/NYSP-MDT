@@ -23,6 +23,22 @@ body {
     background-repeat: no-repeat;
 }
 
+/* ── Eco Mode ── Cuts GPU/renderer load on a mostly-static CAD screen. Removes the
+   fixed background gradients (which the compositor repaints), disables all animation
+   and transition, and drops backdrop blur (the most expensive paint operation). The
+   frame-rate cap is applied separately in the main process. */
+body.eco-mode {
+    background-image: none;
+}
+body.eco-mode *,
+body.eco-mode *::before,
+body.eco-mode *::after {
+    animation: none !important;
+    transition: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
 /* ── Mini-mode ── Spotify-miniplayer aesthetic: rounded corners, tighter chrome.
    The window itself is resized + pinned by the main process; this reflows the
    in-window content so it stays usable at small sizes (no overflow/clipping). */
@@ -2199,6 +2215,10 @@ const [pausedTime, setPausedTime] = useState(0);
 const [pauseStartTime, setPauseStartTime] = useState(null);
 const [dyslexiaFont, setDyslexiaFont] = useState(false);
 const [visualEffects, setVisualEffects] = useState(true);
+// Eco Mode: caps the frame rate and disables decorative effects to cut GPU/renderer
+// memory and CPU. Targets the actual cost centers (144fps rendering + effects), not
+// placebo "free RAM" actions. Persisted in the settings file like other toggles.
+const [ecoMode, setEcoMode] = useState(false);
 const [commandBarOpen, setCommandBarOpen] = useState(false);
 const [commandBarInput, setCommandBarInput] = useState('/');
 const [commandBarError, setCommandBarError] = useState('');
@@ -5350,6 +5370,24 @@ React.useEffect(() => {
     }
 }, [visualEffects]);
 
+// Apply Eco Mode. This does the things that actually reduce resource use:
+//  1) toggles a body class that disables decorative animations/effects via CSS
+//     (reuses the existing 'no-visual-effects' rules — GPU-composited animation is
+//      a real cost at high refresh rates)
+//  2) asks the main process to cap the window's frame rate (144fps → 30fps), which
+//     is the single biggest lever given the measured 144 FPS on a static screen.
+React.useEffect(() => {
+    if (ecoMode) {
+        document.body.classList.add('eco-mode', 'no-visual-effects');
+    } else {
+        document.body.classList.remove('eco-mode');
+        if (visualEffects) document.body.classList.remove('no-visual-effects');
+    }
+    try {
+        window.electron?.ipcRenderer?.invoke('set-eco-mode', { enabled: ecoMode });
+    } catch (_) {}
+}, [ecoMode, visualEffects]);
+
 React.useEffect(() => {
     if (micHotkey) {
         window.electron?.ipcRenderer?.invoke('register-global-shortcut', { key: micHotkey, id: 'mic-toggle', requireFocus: keybindsRequireFocus });
@@ -6078,6 +6116,11 @@ if (settings.VisualEffects === 'FALSE') {
     addLog('âœ… Visual effects disabled', 'success');
 }
 
+if (settings.EcoMode === 'TRUE') {
+    setEcoMode(true);
+    addLog('âœ… Eco mode enabled', 'success');
+}
+
 if (settings.ActiveSession && settings.ActiveSession !== 'NONE') {
     setSelectedUserSession(settings.ActiveSession);
     addLog(`âœ… Active session restored: ${settings.ActiveSession}`, 'success');
@@ -6198,6 +6241,7 @@ GuildID=${editableTrooperSettings?.GuildID || trooperSettings?.GuildID || ''}
 expDate=${editableTrooperSettings?.expDate || trooperSettings?.expDate || ''}
 DyslexiaFont=${dyslexiaFont ? 'TRUE' : 'FALSE'}
 VisualEffects=${visualEffects ? 'TRUE' : 'FALSE'}
+EcoMode=${ecoMode ? 'TRUE' : 'FALSE'}
 SIDETAB_NAVIGATION=${compactMode ? 'TRUE' : 'FALSE'}
 ActiveSession=NONE
 USE_MICROPHONE=${useMicrophone ? 'TRUE' : 'FALSE'}
@@ -6249,6 +6293,7 @@ SFX_MIC_NOTAVAILABLE=${soundSettings.MicNotAvailable ? 'TRUE' : 'FALSE'}`;
                     if (key === 'TeamSpeakAPIKey') { setTeamspeakAPIKey(val); localStorage.setItem('teamspeakAPIKey', val); }
                     if (key === 'DyslexiaFont') setDyslexiaFont(val === 'TRUE');
                     if (key === 'VisualEffects') setVisualEffects(val === 'TRUE');
+                    if (key === 'EcoMode') setEcoMode(val === 'TRUE');
                                         if (key === 'SIDETAB_NAVIGATION' || key === 'MiniMode') { const enabled = val === 'TRUE'; setCompactMode(enabled); if (enabled && window.require) { try { window.require('electron').ipcRenderer.send('toggle-compact-mode', true); } catch(_) {} } }
 if (key === 'ACTIONBAR_KEYBIND') setActionBarKeybind(val);
 if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
@@ -16355,6 +16400,7 @@ onError={(e) => {
                                 <div style={S.sectionSub}>Display and visual preferences</div>
                                 <ToggleRow label="Normal Font" desc="Disables the MDT-style monospace font" on={dyslexiaFont} accent="#8b5cf6" onToggle={() => { const v = !dyslexiaFont; setDyslexiaFont(v); v ? document.body.classList.add('dyslexia-font') : document.body.classList.remove('dyslexia-font'); }} />
                                 <ToggleRow label="Visual Feedback Effects" desc="Pulse animations, shake effects, glowing borders" on={visualEffects} accent="#8b5cf6" onToggle={() => setVisualEffects(!visualEffects)} />
+                                <ToggleRow label="Eco Mode" desc="Caps frame rate to 30fps and disables effects to reduce RAM, CPU, and GPU usage" on={ecoMode} accent="#10b981" onToggle={() => setEcoMode(!ecoMode)} />
 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: escToHome ? 'rgba(139,92,246,0.07)' : 'rgba(255,255,255,0.02)', border: `1px solid ${escToHome ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.05)'}`, borderRadius: '9px', marginBottom: '7px' }}>
     <div>
         <div style={{ color: escToHome ? '#e2e8f0' : '#6b7280', fontSize: '13px', fontWeight: '600' }}>ESC Returns to Home</div>
