@@ -836,38 +836,20 @@ if (USE_LOCAL_INDEX) {
     const soundsScript = `window.SOUNDS = {TIMER_SIDEPANEL: '${GITHUB_SOUNDS_BASE}/TIMER_SIDEPANEL.mp3', panicAlarm: '${GITHUB_SOUNDS_BASE}/panicAlarm.mp3', platePass: '${GITHUB_SOUNDS_BASE}/platePass.mp3', plateFail: '${GITHUB_SOUNDS_BASE}/plateFail.mp3', callAlert: '${GITHUB_SOUNDS_BASE}/CallIncoming.mp3', PriorityCallIncoming: '${GITHUB_SOUNDS_BASE}/PriorityCallIncoming.mp3', warrantAlert: '${GITHUB_SOUNDS_BASE}/warrantAlert.mp3', StartupSFX: '${GITHUB_SOUNDS_BASE}/StartupSFX.mp3', LoginAccessDenied: '${GITHUB_SOUNDS_BASE}/LoginAccessDenied.mp3', LoginIncorrect: '${GITHUB_SOUNDS_BASE}/LoginIncorrect.mp3', LoginPageCorrect: '${GITHUB_SOUNDS_BASE}/LoginPageCorrect.mp3', MIC_ACTIVESFX: '${GITHUB_SOUNDS_BASE}/MIC_ACTIVESFX.mp3', MIC_INACTIVESFX: '${GITHUB_SOUNDS_BASE}/MIC_INACTIVESFX.mp3', MIC_NOTAVAILABLESFX: '${GITHUB_SOUNDS_BASE}/MIC_NOTAVAILABLESFX.mp3', noCitizenSFX: '${GITHUB_SOUNDS_BASE}/noCitizenSFX.mp3', clientSessionExpirationWarning: '${GITHUB_SOUNDS_BASE}/clientSessionExpirationWarning.mp3', PursuitModeActive: '${GITHUB_SOUNDS_BASE}/PursuitModeActive.mp3', PursuitModeNotActive: '${GITHUB_SOUNDS_BASE}/PursuitModeNotActive.mp3' }; window.SOUNDS_BASE64 = window.SOUNDS; console.log('[SOUNDS] Ready from branch ${GITHUB_BRANCH}! Keys:', Object.keys(window.SOUNDS).join(', '));`;
 
     Promise.all([
-        // SHA for display
-        new Promise((resolve) => {
-            https.get(`https://api.github.com/repos/${GITHUB_REPO}/commits/${GITHUB_BRANCH_ENCODED}`, {
-                timeout: 8000,
-                headers: { 'User-Agent': 'NYSP-MDT-App', 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-            }, (res) => {
-                let d = ''; res.on('data', c => d += c);
-                res.on('end', () => { try { resolve((JSON.parse(d).sha || '').substring(0, 7)); } catch { resolve('unknown'); } });
-            }).on('error', () => resolve('unknown'));
-        }),
-        // index.html via full SHA to bypass CDN cache
+        // PERF: SHA is already resolved by main.js and injected as PRELOADED_SHA.
+        // Previously this block called the GitHub commits API TWICE more (once for
+        // display, once chained before index.html) — the single biggest cause of slow
+        // cold starts, since that API is slow and rate-limited to 60/hr unauthenticated.
+        // Now we reuse the preloaded SHA and go straight to the fast raw CDN.
+        Promise.resolve((typeof PRELOADED_SHA === 'string' ? PRELOADED_SHA : GITHUB_BRANCH_ENCODED).substring(0, 7)),
+        // index.html directly from the raw CDN by SHA (no API hop, cache-busted by SHA)
         new Promise((resolve, reject) => {
-            https.get(`https://api.github.com/repos/${GITHUB_REPO}/commits/${GITHUB_BRANCH_ENCODED}`, {
-                timeout: 8000,
-                headers: { 'User-Agent': 'NYSP-MDT-App', 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-            }, (shaRes) => {
-                let d = ''; shaRes.on('data', c => d += c);
-                shaRes.on('end', () => {
-                    let fullSha = GITHUB_BRANCH_ENCODED;
-                    try { fullSha = JSON.parse(d).sha || GITHUB_BRANCH_ENCODED; } catch {}
-                    console.log(`[FETCH] Fetching index.html at SHA: ${fullSha.substring(0, 7)}`);
-                    https.get(`https://raw.githubusercontent.com/${GITHUB_REPO}/${fullSha}/index.html`, { timeout: 30000 }, (res) => {
-                        let html = ''; res.on('data', c => html += c);
-                        res.on('end', () => { console.log(`[FETCH] Got index.html: ${html.length} bytes`); resolve(html); });
-                    }).on('error', reject);
-                });
-            }).on('error', () => {
-                https.get(`https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH_ENCODED}/index.html`, { timeout: 30000 }, (res) => {
-                    let html = ''; res.on('data', c => html += c);
-                    res.on('end', () => resolve(html));
-                }).on('error', reject);
-            });
+            const shaRef = (typeof PRELOADED_SHA === 'string' && PRELOADED_SHA) ? PRELOADED_SHA : GITHUB_BRANCH_ENCODED;
+            console.log(`[FETCH] Fetching index.html at SHA: ${String(shaRef).substring(0, 7)}`);
+            https.get(`https://raw.githubusercontent.com/${GITHUB_REPO}/${shaRef}/index.html`, { timeout: 30000 }, (res) => {
+                let html = ''; res.on('data', c => html += c);
+                res.on('end', () => { console.log(`[FETCH] Got index.html: ${html.length} bytes`); resolve(html); });
+            }).on('error', reject);
         }),
         fetchRaw('live-announcements.js'),
         fetchRaw('maintenance.js').catch(() => 'window.MAINTENANCE = false; console.log("[MAINTENANCE] Default: false");'),
@@ -1336,6 +1318,46 @@ function _spotifyPollSoon(delay = 250) {
 function _spotifyStopPolling() {
     if (_spotifyState.pollTimer) { clearInterval(_spotifyState.pollTimer); _spotifyState.pollTimer = null; }
 }
+
+// ── App-only resource metrics (Debug view) ──
+// app.getAppMetrics() reports EVERY process this Electron app owns (main/"Browser",
+// each renderer, the GPU process, utilities) — and nothing else on the machine. So the
+// numbers here are strictly this application's usage, not system-wide.
+//
+// Honest limitation: Chromium exposes the GPU *process's* CPU and RAM, but NOT the
+// GPU's core utilization percentage. There is no API for that. We report what is real
+// and label it accordingly rather than inventing a GPU-usage gauge.
+ipcMain.handle('get-app-metrics', () => {
+    try {
+        const metrics = app.getAppMetrics();
+        let totalRamMB = 0, totalCpu = 0, rendererRamMB = 0;
+        let gpuRamMB = null, gpuCpu = null, mainRamMB = null;
+
+        for (const m of metrics) {
+            const ramMB = (m.memory && m.memory.workingSetSize ? m.memory.workingSetSize : 0) / 1024; // KB → MB
+            const cpu = (m.cpu && m.cpu.percentCPUUsage) ? m.cpu.percentCPUUsage : 0;
+            totalRamMB += ramMB;
+            totalCpu += cpu;
+            if (m.type === 'GPU') { gpuRamMB = ramMB; gpuCpu = cpu; }
+            else if (m.type === 'Browser') { mainRamMB = ramMB; }
+            else { rendererRamMB += ramMB; }
+        }
+
+        const r1 = (n) => (n === null || isNaN(n)) ? null : Math.round(n * 10) / 10;
+        return {
+            ok: true,
+            processCount: metrics.length,
+            totalRamMB:      r1(totalRamMB),
+            totalCpuPercent: r1(totalCpu),      // summed across processes; can exceed 100 (per-core)
+            mainRamMB:       r1(mainRamMB),
+            rendererRamMB:   r1(rendererRamMB),
+            gpuRamMB:        r1(gpuRamMB),
+            gpuCpuPercent:   r1(gpuCpu)
+        };
+    } catch (e) {
+        return { ok: false, error: e.message };
+    }
+});
 
 ipcMain.handle('spotify-init', async (_e, { clientId, refreshToken }) => {
     if (!clientId || clientId.length < 25) return { ok: false, reason: 'INVALID_CLIENT_ID' };
