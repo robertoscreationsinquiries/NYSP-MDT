@@ -39,6 +39,35 @@ body.eco-mode *::after {
     -webkit-backdrop-filter: none !important;
 }
 
+/* ── Granular optimization toggles ── each maps to a settings switch ── */
+/* Disable hover effects: neutralize hover-driven transitions/filters */
+body.no-hover-fx *:hover {
+    filter: none !important;
+    transform: none !important;
+    transition: none !important;
+}
+/* Disable click effects: ripple layers + active press-scale */
+body.no-click-fx .ripple-effect,
+body.no-click-fx [class*="ripple"] { display: none !important; }
+body.no-click-fx *:active { transform: none !important; }
+/* Remove decorative background gradients */
+body.no-bg-gradients { background-image: none !important; }
+/* Remove backdrop blur (most expensive paint op) */
+body.no-blur *,
+body.no-blur *::before,
+body.no-blur *::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+/* Reduce motion: kill all animation + transition globally */
+body.reduce-motion *,
+body.reduce-motion *::before,
+body.reduce-motion *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+}
+
 /* ── Mini-mode ── Spotify-miniplayer aesthetic: rounded corners, tighter chrome.
    The window itself is resized + pinned by the main process; this reflows the
    in-window content so it stays usable at small sizes (no overflow/clipping). */
@@ -2219,6 +2248,15 @@ const [visualEffects, setVisualEffects] = useState(true);
 // memory and CPU. Targets the actual cost centers (144fps rendering + effects), not
 // placebo "free RAM" actions. Persisted in the settings file like other toggles.
 const [ecoMode, setEcoMode] = useState(false);
+// ── Performance / optimization settings ──
+// Each persists to the settings file, loads on launch, and appears in the export list.
+const [ecoFrameRate, setEcoFrameRate] = useState(30);       // 30 | 40 | 50 | 60 — Eco Mode cap
+const [hoverEffects, setHoverEffects] = useState(true);     // hover highlight/brightness transitions
+const [clickEffects, setClickEffects] = useState(true);     // click ripples + press-scale
+const [backgroundGradients, setBackgroundGradients] = useState(true); // decorative body gradients
+const [blurEffects, setBlurEffects] = useState(true);       // backdrop-filter blur (expensive paint)
+const [reduceMotion, setReduceMotion] = useState(false);    // disable all animation/transition
+const [throttleBackground, setThrottleBackground] = useState(true);   // slow polling when unfocused
 const [commandBarOpen, setCommandBarOpen] = useState(false);
 const [commandBarInput, setCommandBarInput] = useState('/');
 const [commandBarError, setCommandBarError] = useState('');
@@ -3336,7 +3374,7 @@ const forceQuitForOutdated = React.useCallback((info) => {
     try {
         window.electron?.ipcRenderer?.invoke('force-quit-with-dialog', {
             title: 'App Outdated',
-            message: 'This version of the NYSP MDT is no longer supported.',
+            message: 'This version of the MDT is no longer supported.',
             detail: `Unsupported: ${what}.\n\nPlease download and install the latest build to continue.`
         });
     } catch (_) {}
@@ -5370,23 +5408,23 @@ React.useEffect(() => {
     }
 }, [visualEffects]);
 
-// Apply Eco Mode. This does the things that actually reduce resource use:
-//  1) toggles a body class that disables decorative animations/effects via CSS
-//     (reuses the existing 'no-visual-effects' rules — GPU-composited animation is
-//      a real cost at high refresh rates)
-//  2) asks the main process to cap the window's frame rate (144fps → 30fps), which
-//     is the single biggest lever given the measured 144 FPS on a static screen.
+// Apply Eco Mode + granular optimization toggles. Each maps to a body class (CSS above)
+// or a main-process call. Eco Mode is a master switch that also forces the frame cap.
 React.useEffect(() => {
-    if (ecoMode) {
-        document.body.classList.add('eco-mode', 'no-visual-effects');
-    } else {
-        document.body.classList.remove('eco-mode');
-        if (visualEffects) document.body.classList.remove('no-visual-effects');
-    }
-    try {
-        window.electron?.ipcRenderer?.invoke('set-eco-mode', { enabled: ecoMode });
-    } catch (_) {}
-}, [ecoMode, visualEffects]);
+    const b = document.body.classList;
+    // Master Eco Mode: also disables effects wholesale via its own class.
+    b.toggle('eco-mode', ecoMode);
+    // Granular toggles (independent of Eco Mode).
+    b.toggle('no-hover-fx', !hoverEffects);
+    b.toggle('no-click-fx', !clickEffects);
+    b.toggle('no-bg-gradients', !backgroundGradients);
+    b.toggle('no-blur', !blurEffects);
+    b.toggle('reduce-motion', reduceMotion);
+
+    // Frame-rate cap: Eco Mode forces its configured rate; otherwise 60fps.
+    const targetFps = ecoMode ? ecoFrameRate : 60;
+    try { window.electron?.ipcRenderer?.invoke('set-eco-mode', { enabled: ecoMode, frameRate: targetFps, throttle: throttleBackground }); } catch (_) {}
+}, [ecoMode, ecoFrameRate, hoverEffects, clickEffects, backgroundGradients, blurEffects, reduceMotion, throttleBackground]);
 
 React.useEffect(() => {
     if (micHotkey) {
@@ -6120,6 +6158,16 @@ if (settings.EcoMode === 'TRUE') {
     setEcoMode(true);
     addLog('âœ… Eco mode enabled', 'success');
 }
+if (settings.EcoFrameRate) {
+    const fr = parseInt(settings.EcoFrameRate, 10);
+    if ([30, 40, 50, 60].includes(fr)) setEcoFrameRate(fr);
+}
+if (settings.HoverEffects === 'FALSE') setHoverEffects(false);
+if (settings.ClickEffects === 'FALSE') setClickEffects(false);
+if (settings.BackgroundGradients === 'FALSE') setBackgroundGradients(false);
+if (settings.BlurEffects === 'FALSE') setBlurEffects(false);
+if (settings.ReduceMotion === 'TRUE') setReduceMotion(true);
+if (settings.ThrottleBackground === 'FALSE') setThrottleBackground(false);
 
 if (settings.ActiveSession && settings.ActiveSession !== 'NONE') {
     setSelectedUserSession(settings.ActiveSession);
@@ -6242,6 +6290,13 @@ expDate=${editableTrooperSettings?.expDate || trooperSettings?.expDate || ''}
 DyslexiaFont=${dyslexiaFont ? 'TRUE' : 'FALSE'}
 VisualEffects=${visualEffects ? 'TRUE' : 'FALSE'}
 EcoMode=${ecoMode ? 'TRUE' : 'FALSE'}
+EcoFrameRate=${ecoFrameRate}
+HoverEffects=${hoverEffects ? 'TRUE' : 'FALSE'}
+ClickEffects=${clickEffects ? 'TRUE' : 'FALSE'}
+BackgroundGradients=${backgroundGradients ? 'TRUE' : 'FALSE'}
+BlurEffects=${blurEffects ? 'TRUE' : 'FALSE'}
+ReduceMotion=${reduceMotion ? 'TRUE' : 'FALSE'}
+ThrottleBackground=${throttleBackground ? 'TRUE' : 'FALSE'}
 SIDETAB_NAVIGATION=${compactMode ? 'TRUE' : 'FALSE'}
 ActiveSession=NONE
 USE_MICROPHONE=${useMicrophone ? 'TRUE' : 'FALSE'}
@@ -6294,6 +6349,13 @@ SFX_MIC_NOTAVAILABLE=${soundSettings.MicNotAvailable ? 'TRUE' : 'FALSE'}`;
                     if (key === 'DyslexiaFont') setDyslexiaFont(val === 'TRUE');
                     if (key === 'VisualEffects') setVisualEffects(val === 'TRUE');
                     if (key === 'EcoMode') setEcoMode(val === 'TRUE');
+                    if (key === 'EcoFrameRate') { const fr = parseInt(val, 10); if ([30,40,50,60].includes(fr)) setEcoFrameRate(fr); }
+                    if (key === 'HoverEffects') setHoverEffects(val === 'TRUE');
+                    if (key === 'ClickEffects') setClickEffects(val === 'TRUE');
+                    if (key === 'BackgroundGradients') setBackgroundGradients(val === 'TRUE');
+                    if (key === 'BlurEffects') setBlurEffects(val === 'TRUE');
+                    if (key === 'ReduceMotion') setReduceMotion(val === 'TRUE');
+                    if (key === 'ThrottleBackground') setThrottleBackground(val === 'TRUE');
                                         if (key === 'SIDETAB_NAVIGATION' || key === 'MiniMode') { const enabled = val === 'TRUE'; setCompactMode(enabled); if (enabled && window.require) { try { window.require('electron').ipcRenderer.send('toggle-compact-mode', true); } catch(_) {} } }
 if (key === 'ACTIONBAR_KEYBIND') setActionBarKeybind(val);
 if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
@@ -11054,6 +11116,9 @@ const channelId = trooperSettings?.DatabaseChannelID || editableTrooperSettings?
 };
 
 const generateCitation = async (ownerData = null, vehicleData = null) => {
+    // Enforce the export restriction at the source, so it applies to EVERY entry point
+    // (plate search, ID lookup, command bar, etc.) — not just the plate-search button.
+    if (featureLocks.exportCitation) { showLockedFeatureAlert('Export Pre-Filled Citation'); return; }
     // Use passed parameters or fall back to state
     const finalOwner = ownerData || result || { 
         username: 'UNKNOWN', 
@@ -11573,6 +11638,9 @@ addLog('All available fields filled', 'success');
 
 
 const generateArrestReport = async (ownerData = null) => {
+    // Enforce the export restriction at the source (see generateCitation) so ID Lookup
+    // and every other entry point respect the lock, not just the plate-search button.
+    if (featureLocks.exportCitation) { showLockedFeatureAlert('File Arrest Report'); return; }
     const finalOwner = ownerData || searchResults?.robloxUser || { 
         username: 'UNKNOWN', 
         userId: 'UNKNOWN', 
@@ -14345,7 +14413,7 @@ return (
                         </div>
                         <div>
                             <div style={{ display:'flex',alignItems:'center',gap:'10px',marginBottom:'4px' }}>
-                                <div style={{ color:'#e2e8f0',fontSize:'22px',fontWeight:'700',letterSpacing:'0.3px',lineHeight:'1.1' }}>New York State Police</div>
+                                <div style={{ color:'#e2e8f0',fontSize:'22px',fontWeight:'700',letterSpacing:'0.3px',lineHeight:'1.1' }}>{deptDisplayName}</div>
                                 <span style={{ padding:'2px 8px',background:'rgba(34,211,238,0.1)',border:'1px solid rgba(34,211,238,0.3)',borderRadius:'5px',color:'#22d3ee',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',fontFamily:'monospace' }}>EST. 2025</span>
                             </div>
                             <div style={{ color:'#22d3ee',fontSize:'12px',marginTop:'2px',fontFamily:'monospace',letterSpacing:'0.3px' }}>
@@ -16400,7 +16468,28 @@ onError={(e) => {
                                 <div style={S.sectionSub}>Display and visual preferences</div>
                                 <ToggleRow label="Normal Font" desc="Disables the MDT-style monospace font" on={dyslexiaFont} accent="#8b5cf6" onToggle={() => { const v = !dyslexiaFont; setDyslexiaFont(v); v ? document.body.classList.add('dyslexia-font') : document.body.classList.remove('dyslexia-font'); }} />
                                 <ToggleRow label="Visual Feedback Effects" desc="Pulse animations, shake effects, glowing borders" on={visualEffects} accent="#8b5cf6" onToggle={() => setVisualEffects(!visualEffects)} />
-                                <ToggleRow label="Eco Mode" desc="Caps frame rate to 30fps and disables effects to reduce RAM, CPU, and GPU usage" on={ecoMode} accent="#10b981" onToggle={() => setEcoMode(!ecoMode)} />
+                                <ToggleRow label="Eco Mode" desc="Master switch: caps frame rate (below) and disables effects to reduce RAM, CPU, and GPU usage" on={ecoMode} accent="#10b981" onToggle={() => setEcoMode(!ecoMode)} />
+                                {ecoMode && (
+                                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', background:'rgba(16,185,129,0.06)', border:'1px solid rgba(16,185,129,0.18)', borderRadius:'9px', marginBottom:'7px' }}>
+                                        <div>
+                                            <div style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'600' }}>Frame Rate Cap</div>
+                                            <div style={{ color:'#6b7280', fontSize:'11px', marginTop:'2px' }}>Lower = less GPU/CPU. 30 is smooth enough for a data terminal.</div>
+                                        </div>
+                                        <select value={ecoFrameRate} onChange={e => setEcoFrameRate(parseInt(e.target.value, 10))}
+                                            style={{ background:'#0f172a', color:'#10b981', border:'1px solid rgba(16,185,129,0.35)', borderRadius:'7px', padding:'7px 12px', fontSize:'13px', fontWeight:'700', fontFamily:'monospace', cursor:'pointer', outline:'none' }}>
+                                            <option value={30}>30 FPS</option>
+                                            <option value={40}>40 FPS</option>
+                                            <option value={50}>50 FPS</option>
+                                            <option value={60}>60 FPS</option>
+                                        </select>
+                                    </div>
+                                )}
+                                <ToggleRow label="Hover Effects" desc="Highlight and brightness changes when hovering buttons and cards. Disable to reduce repaints." on={hoverEffects} accent="#10b981" onToggle={() => setHoverEffects(v => !v)} />
+                                <ToggleRow label="Click Effects" desc="Ripple animations and press-scale feedback on clicks." on={clickEffects} accent="#10b981" onToggle={() => setClickEffects(v => !v)} />
+                                <ToggleRow label="Background Gradients" desc="Decorative background glows. Disabling removes a continuous compositor repaint." on={backgroundGradients} accent="#10b981" onToggle={() => setBackgroundGradients(v => !v)} />
+                                <ToggleRow label="Blur Effects" desc="Frosted-glass backdrop blur. This is the single most expensive paint operation — disable for a real GPU saving." on={blurEffects} accent="#10b981" onToggle={() => setBlurEffects(v => !v)} />
+                                <ToggleRow label="Reduce Motion" desc="Disables all animations and transitions app-wide. Good for low-end machines or motion sensitivity." on={reduceMotion} accent="#10b981" onToggle={() => setReduceMotion(v => !v)} />
+                                <ToggleRow label="Throttle When Unfocused" desc="Slows rendering and background work when the MDT isn't the active window, freeing resources for your game." on={throttleBackground} accent="#10b981" onToggle={() => setThrottleBackground(v => !v)} />
 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: escToHome ? 'rgba(139,92,246,0.07)' : 'rgba(255,255,255,0.02)', border: `1px solid ${escToHome ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.05)'}`, borderRadius: '9px', marginBottom: '7px' }}>
     <div>
         <div style={{ color: escToHome ? '#e2e8f0' : '#6b7280', fontSize: '13px', fontWeight: '600' }}>ESC Returns to Home</div>
