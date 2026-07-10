@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Emergency services MDT</title>
+    <title>East Greenbush Mobile Data Terminal</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
@@ -2647,11 +2647,36 @@ const [miniHeight, setMiniHeight] = useState(1000);
 // Lazily wire a single shared AudioContext analyser that ALL `new Audio()` playback
 // routes through, so the Debug view can show a real output level meter. We patch the
 // Audio constructor once (idempotent) rather than editing every playback call site.
+//
+// MEMORY LEAK FIX: this patch used to create a brand-new HTMLAudioElement on every
+// single sound (26 call sites — plate hits, warrant alerts, mic toggles, …). Each one
+// got a permanent 'play' listener, and on first play was bound to the AudioContext via
+// createMediaElementSource() — a binding that can NEVER be undone, so the element, its
+// decoded audio buffer, and its graph node were retained for the life of the process.
+// A long shift with hundreds of lookups retained hundreds of media elements.
+//
+// We now pool ONE element per distinct sound URL. The app ships ~17 sounds, so the set
+// of retained elements is bounded and tiny. Replaying a sound rewinds the cached element
+// instead of allocating a new one.
 if (typeof window !== 'undefined' && !window._debugAudioWired) {
     window._debugAudioWired = true;
     try {
         const OrigAudio = window.Audio;
+        const pool = new Map(); // src -> HTMLAudioElement (bounded by number of distinct sounds)
+        const POOL_CAP = 64;    // defensive: never retain more than this many elements
+        window._audioPool = pool;
+
         window.Audio = function (...args) {
+            const src = args[0];
+
+            // Reuse the cached element for this sound. Rewind so the caller's .play()
+            // behaves exactly as it did with a fresh element.
+            if (typeof src === 'string' && pool.has(src)) {
+                const cached = pool.get(src);
+                try { cached.pause(); cached.currentTime = 0; } catch (_) {}
+                return cached;
+            }
+
             const el = new OrigAudio(...args);
             try {
                 if (!window._debugAudioCtx) {
@@ -2676,6 +2701,16 @@ if (typeof window !== 'undefined' && !window._debugAudioWired) {
                     }, { once: false });
                 }
             } catch (_) {}
+
+            if (typeof src === 'string') {
+                if (pool.size >= POOL_CAP) {
+                    // Evict the oldest entry. (Its AudioContext binding can't be undone,
+                    // but with URL-based sounds this branch should never be reached.)
+                    const oldest = pool.keys().next().value;
+                    pool.delete(oldest);
+                }
+                pool.set(src, el);
+            }
             return el;
         };
         window.Audio.prototype = OrigAudio.prototype;
@@ -2688,7 +2723,10 @@ const [debugStats, setDebugStats] = useState({
     cfPing: null, discordPing: null, heapUsedMB: null, heapTotalMB: null,
     fps: null, domNodes: null, audioLevel: 0,
     netType: null, downlink: null,
-    history: { cfPing: [], discordPing: [], heapUsedMB: [], fps: [], audioLevel: [] }
+    // Per-process resource usage for THIS APP only (from Electron's app.getAppMetrics)
+    appRamMB: null, appCpuPercent: null, gpuRamMB: null, gpuCpuPercent: null,
+    mainRamMB: null, rendererRamMB: null, processCount: null,
+    history: { cfPing: [], discordPing: [], heapUsedMB: [], fps: [], audioLevel: [], appRamMB: [], appCpuPercent: [] }
 });
 const debugFpsRef = React.useRef({ frames: 0, last: performance.now(), fps: 0 });
 React.useEffect(() => {
@@ -2744,15 +2782,30 @@ React.useEffect(() => {
         const netType = navigator.connection?.effectiveType || null;
         const downlink = navigator.connection?.downlink || null;
 
+        // Per-process usage for THIS APP only (main + renderers + GPU process).
+        // Comes from Electron's app.getAppMetrics(), so it never includes other programs.
+        let m = null;
+        try { m = await window.electron?.ipcRenderer?.invoke('get-app-metrics'); } catch (_) {}
+        const appRamMB      = (m && m.ok) ? m.totalRamMB      : null;
+        const appCpuPercent = (m && m.ok) ? m.totalCpuPercent : null;
+        const gpuRamMB      = (m && m.ok) ? m.gpuRamMB        : null;
+        const gpuCpuPercent = (m && m.ok) ? m.gpuCpuPercent   : null;
+        const mainRamMB     = (m && m.ok) ? m.mainRamMB       : null;
+        const rendererRamMB = (m && m.ok) ? m.rendererRamMB   : null;
+        const processCount  = (m && m.ok) ? m.processCount    : null;
+
         if (!alive) return;
         setDebugStats(prev => ({
             cfPing, discordPing, heapUsedMB, heapTotalMB, fps, domNodes, audioLevel, netType, downlink,
+            appRamMB, appCpuPercent, gpuRamMB, gpuCpuPercent, mainRamMB, rendererRamMB, processCount,
             history: {
                 cfPing: pushHist(prev.history.cfPing, cfPing ?? 0),
                 discordPing: pushHist(prev.history.discordPing, discordPing ?? 0),
                 heapUsedMB: pushHist(prev.history.heapUsedMB, heapUsedMB ?? 0),
                 fps: pushHist(prev.history.fps, fps ?? 0),
-                audioLevel: pushHist(prev.history.audioLevel, audioLevel)
+                audioLevel: pushHist(prev.history.audioLevel, audioLevel),
+                appRamMB: pushHist(prev.history.appRamMB, appRamMB ?? 0),
+                appCpuPercent: pushHist(prev.history.appCpuPercent, appCpuPercent ?? 0)
             }
         }));
     };
@@ -3253,6 +3306,47 @@ const forceQuitForTamper = React.useCallback((reason) => {
     // Belt and braces: if main is unreachable, blank the UI so the user can't keep using stale state
     try { setShowLoginScreen(true); setAuthenticatedUser(null); } catch (_) {}
 }, []);
+
+const forceQuitForOutdated = React.useCallback((info) => {
+    const parts = [];
+    if (info?.mainOk === false) parts.push(`app shell v${info.mainVersion || 'unknown'}`);
+    if (info?.htmlOk === false) parts.push(`interface v${info.htmlVersion || 'unknown'}`);
+    const what = parts.join(' and ') || 'unknown version';
+    console.error('[VERSION] 🚫 Unsupported version — blocking launch:', what);
+    try {
+        window.electron?.ipcRenderer?.invoke('force-quit-with-dialog', {
+            title: 'App Outdated',
+            message: 'This version of the NYSP MDT is no longer supported.',
+            detail: `Unsupported: ${what}.\n\nPlease download and install the latest build to continue.`
+        });
+    } catch (_) {}
+    try { setShowLoginScreen(true); setAuthenticatedUser(null); } catch (_) {}
+}, []);
+
+const versionGateRanRef = React.useRef(false);
+React.useEffect(() => {
+    if (versionGateRanRef.current) return;
+    versionGateRanRef.current = true;
+    (async () => {
+        let mainVersion = null;
+        try { mainVersion = await window.electron?.ipcRenderer?.invoke('get-build-version'); } catch (_) {}
+        console.log('[VERSION] Gate check — shell:', mainVersion || '(legacy/none)', '| interface:', APP_VERSION);
+        try {
+            const res = await fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/version-check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mainVersion: mainVersion || null, htmlVersion: APP_VERSION })
+            });
+            if (!res.ok) { console.warn('[VERSION] Check unavailable (HTTP ' + res.status + ') — allowing launch'); return; }
+            const data = await res.json();
+            if (data && data.supported === false) forceQuitForOutdated(data);
+            else console.log('[VERSION] ✅ Supported');
+        } catch (e) {
+            // Fail OPEN: a network blip must never lock a legitimate user out.
+            console.warn('[VERSION] Check failed — allowing launch:', e.message);
+        }
+    })();
+}, [forceQuitForOutdated]);
 
 // Single poll iteration — fetches ALL Cloudflare reads in parallel, updates state once.
 const runCloudflarePoll = React.useCallback(async (isInitial) => {
@@ -5923,8 +6017,16 @@ const usefulLinksData = [
 
 
 
+            // MEMORY: this array previously grew without bound for the entire session.
+            // The app calls addLog on nearly every action, so a long shift accumulated
+            // thousands of objects that were never released. Cap it to the most recent
+            // 300 entries — the Debug console only ever shows a scrollback anyway.
+            const CONSOLE_LOG_CAP = 300;
             const addLog = (msg, type = 'info') => {
-                setConsoleLogs(prev => [...prev, { message: msg, type, timestamp: new Date().toLocaleTimeString() }]);
+                setConsoleLogs(prev => {
+                    const next = [...prev, { message: msg, type, timestamp: new Date().toLocaleTimeString() }];
+                    return next.length > CONSOLE_LOG_CAP ? next.slice(-CONSOLE_LOG_CAP) : next;
+                });
             };
 
             // Load trooper settings IMMEDIATELY on mount - MUST BE FIRST
@@ -16987,6 +17089,12 @@ onError={(e) => {
                     <div style={{ color:'#67e8f9', fontSize:'15px', fontWeight:'800', fontFamily:'monospace', wordBreak:'break-all' }}>{buildStr}</div>
                 </div>
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(280px, 1fr))', gap:'12px' }}>
+                    <Metric label="App Memory (RAM)" value={ds.appRamMB} unit=" MB" accent="#f472b6" data={ds.history.appRamMB}
+                        hint={ds.processCount ? `${ds.processCount} processes · main ${ds.mainRamMB ?? '–'} MB · UI ${ds.rendererRamMB ?? '–'} MB` : 'This app only (all its processes)'} />
+                    <Metric label="App CPU" value={ds.appCpuPercent} unit=" %" accent="#fb923c" data={ds.history.appCpuPercent}
+                        hint="Summed across app processes · per-core, so it can exceed 100%" />
+                    <Metric label="GPU Process" value={ds.gpuRamMB} unit=" MB" accent="#22d3ee"
+                        hint={`GPU process RAM · CPU ${ds.gpuCpuPercent ?? '–'}% · GPU core utilisation isn't exposed by Chromium`} />
                     <Metric label="JS Heap Used" value={ds.heapUsedMB} unit=" MB" accent="#f59e0b" data={ds.history.heapUsedMB} hint={ds.heapTotalMB ? `of ${ds.heapTotalMB} MB allocated` : 'Chromium heap (if exposed)'} />
                     <Metric label="Render FPS" value={ds.fps} unit=" fps" accent="#34d399" data={ds.history.fps} max={60} hint="Animation frame rate" />
                     <Metric label="DOM Nodes" value={ds.domNodes} unit="" accent="#a78bfa" hint="Total elements in the document" />
