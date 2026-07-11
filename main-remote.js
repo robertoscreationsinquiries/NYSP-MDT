@@ -1337,25 +1337,34 @@ ipcMain.handle('set-eco-mode', (_e, { enabled, frameRate, throttle } = {}) => {
     try {
         if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
             const wc = mainWindow.webContents;
-            // Frame rate: caller supplies the target (30/40/50/60). Electron accepts 1-240;
-            // we clamp to a sane 30-60. When Eco is OFF we explicitly restore 60 so a
-            // previously-applied 30 cap doesn't persist (that was the "still feels like 30"
-            // bug — nothing ever raised the cap back up).
-            let fps = typeof frameRate === 'number' ? frameRate : (enabled ? 30 : 60);
-            fps = Math.max(30, Math.min(60, Math.round(fps)));
+            // Eco ON: cap to 30-60. Eco OFF: caller sends 240 = "display max" (uncapped),
+            // which restores native refresh (144Hz etc.). Electron clamps to the actual
+            // monitor rate, so 240 never over-drives the display.
+            let fps = typeof frameRate === 'number' ? frameRate : (enabled ? 30 : 240);
+            fps = Math.max(30, Math.min(240, Math.round(fps)));
             wc.setFrameRate(fps);
-            // Re-assert on the next tick: setFrameRate can be ignored if called too close to
-            // a swap; a deferred second call makes the new rate reliably take effect.
+            // Re-assert shortly after — setFrameRate can be dropped if called mid-swap.
             setTimeout(() => { try { if (!wc.isDestroyed()) wc.setFrameRate(fps); } catch (_) {} }, 60);
-            // Background throttling only helps when unfocused; it should never make the
-            // FOCUSED window feel capped. Electron only throttles unfocused windows anyway,
-            // so we honor the user's toggle but default it on only in eco.
+            // Throttle only when Eco is on AND the user opted in; never throttle a focused
+            // full-rate window (that was contributing to the "feels like 30" sluggishness).
             wc.setBackgroundThrottling(throttle === true);
         }
-        return { ok: true, frameRate: Math.max(30, Math.min(60, Math.round(typeof frameRate === 'number' ? frameRate : (enabled ? 30 : 60)))) };
+        return { ok: true, frameRate: Math.max(30, Math.min(240, Math.round(typeof frameRate === 'number' ? frameRate : (enabled ? 30 : 240)))) };
     } catch (e) {
         return { ok: false, error: e.message };
     }
+});
+
+// Bring the main window to the front (used when a call OS-notification is clicked).
+ipcMain.handle('focus-window', () => {
+    try {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.show();
+            mainWindow.focus();
+        }
+        return { ok: true };
+    } catch (e) { return { ok: false, error: e.message }; }
 });
 
 ipcMain.handle('get-app-metrics', () => {
