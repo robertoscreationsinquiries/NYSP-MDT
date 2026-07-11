@@ -4056,6 +4056,26 @@ if (trimmedLine.startsWith('SFX_MIC_NOTAVAILABLE=')) {
                 const t = (trimmedLine.split('=')[1] || '').trim();
                 if (t) { setSpotifyRefreshToken(t); try { localStorage.setItem('spotifyRefreshToken', t); } catch (_) {} }
             }
+            // ── Nav bar order (bug fix: these were only handled in a secondary loader that
+            //    doesn't run at startup, so the saved order never applied on launch). Use
+            //    slice after the first '=' so comma-separated values survive intact. ──
+            if (trimmedLine.startsWith('ViewOrder=')) {
+                const arr = trimmedLine.slice('ViewOrder='.length).split(',').map(s => s.trim()).filter(Boolean);
+                if (arr.length) setViewOrder(arr);
+            }
+            if (trimmedLine.startsWith('PanelOrder=')) {
+                const arr = trimmedLine.slice('PanelOrder='.length).split(',').map(s => s.trim()).filter(Boolean);
+                if (arr.length) setPanelOrder(arr);
+            }
+            // ── Optimization settings (same fix — load them at startup too) ──
+            if (trimmedLine.startsWith('EcoMode=')) setEcoMode(trimmedLine.split('=')[1]?.trim() === 'TRUE');
+            if (trimmedLine.startsWith('EcoFrameRate=')) { const fr = parseInt(trimmedLine.split('=')[1]?.trim(), 10); if ([30,40,50,60].includes(fr)) setEcoFrameRate(fr); }
+            if (trimmedLine.startsWith('HoverEffects=')) setHoverEffects(trimmedLine.split('=')[1]?.trim() !== 'FALSE');
+            if (trimmedLine.startsWith('ClickEffects=')) setClickEffects(trimmedLine.split('=')[1]?.trim() !== 'FALSE');
+            if (trimmedLine.startsWith('BackgroundGradients=')) setBackgroundGradients(trimmedLine.split('=')[1]?.trim() !== 'FALSE');
+            if (trimmedLine.startsWith('BlurEffects=')) setBlurEffects(trimmedLine.split('=')[1]?.trim() !== 'FALSE');
+            if (trimmedLine.startsWith('ReduceMotion=')) setReduceMotion(trimmedLine.split('=')[1]?.trim() === 'TRUE');
+            if (trimmedLine.startsWith('ThrottleBackground=')) setThrottleBackground(trimmedLine.split('=')[1]?.trim() !== 'FALSE');
         });
     } else {
         console.warn('⚠️ [SETTINGS] No settings file content available');
@@ -16939,9 +16959,9 @@ onError={(e) => {
                                                     if (result?.success) {
                                                         setStreamingActive(true);
                                                         setStreamingAddress(`http://${result.ip}:${result.port}`);
-                                                        setStreamingStatus('CONNECTION ESTABLISHED — STREAMING LIVE');
+                                                        setStreamingStatus(`CONNECTION ESTABLISHED — LIVE ON PORT ${result.port}`);
                                                     } else {
-                                                        setStreamingStatus('FAILED TO START — PORT MAY BE IN USE');
+                                                        setStreamingStatus(result?.error ? `FAILED: ${result.error.slice(0, 80)}` : 'FAILED TO START — PORT MAY BE IN USE');
                                                     }
                                                 } else {
                                                     setStreamingStatus('STOPPING SERVER...');
