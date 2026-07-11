@@ -2589,6 +2589,74 @@ const [streamingAddress, setStreamingAddress] = useState('');
 const [streamingCooldown, setStreamingCooldown] = useState(false);
 const [streamingStatus, setStreamingStatus] = useState('');
 const [showStreamingGuide, setShowStreamingGuide] = useState(false);
+
+// ── Mini-MDT bridge (renderer side) ──
+// When streaming is active, push a snapshot of calls + units to the main-process server
+// every few seconds so the phone can read it, and answer plate-lookup / call-action
+// requests the server forwards. Uses refs to avoid stale closures.
+const streamBridgeRef = React.useRef({});
+streamBridgeRef.current = { calls: (typeof calls !== 'undefined' ? calls : []), onlineOfficers, acknowledgedCalls, dismissedCalls, selectedUserSession, activePanic, discordToken, editableTrooperSettings, trooperSettings };
+React.useEffect(() => {
+    if (!streamingActive) return;
+    const ipc = window.electron?.ipcRenderer || (window.require && window.require('electron').ipcRenderer);
+    if (!ipc) return;
+
+    const pushSnapshot = () => {
+        const b = streamBridgeRef.current;
+        const units = (b.onlineOfficers || []).map(o => ({
+            badge: o.badgeId || o.badge || '—',
+            name: o.name || `${o.firstName || ''} ${o.lastName || ''}`.trim() || o.callSign || 'Unit',
+            callSign: o.callSign || '',
+            status: o.status || o.statusCode || '10-8'
+        }));
+        const calls = (b.calls || []).filter(c => !b.dismissedCalls?.includes(c.id)).map(c => ({
+            id: c.id, name: c.name, services: c.services, description: c.description,
+            location: c.location, timestamp: c.timestamp, author: c.author,
+            isPriority: c.isPriority, acknowledged: b.acknowledgedCalls?.includes(c.id)
+        }));
+        const panic = b.activePanic ? { name: b.activePanic.name, badge: b.activePanic.badge, session: b.activePanic.session } : null;
+        try { ipc.send('stream-push-data', { calls, units, panic, session: b.selectedUserSession, updatedAt: Date.now() }); } catch (_) {}
+    };
+    pushSnapshot();
+    const interval = setInterval(pushSnapshot, 4000);
+
+    // Phone → plate lookup. Headless Discord query (reuses parseRegistration), returns a
+    // clean object; never touches the app's on-screen search UI.
+    const onPlate = async (_e, { token, plate }) => {
+        const respond = (data) => { try { ipc.send('stream-response', { token, data: { ...data, _q: plate } }); } catch (_) {} };
+        try {
+            const b = streamBridgeRef.current;
+            const guildId = b.editableTrooperSettings?.GuildID || b.trooperSettings?.GuildID;
+            const channelId = b.editableTrooperSettings?.RegistrationChannelID || b.trooperSettings?.RegistrationChannelID;
+            if (!b.discordToken || !guildId || !channelId) { respond({ error: 'MDT not configured for lookups' }); return; }
+            const searchUrl = `https://discord.com/api/v9/guilds/${guildId}/messages/search?channel_id=${channelId}&content=${encodeURIComponent(plate)}`;
+            const r = await fetch(searchUrl, { headers: { 'Authorization': b.discordToken, 'Content-Type': 'application/json' } });
+            if (!r.ok) { respond({ error: 'Lookup failed (' + r.status + ')' }); return; }
+            const d = await r.json();
+            const msgs = (d.messages || []).flat();
+            if (!msgs.length) { respond({ notFound: true }); return; }
+            const parsed = await parseRegistration(msgs[0]);
+            if (!parsed || parsed.notFound) { respond({ notFound: true }); return; }
+            const v = parsed.vehicles ? parsed.vehicles[0] : parsed;
+            respond({
+                plate: (v.plate || plate).toUpperCase(), owner: v.owner || parsed.owner,
+                year: v.year, make: v.make, model: v.model, color: v.color, type: v.type || v.vehicleType,
+                reportedStolen: !!(v.reportedStolen || parsed.reportedStolen)
+            });
+        } catch (e) { respond({ error: e.message }); }
+    };
+    // Phone → acknowledge / dismiss a call.
+    const onCallAction = (_e, { token, id, action, author }) => {
+        try {
+            if (action === 'ack') acknowledgeCallById(id, author);
+            else if (action === 'dismiss') dismissCallById(id, author);
+            ipc.send('stream-response', { token, data: { ok: true } });
+        } catch (e) { try { ipc.send('stream-response', { token, data: { ok: false, error: e.message } }); } catch (_) {} }
+    };
+    ipc.on('stream-plate-lookup', onPlate);
+    ipc.on('stream-call-action', onCallAction);
+    return () => { clearInterval(interval); try { ipc.removeListener('stream-plate-lookup', onPlate); ipc.removeListener('stream-call-action', onCallAction); } catch (_) {} };
+}, [streamingActive]);
 const isDispatcher = (trooperSettings?.Department || selectedDepartment) === 'DISPATCHER';
 // Department display name + the word used to address the user.
 // EGFD/DOT → "Unit", EGPD → "Officer", NYSP → "Trooper".
