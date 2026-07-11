@@ -2257,6 +2257,83 @@ const [backgroundGradients, setBackgroundGradients] = useState(true); // decorat
 const [blurEffects, setBlurEffects] = useState(true);       // backdrop-filter blur (expensive paint)
 const [reduceMotion, setReduceMotion] = useState(false);    // disable all animation/transition
 const [throttleBackground, setThrottleBackground] = useState(true);   // slow polling when unfocused
+// ── Custom nav order ──
+// The top nav has two groups: VIEWS (home-dash, calls, search, database-search, map,
+// settings) and PANELS (officers, hist, data, notes, timer, spotify). Users can reorder
+// WITHIN each group but not move items across the groups. We store the order as arrays of
+// keys; the render reorders its items to match, appending any unknown/new keys at the end
+// so future additions don't break saved orders. Empty = default order.
+const DEFAULT_VIEW_ORDER = ['home-dash', 'calls', 'search', 'database-search', 'map', 'settings'];
+const DEFAULT_PANEL_ORDER = ['officers', 'hist', 'data', 'notes', 'timer', 'spotify'];
+const [viewOrder, setViewOrder] = useState(DEFAULT_VIEW_ORDER);
+const [panelOrder, setPanelOrder] = useState(DEFAULT_PANEL_ORDER);
+// Move an item up/down within its group's order array.
+const moveNavItem = React.useCallback((group, key, dir) => {
+    const setter = group === 'views' ? setViewOrder : setPanelOrder;
+    setter(prev => {
+        const arr = [...prev];
+        const i = arr.indexOf(key);
+        if (i < 0) return prev;
+        const j = i + dir;
+        if (j < 0 || j >= arr.length) return prev;
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+        return arr;
+    });
+}, []);
+// Human-readable labels for the reorder UI (keys → display names).
+const NAV_LABELS = { 'home-dash':'Home', calls:'Calls', search:'Plates', 'database-search':'Citizens', map:'Map', settings:'Settings', officers:'Officers', hist:'History', data:'Data', notes:'Notes', timer:'Timer', spotify:'Spotify' };
+
+// ── Unsaved settings tracker (Discord-style bottom bar) ──
+// A signature of the user-facing settings. When it differs from the last-saved snapshot,
+// we surface a "you have unsaved changes" bar with Revert / Go to Save. Revert restores
+// the snapshot values; Save jumps to the Export & Reset tab.
+const settingsSignature = React.useMemo(() => JSON.stringify({
+    dyslexiaFont, visualEffects, ecoMode, ecoFrameRate, hoverEffects, clickEffects,
+    backgroundGradients, blurEffects, reduceMotion, throttleBackground,
+    viewOrder, panelOrder, compactMode, useMicrophone,
+    spotifyClientId, enableSpotifyIntegration
+}), [dyslexiaFont, visualEffects, ecoMode, ecoFrameRate, hoverEffects, clickEffects,
+    backgroundGradients, blurEffects, reduceMotion, throttleBackground, viewOrder,
+    panelOrder, compactMode, useMicrophone, spotifyClientId, enableSpotifyIntegration]);
+// Snapshot of the values at last save/load, to revert to.
+const savedSettingsSnapshotRef = React.useRef(null);
+const [savedSignature, setSavedSignature] = useState(null);
+const captureSettingsSnapshot = React.useCallback(() => {
+    savedSettingsSnapshotRef.current = {
+        dyslexiaFont, visualEffects, ecoMode, ecoFrameRate, hoverEffects, clickEffects,
+        backgroundGradients, blurEffects, reduceMotion, throttleBackground,
+        viewOrder: [...viewOrder], panelOrder: [...panelOrder], compactMode, useMicrophone,
+        spotifyClientId, enableSpotifyIntegration
+    };
+    setSavedSignature(JSON.stringify({
+        dyslexiaFont, visualEffects, ecoMode, ecoFrameRate, hoverEffects, clickEffects,
+        backgroundGradients, blurEffects, reduceMotion, throttleBackground,
+        viewOrder, panelOrder, compactMode, useMicrophone, spotifyClientId, enableSpotifyIntegration
+    }));
+}, [dyslexiaFont, visualEffects, ecoMode, ecoFrameRate, hoverEffects, clickEffects,
+    backgroundGradients, blurEffects, reduceMotion, throttleBackground, viewOrder,
+    panelOrder, compactMode, useMicrophone, spotifyClientId, enableSpotifyIntegration]);
+const revertSettings = React.useCallback(() => {
+    const s = savedSettingsSnapshotRef.current;
+    if (!s) return;
+    setDyslexiaFont(s.dyslexiaFont); setVisualEffects(s.visualEffects); setEcoMode(s.ecoMode);
+    setEcoFrameRate(s.ecoFrameRate); setHoverEffects(s.hoverEffects); setClickEffects(s.clickEffects);
+    setBackgroundGradients(s.backgroundGradients); setBlurEffects(s.blurEffects);
+    setReduceMotion(s.reduceMotion); setThrottleBackground(s.throttleBackground);
+    setViewOrder(s.viewOrder); setPanelOrder(s.panelOrder); setCompactMode(s.compactMode);
+    setUseMicrophone(s.useMicrophone); setSpotifyClientId(s.spotifyClientId);
+    setEnableSpotifyIntegration(s.enableSpotifyIntegration);
+}, []);
+const hasUnsavedSettings = savedSignature !== null && settingsSignature !== savedSignature;
+// Capture the baseline the first time settings opens each session, so the unsaved bar
+// only reacts to changes made from that point (not to load-time state).
+const settingsSnapshotTakenRef = React.useRef(false);
+React.useEffect(() => {
+    if (activeView === 'settings' && !settingsSnapshotTakenRef.current) {
+        settingsSnapshotTakenRef.current = true;
+        captureSettingsSnapshot();
+    }
+}, [activeView, captureSettingsSnapshot]);
 const [commandBarOpen, setCommandBarOpen] = useState(false);
 const [commandBarInput, setCommandBarInput] = useState('/');
 const [commandBarError, setCommandBarError] = useState('');
@@ -6168,6 +6245,14 @@ if (settings.BackgroundGradients === 'FALSE') setBackgroundGradients(false);
 if (settings.BlurEffects === 'FALSE') setBlurEffects(false);
 if (settings.ReduceMotion === 'TRUE') setReduceMotion(true);
 if (settings.ThrottleBackground === 'FALSE') setThrottleBackground(false);
+if (settings.ViewOrder) {
+    const arr = settings.ViewOrder.split(',').map(s => s.trim()).filter(Boolean);
+    if (arr.length) setViewOrder(arr);
+}
+if (settings.PanelOrder) {
+    const arr = settings.PanelOrder.split(',').map(s => s.trim()).filter(Boolean);
+    if (arr.length) setPanelOrder(arr);
+}
 
 if (settings.ActiveSession && settings.ActiveSession !== 'NONE') {
     setSelectedUserSession(settings.ActiveSession);
@@ -6297,6 +6382,8 @@ BackgroundGradients=${backgroundGradients ? 'TRUE' : 'FALSE'}
 BlurEffects=${blurEffects ? 'TRUE' : 'FALSE'}
 ReduceMotion=${reduceMotion ? 'TRUE' : 'FALSE'}
 ThrottleBackground=${throttleBackground ? 'TRUE' : 'FALSE'}
+ViewOrder=${viewOrder.join(',')}
+PanelOrder=${panelOrder.join(',')}
 SIDETAB_NAVIGATION=${compactMode ? 'TRUE' : 'FALSE'}
 ActiveSession=NONE
 USE_MICROPHONE=${useMicrophone ? 'TRUE' : 'FALSE'}
@@ -6356,6 +6443,8 @@ SFX_MIC_NOTAVAILABLE=${soundSettings.MicNotAvailable ? 'TRUE' : 'FALSE'}`;
                     if (key === 'BlurEffects') setBlurEffects(val === 'TRUE');
                     if (key === 'ReduceMotion') setReduceMotion(val === 'TRUE');
                     if (key === 'ThrottleBackground') setThrottleBackground(val === 'TRUE');
+                    if (key === 'ViewOrder') { const arr = val.split(',').map(s => s.trim()).filter(Boolean); if (arr.length) setViewOrder(arr); }
+                    if (key === 'PanelOrder') { const arr = val.split(',').map(s => s.trim()).filter(Boolean); if (arr.length) setPanelOrder(arr); }
                                         if (key === 'SIDETAB_NAVIGATION' || key === 'MiniMode') { const enabled = val === 'TRUE'; setCompactMode(enabled); if (enabled && window.require) { try { window.require('electron').ipcRenderer.send('toggle-compact-mode', true); } catch(_) {} } }
 if (key === 'ACTIONBAR_KEYBIND') setActionBarKeybind(val);
 if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
@@ -6388,6 +6477,7 @@ if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
                 });
 
                 showCustomError('Settings Exported', `CADSystemSettings.txt updated successfully. All settings are now live - no restart required.`, true);
+                captureSettingsSnapshot();
             } else {
                 throw new Error(result.error || 'Write failed');
             }
@@ -6401,6 +6491,7 @@ if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
             URL.revokeObjectURL(url);
             addLog('✅ Settings downloaded as CADSystemSettings.txt', 'success');
             showCustomError('Settings Exported', 'CADSystemSettings.txt has been downloaded. Replace your existing file with this one.', true);
+            captureSettingsSnapshot();
         }
     } catch (err) {
         addLog(`❌ Export failed: ${err.message}`, 'error');
@@ -13294,6 +13385,32 @@ return (
 
 {/* CUSTOM ALERT POPUP — queue-driven, mirrors Session Expiration UI */}
 {/* ────────────────────────────────────────────────────────── */}
+{/* ── Unsaved settings bar (Discord-style) ── */}
+{hasUnsavedSettings && activeView === 'settings' && (
+    <div style={{
+        position:'fixed', bottom:'20px', left:'50%', transform:'translateX(-50%)',
+        zIndex:100030, width:'min(560px, 88vw)',
+        display:'flex', alignItems:'center', gap:'14px',
+        padding:'12px 14px 12px 18px',
+        background:'rgba(17,24,39,0.97)', border:'1px solid rgba(245,158,11,0.35)',
+        borderRadius:'12px', boxShadow:'0 12px 40px rgba(0,0,0,0.5), 0 0 24px rgba(245,158,11,0.08)',
+        backdropFilter:'blur(8px)'
+    }}>
+        <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:'#f59e0b', boxShadow:'0 0 8px #f59e0b', flexShrink:0 }} />
+        <span style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'600', flex:1 }}>Careful — you have unsaved settings!</span>
+        <button onClick={revertSettings}
+            style={{ padding:'8px 14px', borderRadius:'8px', border:'none', background:'transparent', color:'#9aa5b1', fontSize:'12px', fontWeight:'600', cursor:'pointer', whiteSpace:'nowrap' }}
+            onMouseEnter={e=>e.currentTarget.style.color='#e2e8f0'} onMouseLeave={e=>e.currentTarget.style.color='#9aa5b1'}>
+            Reset
+        </button>
+        <button onClick={() => setSettingsTab('export')}
+            style={{ padding:'8px 16px', borderRadius:'8px', border:'none', background:'#22c55e', color:'#052e16', fontSize:'12px', fontWeight:'700', cursor:'pointer', whiteSpace:'nowrap', boxShadow:'0 4px 14px rgba(34,197,94,0.35)' }}
+            onMouseEnter={e=>e.currentTarget.style.filter='brightness(1.1)'} onMouseLeave={e=>e.currentTarget.style.filter=''}>
+            Go to Save
+        </button>
+    </div>
+)}
+
 {alertQueue.length > 0 && (() => {
     const head = alertQueue[0];
     const isGood = head.isGood === true;
@@ -13405,8 +13522,8 @@ return (
 
                 {/* Slim countdown bar — no big numeric counter, this is a quick auto-dismiss
                     indicator (not a high-stakes timer like the session warning). */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', maxWidth: '320px', margin: '0 auto 22px' }}>
-                    <span style={{ color: accentSoft, fontSize: '10px', fontFamily: 'monospace', fontWeight: '700', letterSpacing: '1.5px', minWidth: '24px', textAlign: 'right' }}>{remaining}s</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', maxWidth: '340px', margin: '0 auto 22px' }}>
+                    <span style={{ color: accentSoft, fontSize: '10px', fontFamily: 'monospace', fontWeight: '700', letterSpacing: '0.5px', whiteSpace: 'nowrap', textAlign: 'right' }}>{remaining}s until auto-close</span>
                     <div style={{ flex: 1, height: '4px', background: 'rgba(7,12,24,0.7)', borderRadius: '4px', overflow: 'hidden' }}>
                         <div style={{
                             width: `${ratio * 100}%`, height: '100%',
@@ -13531,7 +13648,10 @@ return (
             <div style={{ display:'flex',alignItems:'center',height:'100%',flex:1,paddingLeft:'12px',gap:'3px' }}>
                 {/* group label: VIEWS */}
                 <span style={{ color:'#3d4756',fontSize:'9px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace',marginRight:'8px',flexShrink:0,userSelect:'none' }}>VIEWS</span>
-                {[
+                {(() => {
+                    // Reorder VIEWS and PANELS per the user's saved order, keeping the
+                    // groupBreak between them. Unknown keys fall back to default position.
+                    const RAW = [
                     {l:'Home',k:'home-dash',icon:'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'},
                     {l:'Calls',k:'calls',lockKey:'callsTab',flash:callButtonFlash,icon:'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9'},
                     {l:'Plates',k:'search',lockKey:'plateSearch',icon:'M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4'},
@@ -13545,7 +13665,18 @@ return (
                     {l:'Notes',k:'notes',panel:true,icon:'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z'},
                     {l:'Timer',k:'timer',panel:true,icon:'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'},
                     ...(enableSpotifyIntegration ? [{l:'Spotify',k:'spotify',panel:true,icon:'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3'}] : []),
-                ].map((item,i)=>{
+                    ];
+                    const views = RAW.filter(x => !x.groupBreak && !x.panel);
+                    const panels = RAW.filter(x => !x.groupBreak && x.panel);
+                    const orderBy = (items, order) => {
+                        const byKey = new Map(items.map(it => [it.k, it]));
+                        const out = [];
+                        (order || []).forEach(k => { if (byKey.has(k)) { out.push(byKey.get(k)); byKey.delete(k); } });
+                        byKey.forEach(v => out.push(v)); // append any not in the saved order
+                        return out;
+                    };
+                    return [...orderBy(views, viewOrder), {groupBreak:true}, ...orderBy(panels, panelOrder)];
+                })().map((item,i)=>{
                     if(item.groupBreak) return (
                         <div key={i} style={{ display:'flex',alignItems:'center',gap:'8px',margin:'0 6px 0 10px',flexShrink:0 }}>
                             <div style={{ width:'1px',height:'24px',background:'#1c2333' }} />
@@ -16366,7 +16497,7 @@ onError={(e) => {
 
                                 {enableSpotifyIntegration && (<div style={{ marginBottom: '12px' }}>
                                     <div style={S.fieldLabel}>Spotify Client ID</div>
-                                    <input type="text" value={spotifyClientId} onChange={(e) => setSpotifyClientId(e.target.value.trim().replace(/[^a-f0-9]/gi, ''))} placeholder="Paste your Spotify app Client ID (32 hex chars)" style={{ ...S.input, marginBottom: '8px', fontFamily: 'monospace' }} onFocus={e => e.target.style.borderColor = 'rgba(34,197,94,0.4)'} onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.07)'} />
+                                    <input type="password" value={spotifyClientId} onChange={(e) => setSpotifyClientId(e.target.value.trim().replace(/[^a-f0-9]/gi, ''))} placeholder="Paste your Spotify app Client ID (32 hex chars)" style={{ ...S.input, marginBottom: '8px', fontFamily: 'monospace' }} onFocus={e => e.target.style.borderColor = 'rgba(34,197,94,0.4)'} onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.07)'} />
 
                                     {/* Status pill */}
                                     {(() => {
@@ -16490,6 +16621,35 @@ onError={(e) => {
                                 <ToggleRow label="Blur Effects" desc="Frosted-glass backdrop blur. This is the single most expensive paint operation — disable for a real GPU saving." on={blurEffects} accent="#10b981" onToggle={() => setBlurEffects(v => !v)} />
                                 <ToggleRow label="Reduce Motion" desc="Disables all animations and transitions app-wide. Good for low-end machines or motion sensitivity." on={reduceMotion} accent="#10b981" onToggle={() => setReduceMotion(v => !v)} />
                                 <ToggleRow label="Throttle When Unfocused" desc="Slows rendering and background work when the MDT isn't the active window, freeing resources for your game." on={throttleBackground} accent="#10b981" onToggle={() => setThrottleBackground(v => !v)} />
+
+                                {/* ── Nav bar order ── reorder within each group; can't cross groups ── */}
+                                <div style={{ marginTop:'18px', marginBottom:'8px' }}>
+                                    <div style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'700', marginBottom:'2px' }}>Top Bar Order</div>
+                                    <div style={{ color:'#6b7280', fontSize:'11px' }}>Reorder the navigation buttons. Views and panels stay in their own groups.</div>
+                                </div>
+                                {[['views', viewOrder, 'VIEWS'], ['panels', panelOrder, 'PANELS']].map(([grp, order, lbl]) => (
+                                    <div key={grp} style={{ marginBottom:'12px' }}>
+                                        <div style={{ color:'#3d4756', fontSize:'9px', fontWeight:'800', letterSpacing:'1.5px', fontFamily:'monospace', marginBottom:'6px' }}>{lbl}</div>
+                                        {order.map((k, idx) => (
+                                            <div key={k} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 12px', background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:'8px', marginBottom:'5px' }}>
+                                                <span style={{ color:'#cbd5e1', fontSize:'12.5px', fontWeight:'600' }}>
+                                                    <span style={{ color:'#475569', fontFamily:'monospace', marginRight:'8px' }}>{idx+1}</span>
+                                                    {NAV_LABELS[k] || k}
+                                                </span>
+                                                <div style={{ display:'flex', gap:'4px' }}>
+                                                    <button onClick={() => moveNavItem(grp, k, -1)} disabled={idx===0}
+                                                        style={{ width:'26px', height:'26px', borderRadius:'6px', border:'1px solid rgba(56,139,253,0.25)', background: idx===0?'rgba(255,255,255,0.02)':'rgba(56,139,253,0.08)', color: idx===0?'#30363d':'#58a6ff', cursor: idx===0?'not-allowed':'pointer', fontSize:'13px', display:'flex', alignItems:'center', justifyContent:'center' }}>↑</button>
+                                                    <button onClick={() => moveNavItem(grp, k, 1)} disabled={idx===order.length-1}
+                                                        style={{ width:'26px', height:'26px', borderRadius:'6px', border:'1px solid rgba(56,139,253,0.25)', background: idx===order.length-1?'rgba(255,255,255,0.02)':'rgba(56,139,253,0.08)', color: idx===order.length-1?'#30363d':'#58a6ff', cursor: idx===order.length-1?'not-allowed':'pointer', fontSize:'13px', display:'flex', alignItems:'center', justifyContent:'center' }}>↓</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ))}
+                                <button onClick={() => { setViewOrder(DEFAULT_VIEW_ORDER); setPanelOrder(DEFAULT_PANEL_ORDER); }}
+                                    style={{ padding:'8px 14px', borderRadius:'8px', border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.03)', color:'#8b97a6', fontSize:'11px', fontWeight:'600', cursor:'pointer', marginBottom:'8px' }}>
+                                    Reset to default order
+                                </button>
 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: escToHome ? 'rgba(139,92,246,0.07)' : 'rgba(255,255,255,0.02)', border: `1px solid ${escToHome ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.05)'}`, borderRadius: '9px', marginBottom: '7px' }}>
     <div>
         <div style={{ color: escToHome ? '#e2e8f0' : '#6b7280', fontSize: '13px', fontWeight: '600' }}>ESC Returns to Home</div>
