@@ -40,22 +40,32 @@ ipcMain.handle('start-streaming', async () => {
         }
     }
     const PORT = 3000;
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><title>NYSP MDT</title>
-<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#07090f;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;padding:16px}
-h1{font-size:16px;font-weight:800;letter-spacing:2px;color:#60a5fa;text-transform:uppercase;margin-bottom:4px}.sub{font-size:11px;color:#374151;margin-bottom:20px;letter-spacing:1px}
-.card{background:#0d1117;border:1px solid rgba(59,130,246,0.18);border-radius:12px;padding:14px;margin-bottom:12px}
-.card-title{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#374151;margin-bottom:10px}
-.officer{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
-.officer:last-child{border-bottom:none}.badge{font-size:10px;font-weight:700;color:#93c5fd;background:rgba(59,130,246,0.12);padding:3px 8px;border-radius:5px;font-family:monospace}
-.name{flex:1;font-size:13px;font-weight:600;color:#f1f5f9}.status{font-size:10px;color:#6b7280;font-weight:600}
-.panic{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);border-radius:10px;padding:12px;margin-bottom:12px;animation:pulse 1s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}.panic-title{color:#f87171;font-size:13px;font-weight:800;letter-spacing:1px}
-.panic-sub{color:#fca5a5;font-size:11px;margin-top:4px}.bolo{padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
-.bolo:last-child{border-bottom:none}.bolo-plate{font-size:14px;font-weight:900;font-family:monospace;color:#e2e8f0;letter-spacing:2px}
-.bolo-meta{font-size:10px;color:#6b7280;margin-top:2px}.empty{color:#374151;font-size:12px;text-align:center;padding:16px 0}
-.refresh{color:#374151;font-size:10px;text-align:center;margin-top:16px}.dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;background:#10b981}
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#07090f"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><title>NYSP MDT</title>
+<style>*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:#07090f;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;-webkit-text-size-adjust:100%}
+body{padding:12px 12px calc(12px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto}
+.topbar{position:sticky;top:0;z-index:10;background:linear-gradient(#07090f 70%,rgba(7,9,15,0));padding:6px 0 10px;margin-bottom:4px}
+h1{font-size:15px;font-weight:800;letter-spacing:1.5px;color:#60a5fa;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+h1 .live{font-size:8px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:#6ee7b7;padding:2px 7px;border-radius:999px;letter-spacing:1.5px}
+.sub{font-size:10px;color:#4b5563;margin-top:3px;letter-spacing:1px}
+.card{background:#0d1117;border:1px solid rgba(59,130,246,0.16);border-radius:14px;padding:13px;margin-bottom:11px}
+.card-title{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#4b5563;margin-bottom:10px;display:flex;justify-content:space-between}
+.card-title .count{color:#93c5fd}
+.officer{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.officer:last-child{border-bottom:none}
+.badge{font-size:11px;font-weight:800;color:#93c5fd;background:rgba(59,130,246,0.12);padding:4px 9px;border-radius:6px;font-family:monospace;flex-shrink:0}
+.name{flex:1;font-size:14px;font-weight:600;color:#f1f5f9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.status{font-size:11px;color:#6b7280;font-weight:700;flex-shrink:0;font-family:monospace}
+.panic{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);border-radius:14px;padding:14px;margin-bottom:11px;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.panic-title{color:#f87171;font-size:14px;font-weight:900;letter-spacing:.5px}
+.panic-sub{color:#fca5a5;font-size:12px;margin-top:5px}
+.empty{color:#374151;font-size:12px;text-align:center;padding:18px 0}
+.refresh{color:#374151;font-size:10px;text-align:center;margin:14px 0;letter-spacing:.5px}
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;background:#10b981;animation:pulse 2s infinite}
+@media(max-width:380px){.name{font-size:13px}.badge{font-size:10px;padding:3px 7px}h1{font-size:14px}}
 </style></head><body>
-<h1>NYSP MDT</h1><div class="sub">MOBILE VIEWER · LIVE</div>
+<div class="topbar"><h1>NYSP MDT <span class="live"><span class="dot"></span>LIVE</span></h1><div class="sub">MOBILE VIEWER</div></div>
 <div id="root"><div class="empty">Loading...</div></div>
 <div class="refresh" id="ts">Refreshing...</div>
 <script>
@@ -65,7 +75,7 @@ const d=await r.json();
 const officers=d.officers||[];const panic=d.panic;
 let html='';
 if(panic){html+='<div class="panic"><div class="panic-title">🚨 PANIC — '+panic.name+'</div><div class="panic-sub">Badge #'+panic.badge+' · Session '+panic.session+'</div></div>';}
-html+='<div class="card"><div class="card-title">Online Officers ('+officers.length+')</div>';
+html+='<div class="card"><div class="card-title"><span>Online Officers</span><span class="count">'+officers.length+'</span></div>';
 if(officers.length===0){html+='<div class="empty">No officers online</div>';}
 else{officers.forEach(o=>{html+='<div class="officer"><span class="badge">#'+o.badge+'</span><span class="name">'+o.name+'</span><span class="status">'+o.status+'</span></div>';});}
 html+='</div>';
@@ -78,8 +88,47 @@ load();setInterval(load,5000);
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.end(html);
     });
-    _streamServer.listen(PORT, '0.0.0.0');
-    return { success: true, ip: localIp, port: PORT };
+
+    // Properly wait for listen() to succeed OR fail. The old code returned success
+    // immediately without awaiting, so if port 3000 was taken the server silently never
+    // started and the UI hung on "Starting local server". We now await binding and, on
+    // EADDRINUSE, retry a few alternate ports before giving up with a real error.
+    const candidatePorts = [3000, 3001, 3002, 3010, 8080, 8081];
+    const tryListen = (idx) => new Promise((resolve) => {
+        if (idx >= candidatePorts.length) {
+            resolve({ success: false, error: 'All candidate ports are in use (3000, 3001, 3002, 3010, 8080, 8081). Close whatever is using them and try again.' });
+            return;
+        }
+        const port = candidatePorts[idx];
+        const onError = (err) => {
+            _streamServer.removeListener('listening', onListening);
+            if (err && err.code === 'EADDRINUSE') {
+                resolve(tryListen(idx + 1)); // try next port
+            } else {
+                resolve({ success: false, error: (err && err.message) || 'Failed to start server' });
+            }
+        };
+        const onListening = () => {
+            _streamServer.removeListener('error', onError);
+            resolve({ success: true, ip: localIp, port });
+        };
+        _streamServer.once('error', onError);
+        _streamServer.once('listening', onListening);
+        _streamServer.listen(port, '0.0.0.0');
+    });
+
+    try {
+        const result = await tryListen(0);
+        if (!result.success) {
+            try { _streamServer.close(); } catch (_) {}
+            _streamServer = null;
+        }
+        return result;
+    } catch (e) {
+        try { if (_streamServer) _streamServer.close(); } catch (_) {}
+        _streamServer = null;
+        return { success: false, error: e.message };
+    }
 });
 // ── TeamSpeak ClientQuery poll ──
 // Renderer calls every 5s with the API key. Main process fetches localhost:25639
