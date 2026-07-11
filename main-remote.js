@@ -28,6 +28,38 @@ process.on('unhandledRejection', (err) => {
 
 // ── IPC: quit / devtools / compact / global shortcut ──
 let _streamServer = null;
+
+// ── Mini-MDT bridge state ──
+// The renderer pushes its current data here; the server reads it. For plate lookups we
+// use a pending-request map keyed by a token the renderer echoes back.
+let _streamSnapshot = null;
+const _pendingStreamReqs = new Map(); // token -> { resolve, timer }
+let _streamReqSeq = 0;
+
+// Renderer → main: push the latest calls/units snapshot for the phone to read.
+ipcMain.on('stream-push-data', (_e, snapshot) => { _streamSnapshot = snapshot; });
+
+// Renderer → main: reply to a pending request (plate lookup, call action).
+ipcMain.on('stream-response', (_e, { token, data }) => {
+    const p = _pendingStreamReqs.get(token);
+    if (p) { clearTimeout(p.timer); p.resolve(data); _pendingStreamReqs.delete(token); }
+});
+
+// Main → renderer request/response helper: sends a channel + payload to the renderer and
+// resolves when the renderer posts back a 'stream-response' with the matching token.
+function requestFromRenderer(channel, payload, timeoutMs) {
+    return new Promise((resolve) => {
+        if (!mainWindow || mainWindow.isDestroyed()) { resolve({ error: 'App window unavailable' }); return; }
+        const token = 'sr_' + (++_streamReqSeq) + '_' + Date.now();
+        const timer = setTimeout(() => {
+            if (_pendingStreamReqs.has(token)) { _pendingStreamReqs.delete(token); resolve({ error: 'Timed out — is the MDT still open and connected?' }); }
+        }, timeoutMs || 8000);
+        _pendingStreamReqs.set(token, { resolve, timer });
+        try { mainWindow.webContents.send(channel, { token, ...payload }); }
+        catch (e) { clearTimeout(timer); _pendingStreamReqs.delete(token); resolve({ error: e.message }); }
+    });
+}
+
 ipcMain.handle('start-streaming', async () => {
     if (_streamServer) return { success: true, alreadyRunning: true };
     // NOTE: main-remote.js runs inside a new Function() with dependencies injected as
@@ -44,11 +76,12 @@ ipcMain.handle('start-streaming', async () => {
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#07090f"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><title>NYSP MDT</title>
 <style>*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{background:#07090f;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;-webkit-text-size-adjust:100%}
-body{padding:12px 12px calc(12px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto}
-.topbar{position:sticky;top:0;z-index:10;background:linear-gradient(#07090f 70%,rgba(7,9,15,0));padding:6px 0 10px;margin-bottom:4px}
+body{max-width:640px;margin:0 auto;padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+.topbar{position:sticky;top:0;z-index:10;background:#07090f;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;border-bottom:1px solid rgba(255,255,255,0.06)}
 h1{font-size:15px;font-weight:800;letter-spacing:1.5px;color:#60a5fa;text-transform:uppercase;display:flex;align-items:center;gap:8px}
 h1 .live{font-size:8px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:#6ee7b7;padding:2px 7px;border-radius:999px;letter-spacing:1.5px}
 .sub{font-size:10px;color:#4b5563;margin-top:3px;letter-spacing:1px}
+.wrap{padding:12px 12px 0}
 .card{background:#0d1117;border:1px solid rgba(59,130,246,0.16);border-radius:14px;padding:13px;margin-bottom:11px}
 .card-title{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#4b5563;margin-bottom:10px;display:flex;justify-content:space-between}
 .card-title .count{color:#93c5fd}
@@ -59,35 +92,101 @@ h1 .live{font-size:8px;background:rgba(16,185,129,0.15);border:1px solid rgba(16
 .status{font-size:11px;color:#6b7280;font-weight:700;flex-shrink:0;font-family:monospace}
 .panic{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);border-radius:14px;padding:14px;margin-bottom:11px;animation:pulse 1s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
-.panic-title{color:#f87171;font-size:14px;font-weight:900;letter-spacing:.5px}
-.panic-sub{color:#fca5a5;font-size:12px;margin-top:5px}
-.empty{color:#374151;font-size:12px;text-align:center;padding:18px 0}
-.refresh{color:#374151;font-size:10px;text-align:center;margin:14px 0;letter-spacing:.5px}
+.panic-title{color:#f87171;font-size:14px;font-weight:900}.panic-sub{color:#fca5a5;font-size:12px;margin-top:5px}
+.call{background:#0d1117;border:1px solid rgba(255,255,255,0.06);border-left:3px solid #6b7280;border-radius:12px;padding:12px;margin-bottom:10px}
+.call.pri{border-left-color:#ef4444;background:rgba(239,68,68,0.05)}
+.call.ackd{opacity:.5}
+.call-name{font-size:14px;font-weight:700;color:#f1f5f9}
+.call-svc{font-size:11px;color:#fbbf24;font-weight:600;margin:3px 0}
+.call-desc{font-size:12px;color:#cbd5e1;margin:4px 0;line-height:1.4}
+.call-loc{font-size:11px;color:#60a5fa;font-weight:600}
+.call-meta{font-size:10px;color:#4b5563;margin-top:6px}
+.call-btns{display:flex;gap:8px;margin-top:10px}
+.btn{flex:1;padding:10px;border-radius:8px;border:none;font-size:12px;font-weight:700;cursor:pointer}
+.btn-ack{background:#10b981;color:#052e16}.btn-dis{background:rgba(255,255,255,0.06);color:#9aa5b1}
+.search-row{display:flex;gap:8px;margin-bottom:12px}
+.search-row input{flex:1;background:#0d1117;border:1px solid rgba(59,130,246,0.25);border-radius:10px;padding:13px;color:#e2e8f0;font-size:16px;font-family:monospace;letter-spacing:2px;text-transform:uppercase;outline:none}
+.search-row button{background:#3b82f6;color:#fff;border:none;border-radius:10px;padding:0 18px;font-size:14px;font-weight:700;cursor:pointer}
+.result-field{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:13px}
+.result-field .k{color:#6b7280}.result-field .v{color:#f1f5f9;font-weight:600;font-family:monospace}
+.stolen{background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fca5a5;padding:10px;border-radius:8px;text-align:center;font-weight:800;font-size:12px;margin-bottom:10px}
+.empty{color:#374151;font-size:12px;text-align:center;padding:22px 0}
+.refresh{color:#374151;font-size:10px;text-align:center;margin:12px 0;letter-spacing:.5px}
 .dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;background:#10b981;animation:pulse 2s infinite}
-@media(max-width:380px){.name{font-size:13px}.badge{font-size:10px;padding:3px 7px}h1{font-size:14px}}
+.tabs{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:640px;display:flex;background:#0a0e17;border-top:1px solid rgba(255,255,255,0.08);padding-bottom:env(safe-area-inset-bottom);z-index:20}
+.tab{flex:1;padding:12px 0 14px;text-align:center;color:#4b5563;font-size:10px;font-weight:700;letter-spacing:.5px;cursor:pointer;border:none;background:none}
+.tab.active{color:#60a5fa}.tab svg{display:block;margin:0 auto 4px}
+@media(max-width:380px){.name{font-size:13px}h1{font-size:14px}}
 </style></head><body>
-<div class="topbar"><h1>NYSP MDT <span class="live"><span class="dot"></span>LIVE</span></h1><div class="sub">MOBILE VIEWER</div></div>
-<div id="root"><div class="empty">Loading...</div></div>
-<div class="refresh" id="ts">Refreshing...</div>
+<div class="topbar"><h1>NYSP MDT <span class="live"><span class="dot"></span>LIVE</span></h1><div class="sub" id="sub">MOBILE UNIT</div></div>
+<div class="wrap"><div id="root"><div class="empty">Loading...</div></div><div class="refresh" id="ts">Connecting...</div></div>
+<div class="tabs">
+  <button class="tab active" data-t="units" onclick="setTab('units')"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>Units</button>
+  <button class="tab" data-t="calls" onclick="setTab('calls')"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 00-4-5.7V5a2 2 0 10-4 0v.3C7.7 6.2 6 8.4 6 11v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1"/></svg>Calls</button>
+  <button class="tab" data-t="plate" onclick="setTab('plate')"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>Plates</button>
+</div>
 <script>
-async function load(){try{
-const r=await fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/presence?session=all');
-const d=await r.json();
-const officers=d.officers||[];const panic=d.panic;
-let html='';
-if(panic){html+='<div class="panic"><div class="panic-title">🚨 PANIC — '+panic.name+'</div><div class="panic-sub">Badge #'+panic.badge+' · Session '+panic.session+'</div></div>';}
-html+='<div class="card"><div class="card-title"><span>Online Officers</span><span class="count">'+officers.length+'</span></div>';
-if(officers.length===0){html+='<div class="empty">No officers online</div>';}
-else{officers.forEach(o=>{html+='<div class="officer"><span class="badge">#'+o.badge+'</span><span class="name">'+o.name+'</span><span class="status">'+o.status+'</span></div>';});}
-html+='</div>';
-document.getElementById('root').innerHTML=html;
-document.getElementById('ts').textContent='Updated '+new Date().toLocaleTimeString();
-}catch(e){document.getElementById('ts').textContent='Connection error — retrying...';}}
-load();setInterval(load,5000);
+var tab='units',data={calls:[],units:[],panic:null},plateRes=null,plateLoading=false;
+function setTab(t){tab=t;document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.t===t));render();}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+async function pull(){try{const r=await fetch('/api/data');data=await r.json();document.getElementById('ts').textContent='Updated '+new Date().toLocaleTimeString();if(tab!=='plate')render();}catch(e){document.getElementById('ts').textContent='Connection lost — retrying...';}}
+async function callAction(id,action,author){try{await fetch('/api/call-action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action,author})});pull();}catch(e){}}
+async function searchPlate(){var q=document.getElementById('pq').value.trim();if(!q)return;plateLoading=true;plateRes=null;render();try{var r=await fetch('/api/plate?q='+encodeURIComponent(q));plateRes=await r.json();}catch(e){plateRes={error:'Request failed'};}plateLoading=false;render();}
+function render(){var h='',root=document.getElementById('root');
+if(data.panic){h+='<div class="panic"><div class="panic-title">🚨 PANIC — '+esc(data.panic.name)+'</div><div class="panic-sub">Badge #'+esc(data.panic.badge)+' · Session '+esc(data.panic.session)+'</div></div>';}
+if(tab==='units'){var o=data.units||[];h+='<div class="card"><div class="card-title"><span>Online Units</span><span class="count">'+o.length+'</span></div>';if(!o.length)h+='<div class="empty">No units online</div>';else o.forEach(function(u){h+='<div class="officer"><span class="badge">#'+esc(u.badge)+'</span><span class="name">'+esc(u.name||u.callSign)+'</span><span class="status">'+esc(u.status)+'</span></div>';});h+='</div>';}
+else if(tab==='calls'){var c=data.calls||[];if(!c.length)h+='<div class="empty">No active calls</div>';else c.forEach(function(cl){h+='<div class="call '+(cl.isPriority?'pri':'')+(cl.acknowledged?' ackd':'')+'"><div class="call-name">'+esc(cl.name)+'</div><div class="call-svc">'+esc(cl.services)+'</div><div class="call-desc">'+esc(cl.description)+'</div><div class="call-loc">📍 '+esc(cl.location)+'</div><div class="call-meta">'+esc(cl.author)+' · '+esc(cl.timestamp)+'</div>'+(cl.acknowledged?'':'<div class="call-btns"><button class="btn btn-ack" onclick="callAction(\\''+cl.id+'\\',\\'ack\\',\\''+esc(cl.author)+'\\')">Acknowledge</button><button class="btn btn-dis" onclick="callAction(\\''+cl.id+'\\',\\'dismiss\\',\\''+esc(cl.author)+'\\')">Dismiss</button></div>')+'</div>';});}
+else if(tab==='plate'){h+='<div class="search-row"><input id="pq" placeholder="PLATE #" value="'+(plateRes&&plateRes._q?esc(plateRes._q):'')+'" onkeydown="if(event.key===\\'Enter\\')searchPlate()"><button onclick="searchPlate()">Search</button></div>';if(plateLoading)h+='<div class="empty">Searching…</div>';else if(plateRes){if(plateRes.error)h+='<div class="empty">'+esc(plateRes.error)+'</div>';else if(plateRes.notFound)h+='<div class="card"><div class="empty">No registration found for that plate.</div></div>';else{h+='<div class="card">';if(plateRes.reportedStolen)h+='<div class="stolen">⚠ VEHICLE REPORTED STOLEN</div>';[['Plate',plateRes.plate],['Owner',plateRes.owner],['Year',plateRes.year],['Make',plateRes.make],['Model',plateRes.model],['Color',plateRes.color],['Type',plateRes.type]].forEach(function(f){if(f[1])h+='<div class="result-field"><span class="k">'+f[0]+'</span><span class="v">'+esc(f[1])+'</span></div>';});h+='</div>';}}else h+='<div class="empty">Enter a plate to search.</div>';}
+root.innerHTML=h;}
+pull();setInterval(pull,5000);
 </script></body></html>`;
-    _streamServer = http.createServer((req, res) => {
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(html);
+    // ── Mini-MDT data bridge ──
+    // The phone page can't use the Discord token (it'd be exposed on the LAN). Instead the
+    // renderer — which already fetches & parses calls/units/plates — pushes a snapshot to
+    // the main process, and this server serves that snapshot to the phone. Plate lookups are
+    // request/response: the server asks the renderer, waits for the answer, returns it.
+    _streamServer = http.createServer(async (req, res) => {
+        const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type' };
+        try {
+            const u = new URL(req.url, 'http://localhost');
+
+            // Live snapshot of calls + units (pushed by the renderer, see stream-push-data)
+            if (u.pathname === '/api/data') {
+                res.writeHead(200, { 'Content-Type': 'application/json', ...cors });
+                res.end(JSON.stringify(_streamSnapshot || { calls: [], units: [], panic: null, session: null, updatedAt: 0 }));
+                return;
+            }
+
+            // Plate lookup — ask the renderer and wait for its reply (max 12s).
+            if (u.pathname === '/api/plate') {
+                const plate = (u.searchParams.get('q') || '').trim();
+                if (!plate) { res.writeHead(400, { 'Content-Type': 'application/json', ...cors }); res.end(JSON.stringify({ error: 'Missing plate' })); return; }
+                const result = await requestFromRenderer('stream-plate-lookup', { plate }, 12000);
+                res.writeHead(200, { 'Content-Type': 'application/json', ...cors });
+                res.end(JSON.stringify(result || { error: 'No response' }));
+                return;
+            }
+
+            // Acknowledge / dismiss a call from the phone → relayed to the renderer.
+            if (u.pathname === '/api/call-action' && req.method === 'POST') {
+                let body = ''; req.on('data', c => body += c);
+                await new Promise(r => req.on('end', r));
+                let parsed = {}; try { parsed = JSON.parse(body || '{}'); } catch (_) {}
+                const result = await requestFromRenderer('stream-call-action', parsed, 6000);
+                res.writeHead(200, { 'Content-Type': 'application/json', ...cors });
+                res.end(JSON.stringify(result || { ok: false }));
+                return;
+            }
+
+            if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
+
+            // Default: the mini-MDT page
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.end(html);
+        } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'application/json', ...cors });
+            res.end(JSON.stringify({ error: e.message }));
+        }
     });
 
     // Properly wait for listen() to succeed OR fail. The old code returned success
@@ -669,9 +768,31 @@ ipcMain.handle('read-settings-file', async () => {
     return { success: false, error: 'Settings file not found' };
 });
 ipcMain.handle('write-cad-settings', async (event, { content }) => {
-    const paths = [path.join(__dirname, '..', 'CADSystemSettings.txt'), path.join(__dirname, 'CADSystemSettings.txt')];
-    for (const p of paths) { try { if (fs.existsSync(p)) { fs.writeFileSync(p, content, 'utf8'); return { success: true, path: p }; } } catch(err) { return { success: false, error: err.message }; } }
-    try { const dp = path.join(__dirname, '..', 'CADSystemSettings.txt'); fs.writeFileSync(dp, content, 'utf8'); return { success: true, path: dp }; } catch(err) { return { success: false, error: err.message }; }
+    // CRITICAL: write to the SAME file loadSettings() reads at launch, or changes vanish
+    // on reboot. loadSettings() prefers the userData copy (and seeds it), so that's the
+    // single source of truth. We also mirror to the exe-dir/app-root copies if they exist,
+    // so a user editing those by hand still sees consistent data — but userData is
+    // authoritative and always written.
+    const userDataPath = path.join(app.getPath('userData'), 'CADSystemSettings.txt');
+    const mirrorPaths = [
+        path.join(path.dirname(process.execPath), 'CADSystemSettings.txt'),
+        path.join(__dirname, '..', 'CADSystemSettings.txt'),
+        path.join(__dirname, 'CADSystemSettings.txt')
+    ];
+    try {
+        fs.writeFileSync(userDataPath, content, 'utf8'); // authoritative — what launch reads
+        for (const p of mirrorPaths) {
+            try { if (fs.existsSync(p)) fs.writeFileSync(p, content, 'utf8'); } catch (_) {}
+        }
+        return { success: true, path: userDataPath };
+    } catch (err) {
+        // Fallback: if userData is unwritable, at least write app-root so nothing is lost.
+        try {
+            const dp = path.join(__dirname, '..', 'CADSystemSettings.txt');
+            fs.writeFileSync(dp, content, 'utf8');
+            return { success: true, path: dp };
+        } catch (err2) { return { success: false, error: err2.message }; }
+    }
 });
 ipcMain.handle('save-file', async (event, { filename, content }) => {
     const { filePath } = await dialog.showSaveDialog({ defaultPath: filename, filters: [{ name: 'All Files', extensions: ['*'] }] });
