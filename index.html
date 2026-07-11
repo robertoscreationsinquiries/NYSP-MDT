@@ -2280,6 +2280,26 @@ const moveNavItem = React.useCallback((group, key, dir) => {
         return arr;
     });
 }, []);
+// Drag-and-drop reorder state for the nav lists.
+const [navDrag, setNavDrag] = useState(null); // { group, key } being dragged
+const [navDragOver, setNavDragOver] = useState(null); // key currently hovered
+const handleNavDrop = React.useCallback((group, targetKey) => {
+    setNavDrag(dragging => {
+        if (!dragging || dragging.group !== group || dragging.key === targetKey) { setNavDragOver(null); return null; }
+        const setter = group === 'views' ? setViewOrder : setPanelOrder;
+        setter(prev => {
+            const arr = [...prev];
+            const from = arr.indexOf(dragging.key);
+            const to = arr.indexOf(targetKey);
+            if (from < 0 || to < 0) return prev;
+            arr.splice(from, 1);
+            arr.splice(to, 0, dragging.key);
+            return arr;
+        });
+        setNavDragOver(null);
+        return null;
+    });
+}, []);
 // Human-readable labels for the reorder UI (keys → display names).
 const NAV_LABELS = { 'home-dash':'Home', calls:'Calls', search:'Plates', 'database-search':'Citizens', map:'Map', settings:'Settings', officers:'Officers', hist:'History', data:'Data', notes:'Notes', timer:'Timer', spotify:'Spotify' };
 
@@ -2295,24 +2315,36 @@ const settingsSignature = React.useMemo(() => JSON.stringify({
 }), [dyslexiaFont, visualEffects, ecoMode, ecoFrameRate, hoverEffects, clickEffects,
     backgroundGradients, blurEffects, reduceMotion, throttleBackground, viewOrder,
     panelOrder, compactMode, useMicrophone, spotifyClientId, enableSpotifyIntegration]);
-// Snapshot of the values at last save/load, to revert to.
-const savedSettingsSnapshotRef = React.useRef(null);
+// The baseline the unsaved-bar compares against. It IS a settingsSignature string, so the
+// two can never diverge (that was the old bug — two separately-built JSON strings).
 const [savedSignature, setSavedSignature] = useState(null);
-const captureSettingsSnapshot = React.useCallback(() => {
-    savedSettingsSnapshotRef.current = {
-        dyslexiaFont, visualEffects, ecoMode, ecoFrameRate, hoverEffects, clickEffects,
-        backgroundGradients, blurEffects, reduceMotion, throttleBackground,
-        viewOrder: [...viewOrder], panelOrder: [...panelOrder], compactMode, useMicrophone,
-        spotifyClientId, enableSpotifyIntegration
-    };
-    setSavedSignature(JSON.stringify({
-        dyslexiaFont, visualEffects, ecoMode, ecoFrameRate, hoverEffects, clickEffects,
-        backgroundGradients, blurEffects, reduceMotion, throttleBackground,
-        viewOrder, panelOrder, compactMode, useMicrophone, spotifyClientId, enableSpotifyIntegration
-    }));
-}, [dyslexiaFont, visualEffects, ecoMode, ecoFrameRate, hoverEffects, clickEffects,
-    backgroundGradients, blurEffects, reduceMotion, throttleBackground, viewOrder,
-    panelOrder, compactMode, useMicrophone, spotifyClientId, enableSpotifyIntegration]);
+const savedSettingsSnapshotRef = React.useRef(null);
+const latestValuesRef = React.useRef(null);
+// Keep a live snapshot object for Revert, always in sync with current values.
+latestValuesRef.current = {
+    dyslexiaFont, visualEffects, ecoMode, ecoFrameRate, hoverEffects, clickEffects,
+    backgroundGradients, blurEffects, reduceMotion, throttleBackground,
+    viewOrder, panelOrder, compactMode, useMicrophone, spotifyClientId, enableSpotifyIntegration
+};
+// Establish the baseline AFTER settings have loaded and stabilized. We wait until the
+// signature stops changing (settings load asynchronously from the file at startup), so
+// the bar never appears just because load-time state arrived after mount. Re-arm on save.
+const baselineSetRef = React.useRef(false);
+React.useEffect(() => {
+    if (baselineSetRef.current) return;
+    // Debounce: only lock the baseline once the signature has been stable briefly.
+    const t = setTimeout(() => {
+        baselineSetRef.current = true;
+        savedSettingsSnapshotRef.current = latestValuesRef.current;
+        setSavedSignature(settingsSignature);
+    }, 1500);
+    return () => clearTimeout(t);
+}, [settingsSignature]);
+// Called after a successful save: current values become the new baseline → bar hides.
+const markSettingsSaved = React.useCallback(() => {
+    savedSettingsSnapshotRef.current = latestValuesRef.current;
+    setSavedSignature(settingsSignature);
+}, [settingsSignature]);
 const revertSettings = React.useCallback(() => {
     const s = savedSettingsSnapshotRef.current;
     if (!s) return;
@@ -2324,16 +2356,8 @@ const revertSettings = React.useCallback(() => {
     setUseMicrophone(s.useMicrophone); setSpotifyClientId(s.spotifyClientId);
     setEnableSpotifyIntegration(s.enableSpotifyIntegration);
 }, []);
+// Only show once a baseline exists AND current differs from it.
 const hasUnsavedSettings = savedSignature !== null && settingsSignature !== savedSignature;
-// Capture the baseline the first time settings opens each session, so the unsaved bar
-// only reacts to changes made from that point (not to load-time state).
-const settingsSnapshotTakenRef = React.useRef(false);
-React.useEffect(() => {
-    if (activeView === 'settings' && !settingsSnapshotTakenRef.current) {
-        settingsSnapshotTakenRef.current = true;
-        captureSettingsSnapshot();
-    }
-}, [activeView, captureSettingsSnapshot]);
 const [commandBarOpen, setCommandBarOpen] = useState(false);
 const [commandBarInput, setCommandBarInput] = useState('/');
 const [commandBarError, setCommandBarError] = useState('');
@@ -2343,6 +2367,60 @@ const [acknowledgeKeybind, setAcknowledgeKeybind] = useState('');
 const [acknowledgeKeybindDraft, setAcknowledgeKeybindDraft] = useState('');
 const [escToHome, setEscToHome] = useState(true);
 const acknowledgedCallsRef = React.useRef([]);
+
+// ── Reusable call actions (shared by in-app buttons AND OS notifications) ──
+const acknowledgeCallById = React.useCallback((callId, author) => {
+    setAcknowledgedCalls(prev => prev.includes(callId) ? prev : [...prev, callId]);
+    if (shiftStartTime && !shiftEndTime) setShiftAcknowledgedCount(p => p + 1);
+    try { stopAlertSound(); } catch (_) {}
+    logActivity(`Call placed by ${author || 'Unknown'} was acknowledged`);
+    addLog(`✅ Call from ${author || 'Unknown'} acknowledged`, 'success');
+}, [shiftStartTime, shiftEndTime]);
+const dismissCallById = React.useCallback((callId, author) => {
+    setDismissedCalls(prev => prev.includes(callId) ? prev : [...prev, callId]);
+    if (shiftStartTime && !shiftEndTime) setShiftDismissedCount(p => p + 1);
+    setCalls(prev => {
+        const remaining = prev.filter(c => c.id !== callId);
+        const hasUnacked = remaining.some(c => !acknowledgedCallsRef.current.includes(c.id));
+        if (!hasUnacked) { try { stopAlertSound(); } catch (_) {} }
+        return remaining;
+    });
+    logActivity(`Call placed by ${author || 'Unknown'} was dismissed`);
+}, [shiftStartTime, shiftEndTime]);
+
+// ── OS notification for a new call (works on Windows + macOS via the web Notification
+// API, which Electron routes to the native notification center). Actions in the
+// notification body/click mirror the in-app Acknowledge/Dismiss buttons. Note: the web
+// Notification API's action buttons are limited outside service workers, so we make a
+// CLICK acknowledge the call (most common action) and rely on the in-app card for
+// dismiss; the body clearly states this.
+const osNotifyEnabledRef = React.useRef(true);
+const sendCallOSNotification = React.useCallback((call) => {
+    try {
+        if (!osNotifyEnabledRef.current) return;
+        if (typeof Notification === 'undefined') return;
+        const fire = () => {
+            const author = call.author?.username || call.author || 'Unknown';
+            const snippet = (call.content || '').replace(/\s+/g, ' ').slice(0, 140);
+            const n = new Notification(call.isPriority ? '🚨 Priority Call' : '📞 New Call', {
+                body: `${author}\n${snippet}\n\nClick to acknowledge · open Calls to dismiss`,
+                tag: 'call-' + call.id,           // dedupe per call
+                requireInteraction: !!call.isPriority, // priority stays until interacted
+                silent: false
+            });
+            n.onclick = () => {
+                acknowledgeCallById(call.id, author);
+                try { window.electron?.ipcRenderer?.invoke('focus-window'); } catch (_) {}
+                setActiveView('calls');
+                n.close();
+            };
+        };
+        if (Notification.permission === 'granted') fire();
+        else if (Notification.permission !== 'denied') {
+            Notification.requestPermission().then(p => { if (p === 'granted') fire(); });
+        }
+    } catch (_) {}
+}, [acknowledgeCallById]);
 
 // ── Priority call classification ──
 // Case-insensitive, plural-aware (weapon|weapons, knife|knives, robbery|robberies...).
@@ -5499,8 +5577,11 @@ React.useEffect(() => {
     b.toggle('reduce-motion', reduceMotion);
 
     // Frame-rate cap: Eco Mode forces its configured rate; otherwise 60fps.
-    const targetFps = ecoMode ? ecoFrameRate : 60;
-    try { window.electron?.ipcRenderer?.invoke('set-eco-mode', { enabled: ecoMode, frameRate: targetFps, throttle: throttleBackground }); } catch (_) {}
+    // Eco ON → user's chosen cap (30/40/50/60). Eco OFF → uncap to display max.
+    // Electron caps setFrameRate at the monitor refresh, so 240 means "as fast as the
+    // display allows" (restoring native 144Hz etc.), NOT a literal 240.
+    const targetFps = ecoMode ? ecoFrameRate : 240;
+    try { window.electron?.ipcRenderer?.invoke('set-eco-mode', { enabled: ecoMode, frameRate: targetFps, throttle: ecoMode && throttleBackground }); } catch (_) {}
 }, [ecoMode, ecoFrameRate, hoverEffects, clickEffects, backgroundGradients, blurEffects, reduceMotion, throttleBackground]);
 
 React.useEffect(() => {
@@ -6477,7 +6558,7 @@ if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
                 });
 
                 showCustomError('Settings Exported', `CADSystemSettings.txt updated successfully. All settings are now live - no restart required.`, true);
-                captureSettingsSnapshot();
+                markSettingsSaved();
             } else {
                 throw new Error(result.error || 'Write failed');
             }
@@ -6491,7 +6572,7 @@ if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
             URL.revokeObjectURL(url);
             addLog('✅ Settings downloaded as CADSystemSettings.txt', 'success');
             showCustomError('Settings Exported', 'CADSystemSettings.txt has been downloaded. Replace your existing file with this one.', true);
-            captureSettingsSnapshot();
+            markSettingsSaved();
         }
     } catch (err) {
         addLog(`❌ Export failed: ${err.message}`, 'error');
@@ -6901,6 +6982,8 @@ React.useEffect(() => {
                         newCallIds.forEach(c => {
                             const author = c.author?.username || c.content?.split('\n')?.[0]?.slice(0,30) || 'Unknown';
                             logActivity(`Received call placed by ${author}`);
+                            // OS notification (Windows + macOS) with acknowledge-on-click.
+                            if (!acknowledgedCallsRef.current.includes(c.id)) sendCallOSNotification(c);
                         });
                     }
                 }
@@ -16622,28 +16705,44 @@ onError={(e) => {
                                 <ToggleRow label="Reduce Motion" desc="Disables all animations and transitions app-wide. Good for low-end machines or motion sensitivity." on={reduceMotion} accent="#10b981" onToggle={() => setReduceMotion(v => !v)} />
                                 <ToggleRow label="Throttle When Unfocused" desc="Slows rendering and background work when the MDT isn't the active window, freeing resources for your game." on={throttleBackground} accent="#10b981" onToggle={() => setThrottleBackground(v => !v)} />
 
-                                {/* ── Nav bar order ── reorder within each group; can't cross groups ── */}
+                                {/* ── Nav bar order ── drag to reorder within each group; can't cross groups ── */}
                                 <div style={{ marginTop:'18px', marginBottom:'8px' }}>
                                     <div style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'700', marginBottom:'2px' }}>Top Bar Order</div>
-                                    <div style={{ color:'#6b7280', fontSize:'11px' }}>Reorder the navigation buttons. Views and panels stay in their own groups.</div>
+                                    <div style={{ color:'#6b7280', fontSize:'11px' }}>Drag to reorder the navigation buttons. Views and panels stay in their own groups.</div>
                                 </div>
                                 {[['views', viewOrder, 'VIEWS'], ['panels', panelOrder, 'PANELS']].map(([grp, order, lbl]) => (
                                     <div key={grp} style={{ marginBottom:'12px' }}>
                                         <div style={{ color:'#3d4756', fontSize:'9px', fontWeight:'800', letterSpacing:'1.5px', fontFamily:'monospace', marginBottom:'6px' }}>{lbl}</div>
-                                        {order.map((k, idx) => (
-                                            <div key={k} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 12px', background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:'8px', marginBottom:'5px' }}>
-                                                <span style={{ color:'#cbd5e1', fontSize:'12.5px', fontWeight:'600' }}>
-                                                    <span style={{ color:'#475569', fontFamily:'monospace', marginRight:'8px' }}>{idx+1}</span>
-                                                    {NAV_LABELS[k] || k}
-                                                </span>
-                                                <div style={{ display:'flex', gap:'4px' }}>
-                                                    <button onClick={() => moveNavItem(grp, k, -1)} disabled={idx===0}
-                                                        style={{ width:'26px', height:'26px', borderRadius:'6px', border:'1px solid rgba(56,139,253,0.25)', background: idx===0?'rgba(255,255,255,0.02)':'rgba(56,139,253,0.08)', color: idx===0?'#30363d':'#58a6ff', cursor: idx===0?'not-allowed':'pointer', fontSize:'13px', display:'flex', alignItems:'center', justifyContent:'center' }}>↑</button>
-                                                    <button onClick={() => moveNavItem(grp, k, 1)} disabled={idx===order.length-1}
-                                                        style={{ width:'26px', height:'26px', borderRadius:'6px', border:'1px solid rgba(56,139,253,0.25)', background: idx===order.length-1?'rgba(255,255,255,0.02)':'rgba(56,139,253,0.08)', color: idx===order.length-1?'#30363d':'#58a6ff', cursor: idx===order.length-1?'not-allowed':'pointer', fontSize:'13px', display:'flex', alignItems:'center', justifyContent:'center' }}>↓</button>
-                                                </div>
+                                        {order.map((k, idx) => {
+                                            const isDragging = navDrag && navDrag.key === k;
+                                            const isOver = navDragOver === k && navDrag && navDrag.group === grp && navDrag.key !== k;
+                                            return (
+                                            <div key={k}
+                                                draggable
+                                                onDragStart={(e) => { setNavDrag({ group: grp, key: k }); e.dataTransfer.effectAllowed = 'move'; }}
+                                                onDragEnd={() => { setNavDrag(null); setNavDragOver(null); }}
+                                                onDragOver={(e) => { if (navDrag && navDrag.group === grp) { e.preventDefault(); setNavDragOver(k); } }}
+                                                onDrop={(e) => { e.preventDefault(); handleNavDrop(grp, k); }}
+                                                style={{
+                                                    display:'flex', alignItems:'center', gap:'10px', padding:'9px 12px',
+                                                    background: isOver ? 'rgba(56,139,253,0.14)' : 'rgba(255,255,255,0.02)',
+                                                    border:`1px solid ${isOver ? 'rgba(56,139,253,0.5)' : 'rgba(255,255,255,0.05)'}`,
+                                                    borderRadius:'8px', marginBottom:'5px',
+                                                    cursor:'grab', opacity: isDragging ? 0.4 : 1,
+                                                    transition:'background 120ms, border-color 120ms, opacity 120ms',
+                                                    userSelect:'none'
+                                                }}>
+                                                {/* grip handle */}
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="#475569" style={{ flexShrink:0 }}>
+                                                    <circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/>
+                                                    <circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/>
+                                                    <circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/>
+                                                </svg>
+                                                <span style={{ color:'#475569', fontFamily:'monospace', fontSize:'11px' }}>{idx+1}</span>
+                                                <span style={{ color:'#cbd5e1', fontSize:'12.5px', fontWeight:'600' }}>{NAV_LABELS[k] || k}</span>
                                             </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 ))}
                                 <button onClick={() => { setViewOrder(DEFAULT_VIEW_ORDER); setPanelOrder(DEFAULT_PANEL_ORDER); }}
@@ -17237,11 +17336,7 @@ onError={(e) => {
                                     <button
                                         onClick={() => {
                                             if (!isAcknowledged) {
-                                                logActivity(`Call placed by ${call.author || 'Unknown'} was acknowledged`);
-                                                setAcknowledgedCalls([...acknowledgedCalls, call.id]);
-                                                if (shiftStartTime && !shiftEndTime) setShiftAcknowledgedCount(p => p + 1);
-                                                stopAlertSound();
-                                                addLog(`✅ Call from ${call.author} acknowledged`, 'success');
+                                                acknowledgeCallById(call.id, call.author);
                                             }
                                         }}
                                         disabled={isAcknowledged}
@@ -17254,15 +17349,7 @@ onError={(e) => {
                                     </button>
                                     <button
                                         onClick={() => {
-                                            const remainingCalls = calls.filter(c => c.id !== call.id);
-                                            const hasUnackedRemaining = remainingCalls.some(c => !acknowledgedCallsRef.current.includes(c.id));
-                                            logActivity(`Call placed by ${call.author || 'Unknown'} was dismissed`);
-                                            setDismissedCalls([...dismissedCalls, call.id]);
-                                            if (shiftStartTime && !shiftEndTime) setShiftDismissedCount(p => p + 1);
-                                            setCalls(remainingCalls);
-                                            if (!hasUnackedRemaining) {
-                                                stopAlertSound();
-                                            }
+                                            dismissCallById(call.id, call.author);
                                             addLog(`🗑️ Call from ${call.author} dismissed`, 'info');
                                         }}
                                         style={{ padding:'10px 22px',background:'transparent',border:'1px solid rgba(239,68,68,0.4)',borderRadius:'9px',color:'#fca5a5',fontSize:'11px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',cursor:'pointer',transition:'background 140ms ease-out, color 140ms ease-out, border-color 140ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
