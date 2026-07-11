@@ -1336,14 +1336,23 @@ function _spotifyStopPolling() {
 ipcMain.handle('set-eco-mode', (_e, { enabled, frameRate, throttle } = {}) => {
     try {
         if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
-            // Frame rate: caller supplies the target (30/40/50/60). Clamp to Electron's
-            // valid range. Falls back to 30 (eco) / 60 (normal) if unspecified.
+            const wc = mainWindow.webContents;
+            // Frame rate: caller supplies the target (30/40/50/60). Electron accepts 1-240;
+            // we clamp to a sane 30-60. When Eco is OFF we explicitly restore 60 so a
+            // previously-applied 30 cap doesn't persist (that was the "still feels like 30"
+            // bug — nothing ever raised the cap back up).
             let fps = typeof frameRate === 'number' ? frameRate : (enabled ? 30 : 60);
-            fps = Math.max(30, Math.min(60, fps));
-            mainWindow.webContents.setFrameRate(fps);
-            mainWindow.webContents.setBackgroundThrottling(throttle !== false);
+            fps = Math.max(30, Math.min(60, Math.round(fps)));
+            wc.setFrameRate(fps);
+            // Re-assert on the next tick: setFrameRate can be ignored if called too close to
+            // a swap; a deferred second call makes the new rate reliably take effect.
+            setTimeout(() => { try { if (!wc.isDestroyed()) wc.setFrameRate(fps); } catch (_) {} }, 60);
+            // Background throttling only helps when unfocused; it should never make the
+            // FOCUSED window feel capped. Electron only throttles unfocused windows anyway,
+            // so we honor the user's toggle but default it on only in eco.
+            wc.setBackgroundThrottling(throttle === true);
         }
-        return { ok: true, frameRate: (typeof frameRate === 'number' ? frameRate : (enabled ? 30 : 60)) };
+        return { ok: true, frameRate: Math.max(30, Math.min(60, Math.round(typeof frameRate === 'number' ? frameRate : (enabled ? 30 : 60)))) };
     } catch (e) {
         return { ok: false, error: e.message };
     }
