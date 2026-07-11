@@ -73,7 +73,7 @@ ipcMain.handle('start-streaming', async () => {
             if (alias.family === 'IPv4' && !alias.internal) { localIp = alias.address; break; }
         }
     }
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#07090f"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><title>NYSP MDT</title>
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#07090f"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><title>East Greenbush MDT</title>
 <style>*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{background:#07090f;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;-webkit-text-size-adjust:100%}
 body{max-width:640px;margin:0 auto;padding-bottom:calc(72px + env(safe-area-inset-bottom))}
@@ -118,7 +118,7 @@ h1 .live{font-size:8px;background:rgba(16,185,129,0.15);border:1px solid rgba(16
 .tab.active{color:#60a5fa}.tab svg{display:block;margin:0 auto 4px}
 @media(max-width:380px){.name{font-size:13px}h1{font-size:14px}}
 </style></head><body>
-<div class="topbar"><h1>NYSP MDT <span class="live"><span class="dot"></span>LIVE</span></h1><div class="sub" id="sub">MOBILE UNIT</div></div>
+<div class="topbar"><h1>East Greenbush MDT <span class="live"><span class="dot"></span>LIVE</span></h1><div class="sub" id="sub">MOBILE UNIT</div></div>
 <div class="wrap"><div id="root"><div class="empty">Loading...</div></div><div class="refresh" id="ts">Connecting...</div></div>
 <div class="tabs">
   <button class="tab active" data-t="units" onclick="setTab('units')"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>Units</button>
