@@ -30,8 +30,10 @@ process.on('unhandledRejection', (err) => {
 let _streamServer = null;
 ipcMain.handle('start-streaming', async () => {
     if (_streamServer) return { success: true, alreadyRunning: true };
-    const http = require('http');
-    const os = require('os');
+    // NOTE: main-remote.js runs inside a new Function() with dependencies injected as
+    // parameters — `require` does NOT exist here. `http` and `os` are already provided by
+    // main.js (see its new Function parameter list), so we use them directly. Calling
+    // require('http') here throws "require is not defined" and hangs the streaming UI.
     const interfaces = os.networkInterfaces();
     let localIp = '127.0.0.1';
     for (const iface of Object.values(interfaces)) {
@@ -39,7 +41,6 @@ ipcMain.handle('start-streaming', async () => {
             if (alias.family === 'IPv4' && !alias.internal) { localIp = alias.address; break; }
         }
     }
-    const PORT = 3000;
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#07090f"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><title>NYSP MDT</title>
 <style>*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{background:#07090f;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;-webkit-text-size-adjust:100%}
