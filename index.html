@@ -2609,31 +2609,35 @@ const [showStreamingGuide, setShowStreamingGuide] = useState(false);
 const rpcSessionSinceRef = React.useRef(null);
 React.useEffect(() => {
     const ipc = window.electron?.ipcRenderer || (window.require && window.require('electron').ipcRenderer);
-    if (!ipc) return;
+    console.log('[RPC-CLIENT] Effect fired. enabled:', discordRichPresence, '| authed:', !!authenticatedUser, '| session:', selectedUserSession, '| ipc:', !!ipc);
+    if (!ipc) { console.warn('[RPC-CLIENT] No ipcRenderer available — cannot send presence'); return; }
     // Clear presence when disabled, logged out, or no session is selected.
     if (!discordRichPresence || !authenticatedUser || !selectedUserSession) {
+        console.log('[RPC-CLIENT] Clearing presence (disabled / no auth / no session)');
         rpcSessionSinceRef.current = null;
-        try { ipc.invoke('discord-rpc-clear'); } catch (_) {}
+        try { ipc.invoke('discord-rpc-clear').then(r => console.log('[RPC-CLIENT] clear result:', JSON.stringify(r))); } catch (e) { console.error('[RPC-CLIENT] clear error:', e); }
         return;
     }
     // Timer is tied to SESSION selection: (re)start it whenever the active session changes.
-    // rpcSessionSinceRef holds { session, since } — reset the timestamp on a new session.
     if (!rpcSessionSinceRef.current || rpcSessionSinceRef.current.session !== selectedUserSession) {
         rpcSessionSinceRef.current = { session: selectedUserSession, since: Date.now() };
     }
     const sessionLabel = selectedUserSession === '1411101488146550784' ? 'Whitelisted Session'
         : `Session ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : selectedUserSession === '1390212341005680650' ? '3' : '?'}`;
     const deptName = (typeof deptDisplayName !== 'undefined' && deptDisplayName) ? deptDisplayName : 'NYSP';
+    const payload = {
+        details: `Patrolling · ${sessionLabel}`,
+        state: deptName,
+        startTimestamp: Math.floor(rpcSessionSinceRef.current.since / 1000),
+        largeImageKey: 'mdt_logo',
+        largeImageText: deptName
+    };
+    console.log('[RPC-CLIENT] Sending presence update:', JSON.stringify(payload));
     try {
-        ipc.invoke('discord-rpc-update', {
-            details: `Patrolling · ${sessionLabel}`,
-            state: deptName,
-            // Elapsed time counts up from when this session was selected ("for Y minutes").
-            startTimestamp: Math.floor(rpcSessionSinceRef.current.since / 1000),
-            largeImageKey: 'mdt_logo',
-            largeImageText: deptName
-        });
-    } catch (_) {}
+        ipc.invoke('discord-rpc-update', payload)
+            .then(r => console.log('[RPC-CLIENT] update result from main:', JSON.stringify(r)))
+            .catch(e => console.error('[RPC-CLIENT] update invoke rejected:', e));
+    } catch (e) { console.error('[RPC-CLIENT] update threw:', e); }
 }, [discordRichPresence, authenticatedUser, selectedUserSession]);
 
 // ── Mini-MDT bridge (renderer side) ──
