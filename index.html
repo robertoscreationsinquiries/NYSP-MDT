@@ -2051,6 +2051,9 @@ const [settingsVisitedOnce, setSettingsVisitedOnce] = useState(false); // NEW - 
             // How many times the NORMAL "Call Incoming" sound loops: 2|4|6|8, or 'until'
             // (loops until the user acknowledges/dismisses). Priority is unaffected.
             const [callLoopCount, setCallLoopCount] = useState('until');
+            // Discord Rich Presence — shows "Patrolling · Session X" on the user's Discord
+            // profile with a live shift timer. TRUE/FALSE, persisted like other settings.
+            const [discordRichPresence, setDiscordRichPresence] = useState(false);
             const [liveAnnouncements, setLiveAnnouncements] = useState({});
             const [dismissedAnnouncements, setDismissedAnnouncements] = useState(() => {
                 // Persist dismissals to localStorage. The IDs are stable per-announcement
@@ -2597,6 +2600,34 @@ const [streamingAddress, setStreamingAddress] = useState('');
 const [streamingCooldown, setStreamingCooldown] = useState(false);
 const [streamingStatus, setStreamingStatus] = useState('');
 const [showStreamingGuide, setShowStreamingGuide] = useState(false);
+
+// ── Discord Rich Presence ──
+// When enabled, push the current activity (session + shift start time) to the main
+// process, which talks to Discord via discord-rpc. Updates whenever the relevant state
+// changes; clears when disabled or logged out.
+React.useEffect(() => {
+    const ipc = window.electron?.ipcRenderer || (window.require && window.require('electron').ipcRenderer);
+    if (!ipc) return;
+    if (!discordRichPresence || !authenticatedUser) {
+        try { ipc.invoke('discord-rpc-clear'); } catch (_) {}
+        return;
+    }
+    const sessionLabel = !selectedUserSession ? 'Off Duty'
+        : selectedUserSession === '1411101488146550784' ? 'Whitelisted Session'
+        : `Session ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : selectedUserSession === '1390212341005680650' ? '3' : '?'}`;
+    const onDuty = !!selectedUserSession && !!shiftStartTime && !shiftEndTime;
+    const deptName = (typeof deptDisplayName !== 'undefined' && deptDisplayName) ? deptDisplayName : 'NYSP';
+    try {
+        ipc.invoke('discord-rpc-update', {
+            details: onDuty ? `Patrolling · ${sessionLabel}` : (selectedUserSession ? `On call · ${sessionLabel}` : 'Off duty'),
+            state: deptName,
+            // Discord shows elapsed time from this timestamp ("for Y minutes").
+            startTimestamp: onDuty && shiftStartTime ? Math.floor(new Date(shiftStartTime).getTime() / 1000) : undefined,
+            largeImageKey: 'mdt_logo',
+            largeImageText: deptName
+        });
+    } catch (_) {}
+}, [discordRichPresence, authenticatedUser, selectedUserSession, shiftStartTime, shiftEndTime]);
 
 // ── Mini-MDT bridge (renderer side) ──
 // When streaming is active, push a snapshot of calls + units to the main-process server
@@ -4156,6 +4187,7 @@ if (trimmedLine.startsWith('SFX_MIC_NOTAVAILABLE=')) {
                 const v = trimmedLine.split('=')[1]?.trim();
                 if (v === 'until' || ['2','4','6','8'].includes(v)) setCallLoopCount(v);
             }
+            if (trimmedLine.startsWith('DiscordRichPresence=')) setDiscordRichPresence(trimmedLine.split('=')[1]?.trim() === 'TRUE');
         });
     } else {
         console.warn('⚠️ [SETTINGS] No settings file content available');
@@ -6566,6 +6598,7 @@ ThrottleBackground=${throttleBackground ? 'TRUE' : 'FALSE'}
 ViewOrder=${viewOrder.join(',')}
 PanelOrder=${panelOrder.join(',')}
 CallLoopCount=${callLoopCount}
+DiscordRichPresence=${discordRichPresence ? 'TRUE' : 'FALSE'}
 SIDETAB_NAVIGATION=${compactMode ? 'TRUE' : 'FALSE'}
 ActiveSession=NONE
 USE_MICROPHONE=${useMicrophone ? 'TRUE' : 'FALSE'}
@@ -6628,6 +6661,7 @@ SFX_MIC_NOTAVAILABLE=${soundSettings.MicNotAvailable ? 'TRUE' : 'FALSE'}`;
                     if (key === 'ViewOrder') { const arr = val.split(',').map(s => s.trim()).filter(Boolean); if (arr.length) setViewOrder(arr); }
                     if (key === 'PanelOrder') { const arr = val.split(',').map(s => s.trim()).filter(Boolean); if (arr.length) setPanelOrder(arr); }
                     if (key === 'CallLoopCount') { if (val === 'until' || ['2','4','6','8'].includes(val)) setCallLoopCount(val); }
+                    if (key === 'DiscordRichPresence') setDiscordRichPresence(val === 'TRUE');
                                         if (key === 'SIDETAB_NAVIGATION' || key === 'MiniMode') { const enabled = val === 'TRUE'; setCompactMode(enabled); if (enabled && window.require) { try { window.require('electron').ipcRenderer.send('toggle-compact-mode', true); } catch(_) {} } }
 if (key === 'ACTIONBAR_KEYBIND') setActionBarKeybind(val);
 if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
@@ -16897,6 +16931,8 @@ onError={(e) => {
                                         <option value="until">Until dismissal</option>
                                     </select>
                                 </div>
+
+                                <ToggleRow label="Discord Rich Presence" desc="Shows your current activity on your Discord profile — e.g. 'Patrolling · Session 1' with a live shift timer. Others can see which session you're patrolling." on={discordRichPresence} accent="#5865f2" onToggle={() => setDiscordRichPresence(v => !v)} />
 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: escToHome ? 'rgba(139,92,246,0.07)' : 'rgba(255,255,255,0.02)', border: `1px solid ${escToHome ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.05)'}`, borderRadius: '9px', marginBottom: '7px' }}>
     <div>
         <div style={{ color: escToHome ? '#e2e8f0' : '#6b7280', fontSize: '13px', fontWeight: '600' }}>ESC Returns to Home</div>
@@ -17266,7 +17302,7 @@ onError={(e) => {
                                 <div style={S.sectionHead('#4ade80')}>💾 Export Settings</div>
                                 <div style={S.sectionSub}>Write all current settings to your CADSystemSettings.txt file</div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '12px' }}>
-                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','TeamSpeakAPIKey','EnableTeamSpeakIntegration','EnableSpotifyIntegration','SpotifyClientID','SpotifyRefreshToken','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE','PANIC_ENABLED','PANIC_HOTKEY','PANIC_TRIGGER_MODE','PURSUIT_ENABLED','PURSUIT_HOTKEY','ACKNOWLEDGE_KEYBIND','PHONETIC_MODE','RECORDS_PREFILL','OFFENSE_TIME_OFFSET_ENABLED','OFFENSE_TIME_OFFSET_MINUTES','MINI_MODE','ESC_TO_HOME','MIC_DEVICE','SFX_MIC_ACTIVE','SFX_MIC_INACTIVE','SFX_MIC_NOTAVAILABLE'].map(k => (
+                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','TeamSpeakAPIKey','EnableTeamSpeakIntegration','EnableSpotifyIntegration','SpotifyClientID','SpotifyRefreshToken','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE','PANIC_ENABLED','PANIC_HOTKEY','PANIC_TRIGGER_MODE','PURSUIT_ENABLED','PURSUIT_HOTKEY','ACKNOWLEDGE_KEYBIND','PHONETIC_MODE','RECORDS_PREFILL','OFFENSE_TIME_OFFSET_ENABLED','OFFENSE_TIME_OFFSET_MINUTES','MINI_MODE','ESC_TO_HOME','MIC_DEVICE','SFX_MIC_ACTIVE','SFX_MIC_INACTIVE','SFX_MIC_NOTAVAILABLE','CallLoopCount','DiscordRichPresence','EcoMode','ViewOrder','PanelOrder'].map(k => (
                                         <span key={k} style={{ padding: '2px 7px', background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.18)', borderRadius: '4px', color: '#4ade80', fontSize: '10px', fontFamily: 'monospace' }}>{k}</span>
                                     ))}
                                     <span style={{ padding: '2px 7px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '4px', color: '#f87171', fontSize: '10px', fontFamily: 'monospace' }}>ActiveSession*</span>
@@ -17303,34 +17339,49 @@ onError={(e) => {
 )}
 
 {activeView === 'calls' && (
-    <div style={{ padding:'20px', minHeight:'100vh', boxSizing:'border-box', background:'radial-gradient(ellipse at 50% 0%, #101a30 0%, #0a1220 45%, #070b14 100%)' }}>
+    <div style={{ position:'fixed',top:'52px',left:0,right:0,bottom:0,background:'var(--dept-screen-bg, radial-gradient(ellipse at 50% 0%, #2a0f14 0%, #1a0a12 50%, #0a0508 100%))',padding:'20px',boxSizing:'border-box',overflowY:'auto' }}>
 
-        {/* ── COMMAND BAR ── */}
-        <div style={{ display:'flex',alignItems:'center',gap:'14px',flexWrap:'wrap',padding:'14px 18px',marginBottom:'16px',background:'linear-gradient(180deg, rgba(15,23,42,0.85), rgba(8,13,26,0.9))',border:'1px solid rgba(239,68,68,0.22)',borderRadius:'12px',boxShadow:'0 4px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04)' }}>
-            <div style={{ display:'flex',alignItems:'center',gap:'10px',flexShrink:0 }}>
-                <div style={{ width:'3px',height:'22px',background:'#ef4444',borderRadius:'2px',boxShadow:'0 0 10px #ef4444' }} />
-                <span style={{ color:'#fff',fontSize:'16px',fontWeight:'900',letterSpacing:'3px',fontFamily:'monospace',textTransform:'uppercase' }}>Dispatch Calls</span>
-                <span style={{ background:'rgba(239,68,68,0.14)',border:'1px solid rgba(239,68,68,0.35)',borderRadius:'4px',padding:'2px 8px',color:'#fca5a5',fontSize:'9px',fontWeight:'800',letterSpacing:'2px',fontFamily:'monospace' }}>911</span>
+        {/* Header card — matches License Plate Search */}
+        <div className="mini-hide" style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'16px',padding:'14px 20px',marginBottom:'14px',background:'linear-gradient(135deg,rgba(153,27,27,0.25) 0%,rgba(60,15,20,0.4) 100%)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'12px',boxShadow:'inset 0 1px 0 rgba(239,68,68,0.08), 0 0 24px rgba(239,68,68,0.04)' }}>
+            <div style={{ display:'flex',alignItems:'center',gap:'14px' }}>
+                <div style={{ width:'42px',height:'42px',background:'linear-gradient(135deg,#b91c1c 0%,#ef4444 100%)',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 14px rgba(239,68,68,0.35), inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 00-4-5.7V5a2 2 0 10-4 0v.3C7.7 6.2 6 8.4 6 11v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1"/></svg>
+                </div>
+                <div>
+                    <div style={{ display:'flex',alignItems:'center',gap:'10px',marginBottom:'3px' }}>
+                        <div style={{ color:'#e2e8f0',fontSize:'18px',fontWeight:'700',letterSpacing:'0.3px' }}>Dispatch Calls</div>
+                        <span style={{ padding:'2px 8px',background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,0.35)',borderRadius:'5px',color:'#fca5a5',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',fontFamily:'monospace' }}>911 LIVE</span>
+                    </div>
+                    <div style={{ color:'#fca5a5',fontSize:'11px',fontFamily:'monospace',letterSpacing:'0.3px' }}>
+                        {selectedUserSession ? (selectedUserSession === '1411101488146550784' ? 'Whitelisted Session · monitoring' : `Session ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'} · monitoring live dispatch`) : 'No session selected'}
+                    </div>
+                </div>
             </div>
-            <span style={{ color:'#475569',fontSize:'11px',fontFamily:'monospace',flexShrink:0 }}>
-                {selectedUserSession ? (selectedUserSession === '1411101488146550784' ? 'WHITELISTED SESSION' : `SESSION ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : '3'}`) + ' · LIVE' : 'NO SESSION SELECTED'}
-            </span>
+            <div style={{ display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap',justifyContent:'flex-end' }}>
+                {(() => {
+                    const unacked = calls.filter(c => !acknowledgedCalls.includes(c.id) && !dismissedCalls.includes(c.id));
+                    const prio = unacked.filter(c => c.isPriority).length;
+                    const norm = unacked.length - prio;
+                    const acked = calls.length - unacked.length;
+                    return (<>
+                        {prio > 0 && <span style={{ background:'linear-gradient(135deg,#b91c1c,#ef4444)',borderRadius:'999px',padding:'5px 13px',color:'#fff',fontSize:'10px',fontWeight:'900',letterSpacing:'1.2px',fontFamily:'monospace',boxShadow:'0 0 16px rgba(239,68,68,0.55)',animation:'pursuitPulse 1.4s ease-in-out infinite' }}>🚨 {prio} PRIORITY</span>}
+                        {norm > 0 && <span style={{ background:'rgba(56,189,248,0.1)',border:'1px solid rgba(56,189,248,0.35)',borderRadius:'999px',padding:'5px 13px',color:'#7dd3fc',fontSize:'10px',fontWeight:'800',letterSpacing:'1.2px',fontFamily:'monospace' }}>{norm} ACTIVE</span>}
+                        {unacked.length > 0 && <span style={{ background:'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,0.35)',borderRadius:'999px',padding:'5px 13px',color:'#fcd34d',fontSize:'10px',fontWeight:'800',letterSpacing:'1.2px',fontFamily:'monospace' }}>{unacked.length} NEED ACTION</span>}
+                        {acked > 0 && <span style={{ background:'rgba(34,197,94,0.08)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:'999px',padding:'5px 13px',color:'#86efac',fontSize:'10px',fontWeight:'800',letterSpacing:'1.2px',fontFamily:'monospace' }}>✓ {acked}</span>}
+                    </>);
+                })()}
+            </div>
+        </div>
+
+        {/* Control bar — filter dropdown + session + back, matches search-box card */}
+        <div style={{ display:'flex',alignItems:'center',gap:'12px',flexWrap:'wrap',background:'linear-gradient(180deg,rgba(30,15,20,0.5) 0%,rgba(20,10,15,0.6) 100%)',border:'1px solid rgba(239,68,68,0.15)',borderRadius:'10px',padding:'12px 16px',marginBottom:'14px',boxShadow:'inset 0 1px 0 rgba(239,68,68,0.06)' }}>
+            <div style={{ display:'flex',alignItems:'center',gap:'8px',flexShrink:0 }}>
+                <div style={{ width:'2px',height:'12px',background:'#ef4444',borderRadius:'2px',boxShadow:'0 0 6px #ef4444' }} />
+                <span style={{ color:'#fca5a5',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Call Queue</span>
+            </div>
             <div style={{ flex:1 }} />
-            {(() => {
-                const unacked = calls.filter(c => !acknowledgedCalls.includes(c.id) && !dismissedCalls.includes(c.id));
-                const prio = unacked.filter(c => c.isPriority).length;
-                const norm = unacked.length - prio;
-                const acked = calls.length - unacked.length;
-                return (<>
-                    {prio > 0 && <span style={{ background:'linear-gradient(135deg,#b91c1c,#ef4444)',borderRadius:'999px',padding:'4px 12px',color:'#fff',fontSize:'10px',fontWeight:'900',letterSpacing:'1.5px',fontFamily:'monospace',boxShadow:'0 0 16px rgba(239,68,68,0.55)',animation:'pursuitPulse 1.4s ease-in-out infinite',flexShrink:0 }}>🚨 {prio} PRIORITY</span>}
-                    {norm > 0 && <span style={{ background:'rgba(56,189,248,0.1)',border:'1px solid rgba(56,189,248,0.35)',borderRadius:'999px',padding:'4px 12px',color:'#7dd3fc',fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace',flexShrink:0 }}>{norm} ACTIVE</span>}
-                    {unacked.length > 0 && <span style={{ background:'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,0.35)',borderRadius:'999px',padding:'4px 12px',color:'#fcd34d',fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace',flexShrink:0 }}>{unacked.length} NEED ACTION</span>}
-                    {acked > 0 && <span style={{ background:'rgba(34,197,94,0.08)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:'999px',padding:'4px 12px',color:'#86efac',fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace',flexShrink:0 }}>✓ {acked}</span>}
-                </>);
-            })()}
-            {/* Sort / filter dropdown */}
             <select value={callFilter} onChange={e => setCallFilter(e.target.value)}
-                style={{ padding:'7px 10px',background:'rgba(7,12,24,0.8)',border:'1px solid rgba(148,163,184,0.3)',borderRadius:'8px',color:'#cbd5e1',fontSize:'11px',fontWeight:'700',fontFamily:'monospace',cursor:'pointer',outline:'none',flexShrink:0 }}>
+                style={{ padding:'8px 12px',background:'rgba(0,0,0,0.35)',border:'1px solid rgba(148,163,184,0.25)',borderRadius:'8px',color:'#cbd5e1',fontSize:'11px',fontWeight:'700',fontFamily:'monospace',cursor:'pointer',outline:'none',flexShrink:0 }}>
                 <option value="incoming" style={{ background:'#0f172a' }}>Incoming Calls</option>
                 <option value="priority" style={{ background:'#0f172a' }}>Priority Only</option>
                 <option value="acknowledged" style={{ background:'#0f172a' }}>Acknowledged</option>
@@ -17345,14 +17396,12 @@ onError={(e) => {
                         setSelectedUserSession(newSession);
                         if (newSession && window._currentCalls) {
                             const cutoff = Date.now() - 30 * 60 * 1000;
-                            const oldIds = window._currentCalls
-                                .filter(c => new Date(c.timestamp).getTime() < cutoff)
-                                .map(c => c.id);
+                            const oldIds = window._currentCalls.filter(c => new Date(c.timestamp).getTime() < cutoff).map(c => c.id);
                             if (oldIds.length > 0) setAcknowledgedCalls(a => [...new Set([...a, ...oldIds])]);
                         }
                         addLog('✅ Session updated', 'success');
                     }}
-                    style={{ padding:'7px 10px',background:'rgba(7,12,24,0.8)',border:'1px solid rgba(56,189,248,0.3)',borderRadius:'8px',color:'#cbd5e1',fontSize:'11px',fontWeight:'700',fontFamily:'monospace',cursor:'pointer',outline:'none',flexShrink:0 }}>
+                    style={{ padding:'8px 12px',background:'rgba(0,0,0,0.35)',border:'1px solid rgba(56,189,248,0.25)',borderRadius:'8px',color:'#cbd5e1',fontSize:'11px',fontWeight:'700',fontFamily:'monospace',cursor:'pointer',outline:'none',flexShrink:0 }}>
                     <option value="" style={{ background:'#0f172a' }}>None (No Alerts)</option>
                     <option value="1011898104670330920" style={{ background:'#0f172a' }}>Session 1</option>
                     <option value="1390212294478397471" style={{ background:'#0f172a' }}>Session 2</option>
@@ -17361,12 +17410,8 @@ onError={(e) => {
                 </select>
             )}
             <button
-                onClick={() => {
-                    stopAlertSound();
-                    if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); }
-                    else { setActiveView('home'); }
-                }}
-                style={{ padding:'7px 14px',background:'transparent',border:'1px solid rgba(148,163,184,0.3)',borderRadius:'8px',color:'#94a3b8',fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace',cursor:'pointer',transition:'color 140ms ease-out, border-color 140ms ease-out',flexShrink:0 }}
+                onClick={() => { stopAlertSound(); if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); } else { setActiveView('home'); } }}
+                style={{ padding:'8px 14px',background:'transparent',border:'1px solid rgba(148,163,184,0.3)',borderRadius:'8px',color:'#94a3b8',fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace',cursor:'pointer',flexShrink:0 }}
                 onMouseEnter={e=>{ e.currentTarget.style.color='#e2e8f0'; e.currentTarget.style.borderColor='rgba(226,232,240,0.5)'; }}
                 onMouseLeave={e=>{ e.currentTarget.style.color='#94a3b8'; e.currentTarget.style.borderColor='rgba(148,163,184,0.3)'; }}>
                 ← DASHBOARD
