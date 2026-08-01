@@ -2046,6 +2046,11 @@ const [settingsVisitedOnce, setSettingsVisitedOnce] = useState(false); // NEW - 
             const [plateSuggestions, setPlateSuggestions] = useState([]);
             const [selectedSession, setSelectedSession] = useState(null);
             const [calls, setCalls] = useState([]);
+            // Call list filter: 'all' | 'incoming' | 'priority' | 'acknowledged'
+            const [callFilter, setCallFilter] = useState('incoming');
+            // How many times the NORMAL "Call Incoming" sound loops: 2|4|6|8, or 'until'
+            // (loops until the user acknowledges/dismisses). Priority is unaffected.
+            const [callLoopCount, setCallLoopCount] = useState('until');
             const [liveAnnouncements, setLiveAnnouncements] = useState({});
             const [dismissedAnnouncements, setDismissedAnnouncements] = useState(() => {
                 // Persist dismissals to localStorage. The IDs are stable per-announcement
@@ -2433,6 +2438,9 @@ const isPriorityCall = React.useCallback((content) => PRIORITY_CALL_REGEX.test(S
 const [liveCalls, setLiveCalls] = useState([]);   // [{ id, content, isPriority }]
 // Which alert tier is currently looping: 'priority' | 'normal' | null
 const currentAlertTierRef = React.useRef(null);
+// Tracks the unacked-call set for which a finite normal-loop already finished, so it
+// doesn't restart every poll. Cleared implicitly when the call set changes.
+const finishedNormalLoopSigRef = React.useRef(null);
 // Priority calls we've already shown the popup for (avoid re-popup every poll)
 const notifiedPriorityIdsRef = React.useRef(new Set());
 const acknowledgeKeybindRef = React.useRef('');
@@ -4144,6 +4152,10 @@ if (trimmedLine.startsWith('SFX_MIC_NOTAVAILABLE=')) {
             if (trimmedLine.startsWith('BlurEffects=')) setBlurEffects(trimmedLine.split('=')[1]?.trim() !== 'FALSE');
             if (trimmedLine.startsWith('ReduceMotion=')) setReduceMotion(trimmedLine.split('=')[1]?.trim() === 'TRUE');
             if (trimmedLine.startsWith('ThrottleBackground=')) setThrottleBackground(trimmedLine.split('=')[1]?.trim() !== 'FALSE');
+            if (trimmedLine.startsWith('CallLoopCount=')) {
+                const v = trimmedLine.split('=')[1]?.trim();
+                if (v === 'until' || ['2','4','6','8'].includes(v)) setCallLoopCount(v);
+            }
         });
     } else {
         console.warn('⚠️ [SETTINGS] No settings file content available');
@@ -6553,6 +6565,7 @@ ReduceMotion=${reduceMotion ? 'TRUE' : 'FALSE'}
 ThrottleBackground=${throttleBackground ? 'TRUE' : 'FALSE'}
 ViewOrder=${viewOrder.join(',')}
 PanelOrder=${panelOrder.join(',')}
+CallLoopCount=${callLoopCount}
 SIDETAB_NAVIGATION=${compactMode ? 'TRUE' : 'FALSE'}
 ActiveSession=NONE
 USE_MICROPHONE=${useMicrophone ? 'TRUE' : 'FALSE'}
@@ -6614,6 +6627,7 @@ SFX_MIC_NOTAVAILABLE=${soundSettings.MicNotAvailable ? 'TRUE' : 'FALSE'}`;
                     if (key === 'ThrottleBackground') setThrottleBackground(val === 'TRUE');
                     if (key === 'ViewOrder') { const arr = val.split(',').map(s => s.trim()).filter(Boolean); if (arr.length) setViewOrder(arr); }
                     if (key === 'PanelOrder') { const arr = val.split(',').map(s => s.trim()).filter(Boolean); if (arr.length) setPanelOrder(arr); }
+                    if (key === 'CallLoopCount') { if (val === 'until' || ['2','4','6','8'].includes(val)) setCallLoopCount(val); }
                                         if (key === 'SIDETAB_NAVIGATION' || key === 'MiniMode') { const enabled = val === 'TRUE'; setCompactMode(enabled); if (enabled && window.require) { try { window.require('electron').ipcRenderer.send('toggle-compact-mode', true); } catch(_) {} } }
 if (key === 'ACTIONBAR_KEYBIND') setActionBarKeybind(val);
 if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
@@ -7045,10 +7059,13 @@ React.useEffect(() => {
                     if (c.isPriority && !notifiedPriorityIdsRef.current.has(c.id)
                         && !acknowledgedCallsRef.current.includes(c.id)) {
                         notifiedPriorityIdsRef.current.add(c.id);
-                        const snippet = (c.content || '').replace(/\s+/g, ' ').slice(0, 160);
+                        // Show ONLY the incident description in the popup (not caller ID,
+                        // services, or location — those are visible in the Calls tab).
+                        const desc = (c.description || '').trim() || 'A high-priority emergency call has been received.';
+                        const snippet = desc.replace(/\s+/g, ' ').slice(0, 200);
                         showCustomError(
                             '🚨 PRIORITY CALL INCOMING',
-                            `A high-priority emergency call has been received in your session.\n\n"${snippet}${c.content.length > 160 ? '…' : ''}"\n\nAcknowledge it in the Calls tab or with your acknowledge hotkey.`,
+                            `"${snippet}${desc.length > 200 ? '…' : ''}"\n\nAcknowledge it in the Calls tab or with your acknowledge hotkey.`,
                             false,
                             20
                         );
@@ -7120,6 +7137,13 @@ React.useEffect(() => {
         return; // already playing the right thing
     }
     if (desired === current && desired === null) return;
+    // If a finite normal loop already completed for the CURRENT set of unacked calls,
+    // don't restart it every poll. It resets when the unacked-call signature changes.
+    const unackedSig = unacked.map(c => c.id).sort().join(',');
+    if (desired === 'normal' && callLoopCount !== 'until'
+        && finishedNormalLoopSigRef.current === unackedSig) {
+        return;
+    }
 
     console.log(`[CALL-LOOP] tier change: ${current || 'silent'} → ${desired || 'silent'} (priority:${hasPriority} normal:${hasNormal})`);
 
@@ -7139,7 +7163,27 @@ React.useEffect(() => {
     try {
         const audio = new Audio(src);
         audio.volume = desired === 'priority' ? 0.75 : 0.6;
-        audio.loop = true;
+        // Priority ALWAYS loops until acknowledged. Normal call sound honors the
+        // "Call Incoming Loop" setting: 'until' → loop forever; a number → play that
+        // many times then stop (even if the call is still unacknowledged).
+        if (desired === 'priority' || callLoopCount === 'until') {
+            audio.loop = true;
+        } else {
+            const maxLoops = parseInt(callLoopCount, 10) || 2;
+            let played = 0;
+            audio.loop = false;
+            audio.addEventListener('ended', () => {
+                played++;
+                if (played < maxLoops && activeAlertAudioRef.current === audio) {
+                    try { audio.currentTime = 0; audio.play().catch(() => {}); } catch (_) {}
+                } else {
+                    // Reached the loop limit — stop but remember this unacked set so we
+                    // don't restart the sound on the next poll for the same calls.
+                    if (activeAlertAudioRef.current === audio) activeAlertAudioRef.current = null;
+                    finishedNormalLoopSigRef.current = unacked.map(c => c.id).sort().join(',');
+                }
+            });
+        }
         activeAlertAudioRef.current = audio;
         audio.play().catch(e => {
             console.error('[CALL-LOOP] playback blocked:', e?.message);
@@ -7152,7 +7196,7 @@ React.useEffect(() => {
         activeAlertAudioRef.current = null;
         currentAlertTierRef.current = null;
     }
-}, [liveCalls, acknowledgedCalls, dismissedCalls, selectedUserSession, authenticatedUser, pursuitActive, soundSettings.callAlert]);
+}, [liveCalls, acknowledgedCalls, dismissedCalls, selectedUserSession, authenticatedUser, pursuitActive, soundSettings.callAlert, callLoopCount]);
 
 // Cleanup alert sound when leaving calls view
 React.useEffect(() => {
@@ -16837,6 +16881,22 @@ onError={(e) => {
                                     style={{ padding:'8px 14px', borderRadius:'8px', border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.03)', color:'#8b97a6', fontSize:'11px', fontWeight:'600', cursor:'pointer', marginBottom:'8px' }}>
                                     Reset to default order
                                 </button>
+
+                                {/* ── Call Incoming Loop ── */}
+                                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', background:'rgba(245,158,11,0.05)', border:'1px solid rgba(245,158,11,0.15)', borderRadius:'9px', marginTop:'14px', marginBottom:'7px' }}>
+                                    <div style={{ paddingRight:'12px' }}>
+                                        <div style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'600' }}>Call Incoming Loop</div>
+                                        <div style={{ color:'#6b7280', fontSize:'11px', marginTop:'2px' }}>How many times the normal "Call Incoming" sound repeats before stopping. Priority calls always loop until acknowledged.</div>
+                                    </div>
+                                    <select value={callLoopCount} onChange={e => setCallLoopCount(e.target.value)}
+                                        style={{ background:'#0f172a', color:'#fbbf24', border:'1px solid rgba(245,158,11,0.35)', borderRadius:'7px', padding:'7px 12px', fontSize:'13px', fontWeight:'700', fontFamily:'monospace', cursor:'pointer', outline:'none', flexShrink:0 }}>
+                                        <option value="2">2 loops</option>
+                                        <option value="4">4 loops</option>
+                                        <option value="6">6 loops</option>
+                                        <option value="8">8 loops</option>
+                                        <option value="until">Until dismissal</option>
+                                    </select>
+                                </div>
 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: escToHome ? 'rgba(139,92,246,0.07)' : 'rgba(255,255,255,0.02)', border: `1px solid ${escToHome ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.05)'}`, borderRadius: '9px', marginBottom: '7px' }}>
     <div>
         <div style={{ color: escToHome ? '#e2e8f0' : '#6b7280', fontSize: '13px', fontWeight: '600' }}>ESC Returns to Home</div>
@@ -17264,9 +17324,18 @@ onError={(e) => {
                 return (<>
                     {prio > 0 && <span style={{ background:'linear-gradient(135deg,#b91c1c,#ef4444)',borderRadius:'999px',padding:'4px 12px',color:'#fff',fontSize:'10px',fontWeight:'900',letterSpacing:'1.5px',fontFamily:'monospace',boxShadow:'0 0 16px rgba(239,68,68,0.55)',animation:'pursuitPulse 1.4s ease-in-out infinite',flexShrink:0 }}>🚨 {prio} PRIORITY</span>}
                     {norm > 0 && <span style={{ background:'rgba(56,189,248,0.1)',border:'1px solid rgba(56,189,248,0.35)',borderRadius:'999px',padding:'4px 12px',color:'#7dd3fc',fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace',flexShrink:0 }}>{norm} ACTIVE</span>}
+                    {unacked.length > 0 && <span style={{ background:'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,0.35)',borderRadius:'999px',padding:'4px 12px',color:'#fcd34d',fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace',flexShrink:0 }}>{unacked.length} NEED ACTION</span>}
                     {acked > 0 && <span style={{ background:'rgba(34,197,94,0.08)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:'999px',padding:'4px 12px',color:'#86efac',fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace',flexShrink:0 }}>✓ {acked}</span>}
                 </>);
             })()}
+            {/* Sort / filter dropdown */}
+            <select value={callFilter} onChange={e => setCallFilter(e.target.value)}
+                style={{ padding:'7px 10px',background:'rgba(7,12,24,0.8)',border:'1px solid rgba(148,163,184,0.3)',borderRadius:'8px',color:'#cbd5e1',fontSize:'11px',fontWeight:'700',fontFamily:'monospace',cursor:'pointer',outline:'none',flexShrink:0 }}>
+                <option value="incoming" style={{ background:'#0f172a' }}>Incoming Calls</option>
+                <option value="priority" style={{ background:'#0f172a' }}>Priority Only</option>
+                <option value="acknowledged" style={{ background:'#0f172a' }}>Acknowledged</option>
+                <option value="all" style={{ background:'#0f172a' }}>All Calls</option>
+            </select>
             {tokenSaved && selectedUserSession && (
                 <select
                     value={selectedUserSession}
@@ -17359,7 +17428,21 @@ onError={(e) => {
             </div>
         ) : (
             <div style={{ display:'flex',flexDirection:'column',gap:'14px' }}>
-                {[...calls].sort((a, b) => {
+                {(() => {
+                    // Apply the sort/filter dropdown selection.
+                    const isAck = (c) => acknowledgedCalls.includes(c.id);
+                    let list = calls.slice();
+                    if (callFilter === 'incoming') list = list.filter(c => !isAck(c));          // all unacknowledged
+                    else if (callFilter === 'priority') list = list.filter(c => c.isPriority && !isAck(c));
+                    else if (callFilter === 'acknowledged') list = list.filter(c => isAck(c));
+                    // 'all' → everything, no filter
+                    if (list.length === 0) {
+                        const msg = callFilter === 'acknowledged' ? 'No acknowledged calls yet.'
+                            : callFilter === 'priority' ? 'No active priority calls.'
+                            : 'No calls match this filter.';
+                        return <div style={{ color:'#64748b',fontSize:'13px',fontFamily:'monospace',textAlign:'center',padding:'40px' }}>{msg}</div>;
+                    }
+                    return list.sort((a, b) => {
                     const pa = a.isPriority ? 0 : 1, pb = b.isPriority ? 0 : 1;
                     if (pa !== pb) return pa - pb;
                     const aa = acknowledgedCalls.includes(a.id) ? 1 : 0, ab = acknowledgedCalls.includes(b.id) ? 1 : 0;
@@ -17451,7 +17534,8 @@ onError={(e) => {
                             </div>
                         </div>
                     );
-                })}
+                });
+                })()}
             </div>
         )}
     </div>
