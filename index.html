@@ -2605,29 +2605,36 @@ const [showStreamingGuide, setShowStreamingGuide] = useState(false);
 // When enabled, push the current activity (session + shift start time) to the main
 // process, which talks to Discord via discord-rpc. Updates whenever the relevant state
 // changes; clears when disabled or logged out.
+// Tracks when the current session was selected, so the RPC timer resets per session.
+const rpcSessionSinceRef = React.useRef(null);
 React.useEffect(() => {
     const ipc = window.electron?.ipcRenderer || (window.require && window.require('electron').ipcRenderer);
     if (!ipc) return;
-    if (!discordRichPresence || !authenticatedUser) {
+    // Clear presence when disabled, logged out, or no session is selected.
+    if (!discordRichPresence || !authenticatedUser || !selectedUserSession) {
+        rpcSessionSinceRef.current = null;
         try { ipc.invoke('discord-rpc-clear'); } catch (_) {}
         return;
     }
-    const sessionLabel = !selectedUserSession ? 'Off Duty'
-        : selectedUserSession === '1411101488146550784' ? 'Whitelisted Session'
+    // Timer is tied to SESSION selection: (re)start it whenever the active session changes.
+    // rpcSessionSinceRef holds { session, since } — reset the timestamp on a new session.
+    if (!rpcSessionSinceRef.current || rpcSessionSinceRef.current.session !== selectedUserSession) {
+        rpcSessionSinceRef.current = { session: selectedUserSession, since: Date.now() };
+    }
+    const sessionLabel = selectedUserSession === '1411101488146550784' ? 'Whitelisted Session'
         : `Session ${selectedUserSession === '1011898104670330920' ? '1' : selectedUserSession === '1390212294478397471' ? '2' : selectedUserSession === '1390212341005680650' ? '3' : '?'}`;
-    const onDuty = !!selectedUserSession && !!shiftStartTime && !shiftEndTime;
     const deptName = (typeof deptDisplayName !== 'undefined' && deptDisplayName) ? deptDisplayName : 'NYSP';
     try {
         ipc.invoke('discord-rpc-update', {
-            details: onDuty ? `Patrolling · ${sessionLabel}` : (selectedUserSession ? `On call · ${sessionLabel}` : 'Off duty'),
+            details: `Patrolling · ${sessionLabel}`,
             state: deptName,
-            // Discord shows elapsed time from this timestamp ("for Y minutes").
-            startTimestamp: onDuty && shiftStartTime ? Math.floor(new Date(shiftStartTime).getTime() / 1000) : undefined,
+            // Elapsed time counts up from when this session was selected ("for Y minutes").
+            startTimestamp: Math.floor(rpcSessionSinceRef.current.since / 1000),
             largeImageKey: 'mdt_logo',
             largeImageText: deptName
         });
     } catch (_) {}
-}, [discordRichPresence, authenticatedUser, selectedUserSession, shiftStartTime, shiftEndTime]);
+}, [discordRichPresence, authenticatedUser, selectedUserSession]);
 
 // ── Mini-MDT bridge (renderer side) ──
 // When streaming is active, push a snapshot of calls + units to the main-process server
