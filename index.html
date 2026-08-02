@@ -881,12 +881,14 @@ body::before {
 .cc-vital .k { font-size:9px; letter-spacing:1.6px; text-transform:uppercase; color:#64748b; font-family:monospace; }
 .cc-vital .v { font-size:15px; font-weight:800; color:#e8eef6; font-family:monospace; letter-spacing:0.3px; font-variant-numeric:tabular-nums; }
 
-/* ── LAYOUT: full-width action band, then a balanced 3-column working area ── */
+/* ── LAYOUT: live-feeds | centered actions | reference ── */
 .cc-grid { display:flex; flex-direction:column; gap:14px; flex:1; min-height:0; }
-.cc-actions { display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; flex-shrink:0; }
-.cc-work { display:grid; grid-template-columns: 1.1fr 1fr 1fr; gap:14px; flex:1; min-height:0; align-items:stretch; }
+.cc-work { display:grid; grid-template-columns: 1fr 0.9fr 1fr; gap:14px; flex:1; min-height:0; align-items:stretch; }
 .cc-work > * { min-height:0; display:flex; flex-direction:column; gap:14px; }
-@media (max-width: 1080px){ .cc-work { grid-template-columns: 1fr; overflow-y:auto; } .cc-actions { grid-template-columns:1fr 1fr 1fr; } }
+/* Center column: actions sit on the vertical centerline (muscle memory) */
+.cc-center { justify-content:center; gap:14px; }
+.cc-center .cc-tile { min-height:120px; }
+@media (max-width: 1080px){ .cc-work { grid-template-columns: 1fr; overflow-y:auto; } .cc-center { order:-1; } }
 
 /* generic console panel */
 .cc-panel {
@@ -15002,34 +15004,11 @@ return (
                     </div>
                 </div>
 
-                {/* ══ ACTION BAND + WORKING GRID ══ */}
+                {/* ══ WORKING GRID: live feeds | actions (center) | reference ══ */}
                 <div className="cc-grid">
-
-                    {/* Full-width primary actions */}
-                    <div className="cc-actions cc-stagger">
-                            {(()=>{
-                                const activeCalls=(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length;
-                                return [
-                                    {l:'Scan Plate',  v:'search',          icon:'🔍',sub:'Run a registration',tile:'96,165,250'},
-                                    {l:'ID Lookup',   v:'database-search', icon:'🪪',sub:'Search a citizen',tile:'52,211,153'},
-                                    {l:'Pending Calls',v:'calls',          icon:'🚨',sub:activeCalls>0?`${activeCalls} awaiting response`:'Dispatch queue',tile:'248,113,113'},
-                                ].map((b,i)=>(
-                                    <div key={i} className="cc-tile" style={{ '--tile':b.tile }} onClick={()=>navTo(b.v)}>
-                                        <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between' }}>
-                                            <div className="ic">{b.icon}</div>
-                                            {b.v==='calls'&&activeCalls>0 && <span style={{ padding:'2px 9px',background:'rgba(248,113,113,0.9)',color:'#fff',borderRadius:'999px',fontSize:'11px',fontWeight:'800',fontFamily:'monospace',boxShadow:'0 0 14px rgba(248,113,113,0.6)',animation:'ccBlink 1.4s infinite' }}>{activeCalls}</span>}
-                                        </div>
-                                        <div className="nm">{b.l}</div>
-                                        <div className="sb">{b.sub}</div>
-                                    </div>
-                                ));
-                            })()}
-                    </div>
-
-                    {/* Working area — 3 balanced columns */}
                     <div className="cc-work">
 
-                    {/* ═ COLUMN 1: Units ═ */}
+                    {/* ═ COLUMN 1: Live feeds — Units + Calls + BOLOs ═ */}
                     <div className="cc-stagger">
                         <div className="cc-panel" style={{ display:'flex',flexDirection:'column',flex:1,minHeight:0 }}>
                             <div className="cc-phead">
@@ -15044,11 +15023,8 @@ return (
                                 {renderOfficerList('compact')}
                             </div>
                         </div>
-                    </div>
 
-                    {/* ═ COLUMN 2: Live feeds (BOLOs + Calls) ═ */}
-                    <div className="cc-stagger">
-
+                    {/* Active BOLOs (same live-feeds column) */}
                     <div style={{ background:'linear-gradient(180deg,rgba(60,15,15,0.5) 0%,rgba(40,10,10,0.6) 100%)',border:'1px solid rgba(248,113,113,0.18)',borderRadius:'15px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(248,113,113,0.08)',flex:1,minHeight:'120px' }}>
                         <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(248,113,113,0.1)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
                             <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
@@ -15132,6 +15108,27 @@ return (
                         </div>
                     </div>
 
+                    </div>
+
+                    {/* ═ CENTER COLUMN: primary actions (on the centerline for muscle memory) ═ */}
+                    <div className="cc-center cc-stagger">
+                        {(()=>{
+                            const activeCalls=(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length;
+                            return [
+                                {l:'Scan Plate',  v:'search',          icon:'🔍',sub:'Run a registration',tile:'96,165,250'},
+                                {l:'ID Lookup',   v:'database-search', icon:'🪪',sub:'Search a citizen',tile:'52,211,153'},
+                                {l:'Pending Calls',v:'calls',          icon:'🚨',sub:activeCalls>0?`${activeCalls} awaiting response`:'Dispatch queue',tile:'248,113,113'},
+                            ].map((b,i)=>(
+                                <div key={i} className="cc-tile" style={{ '--tile':b.tile }} onClick={()=>navTo(b.v)}>
+                                    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between' }}>
+                                        <div className="ic">{b.icon}</div>
+                                        {b.v==='calls'&&activeCalls>0 && <span style={{ padding:'2px 9px',background:'rgba(248,113,113,0.9)',color:'#fff',borderRadius:'999px',fontSize:'11px',fontWeight:'800',fontFamily:'monospace',boxShadow:'0 0 14px rgba(248,113,113,0.6)',animation:'ccBlink 1.4s infinite' }}>{activeCalls}</span>}
+                                    </div>
+                                    <div className="nm">{b.l}</div>
+                                    <div className="sb">{b.sub}</div>
+                                </div>
+                            ));
+                        })()}
                     </div>
 
                     {/* ═ COLUMN 3: Reference (Dossier + Telemetry + Utilities) ═ */}
