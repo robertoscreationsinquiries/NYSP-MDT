@@ -882,7 +882,8 @@ body::before {
 .cc-vital .v { font-size:15px; font-weight:800; color:#e8eef6; font-family:monospace; letter-spacing:0.3px; font-variant-numeric:tabular-nums; }
 
 /* ── LAYOUT GRID: dominant ops column + intel rail ── */
-.cc-grid { display:grid; grid-template-columns: 1.55fr 1fr; gap:16px; align-items:start; }
+.cc-grid { display:grid; grid-template-columns: 1.55fr 1fr; gap:14px; align-items:stretch; flex:1; min-height:0; }
+.cc-grid > * { min-height:0; }
 @media (max-width: 1080px){ .cc-grid { grid-template-columns: 1fr; } }
 
 /* generic console panel */
@@ -14961,7 +14962,7 @@ return (
 
 {/* DASHBOARD SUBVIEW */}
         {homeSubView === 'dashboard' && (
-            <div className="cc-root" style={{ flex:1,overflowY:'auto',padding:'20px',display:'flex',flexDirection:'column',gap:'16px',position:'relative' }}>
+            <div className="cc-root" style={{ flex:1,minHeight:0,overflow:'hidden',padding:'18px',display:'flex',flexDirection:'column',gap:'14px',position:'relative' }}>
 
                 {/* ══ HERO IDENTITY STRIP ══ */}
                 <div className="cc-hero" style={{ display:'flex',alignItems:'center',gap:'20px',flexShrink:0,flexWrap:'wrap' }}>
@@ -15003,10 +15004,10 @@ return (
                 <div className="cc-grid">
 
                     {/* ─── LEFT: OPERATIONS ─── */}
-                    <div style={{ display:'flex',flexDirection:'column',gap:'16px' }}>
+                    <div style={{ display:'flex',flexDirection:'column',gap:'14px',minHeight:0 }}>
 
                         {/* Primary tactical actions */}
-                        <div className="cc-stagger" style={{ display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px' }}>
+                        <div className="cc-stagger" style={{ display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px',flexShrink:0 }}>
                             {(()=>{
                                 const activeCalls=(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length;
                                 return [
@@ -15027,7 +15028,7 @@ return (
                         </div>
 
                         {/* Unit dossier */}
-                        <div className="cc-panel">
+                        <div className="cc-panel" style={{ flexShrink:0 }}>
                             <div className="cc-phead"><div className="lbl"><span className="dot" />Unit Dossier</div>
                                 <span style={{ fontSize:'9px',fontFamily:'monospace',color:'#475569',letterSpacing:'1px' }}>{currentDept||'NYSP'}</span>
                             </div>
@@ -15064,8 +15065,8 @@ return (
                             </div>
                         </div>
 
-                        {/* Available units — pulled up into ops, larger */}
-                        <div className="cc-panel" style={{ display:'flex',flexDirection:'column',minHeight:'220px' }}>
+                        {/* Available units — fills remaining height */}
+                        <div className="cc-panel" style={{ display:'flex',flexDirection:'column',flex:1,minHeight:0 }}>
                             <div className="cc-phead">
                                 <div className="lbl"><span className="dot" />Available Units
                                     <span style={{ padding:'1px 8px',background:'rgba(var(--dept-glow,96,165,250),0.14)',border:'1px solid rgba(var(--dept-glow,96,165,250),0.3)',borderRadius:'999px',color:'rgba(var(--dept-glow,96,165,250),1)',fontSize:'10px',fontWeight:'800',fontFamily:'monospace',marginLeft:'2px' }}>{(onlineOfficers||[]).length}</span>
@@ -15081,10 +15082,10 @@ return (
                     </div>
 
                     {/* ─── RIGHT: INTEL RAIL ─── */}
-                    <div className="cc-stagger" style={{ display:'flex',flexDirection:'column',gap:'16px' }}>
+                    <div className="cc-stagger" style={{ display:'flex',flexDirection:'column',gap:'14px',minHeight:0 }}>
 
                         {/* System telemetry */}
-                        <div className="cc-panel">
+                        <div className="cc-panel" style={{ flexShrink:0 }}>
                             <div className="cc-phead"><div className="lbl"><span className="dot" />System Telemetry</div></div>
                             <div>
                                 {[
@@ -15105,7 +15106,7 @@ return (
 
                         {/* BOLOs, Active Calls, Utilities continue stacked in the intel rail below */}
 
-                    <div style={{ background:'linear-gradient(180deg,rgba(60,15,15,0.5) 0%,rgba(40,10,10,0.6) 100%)',border:'1px solid rgba(248,113,113,0.18)',borderRadius:'10px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(248,113,113,0.08)' }}>
+                    <div style={{ background:'linear-gradient(180deg,rgba(60,15,15,0.5) 0%,rgba(40,10,10,0.6) 100%)',border:'1px solid rgba(248,113,113,0.18)',borderRadius:'15px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(248,113,113,0.08)',flex:1,minHeight:'120px' }}>
                         <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(248,113,113,0.1)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
                             <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
                                 <div style={{ width:'2px',height:'12px',background:'#f87171',borderRadius:'2px',boxShadow:'0 0 6px #f87171' }} />
@@ -15154,7 +15155,7 @@ return (
                     </div>
 
                     {/* Active Calls — amber/orange to differentiate from red BOLOs */}
-                    <div style={{ background:'linear-gradient(180deg,rgba(120,55,0,0.45) 0%,rgba(80,40,0,0.6) 100%)',border:'1px solid rgba(245,158,11,0.32)',borderRadius:'10px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(245,158,11,0.18), 0 0 24px rgba(245,158,11,0.06)' }}>
+                    <div style={{ background:'linear-gradient(180deg,rgba(120,55,0,0.45) 0%,rgba(80,40,0,0.6) 100%)',border:'1px solid rgba(245,158,11,0.32)',borderRadius:'15px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(245,158,11,0.18), 0 0 24px rgba(245,158,11,0.06)',flex:1,minHeight:'120px' }}>
                         <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(245,158,11,0.12)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
                             <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
                                 <div style={{ width:'2px',height:'12px',background:'#f59e0b',borderRadius:'2px',boxShadow:'0 0 6px #f59e0b' }} />
@@ -15189,7 +15190,7 @@ return (
                     </div>
 
                     {/* Utilities — 2x3 grid */}
-                    <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'10px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
+                    <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'15px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)',flexShrink:0 }}>
                         <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(56,189,248,0.08)',display:'flex',alignItems:'center',gap:'8px',flexShrink:0 }}>
                             <div style={{ width:'2px',height:'12px',background:'#a78bfa',borderRadius:'2px',boxShadow:'0 0 6px #a78bfa' }} />
                             <span style={{ color:'#a78bfa',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Utilities</span>
