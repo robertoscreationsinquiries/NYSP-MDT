@@ -881,10 +881,12 @@ body::before {
 .cc-vital .k { font-size:9px; letter-spacing:1.6px; text-transform:uppercase; color:#64748b; font-family:monospace; }
 .cc-vital .v { font-size:15px; font-weight:800; color:#e8eef6; font-family:monospace; letter-spacing:0.3px; font-variant-numeric:tabular-nums; }
 
-/* ── LAYOUT GRID: dominant ops column + intel rail ── */
-.cc-grid { display:grid; grid-template-columns: 1.55fr 1fr; gap:14px; align-items:stretch; flex:1; min-height:0; }
-.cc-grid > * { min-height:0; }
-@media (max-width: 1080px){ .cc-grid { grid-template-columns: 1fr; } }
+/* ── LAYOUT: full-width action band, then a balanced 3-column working area ── */
+.cc-grid { display:flex; flex-direction:column; gap:14px; flex:1; min-height:0; }
+.cc-actions { display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; flex-shrink:0; }
+.cc-work { display:grid; grid-template-columns: 1.1fr 1fr 1fr; gap:14px; flex:1; min-height:0; align-items:stretch; }
+.cc-work > * { min-height:0; display:flex; flex-direction:column; gap:14px; }
+@media (max-width: 1080px){ .cc-work { grid-template-columns: 1fr; overflow-y:auto; } .cc-actions { grid-template-columns:1fr 1fr 1fr; } }
 
 /* generic console panel */
 .cc-panel {
@@ -15000,14 +15002,11 @@ return (
                     </div>
                 </div>
 
-                {/* ══ MAIN GRID: OPS (left) | INTEL RAIL (right) ══ */}
+                {/* ══ ACTION BAND + WORKING GRID ══ */}
                 <div className="cc-grid">
 
-                    {/* ─── LEFT: OPERATIONS ─── */}
-                    <div style={{ display:'flex',flexDirection:'column',gap:'14px',minHeight:0 }}>
-
-                        {/* Primary tactical actions */}
-                        <div className="cc-stagger" style={{ display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px',flexShrink:0 }}>
+                    {/* Full-width primary actions */}
+                    <div className="cc-actions cc-stagger">
                             {(()=>{
                                 const activeCalls=(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length;
                                 return [
@@ -15025,47 +15024,13 @@ return (
                                     </div>
                                 ));
                             })()}
-                        </div>
+                    </div>
 
-                        {/* Unit dossier */}
-                        <div className="cc-panel" style={{ flexShrink:0 }}>
-                            <div className="cc-phead"><div className="lbl"><span className="dot" />Unit Dossier</div>
-                                <span style={{ fontSize:'9px',fontFamily:'monospace',color:'#475569',letterSpacing:'1px' }}>{currentDept||'NYSP'}</span>
-                            </div>
-                            <div style={{ padding:'15px' }}>
-                                <div style={{ display:'flex',alignItems:'center',gap:'13px',marginBottom:'14px' }}>
-                                    <div style={{ width:'46px',height:'46px',borderRadius:'11px',flexShrink:0,background:'linear-gradient(135deg,rgba(var(--dept-glow,96,165,250),0.85),rgba(var(--dept-glow,96,165,250),0.35))',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:'18px',fontWeight:'800',fontFamily:'monospace',boxShadow:'inset 0 1px 0 rgba(255,255,255,0.3)' }}>
-                                        {(trooperSettings?.FirstName?.[0]||'')+(trooperSettings?.LastName?.[0]||'')||'—'}
-                                    </div>
-                                    <div style={{ minWidth:0 }}>
-                                        <div style={{ color:'#f1f5f9',fontSize:'17px',fontWeight:'800',letterSpacing:'0.2px' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName}</div>
-                                        <div style={{ color:'#64748b',fontSize:'11px',fontFamily:'monospace',marginTop:'1px' }}>@{trooperSettings?.Username||'unknown'}</div>
-                                    </div>
-                                </div>
-                                {(() => {
-                                    let fields = [
-                                        { l:'Badge ID', v:`#${trooperSettings?.BadgeID||'—'}`, key:'badge' },
-                                        { l:'Zone', v:trooperSettings?.Zone||'—', key:'zone' },
-                                        { l:'Reg. Expiry', v:editableTrooperSettings?.expDate||'—', key:'expiry' }
-                                    ];
-                                    if (currentDept === 'EGFD') fields = fields.filter(f => !['badge','zone','expiry'].includes(f.key));
-                                    else if (currentDept === 'DOT') fields = fields.filter(f => !['badge','zone'].includes(f.key));
-                                    if (fields.length === 0) return null;
-                                    return (
-                                        <div style={{ display:'grid',gridTemplateColumns:`repeat(${Math.min(fields.length,3)},1fr)`,gap:'8px' }}>
-                                            {fields.map(({l,v},i)=>(
-                                                <div key={i} style={{ background:'rgba(0,0,0,0.25)',border:'1px solid rgba(255,255,255,0.05)',borderRadius:'9px',padding:'9px 11px' }}>
-                                                    <div style={{ color:'#475569',fontSize:'8px',fontWeight:'700',letterSpacing:'1.2px',textTransform:'uppercase',marginBottom:'3px',fontFamily:'monospace' }}>{l}</div>
-                                                    <div style={{ color:'#e2e8f0',fontSize:'13px',fontWeight:'700',fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{v}</div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    );
-                                })()}
-                            </div>
-                        </div>
+                    {/* Working area — 3 balanced columns */}
+                    <div className="cc-work">
 
-                        {/* Available units — fills remaining height */}
+                    {/* ═ COLUMN 1: Units ═ */}
+                    <div className="cc-stagger">
                         <div className="cc-panel" style={{ display:'flex',flexDirection:'column',flex:1,minHeight:0 }}>
                             <div className="cc-phead">
                                 <div className="lbl"><span className="dot" />Available Units
@@ -15081,30 +15046,8 @@ return (
                         </div>
                     </div>
 
-                    {/* ─── RIGHT: INTEL RAIL ─── */}
-                    <div className="cc-stagger" style={{ display:'flex',flexDirection:'column',gap:'14px',minHeight:0 }}>
-
-                        {/* System telemetry */}
-                        <div className="cc-panel" style={{ flexShrink:0 }}>
-                            <div className="cc-phead"><div className="lbl"><span className="dot" />System Telemetry</div></div>
-                            <div>
-                                {[
-                                    {l:'MDT Status',v:'ONLINE',ok:true},
-                                    {l:'Database',v:tokenSaved?'CONNECTED':'OFFLINE',ok:tokenSaved},
-                                    {l:'Active Session',v:selectedUserSession?`SESSION ${selectedUserSession==='1011898104670330920'?'1':selectedUserSession==='1390212294478397471'?'2':selectedUserSession==='1390212341005680650'?'3':'WL'}`:'NONE',ok:!!selectedUserSession},
-                                    {l:'Groq AI',v:!!(window.GROQ_CONSOLE_API_KEY||localStorage.getItem('groqConsoleAPIKey'))?'ONLINE':'OFFLINE',ok:!!(window.GROQ_CONSOLE_API_KEY||localStorage.getItem('groqConsoleAPIKey'))},
-                                    {l:'Audio Engine',v:!!(window.SOUNDS&&Object.keys(window.SOUNDS).length>0)?'LOADED':'MISSING',ok:!!(window.SOUNDS&&Object.keys(window.SOUNDS).length>0)},
-                                ].map(({l,v,ok},i)=>(
-                                    <div key={i} className="cc-tele">
-                                        <span className="k">{l}</span>
-                                        <span className="v" style={{ color:ok?'#34d399':'#f87171' }}><span className={`led ${ok?'on':'off'}`} />{v}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-
-                        {/* BOLOs, Active Calls, Utilities continue stacked in the intel rail below */}
+                    {/* ═ COLUMN 2: Live feeds (BOLOs + Calls) ═ */}
+                    <div className="cc-stagger">
 
                     <div style={{ background:'linear-gradient(180deg,rgba(60,15,15,0.5) 0%,rgba(40,10,10,0.6) 100%)',border:'1px solid rgba(248,113,113,0.18)',borderRadius:'15px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(248,113,113,0.08)',flex:1,minHeight:'120px' }}>
                         <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(248,113,113,0.1)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
@@ -15189,6 +15132,68 @@ return (
                         </div>
                     </div>
 
+                    </div>
+
+                    {/* ═ COLUMN 3: Reference (Dossier + Telemetry + Utilities) ═ */}
+                    <div className="cc-stagger">
+
+                        {/* Unit dossier */}
+                        <div className="cc-panel" style={{ flexShrink:0 }}>
+                            <div className="cc-phead"><div className="lbl"><span className="dot" />Unit Dossier</div>
+                                <span style={{ fontSize:'9px',fontFamily:'monospace',color:'#475569',letterSpacing:'1px' }}>{currentDept||'NYSP'}</span>
+                            </div>
+                            <div style={{ padding:'15px' }}>
+                                <div style={{ display:'flex',alignItems:'center',gap:'13px',marginBottom:'14px' }}>
+                                    <div style={{ width:'46px',height:'46px',borderRadius:'11px',flexShrink:0,background:'linear-gradient(135deg,rgba(var(--dept-glow,96,165,250),0.85),rgba(var(--dept-glow,96,165,250),0.35))',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:'18px',fontWeight:'800',fontFamily:'monospace',boxShadow:'inset 0 1px 0 rgba(255,255,255,0.3)' }}>
+                                        {(trooperSettings?.FirstName?.[0]||'')+(trooperSettings?.LastName?.[0]||'')||'—'}
+                                    </div>
+                                    <div style={{ minWidth:0 }}>
+                                        <div style={{ color:'#f1f5f9',fontSize:'17px',fontWeight:'800',letterSpacing:'0.2px' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName}</div>
+                                        <div style={{ color:'#64748b',fontSize:'11px',fontFamily:'monospace',marginTop:'1px' }}>@{trooperSettings?.Username||'unknown'}</div>
+                                    </div>
+                                </div>
+                                {(() => {
+                                    let fields = [
+                                        { l:'Badge ID', v:`#${trooperSettings?.BadgeID||'—'}`, key:'badge' },
+                                        { l:'Zone', v:trooperSettings?.Zone||'—', key:'zone' },
+                                        { l:'Reg. Expiry', v:editableTrooperSettings?.expDate||'—', key:'expiry' }
+                                    ];
+                                    if (currentDept === 'EGFD') fields = fields.filter(f => !['badge','zone','expiry'].includes(f.key));
+                                    else if (currentDept === 'DOT') fields = fields.filter(f => !['badge','zone'].includes(f.key));
+                                    if (fields.length === 0) return null;
+                                    return (
+                                        <div style={{ display:'grid',gridTemplateColumns:`repeat(${Math.min(fields.length,3)},1fr)`,gap:'8px' }}>
+                                            {fields.map(({l,v},i)=>(
+                                                <div key={i} style={{ background:'rgba(0,0,0,0.25)',border:'1px solid rgba(255,255,255,0.05)',borderRadius:'9px',padding:'9px 11px' }}>
+                                                    <div style={{ color:'#475569',fontSize:'8px',fontWeight:'700',letterSpacing:'1.2px',textTransform:'uppercase',marginBottom:'3px',fontFamily:'monospace' }}>{l}</div>
+                                                    <div style={{ color:'#e2e8f0',fontSize:'13px',fontWeight:'700',fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{v}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        </div>
+
+                        {/* System telemetry */}
+                        <div className="cc-panel" style={{ flexShrink:0 }}>
+                            <div className="cc-phead"><div className="lbl"><span className="dot" />System Telemetry</div></div>
+                            <div>
+                                {[
+                                    {l:'MDT Status',v:'ONLINE',ok:true},
+                                    {l:'Database',v:tokenSaved?'CONNECTED':'OFFLINE',ok:tokenSaved},
+                                    {l:'Active Session',v:selectedUserSession?`SESSION ${selectedUserSession==='1011898104670330920'?'1':selectedUserSession==='1390212294478397471'?'2':selectedUserSession==='1390212341005680650'?'3':'WL'}`:'NONE',ok:!!selectedUserSession},
+                                    {l:'Groq AI',v:!!(window.GROQ_CONSOLE_API_KEY||localStorage.getItem('groqConsoleAPIKey'))?'ONLINE':'OFFLINE',ok:!!(window.GROQ_CONSOLE_API_KEY||localStorage.getItem('groqConsoleAPIKey'))},
+                                    {l:'Audio Engine',v:!!(window.SOUNDS&&Object.keys(window.SOUNDS).length>0)?'LOADED':'MISSING',ok:!!(window.SOUNDS&&Object.keys(window.SOUNDS).length>0)},
+                                ].map(({l,v,ok},i)=>(
+                                    <div key={i} className="cc-tele">
+                                        <span className="k">{l}</span>
+                                        <span className="v" style={{ color:ok?'#34d399':'#f87171' }}><span className={`led ${ok?'on':'off'}`} />{v}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
                     {/* Utilities — 2x3 grid */}
                     <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'15px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)',flexShrink:0 }}>
                         <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(56,189,248,0.08)',display:'flex',alignItems:'center',gap:'8px',flexShrink:0 }}>
@@ -15214,8 +15219,9 @@ return (
                             ))}
                         </div>
                     </div>
-                </div>
-                </div>
+                    </div>{/* close column 3 */}
+                    </div>{/* close cc-work */}
+                </div>{/* close cc-grid */}
 
                 {/* Full-width QUIT bar */}
                 <button onClick={()=>setShowQuitConfirm(true)}
