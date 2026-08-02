@@ -881,14 +881,20 @@ body::before {
 .cc-vital .k { font-size:9px; letter-spacing:1.6px; text-transform:uppercase; color:#64748b; font-family:monospace; }
 .cc-vital .v { font-size:15px; font-weight:800; color:#e8eef6; font-family:monospace; letter-spacing:0.3px; font-variant-numeric:tabular-nums; }
 
-/* ── LAYOUT: live-feeds | centered actions | reference ── */
+/* ── LAYOUT: 3×3 aligned grid — reference row / actions row / live-feeds row ── */
 .cc-grid { display:flex; flex-direction:column; gap:14px; flex:1; min-height:0; }
-.cc-work { display:grid; grid-template-columns: 1fr 0.9fr 1fr; gap:14px; flex:1; min-height:0; align-items:stretch; }
-.cc-work > * { min-height:0; display:flex; flex-direction:column; gap:14px; }
-/* Center column: actions sit on the vertical centerline (muscle memory) */
-.cc-center { justify-content:center; gap:14px; }
-.cc-center .cc-tile { min-height:120px; }
-@media (max-width: 1080px){ .cc-work { grid-template-columns: 1fr; overflow-y:auto; } .cc-center { order:-1; } }
+.cc-work {
+    display:grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto 1fr;   /* rows 1&2 hug content; row 3 (feeds) fills */
+    gap:14px; flex:1; min-height:0;
+}
+.cc-work > * { min-height:0; }
+/* Actions row: tiles are direct grid cells now */
+.cc-work .cc-tile { min-height:104px; }
+@media (max-width: 1080px){
+    .cc-work { grid-template-columns:1fr; grid-template-rows:none; overflow-y:auto; }
+}
 
 /* generic console panel */
 .cc-panel {
@@ -15006,11 +15012,10 @@ return (
 
                 {/* ══ WORKING GRID: live feeds | actions (center) | reference ══ */}
                 <div className="cc-grid">
-                    <div className="cc-work">
+                    <div className="cc-work cc-stagger">
 
-                    {/* ═ COLUMN 1: Live feeds — Units + Calls + BOLOs ═ */}
-                    <div className="cc-stagger">
-                        <div className="cc-panel" style={{ display:'flex',flexDirection:'column',flex:1,minHeight:0 }}>
+                    {/* Available Units → center of bottom (feeds) row */}
+                        <div className="cc-panel" style={{ display:'flex',flexDirection:'column',minHeight:0,gridColumn:2,gridRow:3 }}>
                             <div className="cc-phead">
                                 <div className="lbl"><span className="dot" />Available Units
                                     <span style={{ padding:'1px 8px',background:'rgba(var(--dept-glow,96,165,250),0.14)',border:'1px solid rgba(var(--dept-glow,96,165,250),0.3)',borderRadius:'999px',color:'rgba(var(--dept-glow,96,165,250),1)',fontSize:'10px',fontWeight:'800',fontFamily:'monospace',marginLeft:'2px' }}>{(onlineOfficers||[]).length}</span>
@@ -15024,8 +15029,8 @@ return (
                             </div>
                         </div>
 
-                    {/* Active BOLOs (same live-feeds column) */}
-                    <div style={{ background:'linear-gradient(180deg,rgba(60,15,15,0.5) 0%,rgba(40,10,10,0.6) 100%)',border:'1px solid rgba(248,113,113,0.18)',borderRadius:'15px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(248,113,113,0.08)',flex:1,minHeight:'120px' }}>
+                    {/* Active BOLOs → right of feeds row */}
+                    <div style={{ background:'linear-gradient(180deg,rgba(60,15,15,0.5) 0%,rgba(40,10,10,0.6) 100%)',border:'1px solid rgba(248,113,113,0.18)',borderRadius:'15px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(248,113,113,0.08)',minHeight:0,gridColumn:3,gridRow:3 }}>
                         <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(248,113,113,0.1)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
                             <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
                                 <div style={{ width:'2px',height:'12px',background:'#f87171',borderRadius:'2px',boxShadow:'0 0 6px #f87171' }} />
@@ -15073,8 +15078,8 @@ return (
                         </button>
                     </div>
 
-                    {/* Active Calls — amber/orange to differentiate from red BOLOs */}
-                    <div style={{ background:'linear-gradient(180deg,rgba(120,55,0,0.45) 0%,rgba(80,40,0,0.6) 100%)',border:'1px solid rgba(245,158,11,0.32)',borderRadius:'15px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(245,158,11,0.18), 0 0 24px rgba(245,158,11,0.06)',flex:1,minHeight:'120px' }}>
+                    {/* Active Calls → left of feeds row */}
+                    <div style={{ background:'linear-gradient(180deg,rgba(120,55,0,0.45) 0%,rgba(80,40,0,0.6) 100%)',border:'1px solid rgba(245,158,11,0.32)',borderRadius:'15px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(245,158,11,0.18), 0 0 24px rgba(245,158,11,0.06)',minHeight:0,gridColumn:1,gridRow:3 }}>
                         <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(245,158,11,0.12)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
                             <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
                                 <div style={{ width:'2px',height:'12px',background:'#f59e0b',borderRadius:'2px',boxShadow:'0 0 6px #f59e0b' }} />
@@ -15108,10 +15113,7 @@ return (
                         </div>
                     </div>
 
-                    </div>
-
-                    {/* ═ CENTER COLUMN: primary actions (on the centerline for muscle memory) ═ */}
-                    <div className="cc-center cc-stagger">
+                    {/* Action tiles → middle row, one per column */}
                         {(()=>{
                             const activeCalls=(window._currentCalls||[]).filter(c=>!acknowledgedCalls.includes(c.id)&&!dismissedCalls.includes(c.id)).length;
                             return [
@@ -15119,7 +15121,7 @@ return (
                                 {l:'ID Lookup',   v:'database-search', icon:'🪪',sub:'Search a citizen',tile:'52,211,153'},
                                 {l:'Pending Calls',v:'calls',          icon:'🚨',sub:activeCalls>0?`${activeCalls} awaiting response`:'Dispatch queue',tile:'248,113,113'},
                             ].map((b,i)=>(
-                                <div key={i} className="cc-tile" style={{ '--tile':b.tile }} onClick={()=>navTo(b.v)}>
+                                <div key={i} className="cc-tile" style={{ '--tile':b.tile,gridColumn:i+1,gridRow:2 }} onClick={()=>navTo(b.v)}>
                                     <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between' }}>
                                         <div className="ic">{b.icon}</div>
                                         {b.v==='calls'&&activeCalls>0 && <span style={{ padding:'2px 9px',background:'rgba(248,113,113,0.9)',color:'#fff',borderRadius:'999px',fontSize:'11px',fontWeight:'800',fontFamily:'monospace',boxShadow:'0 0 14px rgba(248,113,113,0.6)',animation:'ccBlink 1.4s infinite' }}>{activeCalls}</span>}
@@ -15129,13 +15131,9 @@ return (
                                 </div>
                             ));
                         })()}
-                    </div>
 
-                    {/* ═ COLUMN 3: Reference (Dossier + Telemetry + Utilities) ═ */}
-                    <div className="cc-stagger">
-
-                        {/* Unit dossier */}
-                        <div className="cc-panel" style={{ flexShrink:0 }}>
+                        {/* Unit Dossier → left of reference row */}
+                        <div className="cc-panel" style={{ gridColumn:1,gridRow:1 }}>
                             <div className="cc-phead"><div className="lbl"><span className="dot" />Unit Dossier</div>
                                 <span style={{ fontSize:'9px',fontFamily:'monospace',color:'#475569',letterSpacing:'1px' }}>{currentDept||'NYSP'}</span>
                             </div>
@@ -15172,8 +15170,8 @@ return (
                             </div>
                         </div>
 
-                        {/* System telemetry */}
-                        <div className="cc-panel" style={{ flexShrink:0 }}>
+                        {/* System Telemetry → center of reference row */}
+                        <div className="cc-panel" style={{ gridColumn:2,gridRow:1 }}>
                             <div className="cc-phead"><div className="lbl"><span className="dot" />System Telemetry</div></div>
                             <div>
                                 {[
@@ -15191,8 +15189,8 @@ return (
                             </div>
                         </div>
 
-                    {/* Utilities — 2x3 grid */}
-                    <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'15px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)',flexShrink:0 }}>
+                    {/* Utilities → right of reference row */}
+                    <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'15px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)',gridColumn:3,gridRow:1 }}>
                         <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(56,189,248,0.08)',display:'flex',alignItems:'center',gap:'8px',flexShrink:0 }}>
                             <div style={{ width:'2px',height:'12px',background:'#a78bfa',borderRadius:'2px',boxShadow:'0 0 6px #a78bfa' }} />
                             <span style={{ color:'#a78bfa',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Utilities</span>
@@ -15216,7 +15214,6 @@ return (
                             ))}
                         </div>
                     </div>
-                    </div>{/* close column 3 */}
                     </div>{/* close cc-work */}
                 </div>{/* close cc-grid */}
 
