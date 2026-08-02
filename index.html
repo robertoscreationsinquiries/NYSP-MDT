@@ -753,6 +753,71 @@ body::before {
     from { opacity: 0; transform: translateY(10px); }
     to   { opacity: 1; transform: translateY(0); }
 }
+/* ══════════════════════════════════════════════════════════════════
+   HOME DASHBOARD REDESIGN
+   A cohesive "real MDT" surface language: one accent (dept-tinted via
+   --dept-glow), quieter cards, a faint grain texture over the whole
+   screen, tinted shadows, and a staggered entry so panels cascade in.
+   All classes are additive — they only restyle; no logic touched.
+   ══════════════════════════════════════════════════════════════════ */
+@keyframes mdtRise {
+    from { opacity: 0; transform: translateY(14px) scale(0.994); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes mdtSheen {
+    0%   { background-position: -180% 0; }
+    100% { background-position: 280% 0; }
+}
+.mdt-dash {
+    position: relative;
+    --acc: var(--dept-glow, 96,165,250);
+}
+/* Fine grain overlay so surfaces don't read as flat vector fills */
+.mdt-dash::before {
+    content:''; position:absolute; inset:0; pointer-events:none; z-index:0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.028'/%3E%3C/svg%3E");
+    mix-blend-mode: overlay;
+}
+.mdt-dash > * { position: relative; z-index: 1; }
+/* Card surface — subtle, tinted border + tinted shadow, one consistent light source */
+.mdt-card {
+    background:
+        radial-gradient(120% 140% at 0% 0%, rgba(255,255,255,0.035) 0%, transparent 42%),
+        linear-gradient(180deg, rgba(255,255,255,0.022), rgba(255,255,255,0.006));
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 10px 30px -18px rgba(0,0,0,0.85);
+    backdrop-filter: blur(2px);
+    animation: mdtRise 560ms cubic-bezier(0.22,1,0.36,1) both;
+    transition: border-color 200ms ease-out, box-shadow 240ms ease-out, transform 240ms cubic-bezier(0.22,1,0.36,1);
+}
+.mdt-card:hover {
+    border-color: rgba(var(--acc),0.28);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 16px 40px -20px rgba(0,0,0,0.9), 0 0 0 1px rgba(var(--acc),0.05);
+}
+/* Staggered cascade — each successive card enters a touch later */
+.mdt-stagger > *  { animation: mdtRise 560ms cubic-bezier(0.22,1,0.36,1) both; }
+.mdt-stagger > *:nth-child(1){ animation-delay: 20ms; }
+.mdt-stagger > *:nth-child(2){ animation-delay: 70ms; }
+.mdt-stagger > *:nth-child(3){ animation-delay: 120ms; }
+.mdt-stagger > *:nth-child(4){ animation-delay: 170ms; }
+/* Header identity bar accent sweep */
+.mdt-headcard { position: relative; overflow: hidden; }
+.mdt-headcard::after {
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background: linear-gradient(105deg, transparent 30%, rgba(var(--acc),0.10) 48%, transparent 62%);
+    background-size: 220% 100%;
+    animation: mdtSheen 7s ease-in-out infinite;
+}
+/* Section eyebrow label — small caps, tracked, with a tick */
+.mdt-eyebrow { display:flex; align-items:center; gap:8px; margin-bottom:13px; }
+.mdt-eyebrow .tick { width:3px; height:13px; border-radius:2px; background: rgba(var(--acc),0.9); box-shadow: 0 0 8px rgba(var(--acc),0.5); }
+.mdt-eyebrow .txt { color: rgba(203,213,225,0.85); font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; }
+.reduce-motion .mdt-card, .reduce-motion .mdt-stagger > *, .reduce-motion .mdt-headcard::after { animation: none !important; }
+/* Rise-only (for panels that keep their own semantic background/border) */
+.mdt-rise { animation: mdtRise 560ms cubic-bezier(0.22,1,0.36,1) both; transition: border-color 200ms ease-out, box-shadow 240ms ease-out; }
+.reduce-motion .mdt-rise { animation: none !important; }
+
 /* Attachment lightbox — backdrop fade + image pop */
 @keyframes lightboxBackdropIn {
     from { opacity: 0; }
@@ -14783,44 +14848,41 @@ return (
 
 {/* DASHBOARD SUBVIEW */}
         {homeSubView === 'dashboard' && (
-            <div style={{ flex:1,overflowY:'auto',background:'var(--dept-screen-bg, radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 50%, #050a14 100%))',padding:'20px',display:'flex',flexDirection:'column',gap:'14px',position:'relative' }}>
+            <div className="mdt-dash" style={{ flex:1,overflowY:'auto',background:'var(--dept-screen-bg, radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 50%, #050a14 100%))',padding:'22px',display:'flex',flexDirection:'column',gap:'16px',position:'relative' }}>
 {/* Header card */}
-                <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'16px',padding:'16px 22px',background:'linear-gradient(135deg,rgba(30,58,138,0.25) 0%,rgba(15,30,60,0.4) 100%)',border:'1px solid rgba(56,189,248,0.18)',borderRadius:'12px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 0 24px rgba(14,165,233,0.04)',flexShrink:0 }}>
-                    <div style={{ display:'flex',alignItems:'center',gap:'14px' }}>
-                        <div style={{ width:'46px',height:'46px',background:'linear-gradient(135deg,#1e40af 0%,#0ea5e9 100%)',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 14px rgba(14,165,233,0.35), inset 0 1px 0 rgba(255,255,255,0.15)' }}>
-                            <svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/></svg>
+                <div className="mdt-headcard mdt-card" style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'16px',padding:'18px 24px',flexShrink:0 }}>
+                    <div style={{ display:'flex',alignItems:'center',gap:'16px' }}>
+                        <div style={{ width:'50px',height:'50px',background:'linear-gradient(135deg, rgba(var(--dept-glow,96,165,250),0.9) 0%, rgba(var(--dept-glow,96,165,250),0.45) 100%)',borderRadius:'13px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 6px 18px -6px rgba(var(--dept-glow,96,165,250),0.6), inset 0 1px 0 rgba(255,255,255,0.25)' }}>
+                            <svg width="24" height="24" fill="white" viewBox="0 0 24 24"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/></svg>
                         </div>
                         <div>
-                            <div style={{ display:'flex',alignItems:'center',gap:'10px',marginBottom:'4px' }}>
-                                <div style={{ color:'#e2e8f0',fontSize:'22px',fontWeight:'700',letterSpacing:'0.3px',lineHeight:'1.1' }}>{deptDisplayName}</div>
-                                <span style={{ padding:'2px 8px',background:'rgba(34,211,238,0.1)',border:'1px solid rgba(34,211,238,0.3)',borderRadius:'5px',color:'#22d3ee',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',fontFamily:'monospace' }}>EST. 2025</span>
+                            <div style={{ display:'flex',alignItems:'center',gap:'11px',marginBottom:'5px' }}>
+                                <div style={{ color:'#f1f5f9',fontSize:'23px',fontWeight:'700',letterSpacing:'-0.3px',lineHeight:'1.05' }}>{deptDisplayName}</div>
+                                <span style={{ padding:'3px 9px',background:'rgba(var(--dept-glow,96,165,250),0.1)',border:'1px solid rgba(var(--dept-glow,96,165,250),0.28)',borderRadius:'6px',color:'rgba(var(--dept-glow,96,165,250),1)',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',fontFamily:'monospace' }}>EST. 2025</span>
                             </div>
-                            <div style={{ color:'#22d3ee',fontSize:'12px',marginTop:'2px',fontFamily:'monospace',letterSpacing:'0.3px' }}>
+                            <div style={{ color:'rgba(var(--dept-glow,96,165,250),0.85)',fontSize:'12px',fontFamily:'monospace',letterSpacing:'0.2px',fontVariantNumeric:'tabular-nums' }}>
                                 {currentTime.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})} — {currentTime.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'})}
                             </div>
-                            <div style={{ color:'#64748b',fontSize:'11px',marginTop:'3px' }}>
+                            <div style={{ color:'#64748b',fontSize:'11.5px',marginTop:'4px' }}>
                                 {(()=>{const h=new Date().getHours();const g=h>=5&&h<12?'Good morning':h>=12&&h<17?'Good afternoon':h>=17&&h<21?'Good evening':'Good night';const dept=(trooperSettings?.Department||'').toUpperCase();const rank=dept.includes('EGPD')?'Officer':'Trooper';const fn=trooperSettings?.FirstName?trooperSettings.FirstName[0]+'.':'';const ln=trooperSettings?.LastName||'Officer';return `${g}, ${rank} ${fn} ${ln}`;})()}
                             </div>
                         </div>
                     </div>
-                    <div style={{ display:'flex',alignItems:'center',gap:'7px',padding:'7px 16px',background:selectedUserSession?'rgba(16,185,129,0.12)':'rgba(239,68,68,0.12)',border:`1px solid ${selectedUserSession?'rgba(16,185,129,0.35)':'rgba(239,68,68,0.35)'}`,borderRadius:'999px',boxShadow:selectedUserSession?'0 0 16px rgba(16,185,129,0.15), inset 0 1px 0 rgba(16,185,129,0.2)':'0 0 16px rgba(239,68,68,0.15)' }}>
+                    <div style={{ display:'flex',alignItems:'center',gap:'8px',padding:'8px 17px',background:selectedUserSession?'rgba(16,185,129,0.1)':'rgba(239,68,68,0.1)',border:`1px solid ${selectedUserSession?'rgba(16,185,129,0.35)':'rgba(239,68,68,0.35)'}`,borderRadius:'999px',boxShadow:selectedUserSession?'0 0 20px -6px rgba(16,185,129,0.5), inset 0 1px 0 rgba(16,185,129,0.15)':'0 0 20px -8px rgba(239,68,68,0.4)' }}>
                         <div style={{ width:'7px',height:'7px',borderRadius:'50%',background:selectedUserSession?'#10b981':'#ef4444',boxShadow:selectedUserSession?'0 0 8px #10b981':'0 0 8px #ef4444',animation:selectedUserSession?'pulse 2s ease-in-out infinite':'none' }} />
-                        <span style={{ color:selectedUserSession?'#34d399':'#f87171',fontSize:'11px',fontWeight:'700',letterSpacing:'1.5px',fontFamily:'monospace' }}>{selectedUserSession?'ONLINE':'OFFLINE'}</span>
+                        <span style={{ color:selectedUserSession?'#34d399':'#f87171',fontSize:'11px',fontWeight:'700',letterSpacing:'1.5px',fontFamily:'monospace' }}>{selectedUserSession?'ON DUTY':'OFF DUTY'}</span>
                     </div>
                 </div>
 
                 {/* 3-col grid: Officer Info | System Status | Shift Management */}
-                <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px',flexShrink:0 }}>
+                <div className="mdt-stagger" style={{ display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'14px',flexShrink:0 }}>
 
                     {/* Unit Information */}
-                    <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'10px',padding:'14px 16px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
-                        <div style={{ display:'flex',alignItems:'center',gap:'8px',marginBottom:'12px' }}>
-                            <div style={{ width:'2px',height:'12px',background:'#22d3ee',borderRadius:'2px',boxShadow:'0 0 6px #22d3ee' }} />
-                            <span style={{ color:'#22d3ee',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Unit Information</span>
-                        </div>
-                        <div style={{ background:'rgba(0,0,0,0.25)',border:'1px solid rgba(56,189,248,0.1)',borderRadius:'7px',padding:'10px 12px',marginBottom:'8px' }}>
+                    <div className="mdt-card" style={{ padding:'16px 18px' }}>
+                        <div className="mdt-eyebrow"><span className="tick" /><span className="txt">Unit Information</span></div>
+                        <div style={{ background:'rgba(0,0,0,0.22)',border:'1px solid rgba(255,255,255,0.05)',borderRadius:'9px',padding:'11px 13px',marginBottom:'8px' }}>
                             <div style={{ color:'#475569',fontSize:'9px',fontWeight:'600',letterSpacing:'1.2px',textTransform:'uppercase',marginBottom:'4px',fontFamily:'monospace' }}>Unit Name</div>
-                            <div style={{ color:'#e2e8f0',fontSize:'15px',fontWeight:'700',fontFamily:'monospace',letterSpacing:'0.3px' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName}</div>
+                            <div style={{ color:'#f1f5f9',fontSize:'15px',fontWeight:'700',fontFamily:'monospace',letterSpacing:'0.3px' }}>{trooperSettings?.FirstName} {trooperSettings?.LastName}</div>
                         </div>
                         {(() => {
                             // Dept-specific field hiding. EGFD: no Badge ID, Zone, Reg. Expiry.
@@ -14849,11 +14911,8 @@ return (
                     </div>
 
                     {/* System Status */}
-                    <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'10px',padding:'14px 16px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
-                        <div style={{ display:'flex',alignItems:'center',gap:'8px',marginBottom:'12px' }}>
-                            <div style={{ width:'2px',height:'12px',background:'#22d3ee',borderRadius:'2px',boxShadow:'0 0 6px #22d3ee' }} />
-                            <span style={{ color:'#22d3ee',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>System Status</span>
-                        </div>
+                    <div className="mdt-card" style={{ padding:'16px 18px' }}>
+                        <div className="mdt-eyebrow"><span className="tick" /><span className="txt">System Status</span></div>
                         <div style={{ display:'flex',flexDirection:'column',gap:'5px' }}>
                             {[
                                 {l:'MDT Status',v:'ONLINE',ok:true},
@@ -14875,13 +14934,11 @@ return (
                     </div>
 
                     {/* Shift Management — disabled */}
-                    <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'10px',padding:'14px 16px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
-                        <div style={{ display:'flex',alignItems:'center',gap:'8px',marginBottom:'12px' }}>
-                            <div style={{ width:'2px',height:'12px',background:'#475569',borderRadius:'2px' }} />
-                            <span style={{ color:'#64748b',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Shift Management</span>
+                    <div className="mdt-card" style={{ padding:'16px 18px' }}>
+                        <div className="mdt-eyebrow"><span className="tick" style={{ background:'#475569',boxShadow:'none' }} /><span className="txt" style={{ color:'#64748b' }}>Shift Management</span>
                             <span style={{ padding:'2px 6px',background:'rgba(100,116,139,0.1)',border:'1px solid rgba(100,116,139,0.25)',borderRadius:'4px',color:'#475569',fontSize:'8px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase',fontFamily:'monospace' }}>DISABLED</span>
                         </div>
-                        <button disabled style={{ width:'100%',padding:'12px',background:'rgba(0,0,0,0.25)',border:'1px solid rgba(56,189,248,0.08)',borderRadius:'7px',color:'#475569',fontSize:'12px',fontWeight:'700',cursor:'not-allowed',textTransform:'uppercase',letterSpacing:'2px',fontFamily:'monospace' }}>▶ Start Shift</button>
+                        <button disabled style={{ width:'100%',padding:'12px',background:'rgba(0,0,0,0.22)',border:'1px solid rgba(255,255,255,0.05)',borderRadius:'8px',color:'#475569',fontSize:'12px',fontWeight:'700',cursor:'not-allowed',textTransform:'uppercase',letterSpacing:'2px',fontFamily:'monospace' }}>▶ Start Shift</button>
                     </div>
                 </div>
 {/* Core functions — 3 pill buttons */}
@@ -14906,10 +14963,10 @@ return (
                 </div>
 
                 {/* Bottom row: Officers | BOLOs | Active Calls | Utilities — 4 equal 25% columns */}
-                <div style={{ display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)',gap:'12px',flex:1,minHeight:'320px' }}>
+                <div className="mdt-stagger" style={{ display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)',gap:'14px',flex:1,minHeight:'320px' }}>
 
                     {/* Available Officers — compact */}
-                    <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'10px',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.06)' }}>
+                    <div className="mdt-card" style={{ display:'flex',flexDirection:'column',overflow:'hidden',padding:0 }}>
                         <div style={{ padding:'12px 14px',borderBottom:'1px solid rgba(56,189,248,0.08)',display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',flexShrink:0 }}>
                             <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
                                 <div style={{ width:'2px',height:'12px',background:'#22d3ee',borderRadius:'2px',boxShadow:'0 0 6px #22d3ee' }} />
