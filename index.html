@@ -18694,28 +18694,60 @@ onError={(e) => {
                             // Auto-scan immediately
                             try {
                                 const groqKey = window.GROQ_CONSOLE_API_KEY || localStorage.getItem('groqConsoleAPIKey') || '';
-                                if (!groqKey) { setApexResult({ error: 'Groq API key not configured.' }); setApexProcessing(false); return; }
+                                if (!groqKey) { setApexResult({ error: 'No Groq API key configured. Add one in Settings → API Keys to use APEX.' }); setApexProcessing(false); return; }
                                 const base64 = imgData.split(',')[1];
                                 const mimeType = imgData.match(/data:([^;]+);/)?.[1] || 'image/jpeg';
                                 const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                                     method: 'POST',
                                     headers: { 'Authorization': `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+                                        model: 'qwen/qwen3.6-27b',
                                         messages: [{ role: 'user', content: [
                                             { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
-                                            { type: 'text', text: 'You are a license plate reader. Look ONLY at the large bold characters printed directly on the license plate surface. These are the main plate characters, usually 5-8 alphanumeric characters. DO NOT read: frame text, dealer names, state slogans (like EXCELSIOR), "NEW YORK" state name, decorative text, or any small text. Be extremely precise — distinguish Q from O, B from 8, I from 1, Z from 2. Return ONLY in this exact format with no other text: PLATE: [characters]' }
+                                            { type: 'text', text: 'Read the license plate in this image. Look ONLY at the large bold characters printed directly on the plate surface — the main registration characters (usually 5-8 letters/numbers). IGNORE frame text, dealer names, state slogans (EXCELSIOR, EMPIRE STATE), the "NEW YORK" state name, month/year registration stickers, and any decorative or small text. Be precise distinguishing similar characters: O vs 0 vs Q, B vs 8, I vs 1, S vs 5, Z vs 2, G vs 6. Respond with ONLY the plate characters in this exact format, nothing else: PLATE: <characters>' }
                                         ]}],
-                                        max_tokens: 50, temperature: 0.1
+                                        max_tokens: 60, temperature: 0
                                     })
                                 });
+
+                                // ── Surface the REAL error instead of a generic message ──
+                                if (!resp.ok) {
+                                    let detail = '';
+                                    try { const errJson = await resp.json(); detail = errJson?.error?.message || errJson?.error?.code || ''; } catch(_) {}
+                                    let msg;
+                                    if (resp.status === 429) {
+                                        msg = 'Groq rate limit reached — you\u2019ve hit your usage limit. Wait a minute and try again, or check your Groq plan.' + (detail ? ` (${detail})` : '');
+                                    } else if (resp.status === 401 || resp.status === 403) {
+                                        msg = 'Groq rejected the API key (invalid or unauthorized). Check your key in Settings → API Keys.' + (detail ? ` (${detail})` : '');
+                                    } else if (resp.status === 404) {
+                                        msg = 'APEX model unavailable on Groq (404). The vision model may have changed — ' + (detail || 'contact the developer to update APEX') + '.';
+                                    } else if (resp.status === 413) {
+                                        msg = 'Image too large for Groq (max 20MB). Try a smaller screenshot.';
+                                    } else if (resp.status >= 500) {
+                                        msg = `Groq server error (${resp.status}). Their service may be down — try again shortly.` + (detail ? ` ${detail}` : '');
+                                    } else {
+                                        msg = `Groq error ${resp.status}${detail ? `: ${detail}` : '.'}`;
+                                    }
+                                    setApexResult({ error: msg });
+                                    setApexProcessing(false);
+                                    return;
+                                }
+
                                 const data = await resp.json();
-                                const text = data.choices?.[0]?.message?.content || '';
-                                const match = text.match(/PLATE:\s*([A-Z0-9\-\s]{2,12})/i);
+                                let text = data.choices?.[0]?.message?.content || '';
+                                // Qwen 3.6 can emit <think>...</think> reasoning — strip it before parsing.
+                                text = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+                                // Prefer the explicit "PLATE:" format; fall back to any plausible plate token.
+                                let match = text.match(/PLATE:\s*([A-Z0-9][A-Z0-9\-\s]{1,11})/i);
+                                if (!match) {
+                                    // Model sometimes returns just the plate. Grab the longest alphanumeric run.
+                                    const cleaned = text.replace(/[^A-Z0-9\-\s]/gi, ' ').trim();
+                                    const token = cleaned.split(/\s+/).filter(t => /[A-Z]/i.test(t) || /[0-9]/.test(t)).sort((a,b)=>b.length-a.length)[0];
+                                    if (token && token.replace(/[\s\-]/g,'').length >= 3) match = [null, token];
+                                }
                                 if (match) {
                                     const detected = match[1].trim();
                                     setApexResult({ plate: detected, image: imgData });
-                                    // Auto close + search
                                     setShowApexModal(false);
                                     setApexImage(null);
                                     const cleanPlate = detected.replace(/[\s\-]/g, '');
@@ -18724,10 +18756,14 @@ onError={(e) => {
                                     setTimeout(() => setApexNotif(''), 5000);
                                     setTimeout(() => lookupUser(cleanPlate), 100);
                                 } else {
-                                    setApexResult({ error: 'No plate detected. Try a clearer image.' });
+                                    setApexResult({ error: 'APEX couldn\u2019t find a plate in that image. Make sure the plate is clearly visible and fills a good portion of the frame, then paste again.' });
                                 }
                             } catch (err) {
-                                setApexResult({ error: `Error: ${err.message}` });
+                                // Network-level failure (offline, CORS, DNS) — distinct from an API error.
+                                const isNet = err instanceof TypeError;
+                                setApexResult({ error: isNet
+                                    ? 'Couldn\u2019t reach Groq. Check your internet connection and try again.'
+                                    : `Unexpected APEX error: ${err.message}` });
                             }
                             setApexProcessing(false);
                         };
