@@ -13904,10 +13904,8 @@ return (
                 </div>
             </div>
 
-            {/* Nav links — VIEWS (solid tabs) vs PANELS (ghost toggles), clearly separated */}
-            <div style={{ display:'flex',alignItems:'center',height:'100%',flex:1,paddingLeft:'12px',gap:'3px' }}>
-                {/* group label: VIEWS */}
-                <span style={{ color:'#3d4756',fontSize:'9px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace',marginRight:'8px',flexShrink:0,userSelect:'none' }}>VIEWS</span>
+            {/* Nav links — VIEWS and PANELS as two grouped segments with a clean divider */}
+            <div style={{ display:'flex',alignItems:'center',height:'100%',flex:1,paddingLeft:'14px',gap:'4px' }}>
                 {(() => {
                     // Reorder VIEWS and PANELS per the user's saved order, keeping the
                     // groupBreak between them. Unknown keys fall back to default position.
@@ -13938,10 +13936,7 @@ return (
                     return [...orderBy(views, viewOrder), {groupBreak:true}, ...orderBy(panels, panelOrder)];
                 })().map((item,i)=>{
                     if(item.groupBreak) return (
-                        <div key={i} style={{ display:'flex',alignItems:'center',gap:'8px',margin:'0 6px 0 10px',flexShrink:0 }}>
-                            <div style={{ width:'1px',height:'24px',background:'#1c2333' }} />
-                            <span style={{ color:'#3d4756',fontSize:'9px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace',userSelect:'none' }}>PANELS</span>
-                        </div>
+                        <div key={i} style={{ width:'1px',height:'20px',background:'rgba(148,163,184,0.14)',margin:'0 8px',flexShrink:0 }} />
                     );
                     const isHomeDash = item.k==='home-dash';
                     // ── Per-user feature lock for this tab ──
@@ -13956,39 +13951,31 @@ return (
                         item.k==='spotify'?showSpotifyPanel :
                         activeView===item.k;
                     const isPanel = !!item.panel;
-                    const accent = isPanel ? '34,211,238' : '56,139,253'; // panels cyan, views blue
-                    // VIEWS: solid filled tab when active. PANELS: ghost/outlined pill with a dot marker.
-                    let baseStyle = isPanel ? {
-                        display:'flex',alignItems:'center',gap:'7px',padding:'7px 12px',borderRadius:'7px',
-                        background:isActive?`rgba(${accent},0.14)`:'transparent',
-                        border:`1px dashed ${isActive?`rgba(${accent},0.55)`:'rgba(255,255,255,0.12)'}`,
-                        color:item.disabled?'#30363d':isActive?`rgb(${accent})`:'#8b97a6',
-                        fontSize:'12px',fontWeight:isActive?'700':'600',cursor:item.disabled?'not-allowed':'pointer',
-                        transition:'background 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)',
-                        whiteSpace:'nowrap',outline:'none',opacity:item.disabled?0.4:1,flexShrink:0,
-                        boxShadow:isActive?`0 0 14px rgba(${accent},0.16)`:'none'
-                    } : {
-                        display:'flex',alignItems:'center',gap:'7px',padding:'8px 13px',borderRadius:'8px',
-                        background:isActive?`linear-gradient(135deg, rgba(${accent},0.9), rgba(37,99,235,0.9))`:'transparent',
-                        border:`1px solid ${isActive?'transparent':'transparent'}`,
-                        color:item.disabled?'#30363d':item.flash?'#f85149':isActive?'#fff':'#9aa5b1',
-                        fontSize:'12px',fontWeight:isActive?'700':'600',cursor:item.disabled?'not-allowed':'pointer',
-                        transition:'background 160ms ease-out, color 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)',
+                    // ── Unified design language ── One accent (dept blue). Active = soft filled
+                    // pill with a bright label + left accent bar. Panels differ only by a small
+                    // toggle dot (indicating on/off state), not a whole different shape/color —
+                    // this reads as ONE consistent bar, easier to scan.
+                    const ACC = '96,165,250'; // single cohesive accent (blue-400)
+                    let baseStyle = {
+                        display:'flex',alignItems:'center',gap:'8px',padding:'7px 12px',borderRadius:'9px',
+                        position:'relative',
+                        background:isActive?`rgba(${ACC},0.14)`:'transparent',
+                        border:'1px solid '+(isActive?`rgba(${ACC},0.30)`:'transparent'),
+                        color:item.disabled?'#3a4252':item.flash?'#f87171':isActive?'#dbeafe':'#8b97a6',
+                        fontSize:'12.5px',fontWeight:isActive?'700':'500',
+                        letterSpacing:'0.2px',
+                        cursor:item.disabled?'not-allowed':'pointer',
+                        transition:'background 180ms cubic-bezier(0.22,1,0.36,1), color 180ms ease-out, border-color 180ms ease-out, transform 120ms cubic-bezier(0.34,1.56,0.64,1)',
                         whiteSpace:'nowrap',outline:'none',opacity:item.disabled?0.4:1,
-                        animation:item.flash?'flash-red 1.5s infinite':'none',flexShrink:0,
-                        boxShadow:isActive?`0 4px 14px rgba(${accent},0.4)`:'none'
+                        animation:item.flash?'flash-red 1.5s infinite':'none',flexShrink:0
                     };
-                    // ── Locked override — grey background, dimmed text, not-allowed cursor.
-                    // We still let the button be clickable so showLockedFeatureAlert can fire.
+                    // ── Locked override — grey, dimmed, not-allowed (still clickable for the alert).
                     if (locked) {
                         baseStyle = {
                             ...baseStyle,
-                            background: 'rgba(100,116,139,0.10)',
-                            border: '1px solid rgba(100,116,139,0.25)',
-                            color: '#64748b',
-                            cursor: 'not-allowed',
-                            boxShadow: 'none',
-                            opacity: 0.65
+                            background:'rgba(100,116,139,0.08)',
+                            border:'1px solid rgba(100,116,139,0.22)',
+                            color:'#64748b', cursor:'not-allowed', opacity:0.6
                         };
                     }
                     return (
@@ -14011,12 +13998,13 @@ return (
                                 else{navTo(item.k, ()=>{ if(item.k==='calls')setCallButtonFlash(false); });}
                             }}
                             style={baseStyle}
-                            onMouseEnter={e=>{if(!item.disabled&&!isActive&&!item.flash){e.currentTarget.style.color=isPanel?`rgb(${accent})`:'#e6edf3';e.currentTarget.style.background=isPanel?`rgba(${accent},0.07)`:'rgba(177,186,196,0.08)';if(isPanel)e.currentTarget.style.borderColor=`rgba(${accent},0.35)`;}}}
-                            onMouseLeave={e=>{if(!item.disabled&&!isActive&&!item.flash){e.currentTarget.style.color=isPanel?'#8b97a6':'#9aa5b1';e.currentTarget.style.background='transparent';if(isPanel)e.currentTarget.style.borderColor='rgba(255,255,255,0.12)';}}}
-                            onMouseDown={e=>{if(!item.disabled)e.currentTarget.style.transform='scale(0.95)';}}
+                            onMouseEnter={e=>{if(!item.disabled&&!isActive&&!item.flash&&!locked){e.currentTarget.style.color='#e6edf3';e.currentTarget.style.background='rgba(148,163,184,0.08)';}}}
+                            onMouseLeave={e=>{if(!item.disabled&&!isActive&&!item.flash&&!locked){e.currentTarget.style.color='#8b97a6';e.currentTarget.style.background='transparent';}}}
+                            onMouseDown={e=>{if(!item.disabled)e.currentTarget.style.transform='scale(0.94)';}}
                             onMouseUp={e=>{if(!item.disabled)e.currentTarget.style.transform='scale(1)';}}>
-                            {isPanel && <span style={{ width:'5px',height:'5px',borderRadius:'50%',background:isActive?`rgb(${accent})`:'rgba(255,255,255,0.25)',boxShadow:isActive?`0 0 6px rgb(${accent})`:'none',flexShrink:0,transition:'background 160ms ease-out' }} />}
-                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            {/* Panel items show a small state dot (on/off); views don't need one */}
+                            {isPanel && <span style={{ width:'5px',height:'5px',borderRadius:'50%',background:isActive?`rgb(${ACC})`:'rgba(148,163,184,0.3)',boxShadow:isActive?`0 0 7px rgb(${ACC})`:'none',flexShrink:0,transition:'background 180ms ease-out, box-shadow 180ms ease-out' }} />}
+                            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}>
                                 {item.circle?<><path d={item.icon}/><circle cx={item.circle.split(' ')[0]} cy={item.circle.split(' ')[1]} r={item.circle.split(' ')[2]}/></>:<path d={item.icon}/>}
                             </svg>
                             {item.l}
