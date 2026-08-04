@@ -3592,6 +3592,9 @@ const [isRecordingMicHotkey, setIsRecordingMicHotkey] = useState(false);
 // LOGIN SYSTEM STATE
 // ══════════════════════════════════════════════════════════════════════════
 const [showLoginScreen, setShowLoginScreen] = useState(true);
+// Set true when the version gate rejects the shell — renders a hard block screen
+// while the app quits, so nothing usable is shown in the meantime.
+const [versionBlocked, setVersionBlocked] = useState(false);
 // ── Brand intro ──
 // Plays once at launch before anything else. `introPhase` drives the staged animation:
 // 'black' (brief hold so the user can tab in) → 'reveal' (logo+name animate in) →
@@ -3903,16 +3906,27 @@ const forceQuitForOutdated = React.useCallback((info) => {
     const parts = [];
     if (info?.mainOk === false) parts.push(`app shell v${info.mainVersion || 'unknown'}`);
     if (info?.htmlOk === false) parts.push(`interface v${info.htmlVersion || 'unknown'}`);
+    if (info?.reason === 'no-build-info') parts.push('unrecognized app shell (no build info)');
     const what = parts.join(' and ') || 'unknown version';
-    console.error('[VERSION] 🚫 Unsupported version — blocking launch:', what);
+    console.error('[VERSION] 🚫 Unsupported — blocking launch:', what);
+    // Guaranteed hard stop: try the native dialog+quit, then fall back to quit-app,
+    // then window.close(), so a foreign/old shell can't keep running the interface.
+    const ipc = window.electron?.ipcRenderer;
     try {
-        window.electron?.ipcRenderer?.invoke('force-quit-with-dialog', {
-            title: 'App Outdated',
-            message: 'This version of the MDT is no longer supported.',
-            detail: `Unsupported: ${what}.\n\nPlease download and install the latest build to continue.`
-        });
+        ipc?.invoke('force-quit-with-dialog', {
+            title: 'Unsupported Version',
+            message: info?.reason === 'no-build-info'
+                ? 'This app could not verify its build and will now close.'
+                : 'This version of the MDT is no longer supported.',
+            detail: `${info?.reason === 'no-build-info'
+                ? 'The app shell did not report a build version, so it can\u2019t be verified.'
+                : `Unsupported: ${what}.`}\n\nPlease download and install the latest official build to continue.`
+        }).catch(() => {});
     } catch (_) {}
-    try { setShowLoginScreen(true); setAuthenticatedUser(null); } catch (_) {}
+    // Blank the UI immediately so nothing usable renders while the quit lands.
+    try { setShowLoginScreen(true); setAuthenticatedUser(null); setVersionBlocked(true); } catch (_) {}
+    // Belt-and-suspenders quit in case the dialog handler is absent on this shell.
+    setTimeout(() => { try { ipc?.send('quit-app'); } catch (_) {} try { window.close(); } catch (_) {} }, 2500);
 }, []);
 
 const versionGateRanRef = React.useRef(false);
@@ -3923,19 +3937,28 @@ React.useEffect(() => {
         let mainVersion = null;
         try { mainVersion = await window.electron?.ipcRenderer?.invoke('get-build-version'); } catch (_) {}
         console.log('[VERSION] Gate check — shell:', mainVersion || '(legacy/none)', '| interface:', APP_VERSION);
+
+        // ── Local hard-reject: NO build info means an old/foreign/unofficial shell. ──
+        // Don't even ask the backend — refuse to run and quit.
+        if (!mainVersion || typeof mainVersion !== 'string' || !mainVersion.trim()) {
+            forceQuitForOutdated({ reason: 'no-build-info', mainOk: false, mainVersion: null });
+            return;
+        }
+
         try {
             const res = await fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/version-check', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mainVersion: mainVersion || null, htmlVersion: APP_VERSION })
+                body: JSON.stringify({ mainVersion, htmlVersion: APP_VERSION })
             });
             if (!res.ok) { console.warn('[VERSION] Check unavailable (HTTP ' + res.status + ') — allowing launch'); return; }
             const data = await res.json();
             if (data && data.supported === false) forceQuitForOutdated(data);
             else console.log('[VERSION] ✅ Supported');
         } catch (e) {
-            // Fail OPEN: a network blip must never lock a legitimate user out.
-            console.warn('[VERSION] Check failed — allowing launch:', e.message);
+            // Fail OPEN only for a network blip — but ONLY because we've already confirmed
+            // above that a build version EXISTS. Missing build info was rejected already.
+            console.warn('[VERSION] Backend check failed — allowing launch (build info present):', e.message);
         }
     })();
 }, [forceQuitForOutdated]);
@@ -12933,6 +12956,25 @@ React.useEffect(() => {
 return (
     <React.Fragment>
         
+
+        {/* ── VERSION BLOCK — absolute highest priority. Shown when the app shell
+             can't be verified (no build info) or the build is unsupported. The app
+             is quitting; this just ensures nothing usable renders in the meantime. ── */}
+        {versionBlocked && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 2147483647, background: 'radial-gradient(ellipse at center, #1a0a0a 0%, #000000 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', fontFamily: 'monospace' }}>
+                <div style={{ textAlign: 'center', maxWidth: '460px', padding: '40px' }}>
+                    <div style={{ fontSize: '52px', marginBottom: '20px' }}>🛑</div>
+                    <h1 style={{ color: '#fca5a5', fontSize: '22px', fontWeight: '800', letterSpacing: '3px', textTransform: 'uppercase', marginBottom: '14px' }}>Unsupported Build</h1>
+                    <div style={{ width: '70px', height: '2px', background: 'linear-gradient(90deg,transparent,rgba(239,68,68,0.6),transparent)', margin: '0 auto 22px' }} />
+                    <p style={{ color: '#cbd5e1', fontSize: '14px', lineHeight: '1.8', marginBottom: '10px' }}>
+                        This copy of the MDT couldn&rsquo;t verify its app build, or the build is no longer supported.
+                    </p>
+                    <p style={{ color: '#64748b', fontSize: '12px', lineHeight: '1.7' }}>
+                        The application is closing. Please download and install the latest official build to continue.
+                    </p>
+                </div>
+            </div>
+        )}
 
         {/* MAINTENANCE SCREEN */}
 {/* ── SHUTDOWN SCREEN — highest priority ── */}
