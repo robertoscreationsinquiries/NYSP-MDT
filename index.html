@@ -2983,7 +2983,7 @@ const deptInfo = DEPT_DISPLAY[currentDept] || DEPT_DISPLAY.NYSP;
 const deptDisplayName = deptInfo.name;
 const deptRole = deptInfo.role;
 React.useEffect(() => {
-    const src = 'https://raw.githubusercontent.com/robertoscreationsinquiries/NYSP-MDT/main/MAPRC1.0.png';
+    const src = 'https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/repo-file?path=MAPRC1.0.png&ref=main';
     if (mapUrl) return;
     const img = new window.Image();
     img.crossOrigin = 'anonymous';
@@ -13421,7 +13421,7 @@ return (
                 <div style={{ position: 'relative', marginBottom: '34px', animation: 'introLogoReveal 1.1s cubic-bezier(0.16,1,0.3,1) both' }}>
                     <div style={{ position: 'absolute', inset: '-18px', borderRadius: '50%', border: '2px solid rgba(56,189,248,0.4)', animation: 'introRingPulse 2.4s ease-out infinite' }} />
                     <div style={{ position: 'absolute', inset: '-18px', borderRadius: '50%', border: '2px solid rgba(56,189,248,0.4)', animation: 'introRingPulse 2.4s ease-out infinite 1.2s' }} />
-                    <img src="https://raw.githubusercontent.com/robertoscreationsinquiries/NYSP-MDT/main/RC_CREATIONSLOGO.png"
+                    <img src="https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/repo-file?path=RC_CREATIONSLOGO.png&ref=main"
                         alt="Roberto's Creations"
                         style={{ width: '150px', height: '150px', objectFit: 'contain', borderRadius: '28px', boxShadow: '0 20px 60px rgba(56,189,248,0.35), 0 0 0 1px rgba(56,189,248,0.2)', display: 'block' }}
                         onError={(e) => { e.currentTarget.style.display = 'none'; }} />
