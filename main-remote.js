@@ -1007,7 +1007,9 @@ if (USE_LOCAL_INDEX) {
     // The browser loads these URLs directly as <audio> sources, so they must be
     // fully-qualified Worker URLs. Cache-bust by the resolved SHA when available.
     const _soundsRef = (typeof PRELOADED_SHA === 'string' && PRELOADED_SHA) ? PRELOADED_SHA : GITHUB_BRANCH_ENCODED;
-    const _sfx = (name) => `${WORKER_URL}/repo-file?path=sounds/${name}&ref=${encodeURIComponent(_soundsRef)}`;
+    const _sfxKey = (typeof ACCESS_KEY === 'string' ? ACCESS_KEY : '');
+    // <audio> elements can't send custom headers, so the key rides as ?key= here.
+    const _sfx = (name) => `${WORKER_URL}/repo-file?path=sounds/${name}&ref=${encodeURIComponent(_soundsRef)}&key=${encodeURIComponent(_sfxKey)}`;
     const soundsScript = `window.SOUNDS = {TIMER_SIDEPANEL: '${_sfx('TIMER_SIDEPANEL.mp3')}', panicAlarm: '${_sfx('panicAlarm.mp3')}', platePass: '${_sfx('platePass.mp3')}', plateFail: '${_sfx('plateFail.mp3')}', callAlert: '${_sfx('CallIncoming.mp3')}', PriorityCallIncoming: '${_sfx('PriorityCallIncoming.mp3')}', warrantAlert: '${_sfx('warrantAlert.mp3')}', StartupSFX: '${_sfx('StartupSFX.mp3')}', LoginAccessDenied: '${_sfx('LoginAccessDenied.mp3')}', LoginIncorrect: '${_sfx('LoginIncorrect.mp3')}', LoginPageCorrect: '${_sfx('LoginPageCorrect.mp3')}', MIC_ACTIVESFX: '${_sfx('MIC_ACTIVESFX.mp3')}', MIC_INACTIVESFX: '${_sfx('MIC_INACTIVESFX.mp3')}', MIC_NOTAVAILABLESFX: '${_sfx('MIC_NOTAVAILABLESFX.mp3')}', noCitizenSFX: '${_sfx('noCitizenSFX.mp3')}', clientSessionExpirationWarning: '${_sfx('clientSessionExpirationWarning.mp3')}', PursuitModeActive: '${_sfx('PursuitModeActive.mp3')}', PursuitModeNotActive: '${_sfx('PursuitModeNotActive.mp3')}' }; window.SOUNDS_BASE64 = window.SOUNDS; console.log('[SOUNDS] Ready via Worker! Keys:', Object.keys(window.SOUNDS).join(', '));`;
 
     Promise.all([
@@ -1021,7 +1023,7 @@ if (USE_LOCAL_INDEX) {
         new Promise((resolve, reject) => {
             const shaRef = (typeof PRELOADED_SHA === 'string' && PRELOADED_SHA) ? PRELOADED_SHA : GITHUB_BRANCH_ENCODED;
             console.log(`[FETCH] Fetching index.html via Worker at SHA: ${String(shaRef).substring(0, 7)}`);
-            https.get(`${WORKER_URL}/repo-file?path=index.html&ref=${encodeURIComponent(shaRef)}`, { timeout: 30000 }, (res) => {
+            https.get(`${WORKER_URL}/repo-file?path=index.html&ref=${encodeURIComponent(shaRef)}`, { timeout: 30000, headers: { 'X-Access-Key': (typeof ACCESS_KEY === 'string' ? ACCESS_KEY : '') } }, (res) => {
                 if (res.statusCode !== 200) { reject(new Error(`index.html HTTP ${res.statusCode}`)); return; }
                 let html = ''; res.on('data', c => html += c);
                 res.on('end', () => { console.log(`[FETCH] Got index.html: ${html.length} bytes`); resolve(html); });
@@ -1045,7 +1047,7 @@ if (USE_LOCAL_INDEX) {
             window.SETTINGS_FILE_CONTENT = ${JSON.stringify(settings)};
             console.log('[PRELOAD] Settings injected BEFORE React loads');
         </script>`;
-        const buildScript = `<script>window.APP_COMMIT_SHA = '${commitSha}'; window.APP_GITHUB_BRANCH = '${GITHUB_BRANCH}'; window.SESSION_INACTIVITY_SECONDS = ${SESSION_INACTIVITY_SECONDS}; window.SESSION_WARNING_COUNTDOWN_SECONDS = ${SESSION_WARNING_COUNTDOWN_SECONDS};</script>`;
+        const buildScript = `<script>window.APP_COMMIT_SHA = '${commitSha}'; window.APP_GITHUB_BRANCH = '${GITHUB_BRANCH}'; window.__ACCESS_KEY = '${(typeof ACCESS_KEY === 'string' ? ACCESS_KEY : '').replace(/'/g,"")}'; window.SESSION_INACTIVITY_SECONDS = ${SESSION_INACTIVITY_SECONDS}; window.SESSION_WARNING_COUNTDOWN_SECONDS = ${SESSION_WARNING_COUNTDOWN_SECONDS};</script>`;
 
         html = html.replace('</head>', settingsScript + buildScript + '</head>');
         fs.writeFileSync(tempHtml, html, 'utf8');
