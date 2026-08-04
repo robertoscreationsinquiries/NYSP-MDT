@@ -73,7 +73,7 @@ ipcMain.handle('start-streaming', async () => {
             if (alias.family === 'IPv4' && !alias.internal) { localIp = alias.address; break; }
         }
     }
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#07090f"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><title>NYSP MDT</title>
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#07090f"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><title>East Greenbush MDT</title>
 <style>*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{background:#07090f;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;-webkit-text-size-adjust:100%}
 body{max-width:640px;margin:0 auto;padding-bottom:calc(72px + env(safe-area-inset-bottom))}
@@ -118,7 +118,7 @@ h1 .live{font-size:8px;background:rgba(16,185,129,0.15);border:1px solid rgba(16
 .tab.active{color:#60a5fa}.tab svg{display:block;margin:0 auto 4px}
 @media(max-width:380px){.name{font-size:13px}h1{font-size:14px}}
 </style></head><body>
-<div class="topbar"><h1>NYSP MDT <span class="live"><span class="dot"></span>LIVE</span></h1><div class="sub" id="sub">MOBILE UNIT</div></div>
+<div class="topbar"><h1>East Greenbush MDT <span class="live"><span class="dot"></span>LIVE</span></h1><div class="sub" id="sub">MOBILE UNIT</div></div>
 <div class="wrap"><div id="root"><div class="empty">Loading...</div></div><div class="refresh" id="ts">Connecting...</div></div>
 <div class="tabs">
   <button class="tab active" data-t="units" onclick="setTab('units')"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>Units</button>
@@ -1003,14 +1003,8 @@ if (USE_LOCAL_INDEX) {
     console.log('[LOADER] Fetching from GitHub...');
 
     // Build sounds script directly from branch URL (same as original main.js)
-    // Sounds are served through the Worker (repo is private, raw CDN would 404).
-    // The browser loads these URLs directly as <audio> sources, so they must be
-    // fully-qualified Worker URLs. Cache-bust by the resolved SHA when available.
-    const _soundsRef = (typeof PRELOADED_SHA === 'string' && PRELOADED_SHA) ? PRELOADED_SHA : GITHUB_BRANCH_ENCODED;
-    const _sfxKey = (typeof ACCESS_KEY === 'string' ? ACCESS_KEY : '');
-    // <audio> elements can't send custom headers, so the key rides as ?key= here.
-    const _sfx = (name) => `${WORKER_URL}/repo-file?path=sounds/${name}&ref=${encodeURIComponent(_soundsRef)}&key=${encodeURIComponent(_sfxKey)}`;
-    const soundsScript = `window.SOUNDS = {TIMER_SIDEPANEL: '${_sfx('TIMER_SIDEPANEL.mp3')}', panicAlarm: '${_sfx('panicAlarm.mp3')}', platePass: '${_sfx('platePass.mp3')}', plateFail: '${_sfx('plateFail.mp3')}', callAlert: '${_sfx('CallIncoming.mp3')}', PriorityCallIncoming: '${_sfx('PriorityCallIncoming.mp3')}', warrantAlert: '${_sfx('warrantAlert.mp3')}', StartupSFX: '${_sfx('StartupSFX.mp3')}', LoginAccessDenied: '${_sfx('LoginAccessDenied.mp3')}', LoginIncorrect: '${_sfx('LoginIncorrect.mp3')}', LoginPageCorrect: '${_sfx('LoginPageCorrect.mp3')}', MIC_ACTIVESFX: '${_sfx('MIC_ACTIVESFX.mp3')}', MIC_INACTIVESFX: '${_sfx('MIC_INACTIVESFX.mp3')}', MIC_NOTAVAILABLESFX: '${_sfx('MIC_NOTAVAILABLESFX.mp3')}', noCitizenSFX: '${_sfx('noCitizenSFX.mp3')}', clientSessionExpirationWarning: '${_sfx('clientSessionExpirationWarning.mp3')}', PursuitModeActive: '${_sfx('PursuitModeActive.mp3')}', PursuitModeNotActive: '${_sfx('PursuitModeNotActive.mp3')}' }; window.SOUNDS_BASE64 = window.SOUNDS; console.log('[SOUNDS] Ready via Worker! Keys:', Object.keys(window.SOUNDS).join(', '));`;
+    const GITHUB_SOUNDS_BASE = `https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH_ENCODED}`;
+    const soundsScript = `window.SOUNDS = {TIMER_SIDEPANEL: '${GITHUB_SOUNDS_BASE}/TIMER_SIDEPANEL.mp3', panicAlarm: '${GITHUB_SOUNDS_BASE}/panicAlarm.mp3', platePass: '${GITHUB_SOUNDS_BASE}/platePass.mp3', plateFail: '${GITHUB_SOUNDS_BASE}/plateFail.mp3', callAlert: '${GITHUB_SOUNDS_BASE}/CallIncoming.mp3', PriorityCallIncoming: '${GITHUB_SOUNDS_BASE}/PriorityCallIncoming.mp3', warrantAlert: '${GITHUB_SOUNDS_BASE}/warrantAlert.mp3', StartupSFX: '${GITHUB_SOUNDS_BASE}/StartupSFX.mp3', LoginAccessDenied: '${GITHUB_SOUNDS_BASE}/LoginAccessDenied.mp3', LoginIncorrect: '${GITHUB_SOUNDS_BASE}/LoginIncorrect.mp3', LoginPageCorrect: '${GITHUB_SOUNDS_BASE}/LoginPageCorrect.mp3', MIC_ACTIVESFX: '${GITHUB_SOUNDS_BASE}/MIC_ACTIVESFX.mp3', MIC_INACTIVESFX: '${GITHUB_SOUNDS_BASE}/MIC_INACTIVESFX.mp3', MIC_NOTAVAILABLESFX: '${GITHUB_SOUNDS_BASE}/MIC_NOTAVAILABLESFX.mp3', noCitizenSFX: '${GITHUB_SOUNDS_BASE}/noCitizenSFX.mp3', clientSessionExpirationWarning: '${GITHUB_SOUNDS_BASE}/clientSessionExpirationWarning.mp3', PursuitModeActive: '${GITHUB_SOUNDS_BASE}/PursuitModeActive.mp3', PursuitModeNotActive: '${GITHUB_SOUNDS_BASE}/PursuitModeNotActive.mp3' }; window.SOUNDS_BASE64 = window.SOUNDS; console.log('[SOUNDS] Ready from branch ${GITHUB_BRANCH}! Keys:', Object.keys(window.SOUNDS).join(', '));`;
 
     Promise.all([
         // PERF: SHA is already resolved by main.js and injected as PRELOADED_SHA.
@@ -1019,12 +1013,11 @@ if (USE_LOCAL_INDEX) {
         // cold starts, since that API is slow and rate-limited to 60/hr unauthenticated.
         // Now we reuse the preloaded SHA and go straight to the fast raw CDN.
         Promise.resolve((typeof PRELOADED_SHA === 'string' ? PRELOADED_SHA : GITHUB_BRANCH_ENCODED).substring(0, 7)),
-        // index.html via the Worker by SHA (private-repo safe, cache-busted by SHA)
+        // index.html directly from the raw CDN by SHA (no API hop, cache-busted by SHA)
         new Promise((resolve, reject) => {
             const shaRef = (typeof PRELOADED_SHA === 'string' && PRELOADED_SHA) ? PRELOADED_SHA : GITHUB_BRANCH_ENCODED;
-            console.log(`[FETCH] Fetching index.html via Worker at SHA: ${String(shaRef).substring(0, 7)}`);
-            https.get(`${WORKER_URL}/repo-file?path=index.html&ref=${encodeURIComponent(shaRef)}`, { timeout: 30000, headers: { 'X-Access-Key': (typeof ACCESS_KEY === 'string' ? ACCESS_KEY : '') } }, (res) => {
-                if (res.statusCode !== 200) { reject(new Error(`index.html HTTP ${res.statusCode}`)); return; }
+            console.log(`[FETCH] Fetching index.html at SHA: ${String(shaRef).substring(0, 7)}`);
+            https.get(`https://raw.githubusercontent.com/${GITHUB_REPO}/${shaRef}/index.html`, { timeout: 30000 }, (res) => {
                 let html = ''; res.on('data', c => html += c);
                 res.on('end', () => { console.log(`[FETCH] Got index.html: ${html.length} bytes`); resolve(html); });
             }).on('error', reject);
@@ -1047,7 +1040,7 @@ if (USE_LOCAL_INDEX) {
             window.SETTINGS_FILE_CONTENT = ${JSON.stringify(settings)};
             console.log('[PRELOAD] Settings injected BEFORE React loads');
         </script>`;
-        const buildScript = `<script>window.APP_COMMIT_SHA = '${commitSha}'; window.APP_GITHUB_BRANCH = '${GITHUB_BRANCH}'; window.__ACCESS_KEY = '${(typeof ACCESS_KEY === 'string' ? ACCESS_KEY : '').replace(/'/g,"")}'; window.SESSION_INACTIVITY_SECONDS = ${SESSION_INACTIVITY_SECONDS}; window.SESSION_WARNING_COUNTDOWN_SECONDS = ${SESSION_WARNING_COUNTDOWN_SECONDS};</script>`;
+        const buildScript = `<script>window.APP_COMMIT_SHA = '${commitSha}'; window.APP_GITHUB_BRANCH = '${GITHUB_BRANCH}'; window.SESSION_INACTIVITY_SECONDS = ${SESSION_INACTIVITY_SECONDS}; window.SESSION_WARNING_COUNTDOWN_SECONDS = ${SESSION_WARNING_COUNTDOWN_SECONDS};</script>`;
 
         html = html.replace('</head>', settingsScript + buildScript + '</head>');
         fs.writeFileSync(tempHtml, html, 'utf8');
