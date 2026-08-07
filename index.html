@@ -5081,7 +5081,7 @@ const executeCommand = (rawInput) => {
 
     if (matched.requiresInput && !argPart) {
         if (cmdPart === '/search') setCommandBarHint('Enter a license plate to search → opens RUN LICENSEPLATE TAB');
-        if (cmdPart === '/lookup') setCommandBarHint('Enter a citizen name or ID → opens ID LOOKUP / CITIZENID');
+        if (cmdPart === '/lookup') setCommandBarHint('Enter a citizen name or ID → opens ID LOOKUP / Contact-ID');
         return;
     }
 
@@ -15759,7 +15759,7 @@ return (
                                             <span style={{ color:'#fff', fontSize:'19px', fontWeight:'900', letterSpacing:'1.5px', textTransform:'uppercase', textShadow:'0 2px 10px rgba(0,0,0,0.6)', lineHeight:1 }}>Vehicle Reported Stolen</span>
                                             <span style={{ background:'#ef4444', color:'#fff', fontSize:'9px', fontWeight:'900', letterSpacing:'2px', fontFamily:'monospace', padding:'3px 9px', borderRadius:'999px', boxShadow:'0 0 12px rgba(239,68,68,0.7)', flexShrink:0 }}>ALERT</span>
                                         </div>
-                                        <div style={{ color:'#fecaca', fontSize:'12.5px', fontWeight:'600', letterSpacing:'0.3px', fontFamily:'monospace', lineHeight:1.5 }}>This vehicle is flagged as <strong style={{ color:'#fff' }}>STOLEN</strong> in its registration. Exercise extreme caution and follow protocol.</div>
+                                        <div style={{ color:'#fecaca', fontSize:'12.5px', fontWeight:'600', letterSpacing:'0.3px', fontFamily:'monospace', lineHeight:1.5 }}>This vehicle is flagged as <strong style={{ color:'#fff' }}>STOLEN</strong> in its registration. Exercise caution.</div>
                                     </div>
                                 </div>
                             </div>
@@ -15773,7 +15773,7 @@ return (
                                 </div>
                                 <div>
                                     <div style={{ color:'#6ee7b7',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace' }}>Registered Owner</div>
-                                    <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px',marginTop:'1px' }}>Identity on file</div>
+                                    <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px',marginTop:'1px' }}>Registered Identity</div>
                                 </div>
                             </div>
 
@@ -15819,7 +15819,7 @@ return (
                                         <p style={{ color: '#fecaca', fontSize: '13px', marginBottom: '6px' }}>{robloxError}</p>
                                         <p style={{ color: '#bfdbfe', fontSize: '12px', opacity: 0.8 }}>Citation can still be exported with Discord and vehicle data.</p>
                                     </div>
-                                    <div className="info-item"><span className="info-label">Discord ID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }}>{copiedField === 'discord' ? 'Copied!' : 'Copy'}</button></div></div>
+                                    <div className="info-item"><span className="info-label">ContactID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }}>{copiedField === 'discord' ? 'Copied!' : 'Copy'}</button></div></div>
                                 </>
                             ) : result ? (
                                 <>
@@ -15848,7 +15848,7 @@ return (
                                     <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px',marginBottom:'10px' }}>
                                         {result?.userId && (
                                             <div className="info-item" style={{ flexDirection:'column',alignItems:'flex-start',gap:'2px',padding:'7px 10px' }}>
-                                                <span className="info-label" style={{ fontSize:'9px' }}>Roblox User ID</span>
+                                                <span className="info-label" style={{ fontSize:'9px' }}>CitizenID</span>
                                                 <div style={{ display:'flex',alignItems:'center',gap:'6px',width:'100%',minWidth:0 }}>
                                                     <span className="info-value" style={{ fontSize:'11px',textAlign:'left',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{result.userId}</span>
                                                     <button className="copy-btn btn-ripple" onClick={() => copyToClipboard(result.userId, 'roblox')} style={{ flexShrink:0 }}>{copiedField === 'roblox' ? '✓' : '⧉'}</button>
@@ -15856,7 +15856,7 @@ return (
                                             </div>
                                         )}
                                         <div className="info-item" style={{ flexDirection:'column',alignItems:'flex-start',gap:'2px',padding:'7px 10px' }}>
-                                            <span className="info-label" style={{ fontSize:'9px' }}>Discord ID</span>
+                                            <span className="info-label" style={{ fontSize:'9px' }}>Contact-ID</span>
                                             <div style={{ display:'flex',alignItems:'center',gap:'6px',width:'100%',minWidth:0 }}>
                                                 <span className="info-value" style={{ fontSize:'11px',textAlign:'left',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{registration?.discordUserId || 'UNKNOWN'}</span>
                                                 <button className="copy-btn btn-ripple" onClick={() => copyToClipboard(registration?.discordUserId, 'discord-owner')} style={{ flexShrink:0 }}>{copiedField === 'discord-owner' ? '✓' : '⧉'}</button>
@@ -15879,10 +15879,10 @@ return (
                             ) : (
                                 <>
                                     <div style={{ padding: '16px', textAlign: 'center', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '10px', marginBottom: '14px' }}>
-                                        <p style={{ color: '#fde047', fontSize: '14px', marginBottom: '6px', fontWeight: '600' }}>Roblox User Not Found</p>
+                                        <p style={{ color: '#fde047', fontSize: '14px', marginBottom: '6px', fontWeight: '600' }}>CitizenID Not Found</p>
                                         <p style={{ color: '#bfdbfe', fontSize: '12px', opacity: 0.8 }}>Citation can still be exported.</p>
                                     </div>
-                                    <div className="info-item"><span className="info-label">Discord ID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }}>{copiedField === 'discord' ? 'Copied!' : 'Copy'}</button></div></div>
+                                    <div className="info-item"><span className="info-label">ContactID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }}>{copiedField === 'discord' ? 'Copied!' : 'Copy'}</button></div></div>
                                 </>
                             )}
 
@@ -16025,7 +16025,7 @@ return (
                                 </div>
                                 <div>
                                     <div style={{ color:'#7dd3fc',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace' }}>Government Records</div>
-                                    <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px',marginTop:'1px' }}>Prior citations &amp; reports</div>
+                                    <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px',marginTop:'1px' }}>Prior records &amp; accidents</div>
                                 </div>
                                 <div style={{ flex:1 }} />
                                 {plateGovRecords !== null && !plateGovLoading && (
@@ -16202,7 +16202,7 @@ return (
                                         </div>
                                         <div>
                                             <div style={{ color:'#93c5fd',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace' }}>Vehicle Details</div>
-                                            <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px',marginTop:'1px' }}>Registration on file</div>
+                                            <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px',marginTop:'1px' }}>Registered Vehicle</div>
                                         </div>
                                     </div>
                                     {recentRegistrationFlash && (<span style={{ padding:'3px 9px',background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.4)',color:'#fca5a5',fontSize:'9px',fontWeight:'800',borderRadius:'999px',letterSpacing:'1.5px',fontFamily:'monospace',animation:'pulse-glow 1s infinite' }}>RECENT EDIT</span>)}
@@ -16393,7 +16393,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                         <div>
                             <div style={{ color: '#fca5a5', fontSize: '14px', fontWeight: '800', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>CITIZEN NOT FOUND</div>
                             <div style={{ color: '#fecaca', fontSize: '12px', lineHeight: '1.6', opacity: 0.85 }}>
-                                "{citizenNotFoundQuery}" was not found within the database. Check if CitizenID is correct.
+                                "{citizenNotFoundQuery}" was not found within the database. Check if Contact-ID is correct.
                             </div>
                         </div>
                     </div>
@@ -16430,15 +16430,15 @@ onError={(e) => {
                                     {searchResults.robloxUser?.userId && (<div className="info-item"><span className="info-label">User ID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults.robloxUser.userId}</span><button className="copy-btn btn-ripple" onClick={() => copyToClipboard(searchResults.robloxUser.userId, 'roblox')}>{copiedField === 'roblox' ? 'Copied!' : 'Copy'}</button></div></div>)}
                                     {searchResults.robloxUser?.displayName && (<div className="info-item"><span className="info-label">Display Name:</span><span className="info-value">{searchResults.robloxUser.displayName}</span></div>)}
                                     {searchResults.robloxUser?.joinDate && (<div className="info-item"><span className="info-label">Join Date:</span><span className="info-value">{searchResults.robloxUser.joinDate}</span></div>)}
-                                    <div className="info-item"><span className="info-label">Discord ID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }}>{copiedField === 'discord' ? 'Copied!' : 'Copy'}</button></div></div>
+                                    <div className="info-item"><span className="info-label">ContactID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }}>{copiedField === 'discord' ? 'Copied!' : 'Copy'}</button></div></div>
                                 </>
                             ) : (
                                 <>
                                     <div style={{ padding: '16px', textAlign: 'center', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '10px', marginBottom: '14px' }}>
-                                        <p style={{ color: '#fde047', fontSize: '14px', marginBottom: '6px', fontWeight: '600' }}>Roblox User Not Found</p>
+                                        <p style={{ color: '#fde047', fontSize: '14px', marginBottom: '6px', fontWeight: '600' }}>CitizenID Not Found</p>
                                         <p style={{ color: '#bfdbfe', fontSize: '12px', opacity: 0.8 }}>Citation can still be exported.</p>
                                     </div>
-                                    <div className="info-item"><span className="info-label">Discord ID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }}>{copiedField === 'discord' ? 'Copied!' : 'Copy'}</button></div></div>
+                                    <div className="info-item"><span className="info-label">ContactID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }}>{copiedField === 'discord' ? 'Copied!' : 'Copy'}</button></div></div>
                                 </>
                             )}
 
@@ -19223,7 +19223,7 @@ if (window.electronAPI?.quit) {
                     <div style={{ color: '#60a5fa', fontSize: '11px', marginTop: '2px', fontWeight: '500' }}>
                         {databaseSearchUsername && databaseSearchId ? (
                             <span>Viewing: <span style={{ color: '#f1f5f9', fontWeight: '700' }}>{databaseSearchUsername}</span> <span style={{ color: '#374151' }}>·</span> <span style={{ fontFamily: 'monospace', color: '#93c5fd' }}>{databaseSearchId}</span></span>
-                        ) : loadingPastRecords ? (recordsLoadingStage || '⏳ Searching...') : 'Enter a CitizenID to search records'}
+                        ) : loadingPastRecords ? (recordsLoadingStage || '⏳ Searching...') : 'Enter a Contact-ID to search records'}
                     </div>
                 </div>
                 <button
@@ -19243,7 +19243,7 @@ if (window.electronAPI?.quit) {
                 }}>
                     <input
                         type="text"
-                        placeholder="Enter Discord User ID (CitizenID)..."
+                        placeholder="Enter Contact-ID..."
                         value={databaseSearchId}
                         onChange={(e) => {
                             setDatabaseSearchId(e.target.value);
@@ -19774,7 +19774,7 @@ if (window.electronAPI?.quit) {
                         </h3>
                         <p style={{ fontSize: '16px', color: '#94a3b8' }}>
                             {databaseSearchId 
-                                ? `No government records found in database for CitizenID: ${databaseSearchId}`
+                                ? `No government records found in database for Contact-ID: ${databaseSearchId}`
                                 : 'Enter a Discord User ID and click "Search" to begin'}
                         </p>
                     </div>
