@@ -1009,6 +1009,15 @@ body::before {
 }
 .reduce-motion .apex-modal, .reduce-motion .apex-modal-head::after, .reduce-motion .apex-drop.scanning::after { animation:none !important; }
 
+/* ── Calls tab — redesigned cards ── */
+@keyframes callCardIn { from { opacity:0; transform: translateY(14px) scale(0.99); } to { opacity:1; transform: translateY(0) scale(1); } }
+@keyframes callBeamSlide { 0% { background-position:-140% 0; } 100% { background-position:240% 0; } }
+.call-card-v2 { transition: transform 200ms cubic-bezier(0.22,1,0.36,1), box-shadow 240ms ease-out, border-color 200ms ease-out; }
+.call-card-v2:hover { transform: translateY(-3px); border-color: rgba(var(--crgb),0.5) !important; box-shadow: 0 16px 44px -14px rgba(var(--crgb),0.4) !important; }
+.call-prio-beam { position:absolute; top:0; left:0; right:0; height:2px; z-index:2; background: linear-gradient(90deg, transparent, rgba(239,68,68,0.9), transparent); background-size:60% 100%; animation: callBeamSlide 2.2s linear infinite; }
+.reduce-motion .call-card-v2 { animation:none !important; }
+.reduce-motion .call-prio-beam { animation:none !important; opacity:0.6; }
+
 /* Close button — neutral, not red-alarm */
 .apex-x { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#94a3b8; transition:background 150ms ease-out, color 150ms ease-out, border-color 150ms ease-out; }
 .apex-x:hover { background:rgba(255,255,255,0.1); color:#e2e8f0; border-color:rgba(255,255,255,0.2); }
@@ -2983,7 +2992,7 @@ const deptInfo = DEPT_DISPLAY[currentDept] || DEPT_DISPLAY.NYSP;
 const deptDisplayName = deptInfo.name;
 const deptRole = deptInfo.role;
 React.useEffect(() => {
-    const src = 'https://raw.githubusercontent.com/robertoscreationsinquiries/NYSP-MDT/main/MAPRC1.0.png';
+    const src = `https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/repo-file?path=MAPRC1.0.png&ref=main&key=${encodeURIComponent((typeof window !== 'undefined' && window.__ACCESS_KEY) || '')}`;
     if (mapUrl) return;
     const img = new window.Image();
     img.crossOrigin = 'anonymous';
@@ -3592,6 +3601,9 @@ const [isRecordingMicHotkey, setIsRecordingMicHotkey] = useState(false);
 // LOGIN SYSTEM STATE
 // ══════════════════════════════════════════════════════════════════════════
 const [showLoginScreen, setShowLoginScreen] = useState(true);
+// Set true when the version gate rejects the shell — renders a hard block screen
+// while the app quits, so nothing usable is shown in the meantime.
+const [versionBlocked, setVersionBlocked] = useState(false);
 // ── Brand intro ──
 // Plays once at launch before anything else. `introPhase` drives the staged animation:
 // 'black' (brief hold so the user can tab in) → 'reveal' (logo+name animate in) →
@@ -3903,16 +3915,27 @@ const forceQuitForOutdated = React.useCallback((info) => {
     const parts = [];
     if (info?.mainOk === false) parts.push(`app shell v${info.mainVersion || 'unknown'}`);
     if (info?.htmlOk === false) parts.push(`interface v${info.htmlVersion || 'unknown'}`);
+    if (info?.reason === 'no-build-info') parts.push('unrecognized app shell (no build info)');
     const what = parts.join(' and ') || 'unknown version';
-    console.error('[VERSION] 🚫 Unsupported version — blocking launch:', what);
+    console.error('[VERSION] 🚫 Unsupported — blocking launch:', what);
+    // Guaranteed hard stop: try the native dialog+quit, then fall back to quit-app,
+    // then window.close(), so a foreign/old shell can't keep running the interface.
+    const ipc = window.electron?.ipcRenderer;
     try {
-        window.electron?.ipcRenderer?.invoke('force-quit-with-dialog', {
-            title: 'App Outdated',
-            message: 'This version of the MDT is no longer supported.',
-            detail: `Unsupported: ${what}.\n\nPlease download and install the latest build to continue.`
-        });
+        ipc?.invoke('force-quit-with-dialog', {
+            title: 'Unsupported Version',
+            message: info?.reason === 'no-build-info'
+                ? 'This app could not verify its build and will now close.'
+                : 'This version of the MDT is no longer supported.',
+            detail: `${info?.reason === 'no-build-info'
+                ? 'The app shell did not report a build version, so it can\u2019t be verified.'
+                : `Unsupported: ${what}.`}\n\nPlease download and install the latest official build to continue.`
+        }).catch(() => {});
     } catch (_) {}
-    try { setShowLoginScreen(true); setAuthenticatedUser(null); } catch (_) {}
+    // Blank the UI immediately so nothing usable renders while the quit lands.
+    try { setShowLoginScreen(true); setAuthenticatedUser(null); setVersionBlocked(true); } catch (_) {}
+    // Belt-and-suspenders quit in case the dialog handler is absent on this shell.
+    setTimeout(() => { try { ipc?.send('quit-app'); } catch (_) {} try { window.close(); } catch (_) {} }, 2500);
 }, []);
 
 const versionGateRanRef = React.useRef(false);
@@ -3923,19 +3946,28 @@ React.useEffect(() => {
         let mainVersion = null;
         try { mainVersion = await window.electron?.ipcRenderer?.invoke('get-build-version'); } catch (_) {}
         console.log('[VERSION] Gate check — shell:', mainVersion || '(legacy/none)', '| interface:', APP_VERSION);
+
+        // ── Local hard-reject: NO build info means an old/foreign/unofficial shell. ──
+        // Don't even ask the backend — refuse to run and quit.
+        if (!mainVersion || typeof mainVersion !== 'string' || !mainVersion.trim()) {
+            forceQuitForOutdated({ reason: 'no-build-info', mainOk: false, mainVersion: null });
+            return;
+        }
+
         try {
             const res = await fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/version-check', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mainVersion: mainVersion || null, htmlVersion: APP_VERSION })
+                body: JSON.stringify({ mainVersion, htmlVersion: APP_VERSION })
             });
             if (!res.ok) { console.warn('[VERSION] Check unavailable (HTTP ' + res.status + ') — allowing launch'); return; }
             const data = await res.json();
             if (data && data.supported === false) forceQuitForOutdated(data);
             else console.log('[VERSION] ✅ Supported');
         } catch (e) {
-            // Fail OPEN: a network blip must never lock a legitimate user out.
-            console.warn('[VERSION] Check failed — allowing launch:', e.message);
+            // Fail OPEN only for a network blip — but ONLY because we've already confirmed
+            // above that a build version EXISTS. Missing build info was rejected already.
+            console.warn('[VERSION] Backend check failed — allowing launch (build info present):', e.message);
         }
     })();
 }, [forceQuitForOutdated]);
@@ -12934,6 +12966,25 @@ return (
     <React.Fragment>
         
 
+        {/* ── VERSION BLOCK — absolute highest priority. Shown when the app shell
+             can't be verified (no build info) or the build is unsupported. The app
+             is quitting; this just ensures nothing usable renders in the meantime. ── */}
+        {versionBlocked && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 2147483647, background: 'radial-gradient(ellipse at center, #1a0a0a 0%, #000000 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', fontFamily: 'monospace' }}>
+                <div style={{ textAlign: 'center', maxWidth: '460px', padding: '40px' }}>
+                    <div style={{ fontSize: '52px', marginBottom: '20px' }}>🛑</div>
+                    <h1 style={{ color: '#fca5a5', fontSize: '22px', fontWeight: '800', letterSpacing: '3px', textTransform: 'uppercase', marginBottom: '14px' }}>Unsupported Build</h1>
+                    <div style={{ width: '70px', height: '2px', background: 'linear-gradient(90deg,transparent,rgba(239,68,68,0.6),transparent)', margin: '0 auto 22px' }} />
+                    <p style={{ color: '#cbd5e1', fontSize: '14px', lineHeight: '1.8', marginBottom: '10px' }}>
+                        This copy of the MDT couldn&rsquo;t verify its app build, or the build is no longer supported.
+                    </p>
+                    <p style={{ color: '#64748b', fontSize: '12px', lineHeight: '1.7' }}>
+                        The application is closing. Please download and install the latest official build to continue.
+                    </p>
+                </div>
+            </div>
+        )}
+
         {/* MAINTENANCE SCREEN */}
 {/* ── SHUTDOWN SCREEN — highest priority ── */}
 {showShutdownScreen && (
@@ -13379,7 +13430,7 @@ return (
                 <div style={{ position: 'relative', marginBottom: '34px', animation: 'introLogoReveal 1.1s cubic-bezier(0.16,1,0.3,1) both' }}>
                     <div style={{ position: 'absolute', inset: '-18px', borderRadius: '50%', border: '2px solid rgba(56,189,248,0.4)', animation: 'introRingPulse 2.4s ease-out infinite' }} />
                     <div style={{ position: 'absolute', inset: '-18px', borderRadius: '50%', border: '2px solid rgba(56,189,248,0.4)', animation: 'introRingPulse 2.4s ease-out infinite 1.2s' }} />
-                    <img src="https://raw.githubusercontent.com/robertoscreationsinquiries/NYSP-MDT/main/RC_CREATIONSLOGO.png"
+                    <img src={`https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/repo-file?path=RC_CREATIONSLOGO.png&ref=main&key=${encodeURIComponent((typeof window !== 'undefined' && window.__ACCESS_KEY) || '')}`}
                         alt="Roberto's Creations"
                         style={{ width: '150px', height: '150px', objectFit: 'contain', borderRadius: '28px', boxShadow: '0 20px 60px rgba(56,189,248,0.35), 0 0 0 1px rgba(56,189,248,0.2)', display: 'block' }}
                         onError={(e) => { e.currentTarget.style.display = 'none'; }} />
@@ -17753,78 +17804,75 @@ onError={(e) => {
                     const isPrio = !!call.isPriority;
                     const rgb = isAcknowledged ? '34,197,94' : isPrio ? '239,68,68' : '56,189,248';
                     const fg = isAcknowledged ? '#86efac' : isPrio ? '#fca5a5' : '#7dd3fc';
+                    const statusLabel = isAcknowledged ? 'Acknowledged' : isPrio ? 'Priority' : 'Active';
                     return (
-                        <div key={call.id} className="gov-record-card" style={{
-                            display:'grid', gridTemplateColumns:'4px minmax(0,1fr)',
-                            background:`linear-gradient(90deg, rgba(${rgb},0.10) 0%, rgba(10,16,30,0.75) 30%)`,
-                            border:`1px solid rgba(${rgb},${isPrio && !isAcknowledged ? '0.5' : '0.25'})`,
-                            borderRadius:'12px', overflow:'hidden', position:'relative',
-                            boxShadow: isPrio && !isAcknowledged ? `0 8px 36px rgba(${rgb},0.35)` : '0 4px 18px rgba(0,0,0,0.35)',
-                            animation:`recordCardIn 320ms cubic-bezier(0.23,1,0.32,1) both${(isPrio || isOldCall) && !isAcknowledged ? ', flash-red 1.5s infinite' : ''}`,
-                            animationDelay:`${Math.min(ci, 6) * 40}ms${(isPrio || isOldCall) && !isAcknowledged ? ', 0ms' : ''}`
+                        <div key={call.id} className="call-card-v2" style={{
+                            '--crgb': rgb, '--cfg': fg,
+                            position:'relative', borderRadius:'14px', overflow:'hidden',
+                            background:`linear-gradient(120deg, rgba(${rgb},0.09) 0%, rgba(9,13,24,0.92) 42%)`,
+                            border:`1px solid rgba(${rgb},${isPrio && !isAcknowledged ? '0.55' : '0.22'})`,
+                            boxShadow: isPrio && !isAcknowledged ? `0 10px 40px -8px rgba(${rgb},0.45)` : '0 6px 22px -10px rgba(0,0,0,0.6)',
+                            animation:`callCardIn 380ms cubic-bezier(0.22,1,0.36,1) both`,
+                            animationDelay:`${Math.min(ci, 8) * 45}ms`
                         }}>
-                            {/* status rail */}
-                            <div style={{ background:`rgba(${rgb},0.85)`,boxShadow:`0 0 12px rgba(${rgb},0.7)` }} />
-                            <div style={{ padding:'14px 18px' }}>
-                                {/* Row 1: identity + badges + timer */}
-                                <div style={{ display:'flex',alignItems:'center',gap:'10px',flexWrap:'wrap',marginBottom:'12px' }}>
-                                    <span style={{ width:'7px',height:'7px',borderRadius:'50%',background:fg,boxShadow:`0 0 8px ${fg}`,flexShrink:0,animation: isPrio && !isAcknowledged ? 'pursuitPulse 1.2s ease-in-out infinite' : 'none' }} />
-                                    <span style={{ color:'#fff',fontSize:'15px',fontWeight:'800' }}>{call.name}</span>
-                                    {isPrio && (
-                                        <span style={{ background: isAcknowledged ? 'rgba(34,197,94,0.15)' : 'linear-gradient(135deg,#b91c1c,#ef4444)',border: isAcknowledged ? '1px solid rgba(34,197,94,0.4)' : 'none',borderRadius:'5px',padding:'3px 10px',color: isAcknowledged ? '#86efac' : '#fff',fontSize:'9.5px',fontWeight:'900',letterSpacing:'2.5px',fontFamily:'monospace',textTransform:'uppercase',boxShadow: isAcknowledged ? 'none' : '0 0 14px rgba(239,68,68,0.5)' }}>⚠ Priority</span>
-                                    )}
-                                    {isAcknowledged && (
-                                        <span style={{ background:'rgba(34,197,94,0.12)',border:'1px solid rgba(34,197,94,0.35)',borderRadius:'5px',padding:'3px 10px',color:'#86efac',fontSize:'9.5px',fontWeight:'800',letterSpacing:'2px',fontFamily:'monospace',textTransform:'uppercase' }}>✓ Acknowledged</span>
-                                    )}
-                                    {isOldCall && !isAcknowledged && (
-                                        <span style={{ background:'rgba(245,158,11,0.12)',border:'1px solid rgba(245,158,11,0.35)',borderRadius:'5px',padding:'3px 10px',color:'#fcd34d',fontSize:'9.5px',fontWeight:'800',letterSpacing:'2px',fontFamily:'monospace',textTransform:'uppercase' }}>Stale</span>
-                                    )}
-                                    <span style={{ color:'#475569',fontSize:'10.5px',fontFamily:'monospace' }}>by {call.author} · {call.timestamp}</span>
-                                    <div style={{ flex:1 }} />
-                                    <span style={{ fontFamily:'monospace',fontSize:'15px',fontWeight:'800',color:fg,background:`rgba(${rgb},0.1)`,border:`1px solid rgba(${rgb},0.3)`,borderRadius:'8px',padding:'5px 13px',flexShrink:0 }}>
+                            {/* animated priority glow bar at top */}
+                            {isPrio && !isAcknowledged && <div className="call-prio-beam" />}
+                            {/* left status rail with vertical label */}
+                            <div style={{ position:'absolute', left:0, top:0, bottom:0, width:'34px', background:`linear-gradient(180deg, rgba(${rgb},0.22), rgba(${rgb},0.06))`, borderRight:`1px solid rgba(${rgb},0.25)`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                                <span style={{ writingMode:'vertical-rl', transform:'rotate(180deg)', color:fg, fontSize:'9px', fontWeight:'900', letterSpacing:'3px', textTransform:'uppercase', fontFamily:'monospace', opacity:0.9 }}>{statusLabel}</span>
+                            </div>
+
+                            <div style={{ padding:'15px 18px 15px 48px' }}>
+                                {/* Header line: caller + badges + live timer */}
+                                <div style={{ display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap', marginBottom:'11px' }}>
+                                    <span style={{ width:'8px', height:'8px', borderRadius:'50%', background:fg, boxShadow:`0 0 10px ${fg}`, flexShrink:0, animation: isPrio && !isAcknowledged ? 'pursuitPulse 1.2s ease-in-out infinite' : 'none' }} />
+                                    <span style={{ color:'#fff', fontSize:'16px', fontWeight:'800', letterSpacing:'0.2px' }}>{call.name}</span>
+                                    {isPrio && !isAcknowledged && <span style={{ background:'linear-gradient(135deg,#b91c1c,#ef4444)', borderRadius:'6px', padding:'3px 9px', color:'#fff', fontSize:'9px', fontWeight:'900', letterSpacing:'2px', fontFamily:'monospace', textTransform:'uppercase', boxShadow:'0 0 14px rgba(239,68,68,0.5)' }}>🚨 Priority</span>}
+                                    {isOldCall && !isAcknowledged && <span style={{ background:'rgba(245,158,11,0.12)', border:'1px solid rgba(245,158,11,0.35)', borderRadius:'6px', padding:'3px 9px', color:'#fcd34d', fontSize:'9px', fontWeight:'800', letterSpacing:'1.5px', fontFamily:'monospace', textTransform:'uppercase' }}>Stale</span>}
+                                    <div style={{ flex:1, minWidth:'12px' }} />
+                                    <span style={{ display:'flex', alignItems:'center', gap:'6px', fontFamily:'monospace', fontSize:'15px', fontWeight:'800', color:fg, background:`rgba(${rgb},0.1)`, border:`1px solid rgba(${rgb},0.3)`, borderRadius:'8px', padding:'5px 12px', flexShrink:0 }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
                                         {callTimers[call.id] || '0:00'}
                                     </span>
                                 </div>
-                                {/* Row 2: data fields — full width grid */}
-                                <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(230px, 1fr))',gap:'10px',marginBottom:'12px' }}>
-                                    <div style={{ background:'rgba(4,8,18,0.55)',border:'1px solid rgba(255,255,255,0.05)',borderRadius:'8px',padding:'9px 12px' }}>
-                                        <div style={{ color:`rgba(${rgb},0.9)`,fontSize:'9px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'4px' }}>Services Requested</div>
-                                        <div style={{ color:'#e2e8f0',fontSize:'13px',fontWeight:'600' }}>{call.services}</div>
-                                    </div>
-                                    <div style={{ background:'rgba(4,8,18,0.55)',border:'1px solid rgba(255,255,255,0.05)',borderRadius:'8px',padding:'9px 12px' }}>
-                                        <div style={{ color:`rgba(${rgb},0.9)`,fontSize:'9px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'4px' }}>Location</div>
-                                        <div style={{ color:'#fff',fontSize:'13px',fontWeight:'700',fontFamily:'monospace' }}>{call.location}</div>
-                                    </div>
-                                    <div style={{ gridColumn:'1 / -1',background:'rgba(4,8,18,0.55)',border:'1px solid rgba(255,255,255,0.05)',borderRadius:'8px',padding:'9px 12px' }}>
-                                        <div style={{ color:`rgba(${rgb},0.9)`,fontSize:'9px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'4px' }}>Incident Description</div>
-                                        <div style={{ color:'#cbd5e1',fontSize:'12.5px',lineHeight:1.6 }}>{call.description}</div>
-                                    </div>
+
+                                {/* Focal description */}
+                                <div style={{ color:'#e6edf5', fontSize:'14px', lineHeight:1.55, marginBottom:'12px', fontWeight:'450' }}>{call.description}</div>
+
+                                {/* Compact meta chips */}
+                                <div style={{ display:'flex', alignItems:'center', gap:'8px', flexWrap:'wrap', marginBottom:'13px' }}>
+                                    <span style={{ display:'inline-flex', alignItems:'center', gap:'6px', background:'rgba(4,8,18,0.6)', border:`1px solid rgba(${rgb},0.22)`, borderRadius:'999px', padding:'5px 12px', fontSize:'12px', color:'#fff', fontWeight:'700', fontFamily:'monospace' }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={fg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                                        {call.location}
+                                    </span>
+                                    <span style={{ display:'inline-flex', alignItems:'center', gap:'6px', background:'rgba(4,8,18,0.6)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:'999px', padding:'5px 12px', fontSize:'12px', color:'#cbd5e1', fontWeight:'600' }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                                        {call.services}
+                                    </span>
+                                    <div style={{ flex:1, minWidth:'8px' }} />
+                                    <span style={{ color:'#475569', fontSize:'11px', fontFamily:'monospace' }}>by {call.author} · {call.timestamp}</span>
                                 </div>
-                                {/* Row 3: actions */}
-                                <div style={{ display:'flex',gap:'10px',justifyContent:'flex-end' }}>
+
+                                {/* Actions */}
+                                <div style={{ display:'flex', gap:'10px' }}>
                                     <button
-                                        onClick={() => {
-                                            if (!isAcknowledged) {
-                                                acknowledgeCallById(call.id, call.author);
-                                            }
-                                        }}
+                                        onClick={() => { if (!isAcknowledged) acknowledgeCallById(call.id, call.author); }}
                                         disabled={isAcknowledged}
-                                        style={{ padding:'10px 22px',background: isAcknowledged ? 'rgba(34,197,94,0.12)' : 'linear-gradient(135deg,#10b981,#059669)',color: isAcknowledged ? '#4ade80' : '#fff',border: isAcknowledged ? '1px solid rgba(34,197,94,0.3)' : 'none',borderRadius:'9px',cursor: isAcknowledged ? 'not-allowed' : 'pointer',fontSize:'11px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',opacity: isAcknowledged ? 0.7 : 1,boxShadow: isAcknowledged ? 'none' : '0 4px 16px rgba(16,185,129,0.4)',transition:'transform 100ms cubic-bezier(0.23,1,0.32,1), box-shadow 160ms ease-out' }}
-                                        onMouseEnter={e => { if (!isAcknowledged) { e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.boxShadow='0 6px 22px rgba(16,185,129,0.55)'; } }}
-                                        onMouseLeave={e => { if (!isAcknowledged) { e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 4px 16px rgba(16,185,129,0.4)'; } }}
+                                        style={{ flex:2, padding:'11px', background: isAcknowledged ? 'rgba(34,197,94,0.12)' : 'linear-gradient(135deg,#10b981,#059669)', color: isAcknowledged ? '#4ade80' : '#fff', border: isAcknowledged ? '1px solid rgba(34,197,94,0.3)' : 'none', borderRadius:'10px', cursor: isAcknowledged ? 'default' : 'pointer', fontSize:'11px', fontWeight:'800', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'monospace', opacity: isAcknowledged ? 0.85 : 1, boxShadow: isAcknowledged ? 'none' : '0 4px 16px -4px rgba(16,185,129,0.5)', transition:'transform 100ms cubic-bezier(0.34,1.56,0.64,1), box-shadow 160ms ease-out', display:'flex', alignItems:'center', justifyContent:'center', gap:'7px' }}
+                                        onMouseEnter={e => { if (!isAcknowledged) { e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.boxShadow='0 7px 24px -4px rgba(16,185,129,0.65)'; } }}
+                                        onMouseLeave={e => { if (!isAcknowledged) { e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 4px 16px -4px rgba(16,185,129,0.5)'; } }}
                                         onMouseDown={e => { if (!isAcknowledged) e.currentTarget.style.transform='scale(0.97)'; }}
                                         onMouseUp={e => { if (!isAcknowledged) e.currentTarget.style.transform='translateY(-1px)'; }}>
-                                        {isAcknowledged ? '✓ Acknowledged' : 'Acknowledge'}
+                                        {isAcknowledged
+                                            ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Acknowledged</>
+                                            : 'Acknowledge'}
                                     </button>
                                     <button
-                                        onClick={() => {
-                                            dismissCallById(call.id, call.author);
-                                            addLog(`🗑️ Call from ${call.author} dismissed`, 'info');
-                                        }}
-                                        style={{ padding:'10px 22px',background:'transparent',border:'1px solid rgba(239,68,68,0.4)',borderRadius:'9px',color:'#fca5a5',fontSize:'11px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',cursor:'pointer',transition:'background 140ms ease-out, color 140ms ease-out, border-color 140ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
-                                        onMouseEnter={e => { e.currentTarget.style.background='rgba(239,68,68,0.12)'; e.currentTarget.style.color='#fee2e2'; e.currentTarget.style.borderColor='rgba(239,68,68,0.7)'; }}
-                                        onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#fca5a5'; e.currentTarget.style.borderColor='rgba(239,68,68,0.4)'; }}
-                                        onMouseDown={e => { e.currentTarget.style.transform='scale(0.97)'; }}
+                                        onClick={() => { dismissCallById(call.id, call.author); addLog(`🗑️ Call from ${call.author} dismissed`, 'info'); }}
+                                        style={{ flex:1, padding:'11px', background:'transparent', border:'1px solid rgba(239,68,68,0.35)', borderRadius:'10px', color:'#fca5a5', fontSize:'11px', fontWeight:'800', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'monospace', cursor:'pointer', transition:'background 140ms ease-out, color 140ms ease-out, border-color 140ms ease-out, transform 100ms cubic-bezier(0.34,1.56,0.64,1)' }}
+                                        onMouseEnter={e => { e.currentTarget.style.background='rgba(239,68,68,0.14)'; e.currentTarget.style.color='#fee2e2'; e.currentTarget.style.borderColor='rgba(239,68,68,0.6)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#fca5a5'; e.currentTarget.style.borderColor='rgba(239,68,68,0.35)'; }}
+                                        onMouseDown={e => { e.currentTarget.style.transform='scale(0.96)'; }}
                                         onMouseUp={e => { e.currentTarget.style.transform='scale(1)'; }}>
                                         Dismiss
                                     </button>
@@ -18702,11 +18750,17 @@ onError={(e) => {
                                     headers: { 'Authorization': `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
                                         model: 'qwen/qwen3.6-27b',
-                                        messages: [{ role: 'user', content: [
-                                            { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
-                                            { type: 'text', text: 'Read the license plate in this image. Look ONLY at the large bold characters printed directly on the plate surface — the main registration characters (usually 5-8 letters/numbers). IGNORE frame text, dealer names, state slogans (EXCELSIOR, EMPIRE STATE), the "NEW YORK" state name, month/year registration stickers, and any decorative or small text. Be precise distinguishing similar characters: O vs 0 vs Q, B vs 8, I vs 1, S vs 5, Z vs 2, G vs 6. Respond with ONLY the plate characters in this exact format, nothing else: PLATE: <characters>' }
-                                        ]}],
-                                        max_tokens: 60, temperature: 0
+                                        // reasoning_effort:'none' disables Qwen's thinking mode so it does
+                                        // direct OCR instead of describing the scene ("DarkColored" etc).
+                                        reasoning_effort: 'none',
+                                        messages: [
+                                            { role: 'system', content: 'You are an OCR engine for license plates. You do not describe images. You do not mention colors, vehicles, or scenery. You output only the exact alphanumeric characters printed on the license plate. If you cannot read a plate, output exactly: NONE' },
+                                            { role: 'user', content: [
+                                                { type: 'text', text: 'Transcribe the license plate registration characters from this image. Read ONLY the large bold characters on the plate itself (the 5-8 character registration). IGNORE the state name (NEW YORK), slogans (EXCELSIOR, EMPIRE STATE), dealer frames, stickers, and any small text. Distinguish carefully: O/0/Q, B/8, I/1, S/5, Z/2, G/6, D/0. Output format — nothing else, no explanation:\nPLATE: <characters>' },
+                                                { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } }
+                                            ]}
+                                        ],
+                                        max_tokens: 40, temperature: 0, top_p: 0.1
                                     })
                                 });
 
@@ -18735,18 +18789,44 @@ onError={(e) => {
 
                                 const data = await resp.json();
                                 let text = data.choices?.[0]?.message?.content || '';
-                                // Qwen 3.6 can emit <think>...</think> reasoning — strip it before parsing.
+                                // Strip any thinking blocks the model might still emit.
                                 text = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-                                // Prefer the explicit "PLATE:" format; fall back to any plausible plate token.
-                                let match = text.match(/PLATE:\s*([A-Z0-9][A-Z0-9\-\s]{1,11})/i);
-                                if (!match) {
-                                    // Model sometimes returns just the plate. Grab the longest alphanumeric run.
-                                    const cleaned = text.replace(/[^A-Z0-9\-\s]/gi, ' ').trim();
-                                    const token = cleaned.split(/\s+/).filter(t => /[A-Z]/i.test(t) || /[0-9]/.test(t)).sort((a,b)=>b.length-a.length)[0];
-                                    if (token && token.replace(/[\s\-]/g,'').length >= 3) match = [null, token];
+
+                                // Model explicitly couldn't read it.
+                                if (/\bNONE\b/i.test(text) && !/PLATE:\s*\S/i.test(text)) {
+                                    setApexResult({ error: 'APEX couldn\u2019t read a plate in that image. Make sure the plate is sharp, level, and fills much of the frame, then paste again.' });
+                                    setApexProcessing(false);
+                                    return;
                                 }
-                                if (match) {
-                                    const detected = match[1].trim();
+
+                                // A valid US-style plate: only A-Z, 0-9, spaces/dashes; typically 2-8 chars.
+                                // Reject anything with lowercase letters (descriptions like "DarkColored"),
+                                // and require it to look like a real plate, not a word.
+                                const looksLikePlate = (s) => {
+                                    if (!s) return false;
+                                    const raw = s.trim();
+                                    if (/[a-z]/.test(raw)) return false;                 // plates are uppercase; reject "DarkColored"
+                                    const compact = raw.replace(/[\s\-]/g, '');
+                                    if (compact.length < 2 || compact.length > 8) return false;
+                                    if (!/^[A-Z0-9]+$/.test(compact)) return false;      // only letters+digits
+                                    if (!/[0-9]/.test(compact) && compact.length > 6) return false; // all-letters >6 is likely a word
+                                    return true;
+                                };
+
+                                let detected = null;
+                                // 1) Preferred: the explicit "PLATE:" line.
+                                const m = text.match(/PLATE:\s*([A-Z0-9][A-Z0-9\-\s]{0,11})/i);
+                                if (m && looksLikePlate(m[1])) detected = m[1].trim();
+                                // 2) Fallback: the whole response might BE the plate (uppercase, short).
+                                if (!detected && looksLikePlate(text)) detected = text.trim();
+                                // 3) Last resort: scan tokens, but ONLY accept plate-shaped ones.
+                                if (!detected) {
+                                    const tokens = text.replace(/PLATE:/i, ' ').split(/\s+/);
+                                    const cand = tokens.map(t => t.replace(/[^A-Z0-9\-]/g, '')).filter(looksLikePlate).sort((a,b)=>b.length-a.length)[0];
+                                    if (cand) detected = cand;
+                                }
+
+                                if (detected) {
                                     setApexResult({ plate: detected, image: imgData });
                                     setShowApexModal(false);
                                     setApexImage(null);
