@@ -15743,29 +15743,38 @@ return (
                 {(result || registration || loadingRoblox || robloxError) && registration && !registration.notFound && !registration.multipleMatches && (
                     <div className={`results-grid ${visualEffects ? 'pulse-animation' : ''} ${registration?.reportedStolen ? 'stolen-vehicle-frame' : ''}`}>
 
-                        {/* ── STOLEN VEHICLE ALERT BANNER ── */}
+                        {/* ══════════ UI: VEHICLE REPORTED STOLEN ══════════ */}
                         {registration?.reportedStolen && (
-                            <div style={{ gridColumn:'1 / -1', marginBottom:'4px', padding:'16px 20px', borderRadius:'12px', position:'relative', overflow:'hidden', background:'linear-gradient(135deg, rgba(127,29,29,0.95) 0%, rgba(69,10,10,0.95) 100%)', border:'2px solid #ef4444', boxShadow:'0 0 28px rgba(239,68,68,0.55)', animation:'stolenPulse 1.05s ease-in-out infinite' }}>
-                                {/* animated diagonal hazard shimmer */}
-                                <div style={{ position:'absolute', inset:0, background:'repeating-linear-gradient(45deg, rgba(0,0,0,0.18) 0 14px, transparent 14px 28px)', opacity:0.5, pointerEvents:'none' }} />
-                                <div style={{ position:'relative', display:'flex', alignItems:'center', gap:'16px' }}>
-                                    <div style={{ flexShrink:0, width:'46px', height:'46px', borderRadius:'11px', background:'rgba(239,68,68,0.25)', border:'1.5px solid #ef4444', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 0 14px rgba(239,68,68,0.6)' }}>
-                                        <svg width="26" height="26" fill="none" stroke="#fecaca" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                            <div style={{ gridColumn:'1 / -1', marginBottom:'6px', padding:'18px 22px', borderRadius:'16px', position:'relative', overflow:'hidden', background:'linear-gradient(135deg, rgba(127,29,29,0.95) 0%, rgba(50,8,8,0.97) 100%)', border:'1.5px solid rgba(239,68,68,0.7)', boxShadow:'0 0 40px -6px rgba(239,68,68,0.6), inset 0 1px 0 rgba(255,255,255,0.1)', animation:'stolenPulse 1.15s ease-in-out infinite' }}>
+                                {/* sliding hazard beam across the top */}
+                                <div style={{ position:'absolute', top:0, left:0, right:0, height:'3px', background:'linear-gradient(90deg, transparent, #ef4444, transparent)', backgroundSize:'55% 100%', animation:'callBeamSlide 1.8s linear infinite' }} />
+                                {/* diagonal hazard stripes */}
+                                <div style={{ position:'absolute', inset:0, background:'repeating-linear-gradient(45deg, rgba(0,0,0,0.2) 0 14px, transparent 14px 28px)', opacity:0.45, pointerEvents:'none' }} />
+                                <div style={{ position:'relative', display:'flex', alignItems:'center', gap:'18px' }}>
+                                    <div style={{ flexShrink:0, width:'52px', height:'52px', borderRadius:'14px', background:'linear-gradient(135deg, rgba(239,68,68,0.35), rgba(185,28,28,0.5))', border:'1.5px solid #ef4444', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 0 20px rgba(239,68,68,0.7), inset 0 1px 0 rgba(255,255,255,0.2)', animation:'pursuitPulse 1.2s ease-in-out infinite' }}>
+                                        <svg width="28" height="28" fill="none" stroke="#fff" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
                                     </div>
                                     <div style={{ flex:1, minWidth:0 }}>
-                                        <div style={{ color:'#fff', fontSize:'17px', fontWeight:'900', letterSpacing:'2px', textTransform:'uppercase', textShadow:'0 2px 8px rgba(0,0,0,0.5)', lineHeight:1.1 }}>⚠ Vehicle Reported Stolen</div>
-                                        <div style={{ color:'#fecaca', fontSize:'12px', fontWeight:'600', letterSpacing:'0.5px', marginTop:'4px', fontFamily:'monospace' }}>This vehicle is flagged as STOLEN in its registration. Exercise caution.</div>
+                                        <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'5px' }}>
+                                            <span style={{ color:'#fff', fontSize:'19px', fontWeight:'900', letterSpacing:'1.5px', textTransform:'uppercase', textShadow:'0 2px 10px rgba(0,0,0,0.6)', lineHeight:1 }}>Vehicle Reported Stolen</span>
+                                            <span style={{ background:'#ef4444', color:'#fff', fontSize:'9px', fontWeight:'900', letterSpacing:'2px', fontFamily:'monospace', padding:'3px 9px', borderRadius:'999px', boxShadow:'0 0 12px rgba(239,68,68,0.7)', flexShrink:0 }}>ALERT</span>
+                                        </div>
+                                        <div style={{ color:'#fecaca', fontSize:'12.5px', fontWeight:'600', letterSpacing:'0.3px', fontFamily:'monospace', lineHeight:1.5 }}>This vehicle is flagged as <strong style={{ color:'#fff' }}>STOLEN</strong> in its registration. Exercise extreme caution and follow protocol.</div>
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        {/* OWNER BOX */}
-                        <div style={{ padding:'16px 18px',background:'linear-gradient(180deg,rgba(6,78,59,0.35) 0%,rgba(15,30,30,0.5) 100%)',border:'1px solid rgba(52,211,153,0.2)',borderRadius:'10px',boxShadow:'inset 0 1px 0 rgba(52,211,153,0.08)' }}>
-                            <div style={{ display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px' }}>
-                                <div style={{ width:'2px',height:'12px',background:'#34d399',borderRadius:'2px',boxShadow:'0 0 6px #34d399' }} />
-                                <User size={12} style={{ color:'#34d399' }} />
-                                <span style={{ color:'#34d399',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Registered Owner</span>
+                        {/* ══════════ UI: REGISTERED OWNER ══════════ */}
+                        <div style={{ padding:'18px',background:'linear-gradient(180deg,rgba(6,78,59,0.28) 0%,rgba(10,18,24,0.6) 100%)',border:'1px solid rgba(52,211,153,0.2)',borderRadius:'14px',boxShadow:'inset 0 1px 0 rgba(52,211,153,0.08), 0 8px 28px -14px rgba(0,0,0,0.7)' }}>
+                            <div style={{ display:'flex',alignItems:'center',gap:'11px',marginBottom:'15px',paddingBottom:'13px',borderBottom:'1px solid rgba(52,211,153,0.14)' }}>
+                                <div style={{ width:'32px',height:'32px',borderRadius:'9px',background:'linear-gradient(135deg,rgba(52,211,153,0.9),rgba(16,185,129,0.6))',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 12px -3px rgba(16,185,129,0.6), inset 0 1px 0 rgba(255,255,255,0.3)' }}>
+                                    <User size={16} style={{ color:'#fff' }} />
+                                </div>
+                                <div>
+                                    <div style={{ color:'#6ee7b7',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace' }}>Registered Owner</div>
+                                    <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px',marginTop:'1px' }}>Identity on file</div>
+                                </div>
                             </div>
 
                             {registration?.parseWarning && (
@@ -16008,19 +16017,19 @@ return (
                             </div>
                         )}
 
-                        {/* ── GOVERNMENT RECORDS COLUMN — auto-loads on plate search ──
-                            Middle column of the results grid, sized like the owner box.
-                            Mirrors the citizen-tab government-records card design, compacted
-                            for a 380px column. Fetch fires automatically when the registered
-                            owner's Discord ID resolves — no button click required. */}
-                        <div style={{ padding:'16px 18px',background:'linear-gradient(180deg,rgba(12,40,70,0.4) 0%,rgba(8,18,38,0.55) 100%)',border:'1px solid rgba(56,189,248,0.2)',borderRadius:'10px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08)',display:'flex',flexDirection:'column',minHeight:0 }}>
-                            <div style={{ display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px',flexShrink:0 }}>
-                                <div style={{ width:'2px',height:'12px',background:'#38bdf8',borderRadius:'2px',boxShadow:'0 0 6px #38bdf8' }} />
-                                <FileText size={12} style={{ color:'#38bdf8' }} />
-                                <span style={{ color:'#7dd3fc',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Government Records</span>
+                        {/* ══════════ UI: GOVERNMENT RECORDS ══════════ */}
+                        <div style={{ padding:'18px',background:'linear-gradient(180deg,rgba(12,40,70,0.4) 0%,rgba(8,16,32,0.6) 100%)',border:'1px solid rgba(56,189,248,0.2)',borderRadius:'14px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 8px 28px -14px rgba(0,0,0,0.7)',display:'flex',flexDirection:'column',minHeight:0 }}>
+                            <div style={{ display:'flex',alignItems:'center',gap:'11px',marginBottom:'15px',paddingBottom:'13px',borderBottom:'1px solid rgba(56,189,248,0.14)',flexShrink:0 }}>
+                                <div style={{ width:'32px',height:'32px',borderRadius:'9px',background:'linear-gradient(135deg,rgba(56,189,248,0.9),rgba(37,99,235,0.6))',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 12px -3px rgba(37,99,235,0.6), inset 0 1px 0 rgba(255,255,255,0.3)' }}>
+                                    <FileText size={15} style={{ color:'#fff' }} />
+                                </div>
+                                <div>
+                                    <div style={{ color:'#7dd3fc',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace' }}>Government Records</div>
+                                    <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px',marginTop:'1px' }}>Prior citations &amp; reports</div>
+                                </div>
                                 <div style={{ flex:1 }} />
                                 {plateGovRecords !== null && !plateGovLoading && (
-                                    <span style={{ color:'#475569',fontSize:'10px',fontFamily:'monospace',fontWeight:'700' }}>{plateGovRecords.length}</span>
+                                    <span style={{ color:'#7dd3fc',fontSize:'12px',fontFamily:'monospace',fontWeight:'800',background:'rgba(56,189,248,0.12)',border:'1px solid rgba(56,189,248,0.3)',borderRadius:'999px',padding:'2px 10px',flexShrink:0 }}>{plateGovRecords.length}</span>
                                 )}
                             </div>
 
@@ -16181,18 +16190,22 @@ return (
                             )}
                         </div>
 
-                        {/* VEHICLE BOX */}
+                        {/* ══════════ UI: VEHICLE DETAILS ══════════ */}
 {registration && !registration.parseFailed && (
-                            <div style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.5) 0%,rgba(10,20,40,0.6) 100%)',border:recentRegistrationFlash?'1px solid rgba(239,68,68,0.5)':'1px solid rgba(56,189,248,0.18)',borderRadius:'12px',animation:recentRegistrationFlash?'flash-red-border 1.5s infinite':'plateRevealIn 380ms cubic-bezier(0.23,1,0.32,1)',boxShadow:recentRegistrationFlash?'0 0 24px rgba(239,68,68,0.18), inset 0 1px 0 rgba(239,68,68,0.1)':'inset 0 1px 0 rgba(56,189,248,0.08), 0 0 24px rgba(14,165,233,0.04)',display:'flex',flexDirection:'column' }}>
+                            <div style={{ background:'linear-gradient(180deg,rgba(30,58,138,0.22) 0%,rgba(10,16,30,0.6) 100%)',border:recentRegistrationFlash?'1px solid rgba(239,68,68,0.5)':'1px solid rgba(96,165,250,0.2)',borderRadius:'14px',animation:recentRegistrationFlash?'flash-red-border 1.5s infinite':'plateRevealIn 380ms cubic-bezier(0.23,1,0.32,1)',boxShadow:recentRegistrationFlash?'0 0 24px rgba(239,68,68,0.18), inset 0 1px 0 rgba(239,68,68,0.1)':'inset 0 1px 0 rgba(96,165,250,0.08), 0 8px 28px -14px rgba(0,0,0,0.7)',display:'flex',flexDirection:'column' }}>
 
                                 {/* Header strip */}
-                                <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 18px',borderBottom:'1px solid rgba(56,189,248,0.1)' }}>
-                                    <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
-                                        <div style={{ width:'2px',height:'12px',background:'#22d3ee',borderRadius:'2px',boxShadow:'0 0 6px #22d3ee' }} />
-                                        <Car size={12} style={{ color:'#22d3ee' }} />
-                                        <span style={{ color:'#22d3ee',fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Vehicle Details</span>
+                                <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'15px 18px',borderBottom:'1px solid rgba(96,165,250,0.14)' }}>
+                                    <div style={{ display:'flex',alignItems:'center',gap:'11px' }}>
+                                        <div style={{ width:'32px',height:'32px',borderRadius:'9px',background:'linear-gradient(135deg,rgba(34,211,238,0.9),rgba(37,99,235,0.6))',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 12px -3px rgba(37,99,235,0.6), inset 0 1px 0 rgba(255,255,255,0.3)' }}>
+                                            <Car size={16} style={{ color:'#fff' }} />
+                                        </div>
+                                        <div>
+                                            <div style={{ color:'#93c5fd',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace' }}>Vehicle Details</div>
+                                            <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px',marginTop:'1px' }}>Registration on file</div>
+                                        </div>
                                     </div>
-                                    {recentRegistrationFlash && (<span style={{ padding:'2px 8px',background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.4)',color:'#fca5a5',fontSize:'9px',fontWeight:'700',borderRadius:'4px',letterSpacing:'1.5px',fontFamily:'monospace',animation:'pulse-glow 1s infinite' }}>RECENT EDIT</span>)}
+                                    {recentRegistrationFlash && (<span style={{ padding:'3px 9px',background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.4)',color:'#fca5a5',fontSize:'9px',fontWeight:'800',borderRadius:'999px',letterSpacing:'1.5px',fontFamily:'monospace',animation:'pulse-glow 1s infinite' }}>RECENT EDIT</span>)}
                                 </div>
 
                                 {/* License Plate Hero */}
