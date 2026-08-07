@@ -15819,7 +15819,7 @@ return (
                                         <p style={{ color: '#fecaca', fontSize: '13px', marginBottom: '6px' }}>{robloxError}</p>
                                         <p style={{ color: '#bfdbfe', fontSize: '12px', opacity: 0.8 }}>Citation can still be exported with Discord and vehicle data.</p>
                                     </div>
-                                    <div className="info-item"><span className="info-label">ContactID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }}>{copiedField === 'discord' ? 'Copied!' : 'Copy'}</button></div></div>
+                                    <div className="info-item"><span className="info-label">CONTACT-ID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }}>{copiedField === 'discord' ? 'Copied!' : 'Copy'}</button></div></div>
                                 </>
                             ) : result ? (
                                 <>
@@ -15848,7 +15848,7 @@ return (
                                     <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px',marginBottom:'10px' }}>
                                         {result?.userId && (
                                             <div className="info-item" style={{ flexDirection:'column',alignItems:'flex-start',gap:'2px',padding:'7px 10px' }}>
-                                                <span className="info-label" style={{ fontSize:'9px' }}>CitizenID</span>
+                                                <span className="info-label" style={{ fontSize:'9px' }}>CITIZEN-ID</span>
                                                 <div style={{ display:'flex',alignItems:'center',gap:'6px',width:'100%',minWidth:0 }}>
                                                     <span className="info-value" style={{ fontSize:'11px',textAlign:'left',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{result.userId}</span>
                                                     <button className="copy-btn btn-ripple" onClick={() => copyToClipboard(result.userId, 'roblox')} style={{ flexShrink:0 }}>{copiedField === 'roblox' ? '✓' : '⧉'}</button>
@@ -15879,10 +15879,10 @@ return (
                             ) : (
                                 <>
                                     <div style={{ padding: '16px', textAlign: 'center', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '10px', marginBottom: '14px' }}>
-                                        <p style={{ color: '#fde047', fontSize: '14px', marginBottom: '6px', fontWeight: '600' }}>CitizenID Not Found</p>
+                                        <p style={{ color: '#fde047', fontSize: '14px', marginBottom: '6px', fontWeight: '600' }}>Citizen Not Found</p>
                                         <p style={{ color: '#bfdbfe', fontSize: '12px', opacity: 0.8 }}>Citation can still be exported.</p>
                                     </div>
-                                    <div className="info-item"><span className="info-label">ContactID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }}>{copiedField === 'discord' ? 'Copied!' : 'Copy'}</button></div></div>
+                                    <div className="info-item"><span className="info-label">CONTACT-ID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }}>{copiedField === 'discord' ? 'Copied!' : 'Copy'}</button></div></div>
                                 </>
                             )}
 
@@ -16347,7 +16347,7 @@ if (searchCooldown || loadingSearch || !searchCitizenId || searchCitizenId.trim(
                                     searchByUsername(searchCitizenId);
                                 }
                             }}
-                            placeholder="Enter CitizenID..."
+                            placeholder="ENTER CITIZEN-ID..."
                             style={{ width: '100%', padding: '14px 16px', background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '10px', color: 'white', fontSize: '15px', fontFamily: 'monospace', letterSpacing: '2px', boxSizing: 'border-box', outline: 'none', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.3)', transition: 'border-color 0.2s' }}
                             onFocus={e => e.target.style.borderColor = 'rgba(59,130,246,0.6)'}
                             onBlur={e => e.target.style.borderColor = 'rgba(59,130,246,0.3)'}
@@ -16430,15 +16430,15 @@ onError={(e) => {
                                     {searchResults.robloxUser?.userId && (<div className="info-item"><span className="info-label">User ID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults.robloxUser.userId}</span><button className="copy-btn btn-ripple" onClick={() => copyToClipboard(searchResults.robloxUser.userId, 'roblox')}>{copiedField === 'roblox' ? 'Copied!' : 'Copy'}</button></div></div>)}
                                     {searchResults.robloxUser?.displayName && (<div className="info-item"><span className="info-label">Display Name:</span><span className="info-value">{searchResults.robloxUser.displayName}</span></div>)}
                                     {searchResults.robloxUser?.joinDate && (<div className="info-item"><span className="info-label">Join Date:</span><span className="info-value">{searchResults.robloxUser.joinDate}</span></div>)}
-                                    <div className="info-item"><span className="info-label">ContactID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }}>{copiedField === 'discord' ? 'Copied!' : 'Copy'}</button></div></div>
+                                    <div className="info-item"><span className="info-label">CONTACT-ID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }}>{copiedField === 'discord' ? 'Copied!' : 'Copy'}</button></div></div>
                                 </>
                             ) : (
                                 <>
                                     <div style={{ padding: '16px', textAlign: 'center', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '10px', marginBottom: '14px' }}>
-                                        <p style={{ color: '#fde047', fontSize: '14px', marginBottom: '6px', fontWeight: '600' }}>CitizenID Not Found</p>
+                                        <p style={{ color: '#fde047', fontSize: '14px', marginBottom: '6px', fontWeight: '600' }}>Citizen Not Found</p>
                                         <p style={{ color: '#bfdbfe', fontSize: '12px', opacity: 0.8 }}>Citation can still be exported.</p>
                                     </div>
-                                    <div className="info-item"><span className="info-label">ContactID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }}>{copiedField === 'discord' ? 'Copied!' : 'Copy'}</button></div></div>
+                                    <div className="info-item"><span className="info-label">CONTACT-ID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }}>{copiedField === 'discord' ? 'Copied!' : 'Copy'}</button></div></div>
                                 </>
                             )}
 
