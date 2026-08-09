@@ -8801,22 +8801,65 @@ IMPORTANT: Return ONLY a JSON array with ${vehicleBlocks.length} objects, one fo
         batchText += `Vehicle ${index + 1}:\n${blockText}\n\n`;
     });
     
-    batchText += `Each registration has (often) these fields on separate lines in this order:
-Year, Make, Model, Color, Vehicle Type, State, License Plate.
-Some entries may also start with a @username or <@id> line - ignore that line.
-Make may be a real brand (Toyota, Honda, GMC, Hyundai, Tesla, etc.) or a fictional game brand (Bremen, Bremmen, Koritsu, Comrader, Hamotsu, Delton, Eva, Senseon, Turismo, Ganetto, Mita, Roamer, etc.) - accept all of them as valid.
-Type may include values like "Sedan", "SUV", "Crossover", "MPV/Minivan", "Truck", "Hatchback", "Coupe", "Van", "Convertible", etc.
-State may be a full state name like "New York" or abbreviation like "NY" - convert full names to 2-letter codes.
+    batchText += `Each block above is ONE vehicle registration from a roleplay police server. Extract the fields for each.
 
-Sometimes a message may contain multiple registrations in one message, each vehicle format often starts with a number so you could easily separate them that way. Be mindful of this.
+REGISTRATIONS COME IN MANY FORMATS. Support ALL of them:
 
-Return format:
+1) PLAIN LINE ORDER (no labels) — fields on separate lines, usually in this order:
+   [optional @username or <@id>], Year, Make, Model, Color, Type, State, Plate
+   Example:
+     <@949423227246104687>
+     2021
+     Comrader
+     Thrust
+     Pickup
+     Black
+     NY
+     ABT-4434
+
+2) LABELED FIELDS — each line has a label then the value. Labels vary and may have odd spacing/casing.
+   Recognize these label synonyms (case-insensitive, with or without a colon):
+     - username / user: the @mention (ignore for output)
+     - year
+     - make / brand / manufacturer
+     - model
+     - color / colour
+     - type / type of / vehicle type / body  (Sedan, SUV, Truck, Pickup, Coupe, Van, Hatchback, etc.)
+     - state / province / state/province plate / plate state
+     - plate / plate text / plate number / plate # / registration
+   Example (note messy spacing/typos — still parse it):
+     Username: <@1085909950208938075>
+     Brand: senseon
+     Model:elvate
+     Year: 2020
+     Color: red
+     Type of : suv
+     State/Province plate: New york
+     Plate text:XLG-5186
+
+3) STATE AND PLATE COMBINED ON ONE LINE — the last line may contain BOTH the state and the plate together.
+   Split them: the leading state (name or 2-letter code) is the state, the rest is the plate.
+   Examples:
+     "CA XCEL"      -> state "CA", plate "XCEL"
+     "TX KYLE"      -> state "TX", plate "KYLE"
+     "CA MK 226"    -> state "CA", plate "MK 226"
+     "New york" then "XLG-5186" on the next line -> state "NY", plate "XLG-5186"
+
+4) STATE full name vs abbreviation — convert full names to 2-letter codes (New York -> NY, Wisconsin -> WI, California -> CA, Texas -> TX). Keep valid 2-letter codes as-is.
+
+MAKES may be real brands (Toyota, Honda, GMC, Tesla…) OR fictional game brands (Comrader, Senseon, Marshall, Delton, Lexima, Hamotsu, Bremen, Koritsu, Turismo, Ganetto, Mita, Roamer…). Accept ALL of them.
+
+MISSING FIELDS: Registrations are frequently INCOMPLETE. A block may be missing the color, state, type, year, or another field. DO NOT guess or invent values. If a field is genuinely absent, output an empty string "" for that field. Never shift other values up to fill a gap — keep each value in its correct field and leave the missing one blank.
+
+Each block above is already ONE vehicle — return exactly one object per block, in the same order. Ignore any @username / <@id> line for the output (it is the owner, not a vehicle field).
+
+Return format (exactly ${vehicleBlocks.length} objects):
 [
-  {"year": "YYYY", "make": "Make", "model": "Model", "color": "Color", "vehicleType": "Type", "state": "State", "plate": "PLATE"},
+  {"year": "YYYY", "make": "Make", "model": "Model", "color": "Color", "vehicleType": "Type", "state": "ST", "plate": "PLATE"},
   ...
 ]
 
-Return ONLY the JSON array, no other text.`;
+Use "" for any field that is missing from a block. Return ONLY the JSON array, no other text.`;
     
     console.log('📝 [BATCH] Prompt length:', batchText.length, 'characters');
     console.log('📄 [BATCH] Sending to AI...');
@@ -10291,45 +10334,48 @@ console.log('📦 [VEHICLES] Processing', vMessages.length, 'messages...!');
                 const carBlocks = [];
                 let currentCar = [];
                 let inCar = false;
-                
+
                 const validYears = ['1952', '1995', '2001', '2002', '2004', '2005', '2006', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025', '2026'];
 
+                const flush = () => { if (currentCar.length > 0) { carBlocks.push([...currentCar]); currentCar = []; inCar = false; } };
+
                 for (const line of lines) {
-                    // Skip empty lines
                     if (!line) continue;
-                    
+
                     const hasUsername = line.includes('<@') || /^@\w/.test(line);
-                    const isYear = /^\d{4}$/.test(line) && validYears.includes(line);
+                    // A "year line" can be a bare 4-digit year OR a labeled one ("Year: 2020").
+                    const bareYear = /^\d{4}$/.test(line) && validYears.includes(line);
+                    const labeledYear = /^(year)\s*[:\-]?\s*(19|20)\d{2}\b/i.test(line);
+                    const isYear = bareYear || labeledYear;
                     const hasCombinedYearMake = /^(19|20)\d{2}\s+[A-Za-z]/.test(line);
-                    
-                    if (isYear || hasCombinedYearMake) {
-                        if (currentCar.length > 0) {
-                            console.log('🚗 [BLOCK] Found vehicle block with', currentCar.length, 'lines');
-                            carBlocks.push([...currentCar]);
-                        }
+                    // Separator: two or more dashes (--, ---), or === . These delimit registrations,
+                    // including the "two in a row means multiple in one message" case.
+                    const isSeparator = /^\s*(-{2,}|={2,})/.test(line);
+
+                    if (isSeparator) {
+                        flush();
+                    } else if (isYear || hasCombinedYearMake) {
+                        // A new year line starts a new vehicle (previous one, if any, is complete).
+                        flush();
                         currentCar = [line];
                         inCar = true;
-                    } else if (line.startsWith('---') || line.startsWith('===')) {
-                        if (currentCar.length > 0) {
-                            console.log('🚗 [BLOCK] Found vehicle block with', currentCar.length, 'lines');
-                            carBlocks.push([...currentCar]);
-                        }
-                        currentCar = [];
-                        inCar = false;
-                    } else if (hasUsername && currentCar.length > 0) {
-                        console.log('🚗 [BLOCK] Username detected, ending previous vehicle');
-                        carBlocks.push([...currentCar]);
-                        currentCar = [];
-                        inCar = false;
-                    } else if (inCar && !hasUsername) {
+                    } else if (hasUsername) {
+                        // A mention line starts a NEW registration. If we were mid-vehicle, close it.
+                        // (Consecutive <@id> lines = multiple registrations, one per mention.)
+                        if (currentCar.length > 0) flush();
+                        // Keep the mention as the first line of the new block so the AI can ignore it.
+                        currentCar = [line];
+                        inCar = true;
+                    } else if (inCar) {
                         currentCar.push(line);
+                    } else {
+                        // Not in a vehicle yet and no year/mention — could be a labeled block that
+                        // doesn't lead with year (e.g. "Brand: senseon" first). Start a block anyway.
+                        currentCar = [line];
+                        inCar = true;
                     }
                 }
-                
-                if (currentCar.length > 0) {
-                    console.log('🚗 [BLOCK] Found final vehicle block with', currentCar.length, 'lines');
-                    carBlocks.push(currentCar);
-                }
+                flush();
                 
                 console.log('🔄 [PARSE] Found', carBlocks.length, 'vehicle blocks in message');
                 
@@ -14569,8 +14615,8 @@ return (
             const dirty = activePad && notepadDraft !== activePad.body;
             return (
             <>
-                <div onClick={()=>setShowNotesPanel(false)} style={{ position:'fixed',top:'52px',left:0,right:'380px',bottom:0,background:'rgba(0,0,0,0.4)',zIndex:7999,animation:'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }} />
-                <div style={{ position:'fixed',top:'52px',right:0,bottom:0,width:'380px',background:'linear-gradient(180deg,rgba(15,30,60,0.95) 0%,rgba(10,20,40,0.97) 100%)',backdropFilter:'blur(8px)',borderLeft:'1px solid rgba(56,189,248,0.25)',boxShadow:'-8px 0 32px rgba(0,0,0,0.5), inset 1px 0 0 rgba(56,189,248,0.1)',zIndex:8000,display:'flex',flexDirection:'column',animation:'panelSlideIn 220ms cubic-bezier(0.23, 1, 0.32, 1)' }}>
+                <div onClick={()=>setShowNotesPanel(false)} style={{ position:'fixed',top:'52px',left:0,right:'360px',bottom:0,background:'rgba(0,0,0,0.4)',zIndex:7999,animation:'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }} />
+                <div style={{ position:'fixed',top:'52px',right:0,bottom:0,width:'360px',background:'linear-gradient(180deg,rgba(15,30,60,0.95) 0%,rgba(10,20,40,0.97) 100%)',backdropFilter:'blur(8px)',borderLeft:'1px solid rgba(56,189,248,0.25)',boxShadow:'-8px 0 32px rgba(0,0,0,0.5), inset 1px 0 0 rgba(56,189,248,0.1)',zIndex:8000,display:'flex',flexDirection:'column',animation:'panelSlideIn 220ms cubic-bezier(0.23, 1, 0.32, 1)' }}>
                     <div style={{ position:'absolute',left:'-3px',top:'50%',transform:'translateY(-50%)',width:'3px',height:'48px',background:'#22d3ee',borderRadius:'3px 0 0 3px',boxShadow:'0 0 12px rgba(34,211,238,0.5)' }} />
 
                     {/* Header */}
@@ -14692,8 +14738,8 @@ return (
             const PRESETS = [30, 60, 120, 180, 320, 360];
             return (
             <>
-                <div onClick={()=>setShowTimerPanel(false)} style={{ position:'fixed',top:'52px',left:0,right:'380px',bottom:0,background:'rgba(0,0,0,0.4)',zIndex:7999,animation:'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }} />
-                <div style={{ position:'fixed',top:'52px',right:0,bottom:0,width:'380px',background:'linear-gradient(180deg,rgba(15,30,60,0.95) 0%,rgba(10,20,40,0.97) 100%)',backdropFilter:'blur(8px)',borderLeft:'1px solid rgba(56,189,248,0.25)',boxShadow:'-8px 0 32px rgba(0,0,0,0.5), inset 1px 0 0 rgba(56,189,248,0.1)',zIndex:8000,display:'flex',flexDirection:'column',animation:'panelSlideIn 220ms cubic-bezier(0.23, 1, 0.32, 1)' }}>
+                <div onClick={()=>setShowTimerPanel(false)} style={{ position:'fixed',top:'52px',left:0,right:'360px',bottom:0,background:'rgba(0,0,0,0.4)',zIndex:7999,animation:'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }} />
+                <div style={{ position:'fixed',top:'52px',right:0,bottom:0,width:'360px',background:'linear-gradient(180deg,rgba(15,30,60,0.95) 0%,rgba(10,20,40,0.97) 100%)',backdropFilter:'blur(8px)',borderLeft:'1px solid rgba(56,189,248,0.25)',boxShadow:'-8px 0 32px rgba(0,0,0,0.5), inset 1px 0 0 rgba(56,189,248,0.1)',zIndex:8000,display:'flex',flexDirection:'column',animation:'panelSlideIn 220ms cubic-bezier(0.23, 1, 0.32, 1)' }}>
                     <div style={{ position:'absolute',left:'-3px',top:'50%',transform:'translateY(-50%)',width:'3px',height:'48px',background:'#22d3ee',borderRadius:'3px 0 0 3px',boxShadow:'0 0 12px rgba(34,211,238,0.5)' }} />
 
                     {/* Header */}
@@ -14847,8 +14893,8 @@ return (
         )}
         {showDataPanel && (
             <>
-                <div onClick={()=>setShowDataPanel(false)} style={{ position:'fixed',top:'52px',left:0,right:'320px',bottom:0,background:'rgba(0,0,0,0.4)',zIndex:7999,animation:'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }} />
-                <div style={{ position:'fixed',top:'52px',right:0,bottom:0,width:'320px',background:'linear-gradient(180deg,rgba(15,30,60,0.95) 0%,rgba(10,20,40,0.97) 100%)',backdropFilter:'blur(8px)',borderLeft:'1px solid rgba(56,189,248,0.25)',boxShadow:'-8px 0 32px rgba(0,0,0,0.5), inset 1px 0 0 rgba(56,189,248,0.1)',zIndex:8000,overflowY:'auto',animation:'panelSlideIn 220ms cubic-bezier(0.23, 1, 0.32, 1)' }}>
+                <div onClick={()=>setShowDataPanel(false)} style={{ position:'fixed',top:'52px',left:0,right:'360px',bottom:0,background:'rgba(0,0,0,0.4)',zIndex:7999,animation:'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }} />
+                <div style={{ position:'fixed',top:'52px',right:0,bottom:0,width:'360px',background:'linear-gradient(180deg,rgba(15,30,60,0.95) 0%,rgba(10,20,40,0.97) 100%)',backdropFilter:'blur(8px)',borderLeft:'1px solid rgba(56,189,248,0.25)',boxShadow:'-8px 0 32px rgba(0,0,0,0.5), inset 1px 0 0 rgba(56,189,248,0.1)',zIndex:8000,overflowY:'auto',animation:'panelSlideIn 220ms cubic-bezier(0.23, 1, 0.32, 1)' }}>
                     <div style={{ position:'absolute',left:'-3px',top:'50%',transform:'translateY(-50%)',width:'3px',height:'48px',background:'#22d3ee',borderRadius:'3px 0 0 3px',boxShadow:'0 0 12px rgba(34,211,238,0.5)' }} />
                     <div style={{ padding:'14px 16px' }}>
                         <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px' }}>
@@ -14888,8 +14934,8 @@ return (
         )}
         {showOfficersPanel && (
             <>
-                <div onClick={()=>setShowOfficersPanel(false)} style={{ position:'fixed',top:'52px',left:0,right:'320px',bottom:0,background:'rgba(0,0,0,0.4)',zIndex:7999,animation:'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }} />
-                <div style={{ position:'fixed',top:'52px',right:0,bottom:0,width:'320px',background:'linear-gradient(180deg,rgba(15,30,60,0.95) 0%,rgba(10,20,40,0.97) 100%)',backdropFilter:'blur(8px)',borderLeft:'1px solid rgba(56,189,248,0.25)',boxShadow:'-8px 0 32px rgba(0,0,0,0.5), inset 1px 0 0 rgba(56,189,248,0.1)',zIndex:8000,animation:'panelSlideIn 220ms cubic-bezier(0.23, 1, 0.32, 1)' }}>
+                <div onClick={()=>setShowOfficersPanel(false)} style={{ position:'fixed',top:'52px',left:0,right:'360px',bottom:0,background:'rgba(0,0,0,0.4)',zIndex:7999,animation:'fadeIn 200ms cubic-bezier(0.23, 1, 0.32, 1)' }} />
+                <div style={{ position:'fixed',top:'52px',right:0,bottom:0,width:'360px',background:'linear-gradient(180deg,rgba(15,30,60,0.95) 0%,rgba(10,20,40,0.97) 100%)',backdropFilter:'blur(8px)',borderLeft:'1px solid rgba(56,189,248,0.25)',boxShadow:'-8px 0 32px rgba(0,0,0,0.5), inset 1px 0 0 rgba(56,189,248,0.1)',zIndex:8000,animation:'panelSlideIn 220ms cubic-bezier(0.23, 1, 0.32, 1)' }}>
                     <div style={{ position:'absolute',left:'-3px',top:'50%',transform:'translateY(-50%)',width:'3px',height:'48px',background:'#22d3ee',borderRadius:'3px 0 0 3px',boxShadow:'0 0 12px rgba(34,211,238,0.5)' }} />
                     <div style={{ display:'flex',flexDirection:'column',height:'100%' }}>
                         <div style={{ padding:'14px 16px',borderBottom:'1px solid rgba(56,189,248,0.1)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0,background:'rgba(15,30,60,0.4)' }}>
