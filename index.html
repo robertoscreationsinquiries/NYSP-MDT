@@ -3104,6 +3104,9 @@ const [isRecordingKeybind, setIsRecordingKeybind] = useState(false);
 const [showWelcomePopup, setShowWelcomePopup] = React.useState(false);
 const [soundsOutOfDate, setSoundsOutOfDate] = React.useState(false);
 const [privacyAgeConfirmed, setPrivacyAgeConfirmed] = React.useState(false);
+// Legal-consent gate: user must scroll the full policy before the accept box unlocks.
+const [legalScrolledToEnd, setLegalScrolledToEnd] = React.useState(false);
+const LEGAL_CONSENT_KEY = 'mdtLegalConsent_v1';
 const [hfAPIKey, setHfAPIKey] = useState('');
 const [groqConsoleAPIKey, setGroqConsoleAPIKey] = useState('');
 const [databaseSearchUsername, setDatabaseSearchUsername] = useState('');
@@ -13785,7 +13788,7 @@ return (
                         if (compactMode && window.require) {
                             try { window.require('electron').ipcRenderer.send('toggle-compact-mode', true); } catch(_) {}
                         }
-                        const alreadyAccepted = localStorage.getItem('mdtWelcomeAccepted');
+                        const alreadyAccepted = localStorage.getItem(LEGAL_CONSENT_KEY);
                         if (!alreadyAccepted) setShowWelcomePopup(true);
                         const loadedSoundCount = window.SOUNDS ? Object.keys(window.SOUNDS).length : 0;
                         if (loadedSoundCount < 13) setSoundsOutOfDate(true);
@@ -18488,218 +18491,231 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
 )}
 
 {showWelcomePopup && (
-    <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'linear-gradient(135deg, rgba(0,0,0,0.95) 0%, rgba(15,23,42,0.98) 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 100002,
-        backdropFilter: 'blur(10px)',
-        animation: 'fadeIn 0.4s ease-out'
-    }}>
-        {/* Glow effect */}
-        <div style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: '800px',
-            height: '800px',
-            background: 'radial-gradient(circle, rgba(59,130,246,0.2) 0%, transparent 70%)',
-            pointerEvents: 'none'
-        }}></div>
+    <div style={{ position:'fixed', inset:0, zIndex:100002, background:'rgba(2,4,10,0.94)', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', justifyContent:'center', padding:'24px', boxSizing:'border-box', animation:'fadeIn 0.35s ease-out' }}>
+        <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', width:'760px', height:'760px', background:'radial-gradient(circle, rgba(56,189,248,0.12) 0%, transparent 68%)', pointerEvents:'none' }} />
 
-        <div style={{
-            position: 'relative',
-            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)',
-            borderRadius: '16px',
-            padding: '28px 28px 24px',
-            maxWidth: '560px',
-            maxHeight: '88vh',
-            overflowY: 'auto',
-            width: '90%',
-            border: '2px solid rgba(59, 130, 246, 0.5)',
-            boxShadow: '0 25px 80px rgba(59, 130, 246, 0.4), 0 0 120px rgba(59, 130, 246, 0.2)',
-            animation: 'fadeInUp 0.5s ease-out',
-            textAlign: 'center'
-        }}>
-            {/* Shield Icon */}
-            <div style={{
-                width: '100px',
-                height: '100px',
-                background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-                borderRadius: '20px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 32px',
-                boxShadow: '0 10px 40px rgba(59, 130, 246, 0.6)',
-                animation: 'float 3s ease-in-out infinite'
-            }}>
-                <Shield size={32} style={{ color: 'white' }} />
-            </div>
-            
-            {/* Title */}
-            <h2 style={{ 
-                color: 'white', 
-                fontSize: '22px', 
-                marginBottom: '10px',
-                fontWeight: '800',
-                textTransform: 'uppercase',
-                letterSpacing: '2px',
-                textShadow: '0 0 30px rgba(59, 130, 246, 0.8)'
-            }}>
-                ORCR CAD SYSTEM
-            </h2>
+        <div style={{ position:'relative', width:'100%', maxWidth:'620px', maxHeight:'90vh', display:'flex', flexDirection:'column', background:'linear-gradient(180deg, rgba(13,20,38,0.98) 0%, rgba(8,13,26,0.99) 100%)', border:'1px solid rgba(56,189,248,0.3)', borderRadius:'18px', boxShadow:'0 30px 90px -20px rgba(0,0,0,0.8), 0 0 60px -20px rgba(56,189,248,0.35), inset 0 1px 0 rgba(56,189,248,0.1)', overflow:'hidden', animation:'fadeInUp 0.45s cubic-bezier(0.16,1,0.3,1)' }}>
 
-            <div style={{
-                display: 'inline-block',
-                background: 'rgba(251, 191, 36, 0.15)',
-                border: '2px solid rgba(251, 191, 36, 0.4)',
-                borderRadius: '8px',
-                padding: '8px 16px',
-                marginBottom: '16px'
-            }}>
-                <span style={{
-                    color: '#fde047',
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    letterSpacing: '2px',
-                    textTransform: 'uppercase'
-                }}>
-                    BETA • AUTHORIZED PERSONNEL ONLY
-                </span>
-            </div>
-            
-            {/* Terms Content */}
-            <div style={{
-                background: 'rgba(0, 0, 0, 0.3)',
-                borderRadius: '12px',
-                padding: '24px',
-                marginBottom: '32px',
-                border: '1px solid rgba(59, 130, 246, 0.2)',
-                textAlign: 'left'
-            }}>
-                <h3 style={{
-                    color: '#60a5fa',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    marginBottom: '10px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '1px'
-                }}>
-                    Terms of Use & Safety Notice
-                </h3>
-
-                <div style={{ color: '#bfdbfe', fontSize: '12px', lineHeight: '1.6' }}>
-                    <p style={{ marginBottom: '12px' }}>
-                        <strong style={{ color: '#ef4444' }}>⚠ CRITICAL SAFETY WARNING:</strong> Use of this application while operating a motor vehicle as it is in motion is <strong>STRONGLY DISCOURAGED</strong> and you may be found guilty under ORCR Law, §1915, Use of portable electronic devices.
-                    </p>
-
-                    <p style={{ marginBottom: '12px' }}>
-                        This is a <strong>BETA testing environment</strong> for authorized personnel only. By proceeding, you acknowledge and agree to the following:
-                    </p>
-
-                    <ul style={{ marginLeft: '20px', marginBottom: '12px' }}>
-                        <li style={{ marginBottom: '8px' }}>This application is the property of <strong>DaRealRobz</strong></li>
-                        <li style={{ marginBottom: '8px' }}>Unauthorized distribution or sharing is <strong>strictly forbidden</strong></li>
-                        <li style={{ marginBottom: '8px' }}>You will report bugs and issues encountered during use</li>
-                        <li style={{ marginBottom: '8px' }}>Misuse may result in <strong>immediate access revocation</strong></li>
-                    </ul>
-
-                    <p style={{ 
-                        marginTop: '16px',
-                        padding: '12px',
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        border: '1px solid rgba(239, 68, 68, 0.3)',
-                        borderRadius: '8px',
-                        color: '#fca5a5',
-                        fontSize: '13px'
-                    }}>
-                        <strong>DISCLAIMER:</strong> Use of this software is at your own risk. The developer assumes no liability for any violations, or consequences arising from its use.
-                    </p>
+            {/* Header */}
+            <div style={{ display:'flex', alignItems:'center', gap:'14px', padding:'20px 24px', borderBottom:'1px solid rgba(56,189,248,0.15)', background:'linear-gradient(135deg, rgba(30,58,138,0.25), rgba(15,30,60,0.1))', flexShrink:0 }}>
+                <div style={{ width:'46px', height:'46px', borderRadius:'12px', background:'linear-gradient(135deg,#1e40af,#0ea5e9)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, boxShadow:'0 6px 18px -4px rgba(14,165,233,0.5), inset 0 1px 0 rgba(255,255,255,0.2)' }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/><path d="M9 12l2 2 4-4"/></svg>
                 </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ color:'#f1f5f9', fontSize:'17px', fontWeight:'800', letterSpacing:'0.3px' }}>Before you continue</div>
+                    <div style={{ color:'#7dd3fc', fontSize:'11px', fontFamily:'monospace', letterSpacing:'0.3px', marginTop:'2px' }}>Please review our Privacy Policy &amp; License Agreement</div>
+                </div>
+            </div>
 
-                {/* Privacy & Data Notice */}
-                <div style={{ borderTop: '1px solid rgba(59,130,246,0.15)', marginTop: '16px', paddingTop: '16px' }}>
-                    <h3 style={{ color: '#60a5fa', fontSize: '13px', fontWeight: '700', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                        🔒 Privacy & Data Notice
-                    </h3>
-                    <div style={{ color: '#94a3b8', fontSize: '12px', lineHeight: '1.7', marginBottom: '12px' }}>
-                        This application stores the following data <strong style={{ color: '#bfdbfe' }}>locally on your device only</strong> - nothing is sent to third parties:
-                        <ul style={{ marginLeft: '16px', marginTop: '6px' }}>
-                            <li>Your login credentials (only if you choose to save them)</li>
-                            <li>Application settings and preferences</li>
-                            <li>Session history and shift logs</li>
-                        </ul>
-                        <p style={{ marginTop: '8px' }}>
-                            Your Discord token and Groq API key are read from <strong>CADSystemSettings.txt</strong> on your device and are never transmitted beyond the services they authenticate with (Discord and Groq). You may delete all locally stored data at any time via <strong>Settings → Clear Local Data</strong>.
-                        </p>
+            {/* Scroll hint bar */}
+            {!legalScrolledToEnd && (
+                <div style={{ display:'flex', alignItems:'center', gap:'8px', padding:'8px 24px', background:'rgba(245,158,11,0.08)', borderBottom:'1px solid rgba(245,158,11,0.2)', color:'#fcd34d', fontSize:'11px', fontFamily:'monospace', flexShrink:0 }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+                    Scroll to the bottom to continue
+                </div>
+            )}
+
+            {/* Scrollable legal content */}
+            <div
+                ref={(el) => { if (el && el.scrollHeight <= el.clientHeight + 40 && !legalScrolledToEnd) setLegalScrolledToEnd(true); }}
+                onScroll={(e) => {
+                    const el = e.currentTarget;
+                    if (el.scrollHeight - el.scrollTop - el.clientHeight < 40) setLegalScrolledToEnd(true);
+                }}
+                style={{ flex:1, overflowY:'auto', padding:'22px 24px', minHeight:0 }}>
+
+                {(() => {
+                    const H = ({ children }) => (<div style={{ color:'#7dd3fc', fontSize:'13px', fontWeight:'800', letterSpacing:'1px', textTransform:'uppercase', fontFamily:'monospace', margin:'22px 0 10px', paddingBottom:'7px', borderBottom:'1px solid rgba(56,189,248,0.15)' }}>{children}</div>);
+                    const Sub = ({ children }) => (<div style={{ color:'#e2e8f0', fontSize:'12.5px', fontWeight:'700', margin:'14px 0 6px' }}>{children}</div>);
+                    const P = ({ children }) => (<p style={{ color:'#94a3b8', fontSize:'12px', lineHeight:1.7, margin:'0 0 10px' }}>{children}</p>);
+                    const LI = ({ children }) => (<li style={{ color:'#94a3b8', fontSize:'12px', lineHeight:1.65, marginBottom:'5px' }}>{children}</li>);
+                    const UL = ({ children }) => (<ul style={{ margin:'0 0 10px', paddingLeft:'20px' }}>{children}</ul>);
+                    return (
+                    <div>
+                        <div style={{ color:'#64748b', fontSize:'11px', fontFamily:'monospace', lineHeight:1.6, marginBottom:'6px' }}>
+                            This document contains our Privacy Policy and End User License Agreement. By using the MDT application, you agree to both.
+                        </div>
+
+                        {/* ══ PRIVACY POLICY ══ */}
+                        <H>Privacy Policy</H>
+                        <P>This Privacy Policy explains how the MDT application (“Software”, “App,” “we,” “us,” or “our”) collects, uses, stores, and protects your information when you use the App. By using the App, you agree to the collection and use of information in accordance with this policy.</P>
+
+                        <Sub>1. Information We Collect</Sub>
+                        <P>We may collect the following types of information:</P>
+                        <UL>
+                            <LI><strong style={{ color:'#cbd5e1' }}>Account Information:</strong> Badge ID, department/division, username, display name, and other details you provide during registration.</LI>
+                            <LI><strong style={{ color:'#cbd5e1' }}>Usage Data:</strong> Information about how you use the App, including login times, features used, and session duration.</LI>
+                            <LI><strong style={{ color:'#cbd5e1' }}>Device &amp; Technical Data:</strong> Basic technical information such as IP address, device type, operating system and app version.</LI>
+                            <LI><strong style={{ color:'#cbd5e1' }}>Communications:</strong> Any messages or reports you send to us (for example, bug reports or support requests).</LI>
+                        </UL>
+                        <P>We only collect data that is necessary to operate and improve the App.</P>
+
+                        <Sub>2. How We Use Your Information</Sub>
+                        <P>We use the collected information to:</P>
+                        <UL>
+                            <LI>Create and manage your account.</LI>
+                            <LI>Authenticate users and prevent unauthorized access.</LI>
+                            <LI>Provide and maintain the App’s features.</LI>
+                            <LI>Improve performance, stability, and user experience.</LI>
+                            <LI>Respond to support requests and enforce our rules.</LI>
+                            <LI>Comply with legal obligations.</LI>
+                        </UL>
+
+                        <Sub>3. Data Storage &amp; Security</Sub>
+                        <UL>
+                            <LI>Data is stored securely on our backend with the help of a third-party service, “Cloudflare”.</LI>
+                            <LI>We take reasonable technical measures to protect your information.</LI>
+                            <LI>Despite our efforts, no method of transmission or storage is 100% secure. Use the App at your own risk.</LI>
+                        </UL>
+
+                        <Sub>4. Data Sharing</Sub>
+                        <P>We do not sell your personal information. We may share limited data only in these cases:</P>
+                        <UL>
+                            <LI>With service providers who help us operate the App (e.g. Cloudflare, Discord).</LI>
+                            <LI>When required by law or to protect our rights.</LI>
+                            <LI>With your explicit consent.</LI>
+                            <LI>During an investigation launched by a Core Contributor.</LI>
+                            <LI>During your initial registration, your data is stored on a spreadsheet which Core Contributors have access to.</LI>
+                        </UL>
+
+                        <Sub>5. Data Retention</Sub>
+                        <P>We keep your information only as long as necessary to provide the App and fulfill the purposes described in this policy, or as required by law. When data is no longer needed, we will delete or anonymize it.</P>
+
+                        <Sub>6. Your Rights</Sub>
+                        <P>Depending on your location, you may have the right to:</P>
+                        <UL>
+                            <LI>Access the personal data we hold about you.</LI>
+                            <LI>Request correction of inaccurate data.</LI>
+                            <LI>Request deletion of your data.</LI>
+                            <LI>Withdraw consent (where applicable).</LI>
+                            <LI>Object to certain processing.</LI>
+                        </UL>
+                        <P>To exercise these rights, contact us through the official support channels. We will respond within a reasonable time (generally within 30 days).</P>
+
+                        <Sub>7. Children’s Privacy</Sub>
+                        <P>The App is not intended for children under 13 years of age. We do not knowingly collect personal information from anyone under 13. If you believe a child under 13 has provided us with personal data, please contact us so we can delete it.</P>
+
+                        <Sub>8. Third-Party Services</Sub>
+                        <P>The App may interact with third-party services (such as Discord or hosting providers). These services have their own privacy policies. We recommend reviewing them.</P>
+
+                        <Sub>9. Changes to This Privacy Policy</Sub>
+                        <P>We may update this Privacy Policy from time to time. We will notify users of significant changes by posting the new policy and announcing it on our communications server. Continued use of the App after changes means you accept the updated policy.</P>
+
+                        <Sub>10. Contact</Sub>
+                        <P>For questions regarding this Privacy Policy, please contact the Developer through the designated support channels in the “MDT Dev &amp; Feedback Server”.</P>
+
+                        {/* ══ EULA ══ */}
+                        <H>End User License Agreement</H>
+                        <P>This End User License Agreement (“Agreement”) is a legal agreement between you (“User”, “you”, or “your”) and the developer of the MDT application (“Developer”, “we”, “us,” or “our”). By downloading, installing, accessing or using the MDT application (“Software” or “App”), you agree to be bound by the terms of this Agreement. If you do not agree to these terms, do not install or use the Software.</P>
+
+                        <Sub>License Grant</Sub>
+                        <P>Subject to your continuous compliance with this Agreement, the Developer grants you a limited, non-exclusive, non-transferable, revocable license to download, install, and use the Software solely for personal, non-commercial roleplay purposes within authorized communities and servers.</P>
+
+                        <Sub>License Restrictions</Sub>
+                        <P>You may not:</P>
+                        <UL>
+                            <LI>Copy, modify, adapt, translate, reverse engineer, decompile, disassemble, or create derivative works of the Software.</LI>
+                            <LI>Distribute, sublicense, rent, lease, lend, sell or otherwise transfer the Software to any third party.</LI>
+                            <LI>Remove, alter, or obscure any proprietary notices, labels, or marks on the Software.</LI>
+                            <LI>Use the Software for any unlawful purpose or in violation of any applicable laws or community rules.</LI>
+                            <LI>Attempt to gain unauthorized access to the Software’s backend systems, servers, or other users’ accounts.</LI>
+                            <LI>Share your login credentials or allow any other person to use your account.</LI>
+                            <LI>Use the Software to harass, threaten, or harm others.</LI>
+                            <LI>Circumvent any technical limitations or security measures in the Software.</LI>
+                        </UL>
+
+                        <Sub>Account and Access</Sub>
+                        <UL>
+                            <LI>Access to the Software may require registration and approval by the Developer.</LI>
+                            <LI>You are solely responsible for maintaining the confidentiality of your account credentials.</LI>
+                            <LI>You are fully responsible for all activity that occurs under your account.</LI>
+                            <LI>The Developer reserves the right to suspend, restrict, or terminate your access at any time, with or without notice, for any reason, including violation of this Agreement.</LI>
+                        </UL>
+
+                        <Sub>Data Collection and Privacy</Sub>
+                        <P>By using the Software, you acknowledge and agree that certain information (including but not limited to Badge ID, department, username, usage data, and device information) may be collected and stored to provide authentication, functionality, and improvements to the Software. You consent to the collection, storage, and processing of this data as described in the Privacy Policy. You may request deletion of your personal data in accordance with applicable data protection laws. A copy of your stored data will be provided within thirty (30) days, and under special circumstances may exceed thirty (30) days. The Developer will make reasonable efforts to protect your data but cannot guarantee absolute security. Any Core Contributor may start an investigation on you, the User, if we believe you violate the MDT’s Rules &amp; Policies or your department’s policies.</P>
+
+                        <Sub>Intellectual Property</Sub>
+                        <P>All rights, title, and interest in and to the Software, including all intellectual property rights, remain the exclusive property of the Developer. This Agreement does not grant you any rights to trademarks, service marks, or logos associated with the Software.</P>
+
+                        <Sub>Disclaimer of Warranties</Sub>
+                        <P>THE SOFTWARE IS PROVIDED “AS IS” AND “AS AVAILABLE”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE DEVELOPER DISCLAIMS ALL WARRANTIES, INCLUDING BUT NOT LIMITED TO MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, AND ACCURACY, RELIABILITY, OR AVAILABILITY OF THE SOFTWARE. The Developer does not warrant that the Software will be uninterrupted, error-free, secure, or free of viruses or other harmful components.</P>
+
+                        <Sub>Limitation of Liability</Sub>
+                        <P>TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE DEVELOPER BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS, DATA, USE, OR GOODWILL, ARISING OUT OF OR RELATED TO YOUR USE OF THE SOFTWARE, WHETHER BASED ON WARRANTY, CONTRACT, TORT, OR ANY OTHER LEGAL THEORY. THE DEVELOPER’S TOTAL LIABILITY FOR ANY CLAIMS ARISING OUT OF THIS AGREEMENT SHALL NOT EXCEED THE AMOUNT YOU PAID (IF ANY) FOR THE SOFTWARE, OR TEN (10) USD, WHICHEVER IS GREATER.</P>
+
+                        <Sub>User Responsibilities</Sub>
+                        <P>You agree that you will use the Software only in accordance with this Agreement and all applicable laws and community rules; that you are solely responsible for any consequences arising from your use of the Software within roleplay environments; that the Software is a tool only and does not replace proper judgement, training, or adherence to server rules; and that you will not hold the Developer responsible for any roleplay outcomes, disciplinary actions, or disputes arising from your use of the Software.</P>
+
+                        <Sub>Updates and Modifications</Sub>
+                        <P>The Developer may, at any time and without notice, release updates, patches, or new versions of the Software (which may require the installation of new files for continued support); modify, suspend, or discontinue any features; and change the terms of this Agreement. Continued use of the Software after any update constitutes acceptance of the revised terms.</P>
+
+                        <Sub>Termination</Sub>
+                        <P>This Agreement is effective until terminated. Your rights under this Agreement will terminate automatically without notice if you fail to comply with any term. Upon termination, you must cease all use of the Software and destroy all copies in your possession. The Developer reserves the right to terminate or suspend access to the Software at any time, for any reason, without liability.</P>
+
+                        <Sub>Third-Party Services</Sub>
+                        <P>The Software may interact with or rely on third-party services (including but not limited to Discord, cloud hosting providers, and AI services). Your use of such services is subject to their respective terms and privacy policies. The Developer is not responsible for any third-party services.</P>
+
+                        <Sub>Indemnification</Sub>
+                        <P>You agree to indemnify, defend, and hold harmless the Developer from and against any claims, damages, losses, liabilities, costs, and expenses (including reasonable attorneys’ fees) arising out of or related to your use of the Software or violation of this Agreement.</P>
+
+                        <Sub>Governing Law</Sub>
+                        <P>This Agreement shall be governed by and construed in accordance with the laws of the jurisdiction in which the Developer resides, without regard to its conflict of law principles. Any disputes arising under this Agreement shall be resolved exclusively in the courts of that jurisdiction.</P>
+
+                        <Sub>Severability</Sub>
+                        <P>If any provision of this Agreement is found to be unenforceable or invalid, that provision shall be limited or eliminated to the minimum extent necessary so that this Agreement shall otherwise remain in full force and effect.</P>
+
+                        <Sub>Entire Agreement</Sub>
+                        <P>This Agreement, together with the Privacy Policy and any other policies referenced herein, constitutes the entire agreement between you and the Developer regarding the Software and supersedes all prior agreements and understandings.</P>
+
+                        {/* ══ RULES & POLICIES LINK ══ */}
+                        <H>Rules &amp; Policies</H>
+                        <P>You are required to follow the MDT Rules &amp; Policies referenced by the Privacy Policy and EULA above. You can review the full policies document here:</P>
+                        <a href="https://docs.google.com/document/d/1D4FewdNm7n9pgXSld3aPb1fEzFtg4VJKwGtjehI8LOY/edit?usp=sharing" target="_blank" rel="noreferrer"
+                            style={{ display:'inline-flex', alignItems:'center', gap:'8px', padding:'10px 14px', background:'rgba(56,189,248,0.1)', border:'1px solid rgba(56,189,248,0.3)', borderRadius:'9px', color:'#7dd3fc', fontSize:'12px', fontWeight:'700', textDecoration:'none', fontFamily:'monospace', marginBottom:'8px' }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6M10 14L21 3"/></svg>
+                            Open MDT Rules &amp; Policies
+                        </a>
+
+                        <div style={{ marginTop:'18px', padding:'12px 14px', background:'rgba(52,211,153,0.06)', border:'1px solid rgba(52,211,153,0.2)', borderRadius:'9px', color:'#6ee7b7', fontSize:'11px', fontFamily:'monospace', textAlign:'center', letterSpacing:'0.5px' }}>
+                            — You have reached the end of the document —
+                        </div>
                     </div>
-                    {/* COPPA age gate */}
-                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer', padding: '10px', background: 'rgba(59,130,246,0.05)', border: `1px solid ${privacyAgeConfirmed ? 'rgba(59,130,246,0.4)' : 'rgba(59,130,246,0.15)'}`, borderRadius: '8px', transition: 'all 0.2s' }}>
-                        <input
-                            type="checkbox"
-                            checked={privacyAgeConfirmed}
-                            onChange={e => setPrivacyAgeConfirmed(e.target.checked)}
-                            style={{ marginTop: '2px', flexShrink: 0, accentColor: '#3b82f6', width: '14px', height: '14px' }}
-                        />
-                        <span style={{ color: '#bfdbfe', fontSize: '12px', lineHeight: '1.6' }}>
-                            I confirm that I am <strong>13 years of age or older</strong>, and I have read and understood the privacy notice above. I consent to the local storage of the data described.
-                        </span>
-                    </label>
-                </div>
+                    );
+                })()}
             </div>
-            
-            {/* Accept Button */}
-            <button
-                onClick={() => {
-                    if (!privacyAgeConfirmed) return;
-                    setShowWelcomePopup(false);
-                    localStorage.setItem('mdtWelcomeAccepted', 'true');
-                    localStorage.setItem('mdtPrivacyAccepted', 'true');
-                }}
-                disabled={!privacyAgeConfirmed}
-                style={{
-                    width: '100%',
-                    padding: '16px 48px',
-                    background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '12px',
-                    fontSize: '16px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    textTransform: 'uppercase',
-                    letterSpacing: '1.5px',
-                    boxShadow: '0 8px 24px rgba(59, 130, 246, 0.5)',
-                    transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 12px 32px rgba(59, 130, 246, 0.7)';
-                }}
-                onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(59, 130, 246, 0.5)';
-                }}
-            >
-                I Accept • Enter Application
-            </button>
 
-            <p style={{ 
-                color: '#64748b', 
-                fontSize: '11px',
-                marginTop: '16px',
-                fontStyle: 'italic'
-            }}>
-                Version BETA • Licensed under GNU GPL • © 2025 DaRealRobz
-            </p>
+            {/* Footer: consent + accept */}
+            <div style={{ padding:'16px 24px 20px', borderTop:'1px solid rgba(56,189,248,0.15)', background:'linear-gradient(180deg, rgba(8,13,26,0.4), rgba(13,20,38,0.7))', flexShrink:0 }}>
+                <label style={{ display:'flex', alignItems:'flex-start', gap:'11px', cursor: legalScrolledToEnd ? 'pointer' : 'not-allowed', padding:'11px 13px', background: privacyAgeConfirmed ? 'rgba(52,211,153,0.08)' : 'rgba(255,255,255,0.02)', border:`1px solid ${privacyAgeConfirmed ? 'rgba(52,211,153,0.35)' : legalScrolledToEnd ? 'rgba(56,189,248,0.25)' : 'rgba(255,255,255,0.06)'}`, borderRadius:'10px', marginBottom:'13px', opacity: legalScrolledToEnd ? 1 : 0.5, transition:'all 160ms ease-out' }}>
+                    <input type="checkbox" checked={privacyAgeConfirmed} disabled={!legalScrolledToEnd}
+                        onChange={e => setPrivacyAgeConfirmed(e.target.checked)}
+                        style={{ marginTop:'2px', flexShrink:0, accentColor:'#34d399', width:'15px', height:'15px', cursor: legalScrolledToEnd ? 'pointer' : 'not-allowed' }} />
+                    <span style={{ color: legalScrolledToEnd ? '#cbd5e1' : '#64748b', fontSize:'12px', lineHeight:1.6 }}>
+                        I confirm that I am <strong style={{ color: legalScrolledToEnd ? '#e2e8f0' : '#64748b' }}>13 years of age or older</strong>, and that I have read, understood, and agree to the <strong style={{ color: legalScrolledToEnd ? '#e2e8f0' : '#64748b' }}>Privacy Policy</strong> and <strong style={{ color: legalScrolledToEnd ? '#e2e8f0' : '#64748b' }}>End User License Agreement</strong> above. I consent to the collection and storage of the data described.
+                    </span>
+                </label>
+
+                <button
+                    onClick={() => {
+                        if (!privacyAgeConfirmed || !legalScrolledToEnd) return;
+                        setShowWelcomePopup(false);
+                        localStorage.setItem(LEGAL_CONSENT_KEY, 'true');
+                        localStorage.setItem('mdtPrivacyAccepted', 'true');
+                    }}
+                    disabled={!privacyAgeConfirmed || !legalScrolledToEnd}
+                    style={{ width:'100%', padding:'14px', background: (privacyAgeConfirmed && legalScrolledToEnd) ? 'linear-gradient(135deg,#0ea5e9,#2563eb)' : 'rgba(255,255,255,0.04)', color:(privacyAgeConfirmed && legalScrolledToEnd) ? '#fff' : '#475569', border:'none', borderRadius:'11px', fontSize:'14px', fontWeight:'800', cursor:(privacyAgeConfirmed && legalScrolledToEnd) ? 'pointer':'not-allowed', textTransform:'uppercase', letterSpacing:'1.5px', fontFamily:'monospace', boxShadow:(privacyAgeConfirmed && legalScrolledToEnd) ? '0 8px 24px -6px rgba(14,165,233,0.6)':'none', transition:'all 160ms ease-out', display:'flex', alignItems:'center', justifyContent:'center', gap:'9px' }}
+                    onMouseEnter={e => { if (privacyAgeConfirmed && legalScrolledToEnd) { e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.filter='brightness(1.1)'; } }}
+                    onMouseLeave={e => { e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.filter=''; }}>
+                    {!legalScrolledToEnd ? (<><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg> Scroll to review first</>)
+                     : !privacyAgeConfirmed ? 'Check the box to continue'
+                     : (<><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg> I Accept — Enter Application</>)}
+                </button>
+
+                <p style={{ color:'#475569', fontSize:'10px', marginTop:'11px', textAlign:'center', fontFamily:'monospace' }}>
+                    Version BETA • © 2025 DaRealRobz • Declining means you may not use the Software
+                </p>
+            </div>
         </div>
     </div>
 )}
