@@ -2415,14 +2415,24 @@ const [chatTab, setChatTab] = useState('officers'); // 'officers' | 'chat'
 const [citizenNotFound, setCitizenNotFound] = useState(false);
 const [citizenNotFoundQuery, setCitizenNotFoundQuery] = useState('');
 const [onlineOfficers, setOnlineOfficers] = useState([]);
+// Keep a ref mirror of the officer list so the TS poll can read the latest value
+// synchronously (for the anti-flicker guard) without re-subscribing the effect.
+const onlineOfficersRefSync = React.useRef([]);
+React.useEffect(() => { onlineOfficersRefSync.current = onlineOfficers; }, [onlineOfficers]);
 const [officerStatus, setOfficerStatus] = useState('10-9');
 const [officerLastUpdated, setOfficerLastUpdated] = useState(null);
 const [officerNextUpdate, setOfficerNextUpdate] = useState(null);
 const [teamspeakAPIKey, setTeamspeakAPIKey] = useState(() => localStorage.getItem('teamspeakAPIKey') || '');
+// Persist the TeamSpeak key on every change — without this, typing the key into the
+// settings input only updated React state and was lost on reload (unlike Spotify,
+// which already had this effect). This is why testers' TS keys "didn't save".
+React.useEffect(() => { try { localStorage.setItem('teamspeakAPIKey', teamspeakAPIKey || ''); } catch (_) {} }, [teamspeakAPIKey]);
 const [tsStatus, setTsStatus] = useState('IDLE'); // 'IDLE' | 'INVALID_KEY' | 'NO_SESSION' | 'OK' | 'ERROR'
 const [tsLastUpdate, setTsLastUpdate] = useState(null);
 const tsLastUpdateRef = React.useRef(null);
 React.useEffect(() => { tsLastUpdateRef.current = tsLastUpdate; }, [tsLastUpdate]);
+// Anti-flicker: count consecutive empty snapshots so a momentary empty doesn't clear the list.
+const tsEmptyStreakRef = React.useRef(0);
 const [tsErrorDetail, setTsErrorDetail] = useState('');
 const [showTsSetupGuide, setShowTsSetupGuide] = useState(false);
 
@@ -2846,6 +2856,17 @@ const [showNotesPanel, setShowNotesPanel] = useState(false);
 // user. `timerRemaining` = seconds left (display). `timerRunning`/`timerPaused` drive UI.
 // When it hits 0 we loop TIMER_SIDEPANEL until the user dismisses (timerFinished).
 const [showTimerPanel, setShowTimerPanel] = useState(false);
+// Closes every slide-in side panel at once. Every panel toggle calls this first,
+// then opens the one it wants — guaranteeing consistent mutual exclusion (previously
+// the Timer panel was omitted from several close-lists, so it overlapped the others).
+const closeAllPanels = React.useCallback(() => {
+    setShowHistoryPanel(false);
+    setShowDataPanel(false);
+    setShowOfficersPanel(false);
+    setShowNotesPanel(false);
+    setShowTimerPanel(false);
+    setShowSpotifyPanel(false);
+}, []);
 const [timerDuration, setTimerDuration] = useState(300);   // default 5:00
 const [timerRemaining, setTimerRemaining] = useState(300);
 const [timerRunning, setTimerRunning] = useState(false);
@@ -3543,15 +3564,18 @@ const dismissTimerAlarm = () => {
     timerRemainingRef.current = timerDuration;
 };
 const addTimerSeconds = (secs) => {
-    // Adding time works whether idle or running.
+    // Adding OR subtracting time works whether idle or running. Never drop below 0.
     if (timerRunning) {
-        timerEndAtRef.current = (timerEndAtRef.current || Date.now()) + secs * 1000;
+        const base = timerEndAtRef.current || Date.now();
+        const proposed = base + secs * 1000;
+        // Clamp so the timer can't be pushed before "now".
+        timerEndAtRef.current = Math.max(Date.now(), proposed);
         const rem = Math.max(0, Math.round((timerEndAtRef.current - Date.now()) / 1000));
         setTimerRemaining(rem); timerRemainingRef.current = rem;
-        setTimerDuration(d => d + secs);
+        setTimerDuration(d => Math.max(0, d + secs));
     } else {
         setTimerFinished(false); stopTimerFinishLoop();
-        setTimerDuration(d => { const nd = d + secs; setTimerRemaining(nd); timerRemainingRef.current = nd; return nd; });
+        setTimerDuration(d => { const nd = Math.max(0, d + secs); setTimerRemaining(nd); timerRemainingRef.current = nd; return nd; });
     }
 };
 React.useEffect(() => {
@@ -5503,12 +5527,33 @@ React.useEffect(() => {
                     inSession: o.inSession,
                     isMe: o.isMe
                 }));
-                setOnlineOfficers(adapted);
-                setTsStatus('OK');
-                setTsErrorDetail('');
-                setTsLastUpdate(new Date());
-                setOfficerLastUpdated(new Date());
-                setOfficerNextUpdate(new Date(Date.now() + 5000));
+                // ── Anti-flicker guard ──
+                // TS ClientQuery occasionally returns a momentarily EMPTY (or collapsed)
+                // snapshot even on a successful query — the units vanish for one poll then
+                // come back. To stop the "all units → none for 2s → back" flash, we ignore
+                // a suddenly-empty result if we had units very recently, and require empties
+                // to persist for 2 consecutive polls before we actually clear the list.
+                const prevCount = onlineOfficersRefSync.current?.length || 0;
+                const lastOk = tsLastUpdateRef.current;
+                const sinceOkMs = lastOk ? (Date.now() - lastOk.getTime()) : Infinity;
+                const suspiciousEmpty = adapted.length === 0 && prevCount > 0 && sinceOkMs < 15000;
+
+                if (suspiciousEmpty && tsEmptyStreakRef.current < 2) {
+                    // Skip this empty result — keep showing the last known officers.
+                    tsEmptyStreakRef.current += 1;
+                    setTsStatus('OK');
+                    setTsErrorDetail('');
+                    // NOTE: we deliberately do NOT update onlineOfficers or tsLastUpdate here,
+                    // so the previous list stays and the staleness clock keeps running.
+                } else {
+                    tsEmptyStreakRef.current = 0;
+                    setOnlineOfficers(adapted);
+                    setTsStatus('OK');
+                    setTsErrorDetail('');
+                    setTsLastUpdate(new Date());
+                    setOfficerLastUpdated(new Date());
+                    setOfficerNextUpdate(new Date(Date.now() + 5000));
+                }
             } else {
                 // Don't immediately clear officers on a transient error — only clear
                 // if the LAST successful poll is older than 12 seconds. Otherwise the
@@ -14380,13 +14425,13 @@ return (
                                     return;
                                 }
                                 if(isHomeDash){navTo('home', ()=>setHomeSubView('dashboard'));}
-                                else if(item.mapKey){navTo('home', ()=>{setHomeSubView(v=>v==='map'?'dashboard':'map');setShowDataPanel(false);setShowOfficersPanel(false);setShowHistoryPanel(false);setShowNotesPanel(false);});}
-                                else if(item.k==='hist'){setShowHistoryPanel(p=>!p);setShowDataPanel(false);setShowOfficersPanel(false);setShowSpotifyPanel(false);setShowNotesPanel(false);}
-                                else if(item.k==='data'){setShowDataPanel(p=>!p);setShowOfficersPanel(false);setShowHistoryPanel(false);setShowSpotifyPanel(false);setShowNotesPanel(false);}
-                                else if(item.k==='officers'){setShowOfficersPanel(p=>!p);setShowDataPanel(false);setShowHistoryPanel(false);setShowSpotifyPanel(false);setShowNotesPanel(false);}
-                                else if(item.k==='notes'){setShowNotesPanel(p=>!p);setShowOfficersPanel(false);setShowDataPanel(false);setShowHistoryPanel(false);setShowSpotifyPanel(false);setShowTimerPanel(false);}
-                                else if(item.k==='timer'){setShowTimerPanel(p=>!p);setShowNotesPanel(false);setShowOfficersPanel(false);setShowDataPanel(false);setShowHistoryPanel(false);setShowSpotifyPanel(false);}
-                                else if(item.k==='spotify'){setShowSpotifyPanel(p=>!p);setShowOfficersPanel(false);setShowDataPanel(false);setShowHistoryPanel(false);setShowNotesPanel(false);}
+                                else if(item.mapKey){navTo('home', ()=>{setHomeSubView(v=>v==='map'?'dashboard':'map');setShowDataPanel(false);setShowOfficersPanel(false);setShowHistoryPanel(false);setShowNotesPanel(false);setShowTimerPanel(false);setShowSpotifyPanel(false);});}
+                                else if(item.k==='hist'){const n=!showHistoryPanel;closeAllPanels();setShowHistoryPanel(n);}
+                                else if(item.k==='data'){const n=!showDataPanel;closeAllPanels();setShowDataPanel(n);}
+                                else if(item.k==='officers'){const n=!showOfficersPanel;closeAllPanels();setShowOfficersPanel(n);}
+                                else if(item.k==='notes'){const n=!showNotesPanel;closeAllPanels();setShowNotesPanel(n);}
+                                else if(item.k==='timer'){const n=!showTimerPanel;closeAllPanels();setShowTimerPanel(n);}
+                                else if(item.k==='spotify'){const n=!showSpotifyPanel;closeAllPanels();setShowSpotifyPanel(n);}
                                 else{navTo(item.k, ()=>{ if(item.k==='calls')setCallButtonFlash(false); });}
                             }}
                             style={baseStyle}
@@ -14707,20 +14752,45 @@ return (
                             </button>
                         )}
 
-                        {/* Preset add buttons */}
+                        {/* Adjust time — add and subtract */}
                         {!timerFinished && (
                             <div style={{ width:'100%' }}>
-                                <div style={{ color:'#5b7299',fontSize:'9px',fontWeight:'800',letterSpacing:'2px',fontFamily:'monospace',textTransform:'uppercase',marginBottom:'9px',textAlign:'center' }}>Add Time</div>
-                                <div style={{ display:'grid',gridTemplateColumns:'repeat(3, 1fr)',gap:'8px' }}>
-                                    {PRESETS.map(secs => (
-                                        <button key={secs} onClick={()=>addTimerSeconds(secs)}
-                                            style={{ padding:'10px 0',borderRadius:'9px',background:'rgba(56,189,248,0.08)',border:'1px solid rgba(56,189,248,0.22)',color:'#7dd3fc',fontSize:'12px',fontWeight:'800',fontFamily:'monospace',cursor:'pointer',transition:'background 140ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
-                                            onMouseEnter={e=>e.currentTarget.style.background='rgba(56,189,248,0.2)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(56,189,248,0.08)'}
-                                            onMouseDown={e=>e.currentTarget.style.transform='scale(0.94)'} onMouseUp={e=>e.currentTarget.style.transform='scale(1)'}>
-                                            +{secs}s
-                                        </button>
-                                    ))}
-                                </div>
+                                {(() => {
+                                    const fmtLabel = (s) => s % 60 === 0 ? `${s/60}m` : (s < 60 ? `${s}s` : `${Math.floor(s/60)}m${s%60}s`);
+                                    const ADJ = [30, 60, 300]; // 30s, 1m, 5m
+                                    return (
+                                    <>
+                                        <div style={{ display:'flex',alignItems:'center',gap:'7px',marginBottom:'9px' }}>
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                                            <span style={{ color:'#5b7299',fontSize:'9px',fontWeight:'800',letterSpacing:'2px',fontFamily:'monospace',textTransform:'uppercase' }}>Add Time</span>
+                                        </div>
+                                        <div style={{ display:'grid',gridTemplateColumns:'repeat(3, 1fr)',gap:'8px',marginBottom:'10px' }}>
+                                            {ADJ.map(secs => (
+                                                <button key={'add'+secs} onClick={()=>addTimerSeconds(secs)}
+                                                    style={{ padding:'10px 0',borderRadius:'9px',background:'rgba(52,211,153,0.08)',border:'1px solid rgba(52,211,153,0.25)',color:'#6ee7b7',fontSize:'13px',fontWeight:'800',fontFamily:'monospace',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'4px',transition:'background 140ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                                                    onMouseEnter={e=>e.currentTarget.style.background='rgba(52,211,153,0.2)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(52,211,153,0.08)'}
+                                                    onMouseDown={e=>e.currentTarget.style.transform='scale(0.94)'} onMouseUp={e=>e.currentTarget.style.transform='scale(1)'}>
+                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>{fmtLabel(secs)}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div style={{ display:'flex',alignItems:'center',gap:'7px',marginBottom:'9px' }}>
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fca5a5" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/></svg>
+                                            <span style={{ color:'#5b7299',fontSize:'9px',fontWeight:'800',letterSpacing:'2px',fontFamily:'monospace',textTransform:'uppercase' }}>Subtract Time</span>
+                                        </div>
+                                        <div style={{ display:'grid',gridTemplateColumns:'repeat(3, 1fr)',gap:'8px' }}>
+                                            {ADJ.map(secs => (
+                                                <button key={'sub'+secs} onClick={()=>addTimerSeconds(-secs)}
+                                                    style={{ padding:'10px 0',borderRadius:'9px',background:'rgba(239,68,68,0.07)',border:'1px solid rgba(239,68,68,0.22)',color:'#fca5a5',fontSize:'13px',fontWeight:'800',fontFamily:'monospace',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'4px',transition:'background 140ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                                                    onMouseEnter={e=>e.currentTarget.style.background='rgba(239,68,68,0.18)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(239,68,68,0.07)'}
+                                                    onMouseDown={e=>e.currentTarget.style.transform='scale(0.94)'} onMouseUp={e=>e.currentTarget.style.transform='scale(1)'}>
+                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/></svg>{fmtLabel(secs)}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </>
+                                    );
+                                })()}
                             </div>
                         )}
 
