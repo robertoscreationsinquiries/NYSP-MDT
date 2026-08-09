@@ -3787,14 +3787,15 @@ React.useEffect(() => { connectionCountdownRef.current = connectionCountdown; },
 React.useEffect(() => { connectionLostRef.current = connectionLost; }, [connectionLost]);
 
 // ── Brand intro sequencer ──
-// black hold (so the user can tab in) → reveal → hold → exit → done.
+// 2s pre-roll (black, lets the window settle) → reveal → hold → exit → done.
 React.useEffect(() => {
     if (introDone) return;
     const timers = [];
-    timers.push(setTimeout(() => setIntroPhase('reveal'), 900));   // black hold ~0.9s
-    timers.push(setTimeout(() => setIntroPhase('hold'), 2400));    // logo settled
-    timers.push(setTimeout(() => setIntroPhase('exit'), 4600));    // begin exit
-    timers.push(setTimeout(() => setIntroDone(true), 5500));       // ~5.5s total, then unlock
+    const START = 2000; // wait 2s before the intro begins playing
+    timers.push(setTimeout(() => setIntroPhase('reveal'), START + 900));   // black hold ~0.9s after pre-roll
+    timers.push(setTimeout(() => setIntroPhase('hold'), START + 2400));    // logo settled
+    timers.push(setTimeout(() => setIntroPhase('exit'), START + 4600));    // begin exit
+    timers.push(setTimeout(() => setIntroDone(true), START + 5500));       // then unlock
     return () => timers.forEach(clearTimeout);
 }, []);
 
@@ -17042,17 +17043,19 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                             transition: 'border-color 200ms ease-out, transform 200ms cubic-bezier(0.23,1,0.32,1)',
                             className: 'settings-card',
                         }),
-                        // Section heading matches Plates "Plate Lookup" label — accent bar + monospace caps
+                        // Section heading — larger caps title with a divider under it and accent-driven emoji.
                         sectionHead: (color) => ({
-                            color: '#e2e8f0',
-                            fontSize: '13px',
-                            fontWeight: '700',
+                            color: '#f1f5f9',
+                            fontSize: '14px',
+                            fontWeight: '800',
                             letterSpacing: '1.5px',
                             textTransform: 'uppercase',
-                            marginBottom: '4px',
+                            marginBottom: '14px',
+                            paddingBottom: '12px',
+                            borderBottom: `1px solid ${color}22`,
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '10px',
+                            gap: '11px',
                             fontFamily: 'monospace'
                         }),
                         sectionHeadBar: (color) => ({
@@ -17163,7 +17166,39 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                             fontFamily: 'inherit',
                             boxShadow: disabled ? 'none' : `inset 0 1px 0 ${color}15`,
                         }),
+                        // Small "restart required" pill — placed inline next to a setting's label.
+                        restartPill: {
+                            display: 'inline-flex', alignItems: 'center', gap: '4px',
+                            padding: '2px 7px', marginLeft: '8px',
+                            background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)',
+                            borderRadius: '999px', color: '#fbbf24',
+                            fontSize: '8.5px', fontWeight: '800', letterSpacing: '0.8px',
+                            textTransform: 'uppercase', fontFamily: 'monospace', whiteSpace: 'nowrap',
+                            verticalAlign: 'middle'
+                        },
+                        // Section-level restart banner — placed at the top of a section that has restart-gated settings.
+                        restartBanner: {
+                            display: 'flex', alignItems: 'center', gap: '10px',
+                            padding: '10px 14px', marginBottom: '14px',
+                            background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.25)',
+                            borderRadius: '9px', color: '#fcd34d', fontSize: '11px', lineHeight: 1.5,
+                            fontFamily: 'monospace'
+                        },
                     };
+                    // Small reusable "restart required" pill element.
+                    const RestartPill = () => (
+                        <span style={S.restartPill} title="Requires an app restart to take effect">
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+                            Restart
+                        </span>
+                    );
+                    // Section restart banner element.
+                    const RestartBanner = ({ text }) => (
+                        <div style={S.restartBanner}>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+                            <span>{text || 'Some settings here require restarting the app to take effect.'}</span>
+                        </div>
+                    );
 
                          // Wrap helper outputs so CSS can target them via attribute selectors.
                     // This means we don't have to edit hundreds of inline element usages.
@@ -17354,6 +17389,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                             {activeT && activeT.id === 'auth' && (<>
                             <div className="settings-section-card" style={S.section('#ef4444', 'rgba(239,68,68,0.06)')}>
                                 <div style={S.sectionHead('#f87171')}>🔒 Authentication</div>
+                                <RestartBanner text="Token and API key changes take effect after saving and restarting the app." />
                                 <div style={S.sectionSub}>Credentials and account access</div>
 
                                 <div style={{ marginBottom: '12px' }}>
@@ -17519,6 +17555,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                             {activeT && activeT.id === 'appearance' && (<>
                             <div className="settings-section-card" style={S.section('#8b5cf6', 'rgba(139,92,246,0.06)')}>
                                 <div style={S.sectionHead('#a78bfa')}>🎨 Appearance</div>
+                                <RestartBanner text="Mini Mode, dyslexia font, and sidebar layout changes fully apply after an app restart." />
                                 <div style={S.sectionSub}>Display and visual preferences</div>
                                 <ToggleRow label="Normal Font" desc="Disables the MDT-style monospace font" on={dyslexiaFont} accent="#8b5cf6" onToggle={() => { const v = !dyslexiaFont; setDyslexiaFont(v); v ? document.body.classList.add('dyslexia-font') : document.body.classList.remove('dyslexia-font'); }} />
                                 <ToggleRow label="Visual Feedback Effects" desc="Pulse animations, shake effects, glowing borders" on={visualEffects} accent="#8b5cf6" onToggle={() => setVisualEffects(!visualEffects)} />
@@ -17847,6 +17884,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                             {activeT && activeT.id === 'data' && (<>
                             <div className="settings-section-card" style={S.section('#10b981')}>
                                 <div style={S.sectionHead('#6ee7b7')}>🗄️ Data Sources</div>
+                                <RestartBanner text="Channel, guild, and database changes take effect after saving and restarting the app." />
                                 <div style={S.sectionSub}>Discord channel IDs used as the citizen and vehicle database</div>
                                 {editableTrooperSettings && [
                                     { label: 'Registration Channel ID', key: 'RegistrationChannelID' },
@@ -17946,6 +17984,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                             {activeT && activeT.id === 'developer' && (<>
                             <div className="settings-section-card" style={S.section('#f59e0b', 'rgba(245,158,11,0.06)')}>
                                 <div style={S.sectionHead('#fcd34d')}>🛠️ Developer Tools</div>
+                                <RestartBanner text="Developer console and debug toggles require an app restart to load." />
                                 <div style={S.sectionSub}>Diagnostic and troubleshooting utilities</div>
                                 <div style={{ display: 'grid', gap: '8px' }}>
                                     <button onClick={() => setActiveView('debug')} style={S.btn('#22d3ee', false)}>🩺 Debug</button>
