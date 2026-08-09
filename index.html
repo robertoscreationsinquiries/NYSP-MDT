@@ -3005,20 +3005,35 @@ const deptInfo = DEPT_DISPLAY[currentDept] || DEPT_DISPLAY.NYSP;
 const deptDisplayName = deptInfo.name;
 const deptRole = deptInfo.role;
 React.useEffect(() => {
-    const src = `https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/repo-file?path=MAPRC1.0.png&ref=main&key=${encodeURIComponent((typeof window !== 'undefined' && window.__ACCESS_KEY) || '')}`;
     if (mapUrl) return;
-    const img = new window.Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-        try {
-            const c = document.createElement('canvas');
-            c.width = img.naturalWidth; c.height = img.naturalHeight;
-            c.getContext('2d').drawImage(img, 0, 0);
-            setMapUrl(c.toDataURL('image/png'));
-        } catch(e) { setMapUrl(src); }
+    const key = (typeof window !== 'undefined' && window.__ACCESS_KEY) || '';
+    // Primary: Worker route (works when repo is private + Worker deployed).
+    // Fallback: direct GitHub raw CDN (works while the repo is still public).
+    const workerSrc = `https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/repo-file?path=MAPRC1.0.png&ref=main&key=${encodeURIComponent(key)}`;
+    const rawSrc = 'https://raw.githubusercontent.com/robertoscreationsinquiries/NYSP-MDT/main/MAPRC1.0.png';
+    // If no access key is present, the Worker route can't authenticate — go straight to raw.
+    const primarySrc = key ? workerSrc : rawSrc;
+
+    const tryLoad = (src, onFail) => {
+        const img = new window.Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            try {
+                const c = document.createElement('canvas');
+                c.width = img.naturalWidth; c.height = img.naturalHeight;
+                c.getContext('2d').drawImage(img, 0, 0);
+                setMapUrl(c.toDataURL('image/png'));
+            } catch(e) { setMapUrl(src); }   // canvas taint → use the URL directly
+        };
+        img.onerror = onFail;
+        img.src = src;
     };
-    img.onerror = () => setMapUrl(src);
-    img.src = src;
+
+    // Try primary; on failure fall back to the other source; if both fail, use raw URL directly.
+    tryLoad(primarySrc, () => {
+        const alt = primarySrc === workerSrc ? rawSrc : workerSrc;
+        tryLoad(alt, () => setMapUrl(rawSrc));
+    });
 }, []);
 const logActivity = React.useCallback((msg) => {
     const ts = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -12856,8 +12871,11 @@ const handleLogout = () => {
     localStorage.removeItem('nysp_lastname');
     localStorage.removeItem('nysp_badgeid');
     setAuthenticatedUser(null);
-    setLoginUsername('');
-    setLoginPassword('');
+    // Re-fill the login fields from saved credentials (if the user chose to save them),
+    // so a session-expiration logout doesn't force them to retype. If nothing was saved,
+    // these resolve to '' and the fields are cleared as before.
+    setLoginUsername(localStorage.getItem('nysp_saved_username') || '');
+    setLoginPassword(localStorage.getItem('nysp_saved_password') || '');
     setLoginError('');
     setShowLoginScreen(true);
     setShowLoader(true);
@@ -16352,33 +16370,27 @@ return (
     <div style={{ position:'fixed',top:'44px',left:0,right:0,bottom:0,display:'flex',flexDirection:'column',background:'#07090f',overflow:'hidden' }}>
     <div style={{ flex:1,overflowY:'auto',padding:'20px',boxSizing:'border-box' }}>
 
-        {/* ── HEADER ── */}
-        <div className="mini-hide" style={{ marginBottom: '20px', padding: '20px 28px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,58,138,0.35))', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 4px 32px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', position: 'relative', overflow: 'hidden' }}>
-
-            {/* Glow */}
-            <div style={{ position: 'absolute', top: '-40%', right: '-5%', width: '35%', height: '200%', background: 'radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)', pointerEvents: 'none' }}></div>
-
-            {/* Left: icon + text */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: 0, position: 'relative', zIndex: 1, flexWrap: 'wrap' }}>
-                <div style={{ width: '52px', height: '52px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(59,130,246,0.5)', flexShrink: 0 }}>
-                    <User size={28} style={{ color: 'white' }} />
+        {/* ── HEADER — matches License Plate Search ── */}
+        <div className="mini-hide" style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'16px',padding:'14px 20px',marginBottom:'14px',background:'linear-gradient(135deg,rgba(30,58,138,0.25) 0%,rgba(15,30,60,0.4) 100%)',border:'1px solid rgba(56,189,248,0.18)',borderRadius:'12px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 0 24px rgba(14,165,233,0.04)' }}>
+            <div style={{ display:'flex',alignItems:'center',gap:'14px' }}>
+                <div style={{ width:'42px',height:'42px',background:'linear-gradient(135deg,#1e40af 0%,#0ea5e9 100%)',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 14px rgba(14,165,233,0.35), inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+                    <User size={22} style={{ color:'white' }} />
                 </div>
                 <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                        <span style={{ color: 'white', fontSize: '22px', fontWeight: '800', letterSpacing: '2px', whiteSpace: 'nowrap' }}>CITIZEN DATABASE SEARCH</span>
-                        <span style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '4px', padding: '2px 8px', color: '#60a5fa', fontSize: '10px', fontWeight: '700', letterSpacing: '1.5px', whiteSpace: 'nowrap' }}>CITIZEN REGISTRY</span>
+                    <div style={{ display:'flex',alignItems:'center',gap:'10px',marginBottom:'3px' }}>
+                        <div style={{ color:'#e2e8f0',fontSize:'18px',fontWeight:'700',letterSpacing:'0.3px' }}>Citizen Search</div>
+                        <span style={{ padding:'2px 8px',background:'rgba(34,211,238,0.1)',border:'1px solid rgba(34,211,238,0.3)',borderRadius:'5px',color:'#22d3ee',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',fontFamily:'monospace' }}>CITIZEN REGISTRY</span>
                     </div>
-                    <p style={{ color: '#475569', fontSize: '13px', margin: '0 0 10px', whiteSpace: 'nowrap' }}>Query citizen records by ID · MDT</p>
-                    <button
-                        onClick={() => { if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); } else { setActiveView('home'); } }}
-                        style={{ width: 'auto', padding: '7px 16px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '8px', color: '#93c5fd', cursor: 'pointer', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', display: 'inline-flex', alignItems: 'center', gap: '7px', transition: 'all 0.2s', whiteSpace: 'nowrap' }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.2)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)'; e.currentTarget.style.color = '#fff'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; e.currentTarget.style.color = '#93c5fd'; }}
-                    >
-                        ← DASHBOARD
-                    </button>
+                    <div style={{ color:'#22d3ee',fontSize:'11px',fontFamily:'monospace',letterSpacing:'0.3px' }}>Search citizen records by ID</div>
                 </div>
             </div>
+            <button
+                onClick={() => { if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); } else { setActiveView('home'); } }}
+                style={{ padding:'7px 14px', background:'rgba(56,189,248,0.1)', border:'1px solid rgba(56,189,248,0.25)', borderRadius:'8px', color:'#7dd3fc', cursor:'pointer', fontSize:'11px', fontWeight:'700', letterSpacing:'1px', display:'inline-flex', alignItems:'center', gap:'6px', fontFamily:'monospace', transition:'background 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out', whiteSpace:'nowrap' }}
+                onMouseEnter={e => { e.currentTarget.style.background='rgba(56,189,248,0.2)'; e.currentTarget.style.borderColor='rgba(56,189,248,0.5)'; e.currentTarget.style.color='#fff'; }}
+                onMouseLeave={e => { e.currentTarget.style.background='rgba(56,189,248,0.1)'; e.currentTarget.style.borderColor='rgba(56,189,248,0.25)'; e.currentTarget.style.color='#7dd3fc'; }}>
+                ← Dashboard
+            </button>
         </div>
 
         {!tokenSaved ? (
@@ -16402,16 +16414,21 @@ return (
             </div>
         ) : (
             <div>
-                {/* ── SEARCH BOX ── */}
-                <div style={{ background: 'linear-gradient(135deg, rgba(30,58,138,0.15), rgba(59,130,246,0.08))', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}>
-                    <div style={{ color: '#60a5fa', fontSize: '11px', fontWeight: '700', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ width: '3px', height: '14px', background: 'linear-gradient(180deg, #60a5fa, #3b82f6)', borderRadius: '2px' }}></span>
-                        CITIZEN LOOKUP
+                {/* ══════════ UI: CITIZEN LOOKUP ══════════ */}
+                <div style={{ background:'linear-gradient(180deg,rgba(30,58,138,0.22) 0%,rgba(10,16,30,0.6) 100%)',border:'1px solid rgba(56,189,248,0.2)',borderRadius:'14px',padding:'18px',marginBottom:'14px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 8px 28px -14px rgba(0,0,0,0.7)' }}>
+                    <div style={{ display:'flex',alignItems:'center',gap:'11px',marginBottom:'15px',paddingBottom:'13px',borderBottom:'1px solid rgba(56,189,248,0.14)' }}>
+                        <div style={{ width:'32px',height:'32px',borderRadius:'9px',background:'linear-gradient(135deg,rgba(34,211,238,0.9),rgba(37,99,235,0.6))',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 12px -3px rgba(37,99,235,0.6), inset 0 1px 0 rgba(255,255,255,0.3)' }}>
+                            <Search size={15} style={{ color:'#fff' }} />
+                        </div>
+                        <div>
+                            <div style={{ color:'#7dd3fc',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace' }}>Citizen Lookup</div>
+                            <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px',marginTop:'1px' }}>Run a citizen record</div>
+                        </div>
                     </div>
 
-                    <div style={{ marginBottom: '14px' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#93c5fd', fontSize: '12px', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                            <User size={14} /> Citizen ID
+                    <div style={{ marginBottom: '12px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#94a3b8', fontSize: '10px', fontWeight: '700', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '1.5px', fontFamily:'monospace' }}>
+                            <User size={12} /> Citizen ID
                         </label>
                         <input
                             type="text"
@@ -16425,20 +16442,22 @@ if (searchCooldown || loadingSearch || !searchCitizenId || searchCitizenId.trim(
                                     searchByUsername(searchCitizenId);
                                 }
                             }}
-                            placeholder="ENTER CITIZEN-ID..."
-                            style={{ width: '100%', padding: '14px 16px', background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '10px', color: 'white', fontSize: '15px', fontFamily: 'monospace', letterSpacing: '2px', boxSizing: 'border-box', outline: 'none', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.3)', transition: 'border-color 0.2s' }}
-                            onFocus={e => e.target.style.borderColor = 'rgba(59,130,246,0.6)'}
-                            onBlur={e => e.target.style.borderColor = 'rgba(59,130,246,0.3)'}
+                            placeholder="Enter Citizen-ID..."
+                            style={{ width:'100%',padding:'12px 14px',background:'rgba(0,0,0,0.3)',border:'1px solid rgba(56,189,248,0.18)',borderRadius:'7px',color:'#e2e8f0',fontSize:'14px',fontFamily:'monospace',fontWeight:'700',letterSpacing:'2px',boxSizing:'border-box',outline:'none',transition:'border-color 160ms ease-out, background 160ms ease-out' }}
+                            onFocus={e => { e.target.style.borderColor = 'rgba(56,189,248,0.45)'; e.target.style.background = 'rgba(0,0,0,0.4)'; }}
+                            onBlur={e => { e.target.style.borderColor = 'rgba(56,189,248,0.18)'; e.target.style.background = 'rgba(0,0,0,0.3)'; }}
                         />
-                        <p style={{ color: '#4b5563', fontSize: '11px', marginTop: '6px', fontStyle: 'italic' }}>Extract registered vehicles, warrants, and government records.</p>
+                        <p style={{ color: '#4b5563', fontSize: '11px', marginTop: '6px', fontStyle: 'italic' }}>Extracts registered vehicles, warrants, and government records.</p>
                     </div>
 
                     <button
 onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                         disabled={loadingSearch || !tokenSaved}
-                        style={{ width: '100%', padding: '14px', background: loadingSearch ? 'rgba(59,130,246,0.3)' : 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '14px', fontWeight: '700', cursor: loadingSearch ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', boxShadow: loadingSearch ? 'none' : '0 4px 16px rgba(59,130,246,0.4)', transition: 'all 0.2s', letterSpacing: '1px', textTransform: 'uppercase' }}
-                        onMouseEnter={e => { if (!loadingSearch) e.currentTarget.style.boxShadow = '0 6px 24px rgba(59,130,246,0.6)'; }}
-                        onMouseLeave={e => { if (!loadingSearch) e.currentTarget.style.boxShadow = '0 4px 16px rgba(59,130,246,0.4)'; }}
+                        style={{ width:'100%',padding:'12px',background:loadingSearch?'linear-gradient(90deg,rgba(56,189,248,0.12) 0%,rgba(96,165,250,0.28) 50%,rgba(56,189,248,0.12) 100%)':'linear-gradient(180deg,rgba(30,58,138,0.6),rgba(15,30,60,0.7))',backgroundSize:loadingSearch?'200% 100%':'auto',border:'1px solid rgba(96,165,250,0.4)',borderRadius:'8px',color:'#bfdbfe',fontSize:'12px',fontWeight:'800',cursor:loadingSearch?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'10px',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace',boxShadow:'0 0 20px rgba(96,165,250,0.12), inset 0 1px 0 rgba(96,165,250,0.2)',transition:'transform 100ms cubic-bezier(0.23,1,0.32,1), filter 160ms ease-out, box-shadow 160ms ease-out',animation:loadingSearch?'searchScan 1.6s linear infinite':'none' }}
+                        onMouseEnter={e => { if (!loadingSearch) { e.currentTarget.style.filter='brightness(1.15)'; e.currentTarget.style.boxShadow='0 0 28px rgba(96,165,250,0.22), inset 0 1px 0 rgba(96,165,250,0.25)'; } }}
+                        onMouseLeave={e => { if (!loadingSearch) { e.currentTarget.style.filter=''; e.currentTarget.style.boxShadow='0 0 20px rgba(96,165,250,0.12), inset 0 1px 0 rgba(96,165,250,0.2)'; } }}
+                        onMouseDown={e => { if (!loadingSearch) e.currentTarget.style.transform='scale(0.98)'; }}
+                        onMouseUp={e => { e.currentTarget.style.transform=''; }}
                     >
                         {loadingSearch ? <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> SEARCHING...</> : <><Search size={18} /> SEARCH DATABASE</>}
                     </button>
@@ -16811,7 +16830,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
 
                         {/* ── VEHICLE REGISTRATION WARNING ── */}
                         {searchResults.vehicleErrorMessage && (
-                            <div style={{ padding: '20px 24px', background: 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.1))', border: '1px solid rgba(239,68,68,0.35)', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '16px', boxShadow: '0 4px 16px rgba(239,68,68,0.15)', animation: visualEffects ? 'pulse-glow-red-subtle 2s infinite' : 'none' }}>
+                            <div style={{ gridColumn:'1 / -1', padding: '20px 24px', background: 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.1))', border: '1px solid rgba(239,68,68,0.35)', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '16px', boxShadow: '0 4px 16px rgba(239,68,68,0.15)', animation: visualEffects ? 'pulse-glow-red-subtle 2s infinite' : 'none' }}>
                                 <div style={{ width: '48px', height: '48px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(239,68,68,0.4)', fontSize: '22px' }}>
                                     {searchResults.noRegistrationFound ? '📭' : '⚠️'}
                                 </div>
@@ -16824,7 +16843,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
 
 {/* ── REGISTERED VEHICLES ── */}
 {(searchResults.vehicles?.length > 0 || searchResults.failedVehicleRaw?.length > 0) && (
-                            <div style={{ gridColumn:'1 / -1',background:'linear-gradient(180deg,rgba(30,58,138,0.22) 0%,rgba(10,16,30,0.6) 100%)',border:'1px solid rgba(96,165,250,0.2)',borderRadius:'14px',padding:'18px',boxShadow:'inset 0 1px 0 rgba(96,165,250,0.08), 0 8px 28px -14px rgba(0,0,0,0.7)' }}>
+                            <div style={{ background:'linear-gradient(180deg,rgba(30,58,138,0.22) 0%,rgba(10,16,30,0.6) 100%)',border:'1px solid rgba(96,165,250,0.2)',borderRadius:'14px',padding:'18px',boxShadow:'inset 0 1px 0 rgba(96,165,250,0.08), 0 8px 28px -14px rgba(0,0,0,0.7)' }}>
                                 <div style={{ display:'flex',alignItems:'center',gap:'11px',marginBottom:'15px',paddingBottom:'13px',borderBottom:'1px solid rgba(96,165,250,0.14)',flexWrap:'wrap' }}>
                                     <div style={{ width:'32px',height:'32px',borderRadius:'9px',background:'linear-gradient(135deg,rgba(34,211,238,0.9),rgba(37,99,235,0.6))',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 12px -3px rgba(37,99,235,0.6), inset 0 1px 0 rgba(255,255,255,0.3)' }}>
                                         <Car size={16} style={{ color:'#fff' }} />
