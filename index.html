@@ -2907,6 +2907,8 @@ const sessionStatsRef = React.useRef({
     citizensSearched: 0,
     citationsExported: 0,
     arrestsExported: 0,
+    apexSearches: 0,
+    voiceToPlateSearches: 0,
     loginAt: null,
     logged: false // guard so we only send once per session
 });
@@ -2921,6 +2923,8 @@ const beginSession = () => {
     st.citizensSearched = 0;
     st.citationsExported = 0;
     st.arrestsExported = 0;
+    st.apexSearches = 0;
+    st.voiceToPlateSearches = 0;
     console.log('[SESSION-LOG] Session started at', new Date(st.loginAt).toLocaleString());
 };
 const [mapUrl, setMapUrl] = useState(null);
@@ -3099,9 +3103,18 @@ React.useEffect(() => {
         sessionStatsRef.current.citizensSearched = 0;
         sessionStatsRef.current.citationsExported = 0;
         sessionStatsRef.current.arrestsExported = 0;
+        sessionStatsRef.current.apexSearches = 0;
+        sessionStatsRef.current.voiceToPlateSearches = 0;
     }
 }, [authenticatedUser]);
 const [maintenanceActive, setMaintenanceActive] = React.useState(false);
+// ── Officer stats + 2026 Wrapped ──
+const [officerStats, setOfficerStats] = React.useState(null);   // cumulative totals from backend
+const [officerStatsLoading, setOfficerStatsLoading] = React.useState(false);
+const [showWrapped, setShowWrapped] = React.useState(false);
+const [wrappedData, setWrappedData] = React.useState(null);     // { unlocked, releaseEpochMs, year, stats }
+const [wrappedLoading, setWrappedLoading] = React.useState(false);
+const [wrappedSlide, setWrappedSlide] = React.useState(0);
 const [lastMaintenanceCheck, setLastMaintenanceCheck] = React.useState(Date.now());
 const [showUpdateScreen, setShowUpdateScreen] = React.useState(false);
 const [showDataCorruptedError, setShowDataCorruptedError] = React.useState(false);
@@ -4847,6 +4860,7 @@ setVoiceNotif('Phonetic alphabet was not detected during translation. Make sure 
 setVoiceNotif('Heard: "' + text + '" → Plate set to: ' + plateToSearch + ' - searching...');
     setVoiceActive(false);
     setTimeout(() => setVoiceNotif(''), 3000);
+    try { sessionStatsRef.current.voiceToPlateSearches += 1; } catch(_) {}
     setTimeout(() => lookupUser(plateToSearch), 300);
 };
 
@@ -12952,6 +12966,8 @@ const flushSessionLog = (viaBeacon) => {
             citizensSearched: st.citizensSearched || 0,
             citationsExported: st.citationsExported || 0,
             arrestsExported: st.arrestsExported || 0,
+            apexSearches: st.apexSearches || 0,
+            voiceToPlateSearches: st.voiceToPlateSearches || 0,
             startTime: start.toISOString(),
             endTime: end.toISOString(),
             startTimeLocal: start.toLocaleString(),
@@ -12973,6 +12989,63 @@ const flushSessionLog = (viaBeacon) => {
                 .catch((e) => console.warn('[SESSION-LOG] fetch failed', e));
         }
     } catch (_) {}
+};
+
+// ── Officer stats + Wrapped fetch ──
+// Cumulative totals live on the backend, aggregated from every session-log.
+// We add the CURRENT (unsent) session's counters on top so the display feels live.
+const CF_WORKER = 'https://ny-cad-proxy.robertoscreationsinquiries.workers.dev';
+const statsIdentity = () => ({
+    username: loginKeyRef.current || localStorage.getItem('nysp_saved_username') || authenticatedUser?.robloxUsername || 'Unknown',
+    badge: trooperSettings?.BadgeID || 'N/A'
+});
+const withLiveSession = (base) => {
+    const st = sessionStatsRef.current || {};
+    const liveDur = st.loginAt ? Math.max(0, Math.round((Date.now() - st.loginAt) / 1000)) : 0;
+    const b = base || { platesSearched:0,citizensSearched:0,citationsExported:0,arrestsExported:0,apexSearches:0,voiceToPlateSearches:0,timeOnDutySeconds:0,sessions:0 };
+    return {
+        ...b,
+        platesSearched: (b.platesSearched||0) + (st.platesSearched||0),
+        citizensSearched: (b.citizensSearched||0) + (st.citizensSearched||0),
+        citationsExported: (b.citationsExported||0) + (st.citationsExported||0),
+        arrestsExported: (b.arrestsExported||0) + (st.arrestsExported||0),
+        apexSearches: (b.apexSearches||0) + (st.apexSearches||0),
+        voiceToPlateSearches: (b.voiceToPlateSearches||0) + (st.voiceToPlateSearches||0),
+        timeOnDutySeconds: (b.timeOnDutySeconds||0) + liveDur,
+    };
+};
+const fetchOfficerStats = async () => {
+    setOfficerStatsLoading(true);
+    try {
+        const res = await fetch(`${CF_WORKER}/my-stats`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(statsIdentity())
+        });
+        const data = await res.json().catch(() => ({}));
+        setOfficerStats(withLiveSession(data?.stats || null));
+    } catch (e) {
+        setOfficerStats(withLiveSession(null)); // at least show this session
+    } finally {
+        setOfficerStatsLoading(false);
+    }
+};
+const openWrapped = async () => {
+    setShowWrapped(true);
+    setWrappedSlide(0);
+    setWrappedLoading(true);
+    try {
+        const res = await fetch(`${CF_WORKER}/wrapped`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(statsIdentity())
+        });
+        const data = await res.json().catch(() => ({}));
+        if (data?.unlocked && data?.stats) data.stats = withLiveSession(data.stats);
+        setWrappedData(data);
+    } catch (e) {
+        setWrappedData({ unlocked: false, releaseEpochMs: null });
+    } finally {
+        setWrappedLoading(false);
+    }
 };
 
 const handleLogout = () => {
@@ -17533,6 +17606,61 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                 );
                             })()}
 
+                            {/* ══ OFFICER STATS + 2026 WRAPPED ══ */}
+                            {activeT && activeT.id === 'account' && (
+                            <div className="settings-section-card" style={S.section('#38bdf8', 'rgba(56,189,248,0.06)')}>
+                                <div style={S.sectionHead('#7dd3fc')}>📊 Your Stats</div>
+                                <div style={S.sectionSub}>Your all-time activity across every shift, plus this session live.</div>
+
+                                {(() => {
+                                    // Auto-load once when the account tab is open.
+                                    if (officerStats === null && !officerStatsLoading) { setTimeout(fetchOfficerStats, 0); }
+                                    const s = officerStats || {};
+                                    const fmtDur = (secs) => {
+                                        secs = secs || 0;
+                                        const h = Math.floor(secs/3600), m = Math.floor((secs%3600)/60);
+                                        return h > 0 ? `${h}h ${m}m` : `${m}m`;
+                                    };
+                                    const STAT = [
+                                        { label:'Time on Duty', value: fmtDur(s.timeOnDutySeconds), rgb:'56,189,248', icon:<><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></> },
+                                        { label:'Plates Searched', value: (s.platesSearched||0).toLocaleString(), rgb:'96,165,250', icon:<><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h10M7 14h6"/></> },
+                                        { label:'Citizens Searched', value: (s.citizensSearched||0).toLocaleString(), rgb:'52,211,153', icon:<><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/></> },
+                                        { label:'Citations Exported', value: (s.citationsExported||0).toLocaleString(), rgb:'251,191,36', icon:<><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></> },
+                                        { label:'Arrests Filed', value: (s.arrestsExported||0).toLocaleString(), rgb:'239,68,68', icon:<><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></> },
+                                        { label:'APEX Scans', value: (s.apexSearches||0).toLocaleString(), rgb:'129,140,248', icon:<><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/></> },
+                                        { label:'Voice-to-Plate', value: (s.voiceToPlateSearches||0).toLocaleString(), rgb:'34,211,238', icon:<><path d="M12 2a3 3 0 00-3 3v6a3 3 0 006 0V5a3 3 0 00-3-3z"/><path d="M19 10a7 7 0 01-14 0M12 17v4"/></> },
+                                        { label:'Shifts Logged', value: (s.sessions||0).toLocaleString(), rgb:'148,163,184', icon:<><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 4-5"/></> },
+                                    ];
+                                    if (officerStatsLoading && officerStats === null) {
+                                        return <div style={{ padding:'24px',textAlign:'center',color:'#64748b',fontSize:'12px',fontFamily:'monospace' }}>Loading your stats…</div>;
+                                    }
+                                    return (
+                                        <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))',gap:'9px',marginBottom:'14px' }}>
+                                            {STAT.map(st => (
+                                                <div key={st.label} style={{ padding:'13px 15px',background:`rgba(${st.rgb},0.06)`,border:`1px solid rgba(${st.rgb},0.2)`,borderRadius:'11px' }}>
+                                                    <div style={{ display:'flex',alignItems:'center',gap:'7px',marginBottom:'8px' }}>
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={`rgb(${st.rgb})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{st.icon}</svg>
+                                                        <span style={{ color:'#94a3b8',fontSize:'9.5px',fontWeight:'800',letterSpacing:'1px',textTransform:'uppercase',fontFamily:'monospace' }}>{st.label}</span>
+                                                    </div>
+                                                    <div style={{ color:'#f1f5f9',fontSize:'22px',fontWeight:'900',fontFamily:'monospace',letterSpacing:'0.5px' }}>{st.value}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* 2026 Wrapped launch button */}
+                                <button onClick={openWrapped}
+                                    style={{ width:'100%',padding:'15px',borderRadius:'12px',border:'none',cursor:'pointer',background:'linear-gradient(120deg,#7c3aed 0%,#db2777 45%,#f59e0b 100%)',color:'#fff',fontSize:'14px',fontWeight:'900',letterSpacing:'0.5px',display:'flex',alignItems:'center',justifyContent:'center',gap:'10px',boxShadow:'0 8px 26px -6px rgba(219,39,119,0.5)',transition:'transform 120ms cubic-bezier(0.34,1.56,0.64,1), filter 160ms ease-out' }}
+                                    onMouseEnter={e=>{ e.currentTarget.style.filter='brightness(1.1)'; e.currentTarget.style.transform='translateY(-2px)'; }}
+                                    onMouseLeave={e=>{ e.currentTarget.style.filter=''; e.currentTarget.style.transform='translateY(0)'; }}>
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4-6.3-4.6L5.7 21 8 14 2 9.4h7.6z"/></svg>
+                                    View Your 2026 Wrapped
+                                </button>
+                                <div style={{ color:'#64748b',fontSize:'10px',fontFamily:'monospace',textAlign:'center',marginTop:'8px' }}>A year-in-review of your patrol activity — unlocks on release day.</div>
+                            </div>
+                            )}
+
                             {activeT && activeT.id === 'auth' && (<>
                             <div className="settings-section-card" style={S.section('#ef4444', 'rgba(239,68,68,0.06)')}>
                                 <div style={S.sectionHead('#f87171')}>🔒 Authentication</div>
@@ -18843,6 +18971,89 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
     )}
 
         {/* UPDATE LOG MODAL */}
+{/* ══════════ 2026 WRAPPED ══════════ */}
+{showWrapped && (() => {
+    const close = () => { setShowWrapped(false); setWrappedSlide(0); };
+    const locked = wrappedData && wrappedData.unlocked === false;
+    const stats = wrappedData?.stats || {};
+    const fmtDur = (secs) => { secs = secs||0; const h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60); return h>0?`${h}h ${m}m`:`${m}m`; };
+    const yr = wrappedData?.year || 2026;
+
+    // Countdown text for the locked state.
+    let countdown = '';
+    if (locked && wrappedData?.releaseEpochMs) {
+        const diff = wrappedData.releaseEpochMs - Date.now();
+        if (diff > 0) {
+            const d = Math.floor(diff/86400000), h = Math.floor((diff%86400000)/3600000), m = Math.floor((diff%3600000)/60000);
+            countdown = `${d}d ${h}h ${m}m`;
+        }
+    }
+
+    // Slides — each a bold full-bleed stat card.
+    const slides = [
+        { bg:'linear-gradient(135deg,#7c3aed,#4c1d95)', kicker:`YOUR ${yr}`, big:'Wrapped', sub:'A year on patrol, by the numbers. Tap to begin →' },
+        { bg:'linear-gradient(135deg,#0ea5e9,#1e3a8a)', kicker:'TIME ON DUTY', big:fmtDur(stats.timeOnDutySeconds), sub:`across ${(stats.sessions||0).toLocaleString()} shift${(stats.sessions===1)?'':'s'} this year` },
+        { bg:'linear-gradient(135deg,#2563eb,#1e40af)', kicker:'PLATES RUN', big:(stats.platesSearched||0).toLocaleString(), sub:'registrations pulled up on the job' },
+        { bg:'linear-gradient(135deg,#059669,#065f46)', kicker:'CITIZENS SEARCHED', big:(stats.citizensSearched||0).toLocaleString(), sub:'records looked up' },
+        { bg:'linear-gradient(135deg,#d97706,#92400e)', kicker:'PAPERWORK', big:((stats.citationsExported||0)+(stats.arrestsExported||0)).toLocaleString(), sub:`${(stats.citationsExported||0).toLocaleString()} citations · ${(stats.arrestsExported||0).toLocaleString()} arrests` },
+        { bg:'linear-gradient(135deg,#6366f1,#3730a3)', kicker:'APEX SCANS', big:(stats.apexSearches||0).toLocaleString(), sub:'plates read by the scanner' },
+        { bg:'linear-gradient(135deg,#0891b2,#155e75)', kicker:'VOICE-TO-PLATE', big:(stats.voiceToPlateSearches||0).toLocaleString(), sub:'plates run hands-free' },
+        { bg:'linear-gradient(135deg,#db2777,#f59e0b)', kicker:`THAT'S A WRAP, ${yr}`, big:'🎉', sub:'Thanks for riding with us. Here\u2019s to next year.' },
+    ];
+    const slide = slides[Math.min(wrappedSlide, slides.length-1)];
+    const isLast = wrappedSlide >= slides.length-1;
+
+    return (
+        <div style={{ position:'fixed', inset:0, zIndex:100003, background:'rgba(2,2,8,0.9)', backdropFilter:'blur(10px)', display:'flex', alignItems:'center', justifyContent:'center', padding:'24px', boxSizing:'border-box', animation:'fadeIn 0.3s ease-out' }}>
+            <div style={{ position:'relative', width:'100%', maxWidth:'420px', aspectRatio:'9/16', maxHeight:'88vh', borderRadius:'24px', overflow:'hidden', boxShadow:'0 40px 100px -20px rgba(0,0,0,0.8)', display:'flex', flexDirection:'column' }}>
+
+                {/* Close */}
+                <button onClick={close} style={{ position:'absolute', top:'16px', right:'16px', zIndex:5, width:'34px', height:'34px', borderRadius:'50%', background:'rgba(0,0,0,0.35)', border:'1px solid rgba(255,255,255,0.25)', color:'#fff', cursor:'pointer', fontSize:'16px', display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
+
+                {wrappedLoading ? (
+                    <div style={{ flex:1, background:'linear-gradient(135deg,#7c3aed,#4c1d95)', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontFamily:'monospace', fontSize:'13px' }}>
+                        Loading your year…
+                    </div>
+                ) : locked ? (
+                    // ── LOCKED STATE ──
+                    <div style={{ flex:1, background:'linear-gradient(135deg,#1e1b4b,#4c1d95)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center', padding:'32px', gap:'16px' }}>
+                        <div style={{ width:'72px', height:'72px', borderRadius:'20px', background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.25)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                        </div>
+                        <div style={{ color:'#fff', fontSize:'24px', fontWeight:'900', letterSpacing:'0.5px' }}>{yr} Wrapped</div>
+                        <div style={{ color:'#c4b5fd', fontSize:'13px', lineHeight:1.6, maxWidth:'260px' }}>
+                            Your year-in-review isn\u2019t ready yet. Check back on release day — everyone unlocks at the same moment.
+                        </div>
+                        {countdown && (
+                            <div style={{ marginTop:'6px', padding:'12px 20px', background:'rgba(0,0,0,0.3)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'12px' }}>
+                                <div style={{ color:'#a78bfa', fontSize:'9px', fontWeight:'800', letterSpacing:'2px', fontFamily:'monospace', marginBottom:'4px' }}>UNLOCKS IN</div>
+                                <div style={{ color:'#fff', fontSize:'22px', fontWeight:'900', fontFamily:'monospace' }}>{countdown}</div>
+                            </div>
+                        )}
+                        <button onClick={close} style={{ marginTop:'8px', padding:'11px 26px', background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'10px', color:'#fff', fontSize:'12px', fontWeight:'700', cursor:'pointer', letterSpacing:'1px' }}>Close</button>
+                    </div>
+                ) : (
+                    // ── UNLOCKED: swipeable slides ──
+                    <div onClick={() => setWrappedSlide(s => isLast ? s : s+1)}
+                        style={{ flex:1, background:slide.bg, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center', padding:'36px 28px', cursor: isLast ? 'default' : 'pointer', transition:'background 400ms ease-out', position:'relative' }}>
+                        {/* progress dots */}
+                        <div style={{ position:'absolute', top:'16px', left:'16px', right:'60px', display:'flex', gap:'4px' }}>
+                            {slides.map((_, i) => (
+                                <div key={i} style={{ flex:1, height:'3px', borderRadius:'2px', background: i <= wrappedSlide ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.25)', transition:'background 300ms ease-out' }} />
+                            ))}
+                        </div>
+                        <div style={{ color:'rgba(255,255,255,0.8)', fontSize:'12px', fontWeight:'800', letterSpacing:'3px', fontFamily:'monospace', marginBottom:'18px' }}>{slide.kicker}</div>
+                        <div style={{ color:'#fff', fontSize: slide.big.length > 6 ? '46px' : '68px', fontWeight:'900', letterSpacing:'-1px', lineHeight:1, marginBottom:'18px', textShadow:'0 4px 24px rgba(0,0,0,0.3)' }}>{slide.big}</div>
+                        <div style={{ color:'rgba(255,255,255,0.9)', fontSize:'15px', fontWeight:'500', lineHeight:1.5, maxWidth:'280px' }}>{slide.sub}</div>
+                        {!isLast && <div style={{ position:'absolute', bottom:'22px', color:'rgba(255,255,255,0.6)', fontSize:'11px', fontFamily:'monospace' }}>tap to continue</div>}
+                        {isLast && <button onClick={(e)=>{ e.stopPropagation(); close(); }} style={{ position:'absolute', bottom:'26px', padding:'12px 30px', background:'rgba(0,0,0,0.3)', border:'1px solid rgba(255,255,255,0.35)', borderRadius:'12px', color:'#fff', fontSize:'13px', fontWeight:'800', cursor:'pointer', letterSpacing:'1px' }}>Done</button>}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+})()}
+
 {showUpdateLog && (
     <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -19403,6 +19614,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                     setLicensePlate(cleanPlate);
                                     setApexNotif(`APEX → ${detected}`);
                                     setTimeout(() => setApexNotif(''), 5000);
+                                    try { sessionStatsRef.current.apexSearches += 1; } catch(_) {}
                                     setTimeout(() => lookupUser(cleanPlate), 100);
                                 } else {
                                     setApexResult({ error: 'APEX couldn\u2019t find a plate in that image. Make sure the plate is clearly visible and fills a good portion of the frame, then paste again.' });
