@@ -28,10 +28,44 @@ process.on('unhandledRejection', (err) => {
 
 // ── IPC: quit / devtools / compact / global shortcut ──
 let _streamServer = null;
+
+// ── Mini-MDT bridge state ──
+// The renderer pushes its current data here; the server reads it. For plate lookups we
+// use a pending-request map keyed by a token the renderer echoes back.
+let _streamSnapshot = null;
+const _pendingStreamReqs = new Map(); // token -> { resolve, timer }
+let _streamReqSeq = 0;
+
+// Renderer → main: push the latest calls/units snapshot for the phone to read.
+ipcMain.on('stream-push-data', (_e, snapshot) => { _streamSnapshot = snapshot; });
+
+// Renderer → main: reply to a pending request (plate lookup, call action).
+ipcMain.on('stream-response', (_e, { token, data }) => {
+    const p = _pendingStreamReqs.get(token);
+    if (p) { clearTimeout(p.timer); p.resolve(data); _pendingStreamReqs.delete(token); }
+});
+
+// Main → renderer request/response helper: sends a channel + payload to the renderer and
+// resolves when the renderer posts back a 'stream-response' with the matching token.
+function requestFromRenderer(channel, payload, timeoutMs) {
+    return new Promise((resolve) => {
+        if (!mainWindow || mainWindow.isDestroyed()) { resolve({ error: 'App window unavailable' }); return; }
+        const token = 'sr_' + (++_streamReqSeq) + '_' + Date.now();
+        const timer = setTimeout(() => {
+            if (_pendingStreamReqs.has(token)) { _pendingStreamReqs.delete(token); resolve({ error: 'Timed out — is the MDT still open and connected?' }); }
+        }, timeoutMs || 8000);
+        _pendingStreamReqs.set(token, { resolve, timer });
+        try { mainWindow.webContents.send(channel, { token, ...payload }); }
+        catch (e) { clearTimeout(timer); _pendingStreamReqs.delete(token); resolve({ error: e.message }); }
+    });
+}
+
 ipcMain.handle('start-streaming', async () => {
     if (_streamServer) return { success: true, alreadyRunning: true };
-    const http = require('http');
-    const os = require('os');
+    // NOTE: main-remote.js runs inside a new Function() with dependencies injected as
+    // parameters — `require` does NOT exist here. `http` and `os` are already provided by
+    // main.js (see its new Function parameter list), so we use them directly. Calling
+    // require('http') here throws "require is not defined" and hangs the streaming UI.
     const interfaces = os.networkInterfaces();
     let localIp = '127.0.0.1';
     for (const iface of Object.values(interfaces)) {
@@ -39,47 +73,162 @@ ipcMain.handle('start-streaming', async () => {
             if (alias.family === 'IPv4' && !alias.internal) { localIp = alias.address; break; }
         }
     }
-    const PORT = 3000;
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><title>NYSP MDT</title>
-<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#07090f;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;padding:16px}
-h1{font-size:16px;font-weight:800;letter-spacing:2px;color:#60a5fa;text-transform:uppercase;margin-bottom:4px}.sub{font-size:11px;color:#374151;margin-bottom:20px;letter-spacing:1px}
-.card{background:#0d1117;border:1px solid rgba(59,130,246,0.18);border-radius:12px;padding:14px;margin-bottom:12px}
-.card-title{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#374151;margin-bottom:10px}
-.officer{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
-.officer:last-child{border-bottom:none}.badge{font-size:10px;font-weight:700;color:#93c5fd;background:rgba(59,130,246,0.12);padding:3px 8px;border-radius:5px;font-family:monospace}
-.name{flex:1;font-size:13px;font-weight:600;color:#f1f5f9}.status{font-size:10px;color:#6b7280;font-weight:600}
-.panic{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);border-radius:10px;padding:12px;margin-bottom:12px;animation:pulse 1s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}.panic-title{color:#f87171;font-size:13px;font-weight:800;letter-spacing:1px}
-.panic-sub{color:#fca5a5;font-size:11px;margin-top:4px}.bolo{padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
-.bolo:last-child{border-bottom:none}.bolo-plate{font-size:14px;font-weight:900;font-family:monospace;color:#e2e8f0;letter-spacing:2px}
-.bolo-meta{font-size:10px;color:#6b7280;margin-top:2px}.empty{color:#374151;font-size:12px;text-align:center;padding:16px 0}
-.refresh{color:#374151;font-size:10px;text-align:center;margin-top:16px}.dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;background:#10b981}
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#07090f"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><title>East Greenbush MDT</title>
+<style>*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:#07090f;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;-webkit-text-size-adjust:100%}
+body{max-width:640px;margin:0 auto;padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+.topbar{position:sticky;top:0;z-index:10;background:#07090f;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;border-bottom:1px solid rgba(255,255,255,0.06)}
+h1{font-size:15px;font-weight:800;letter-spacing:1.5px;color:#60a5fa;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+h1 .live{font-size:8px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:#6ee7b7;padding:2px 7px;border-radius:999px;letter-spacing:1.5px}
+.sub{font-size:10px;color:#4b5563;margin-top:3px;letter-spacing:1px}
+.wrap{padding:12px 12px 0}
+.card{background:#0d1117;border:1px solid rgba(59,130,246,0.16);border-radius:14px;padding:13px;margin-bottom:11px}
+.card-title{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#4b5563;margin-bottom:10px;display:flex;justify-content:space-between}
+.card-title .count{color:#93c5fd}
+.officer{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.officer:last-child{border-bottom:none}
+.badge{font-size:11px;font-weight:800;color:#93c5fd;background:rgba(59,130,246,0.12);padding:4px 9px;border-radius:6px;font-family:monospace;flex-shrink:0}
+.name{flex:1;font-size:14px;font-weight:600;color:#f1f5f9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.status{font-size:11px;color:#6b7280;font-weight:700;flex-shrink:0;font-family:monospace}
+.panic{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);border-radius:14px;padding:14px;margin-bottom:11px;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.panic-title{color:#f87171;font-size:14px;font-weight:900}.panic-sub{color:#fca5a5;font-size:12px;margin-top:5px}
+.call{background:#0d1117;border:1px solid rgba(255,255,255,0.06);border-left:3px solid #6b7280;border-radius:12px;padding:12px;margin-bottom:10px}
+.call.pri{border-left-color:#ef4444;background:rgba(239,68,68,0.05)}
+.call.ackd{opacity:.5}
+.call-name{font-size:14px;font-weight:700;color:#f1f5f9}
+.call-svc{font-size:11px;color:#fbbf24;font-weight:600;margin:3px 0}
+.call-desc{font-size:12px;color:#cbd5e1;margin:4px 0;line-height:1.4}
+.call-loc{font-size:11px;color:#60a5fa;font-weight:600}
+.call-meta{font-size:10px;color:#4b5563;margin-top:6px}
+.call-btns{display:flex;gap:8px;margin-top:10px}
+.btn{flex:1;padding:10px;border-radius:8px;border:none;font-size:12px;font-weight:700;cursor:pointer}
+.btn-ack{background:#10b981;color:#052e16}.btn-dis{background:rgba(255,255,255,0.06);color:#9aa5b1}
+.search-row{display:flex;gap:8px;margin-bottom:12px}
+.search-row input{flex:1;background:#0d1117;border:1px solid rgba(59,130,246,0.25);border-radius:10px;padding:13px;color:#e2e8f0;font-size:16px;font-family:monospace;letter-spacing:2px;text-transform:uppercase;outline:none}
+.search-row button{background:#3b82f6;color:#fff;border:none;border-radius:10px;padding:0 18px;font-size:14px;font-weight:700;cursor:pointer}
+.result-field{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:13px}
+.result-field .k{color:#6b7280}.result-field .v{color:#f1f5f9;font-weight:600;font-family:monospace}
+.stolen{background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fca5a5;padding:10px;border-radius:8px;text-align:center;font-weight:800;font-size:12px;margin-bottom:10px}
+.empty{color:#374151;font-size:12px;text-align:center;padding:22px 0}
+.refresh{color:#374151;font-size:10px;text-align:center;margin:12px 0;letter-spacing:.5px}
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;background:#10b981;animation:pulse 2s infinite}
+.tabs{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:640px;display:flex;background:#0a0e17;border-top:1px solid rgba(255,255,255,0.08);padding-bottom:env(safe-area-inset-bottom);z-index:20}
+.tab{flex:1;padding:12px 0 14px;text-align:center;color:#4b5563;font-size:10px;font-weight:700;letter-spacing:.5px;cursor:pointer;border:none;background:none}
+.tab.active{color:#60a5fa}.tab svg{display:block;margin:0 auto 4px}
+@media(max-width:380px){.name{font-size:13px}h1{font-size:14px}}
 </style></head><body>
-<h1>NYSP MDT</h1><div class="sub">MOBILE VIEWER · LIVE</div>
-<div id="root"><div class="empty">Loading...</div></div>
-<div class="refresh" id="ts">Refreshing...</div>
+<div class="topbar"><h1>East Greenbush MDT <span class="live"><span class="dot"></span>LIVE</span></h1><div class="sub" id="sub">MOBILE UNIT</div></div>
+<div class="wrap"><div id="root"><div class="empty">Loading...</div></div><div class="refresh" id="ts">Connecting...</div></div>
+<div class="tabs">
+  <button class="tab active" data-t="units" onclick="setTab('units')"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>Units</button>
+  <button class="tab" data-t="calls" onclick="setTab('calls')"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 00-4-5.7V5a2 2 0 10-4 0v.3C7.7 6.2 6 8.4 6 11v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1"/></svg>Calls</button>
+  <button class="tab" data-t="plate" onclick="setTab('plate')"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>Plates</button>
+</div>
 <script>
-async function load(){try{
-const r=await fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/presence?session=all');
-const d=await r.json();
-const officers=d.officers||[];const panic=d.panic;
-let html='';
-if(panic){html+='<div class="panic"><div class="panic-title">🚨 PANIC — '+panic.name+'</div><div class="panic-sub">Badge #'+panic.badge+' · Session '+panic.session+'</div></div>';}
-html+='<div class="card"><div class="card-title">Online Officers ('+officers.length+')</div>';
-if(officers.length===0){html+='<div class="empty">No officers online</div>';}
-else{officers.forEach(o=>{html+='<div class="officer"><span class="badge">#'+o.badge+'</span><span class="name">'+o.name+'</span><span class="status">'+o.status+'</span></div>';});}
-html+='</div>';
-document.getElementById('root').innerHTML=html;
-document.getElementById('ts').textContent='Updated '+new Date().toLocaleTimeString();
-}catch(e){document.getElementById('ts').textContent='Connection error — retrying...';}}
-load();setInterval(load,5000);
+var tab='units',data={calls:[],units:[],panic:null},plateRes=null,plateLoading=false;
+function setTab(t){tab=t;document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.t===t));render();}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+async function pull(){try{const r=await fetch('/api/data');data=await r.json();document.getElementById('ts').textContent='Updated '+new Date().toLocaleTimeString();if(tab!=='plate')render();}catch(e){document.getElementById('ts').textContent='Connection lost — retrying...';}}
+async function callAction(id,action,author){try{await fetch('/api/call-action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action,author})});pull();}catch(e){}}
+async function searchPlate(){var q=document.getElementById('pq').value.trim();if(!q)return;plateLoading=true;plateRes=null;render();try{var r=await fetch('/api/plate?q='+encodeURIComponent(q));plateRes=await r.json();}catch(e){plateRes={error:'Request failed'};}plateLoading=false;render();}
+function render(){var h='',root=document.getElementById('root');
+if(data.panic){h+='<div class="panic"><div class="panic-title">🚨 PANIC — '+esc(data.panic.name)+'</div><div class="panic-sub">Badge #'+esc(data.panic.badge)+' · Session '+esc(data.panic.session)+'</div></div>';}
+if(tab==='units'){var o=data.units||[];h+='<div class="card"><div class="card-title"><span>Online Units</span><span class="count">'+o.length+'</span></div>';if(!o.length)h+='<div class="empty">No units online</div>';else o.forEach(function(u){h+='<div class="officer"><span class="badge">#'+esc(u.badge)+'</span><span class="name">'+esc(u.name||u.callSign)+'</span><span class="status">'+esc(u.status)+'</span></div>';});h+='</div>';}
+else if(tab==='calls'){var c=data.calls||[];if(!c.length)h+='<div class="empty">No active calls</div>';else c.forEach(function(cl){h+='<div class="call '+(cl.isPriority?'pri':'')+(cl.acknowledged?' ackd':'')+'"><div class="call-name">'+esc(cl.name)+'</div><div class="call-svc">'+esc(cl.services)+'</div><div class="call-desc">'+esc(cl.description)+'</div><div class="call-loc">📍 '+esc(cl.location)+'</div><div class="call-meta">'+esc(cl.author)+' · '+esc(cl.timestamp)+'</div>'+(cl.acknowledged?'':'<div class="call-btns"><button class="btn btn-ack" onclick="callAction(\\''+cl.id+'\\',\\'ack\\',\\''+esc(cl.author)+'\\')">Acknowledge</button><button class="btn btn-dis" onclick="callAction(\\''+cl.id+'\\',\\'dismiss\\',\\''+esc(cl.author)+'\\')">Dismiss</button></div>')+'</div>';});}
+else if(tab==='plate'){h+='<div class="search-row"><input id="pq" placeholder="PLATE #" value="'+(plateRes&&plateRes._q?esc(plateRes._q):'')+'" onkeydown="if(event.key===\\'Enter\\')searchPlate()"><button onclick="searchPlate()">Search</button></div>';if(plateLoading)h+='<div class="empty">Searching…</div>';else if(plateRes){if(plateRes.error)h+='<div class="empty">'+esc(plateRes.error)+'</div>';else if(plateRes.notFound)h+='<div class="card"><div class="empty">No registration found for that plate.</div></div>';else{h+='<div class="card">';if(plateRes.reportedStolen)h+='<div class="stolen">⚠ VEHICLE REPORTED STOLEN</div>';[['Plate',plateRes.plate],['Owner',plateRes.owner],['Year',plateRes.year],['Make',plateRes.make],['Model',plateRes.model],['Color',plateRes.color],['Type',plateRes.type]].forEach(function(f){if(f[1])h+='<div class="result-field"><span class="k">'+f[0]+'</span><span class="v">'+esc(f[1])+'</span></div>';});h+='</div>';}}else h+='<div class="empty">Enter a plate to search.</div>';}
+root.innerHTML=h;}
+pull();setInterval(pull,5000);
 </script></body></html>`;
-    _streamServer = http.createServer((req, res) => {
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(html);
+    // ── Mini-MDT data bridge ──
+    // The phone page can't use the Discord token (it'd be exposed on the LAN). Instead the
+    // renderer — which already fetches & parses calls/units/plates — pushes a snapshot to
+    // the main process, and this server serves that snapshot to the phone. Plate lookups are
+    // request/response: the server asks the renderer, waits for the answer, returns it.
+    _streamServer = http.createServer(async (req, res) => {
+        const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type' };
+        try {
+            const u = new URL(req.url, 'http://localhost');
+
+            // Live snapshot of calls + units (pushed by the renderer, see stream-push-data)
+            if (u.pathname === '/api/data') {
+                res.writeHead(200, { 'Content-Type': 'application/json', ...cors });
+                res.end(JSON.stringify(_streamSnapshot || { calls: [], units: [], panic: null, session: null, updatedAt: 0 }));
+                return;
+            }
+
+            // Plate lookup — ask the renderer and wait for its reply (max 12s).
+            if (u.pathname === '/api/plate') {
+                const plate = (u.searchParams.get('q') || '').trim();
+                if (!plate) { res.writeHead(400, { 'Content-Type': 'application/json', ...cors }); res.end(JSON.stringify({ error: 'Missing plate' })); return; }
+                const result = await requestFromRenderer('stream-plate-lookup', { plate }, 12000);
+                res.writeHead(200, { 'Content-Type': 'application/json', ...cors });
+                res.end(JSON.stringify(result || { error: 'No response' }));
+                return;
+            }
+
+            // Acknowledge / dismiss a call from the phone → relayed to the renderer.
+            if (u.pathname === '/api/call-action' && req.method === 'POST') {
+                let body = ''; req.on('data', c => body += c);
+                await new Promise(r => req.on('end', r));
+                let parsed = {}; try { parsed = JSON.parse(body || '{}'); } catch (_) {}
+                const result = await requestFromRenderer('stream-call-action', parsed, 6000);
+                res.writeHead(200, { 'Content-Type': 'application/json', ...cors });
+                res.end(JSON.stringify(result || { ok: false }));
+                return;
+            }
+
+            if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
+
+            // Default: the mini-MDT page
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.end(html);
+        } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'application/json', ...cors });
+            res.end(JSON.stringify({ error: e.message }));
+        }
     });
-    _streamServer.listen(PORT, '0.0.0.0');
-    return { success: true, ip: localIp, port: PORT };
+
+    // Properly wait for listen() to succeed OR fail. The old code returned success
+    // immediately without awaiting, so if port 3000 was taken the server silently never
+    // started and the UI hung on "Starting local server". We now await binding and, on
+    // EADDRINUSE, retry a few alternate ports before giving up with a real error.
+    const candidatePorts = [3000, 3001, 3002, 3010, 8080, 8081];
+    const tryListen = (idx) => new Promise((resolve) => {
+        if (idx >= candidatePorts.length) {
+            resolve({ success: false, error: 'All candidate ports are in use (3000, 3001, 3002, 3010, 8080, 8081). Close whatever is using them and try again.' });
+            return;
+        }
+        const port = candidatePorts[idx];
+        const onError = (err) => {
+            _streamServer.removeListener('listening', onListening);
+            if (err && err.code === 'EADDRINUSE') {
+                resolve(tryListen(idx + 1)); // try next port
+            } else {
+                resolve({ success: false, error: (err && err.message) || 'Failed to start server' });
+            }
+        };
+        const onListening = () => {
+            _streamServer.removeListener('error', onError);
+            resolve({ success: true, ip: localIp, port });
+        };
+        _streamServer.once('error', onError);
+        _streamServer.once('listening', onListening);
+        _streamServer.listen(port, '0.0.0.0');
+    });
+
+    try {
+        const result = await tryListen(0);
+        if (!result.success) {
+            try { _streamServer.close(); } catch (_) {}
+            _streamServer = null;
+        }
+        return result;
+    } catch (e) {
+        try { if (_streamServer) _streamServer.close(); } catch (_) {}
+        _streamServer = null;
+        return { success: false, error: e.message };
+    }
 });
 // ── TeamSpeak ClientQuery poll ──
 // Renderer calls every 5s with the API key. Main process fetches localhost:25639
@@ -619,9 +768,31 @@ ipcMain.handle('read-settings-file', async () => {
     return { success: false, error: 'Settings file not found' };
 });
 ipcMain.handle('write-cad-settings', async (event, { content }) => {
-    const paths = [path.join(__dirname, '..', 'CADSystemSettings.txt'), path.join(__dirname, 'CADSystemSettings.txt')];
-    for (const p of paths) { try { if (fs.existsSync(p)) { fs.writeFileSync(p, content, 'utf8'); return { success: true, path: p }; } } catch(err) { return { success: false, error: err.message }; } }
-    try { const dp = path.join(__dirname, '..', 'CADSystemSettings.txt'); fs.writeFileSync(dp, content, 'utf8'); return { success: true, path: dp }; } catch(err) { return { success: false, error: err.message }; }
+    // CRITICAL: write to the SAME file loadSettings() reads at launch, or changes vanish
+    // on reboot. loadSettings() prefers the userData copy (and seeds it), so that's the
+    // single source of truth. We also mirror to the exe-dir/app-root copies if they exist,
+    // so a user editing those by hand still sees consistent data — but userData is
+    // authoritative and always written.
+    const userDataPath = path.join(app.getPath('userData'), 'CADSystemSettings.txt');
+    const mirrorPaths = [
+        path.join(path.dirname(process.execPath), 'CADSystemSettings.txt'),
+        path.join(__dirname, '..', 'CADSystemSettings.txt'),
+        path.join(__dirname, 'CADSystemSettings.txt')
+    ];
+    try {
+        fs.writeFileSync(userDataPath, content, 'utf8'); // authoritative — what launch reads
+        for (const p of mirrorPaths) {
+            try { if (fs.existsSync(p)) fs.writeFileSync(p, content, 'utf8'); } catch (_) {}
+        }
+        return { success: true, path: userDataPath };
+    } catch (err) {
+        // Fallback: if userData is unwritable, at least write app-root so nothing is lost.
+        try {
+            const dp = path.join(__dirname, '..', 'CADSystemSettings.txt');
+            fs.writeFileSync(dp, content, 'utf8');
+            return { success: true, path: dp };
+        } catch (err2) { return { success: false, error: err2.message }; }
+    }
 });
 ipcMain.handle('save-file', async (event, { filename, content }) => {
     const { filePath } = await dialog.showSaveDialog({ defaultPath: filename, filters: [{ name: 'All Files', extensions: ['*'] }] });
@@ -836,38 +1007,20 @@ if (USE_LOCAL_INDEX) {
     const soundsScript = `window.SOUNDS = {TIMER_SIDEPANEL: '${GITHUB_SOUNDS_BASE}/TIMER_SIDEPANEL.mp3', panicAlarm: '${GITHUB_SOUNDS_BASE}/panicAlarm.mp3', platePass: '${GITHUB_SOUNDS_BASE}/platePass.mp3', plateFail: '${GITHUB_SOUNDS_BASE}/plateFail.mp3', callAlert: '${GITHUB_SOUNDS_BASE}/CallIncoming.mp3', PriorityCallIncoming: '${GITHUB_SOUNDS_BASE}/PriorityCallIncoming.mp3', warrantAlert: '${GITHUB_SOUNDS_BASE}/warrantAlert.mp3', StartupSFX: '${GITHUB_SOUNDS_BASE}/StartupSFX.mp3', LoginAccessDenied: '${GITHUB_SOUNDS_BASE}/LoginAccessDenied.mp3', LoginIncorrect: '${GITHUB_SOUNDS_BASE}/LoginIncorrect.mp3', LoginPageCorrect: '${GITHUB_SOUNDS_BASE}/LoginPageCorrect.mp3', MIC_ACTIVESFX: '${GITHUB_SOUNDS_BASE}/MIC_ACTIVESFX.mp3', MIC_INACTIVESFX: '${GITHUB_SOUNDS_BASE}/MIC_INACTIVESFX.mp3', MIC_NOTAVAILABLESFX: '${GITHUB_SOUNDS_BASE}/MIC_NOTAVAILABLESFX.mp3', noCitizenSFX: '${GITHUB_SOUNDS_BASE}/noCitizenSFX.mp3', clientSessionExpirationWarning: '${GITHUB_SOUNDS_BASE}/clientSessionExpirationWarning.mp3', PursuitModeActive: '${GITHUB_SOUNDS_BASE}/PursuitModeActive.mp3', PursuitModeNotActive: '${GITHUB_SOUNDS_BASE}/PursuitModeNotActive.mp3' }; window.SOUNDS_BASE64 = window.SOUNDS; console.log('[SOUNDS] Ready from branch ${GITHUB_BRANCH}! Keys:', Object.keys(window.SOUNDS).join(', '));`;
 
     Promise.all([
-        // SHA for display
-        new Promise((resolve) => {
-            https.get(`https://api.github.com/repos/${GITHUB_REPO}/commits/${GITHUB_BRANCH_ENCODED}`, {
-                timeout: 8000,
-                headers: { 'User-Agent': 'NYSP-MDT-App', 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-            }, (res) => {
-                let d = ''; res.on('data', c => d += c);
-                res.on('end', () => { try { resolve((JSON.parse(d).sha || '').substring(0, 7)); } catch { resolve('unknown'); } });
-            }).on('error', () => resolve('unknown'));
-        }),
-        // index.html via full SHA to bypass CDN cache
+        // PERF: SHA is already resolved by main.js and injected as PRELOADED_SHA.
+        // Previously this block called the GitHub commits API TWICE more (once for
+        // display, once chained before index.html) — the single biggest cause of slow
+        // cold starts, since that API is slow and rate-limited to 60/hr unauthenticated.
+        // Now we reuse the preloaded SHA and go straight to the fast raw CDN.
+        Promise.resolve((typeof PRELOADED_SHA === 'string' ? PRELOADED_SHA : GITHUB_BRANCH_ENCODED).substring(0, 7)),
+        // index.html directly from the raw CDN by SHA (no API hop, cache-busted by SHA)
         new Promise((resolve, reject) => {
-            https.get(`https://api.github.com/repos/${GITHUB_REPO}/commits/${GITHUB_BRANCH_ENCODED}`, {
-                timeout: 8000,
-                headers: { 'User-Agent': 'NYSP-MDT-App', 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-            }, (shaRes) => {
-                let d = ''; shaRes.on('data', c => d += c);
-                shaRes.on('end', () => {
-                    let fullSha = GITHUB_BRANCH_ENCODED;
-                    try { fullSha = JSON.parse(d).sha || GITHUB_BRANCH_ENCODED; } catch {}
-                    console.log(`[FETCH] Fetching index.html at SHA: ${fullSha.substring(0, 7)}`);
-                    https.get(`https://raw.githubusercontent.com/${GITHUB_REPO}/${fullSha}/index.html`, { timeout: 30000 }, (res) => {
-                        let html = ''; res.on('data', c => html += c);
-                        res.on('end', () => { console.log(`[FETCH] Got index.html: ${html.length} bytes`); resolve(html); });
-                    }).on('error', reject);
-                });
-            }).on('error', () => {
-                https.get(`https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH_ENCODED}/index.html`, { timeout: 30000 }, (res) => {
-                    let html = ''; res.on('data', c => html += c);
-                    res.on('end', () => resolve(html));
-                }).on('error', reject);
-            });
+            const shaRef = (typeof PRELOADED_SHA === 'string' && PRELOADED_SHA) ? PRELOADED_SHA : GITHUB_BRANCH_ENCODED;
+            console.log(`[FETCH] Fetching index.html at SHA: ${String(shaRef).substring(0, 7)}`);
+            https.get(`https://raw.githubusercontent.com/${GITHUB_REPO}/${shaRef}/index.html`, { timeout: 30000 }, (res) => {
+                let html = ''; res.on('data', c => html += c);
+                res.on('end', () => { console.log(`[FETCH] Got index.html: ${html.length} bytes`); resolve(html); });
+            }).on('error', reject);
         }),
         fetchRaw('live-announcements.js'),
         fetchRaw('maintenance.js').catch(() => 'window.MAINTENANCE = false; console.log("[MAINTENANCE] Default: false");'),
@@ -1336,6 +1489,86 @@ function _spotifyPollSoon(delay = 250) {
 function _spotifyStopPolling() {
     if (_spotifyState.pollTimer) { clearInterval(_spotifyState.pollTimer); _spotifyState.pollTimer = null; }
 }
+
+// ── App-only resource metrics (Debug view) ──
+// app.getAppMetrics() reports EVERY process this Electron app owns (main/"Browser",
+// each renderer, the GPU process, utilities) — and nothing else on the machine. So the
+// numbers here are strictly this application's usage, not system-wide.
+//
+// Honest limitation: Chromium exposes the GPU *process's* CPU and RAM, but NOT the
+// GPU's core utilization percentage. There is no API for that. We report what is real
+// and label it accordingly rather than inventing a GPU-usage gauge.
+// ── Eco Mode (main-process side) ──
+// The renderer toggles this. The single biggest measured cost was the window rendering
+// at 144 FPS on a static screen. Capping the frame rate to 30 FPS cuts GPU-process and
+// renderer churn substantially with no visible difference on a data terminal.
+// setFrameRate requires backgroundThrottling to behave; we also let the OS throttle
+// when the window isn't focused.
+ipcMain.handle('set-eco-mode', (_e, { enabled, frameRate, throttle } = {}) => {
+    try {
+        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+            const wc = mainWindow.webContents;
+            // Eco ON: cap to 30-60. Eco OFF: caller sends 240 = "display max" (uncapped),
+            // which restores native refresh (144Hz etc.). Electron clamps to the actual
+            // monitor rate, so 240 never over-drives the display.
+            let fps = typeof frameRate === 'number' ? frameRate : (enabled ? 30 : 240);
+            fps = Math.max(30, Math.min(240, Math.round(fps)));
+            wc.setFrameRate(fps);
+            // Re-assert shortly after — setFrameRate can be dropped if called mid-swap.
+            setTimeout(() => { try { if (!wc.isDestroyed()) wc.setFrameRate(fps); } catch (_) {} }, 60);
+            // Throttle only when Eco is on AND the user opted in; never throttle a focused
+            // full-rate window (that was contributing to the "feels like 30" sluggishness).
+            wc.setBackgroundThrottling(throttle === true);
+        }
+        return { ok: true, frameRate: Math.max(30, Math.min(240, Math.round(typeof frameRate === 'number' ? frameRate : (enabled ? 30 : 240)))) };
+    } catch (e) {
+        return { ok: false, error: e.message };
+    }
+});
+
+// Bring the main window to the front (used when a call OS-notification is clicked).
+ipcMain.handle('focus-window', () => {
+    try {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.show();
+            mainWindow.focus();
+        }
+        return { ok: true };
+    } catch (e) { return { ok: false, error: e.message }; }
+});
+
+ipcMain.handle('get-app-metrics', () => {
+    try {
+        const metrics = app.getAppMetrics();
+        let totalRamMB = 0, totalCpu = 0, rendererRamMB = 0;
+        let gpuRamMB = null, gpuCpu = null, mainRamMB = null;
+
+        for (const m of metrics) {
+            const ramMB = (m.memory && m.memory.workingSetSize ? m.memory.workingSetSize : 0) / 1024; // KB → MB
+            const cpu = (m.cpu && m.cpu.percentCPUUsage) ? m.cpu.percentCPUUsage : 0;
+            totalRamMB += ramMB;
+            totalCpu += cpu;
+            if (m.type === 'GPU') { gpuRamMB = ramMB; gpuCpu = cpu; }
+            else if (m.type === 'Browser') { mainRamMB = ramMB; }
+            else { rendererRamMB += ramMB; }
+        }
+
+        const r1 = (n) => (n === null || isNaN(n)) ? null : Math.round(n * 10) / 10;
+        return {
+            ok: true,
+            processCount: metrics.length,
+            totalRamMB:      r1(totalRamMB),
+            totalCpuPercent: r1(totalCpu),      // summed across processes; can exceed 100 (per-core)
+            mainRamMB:       r1(mainRamMB),
+            rendererRamMB:   r1(rendererRamMB),
+            gpuRamMB:        r1(gpuRamMB),
+            gpuCpuPercent:   r1(gpuCpu)
+        };
+    } catch (e) {
+        return { ok: false, error: e.message };
+    }
+});
 
 ipcMain.handle('spotify-init', async (_e, { clientId, refreshToken }) => {
     if (!clientId || clientId.length < 25) return { ok: false, reason: 'INVALID_CLIENT_ID' };
