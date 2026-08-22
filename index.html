@@ -8449,7 +8449,7 @@ Return ONLY this exact JSON format, no other text:
             messages: [
                 {
                     role: 'system',
-                    content: 'You are a precise vehicle registration parser. Return ONLY valid JSON, no other text.'
+                    content: 'You are a precise vehicle registration parser. Return ONLY valid JSON, no other text, no explanation, no markdown.'
                 },
                 {
                     role: 'user',
@@ -8457,7 +8457,12 @@ Return ONLY this exact JSON format, no other text:
                 }
             ],
             temperature: 0,
-            max_tokens: 500,
+            // gpt-oss-120b is a reasoning model: it spends tokens "thinking" before the
+            // answer, so the old max_tokens:500 could truncate the JSON. Give headroom and
+            // keep reasoning minimal. json_object mode forces clean JSON with no preamble.
+            max_completion_tokens: 2000,
+            reasoning_effort: 'low',
+            response_format: { type: 'json_object' },
             top_p: 1,
             stream: false
         };
@@ -8517,25 +8522,31 @@ Return ONLY this exact JSON format, no other text:
         console.log(aiText);
         console.log('═══════════════════════════════════════════════════');
         
-        // Extract JSON
+        // Extract JSON. json_object mode should return a clean flat object, but we
+        // stay defensive: strip preamble/markdown, and unwrap a {"vehicle":{...}} wrap.
         let parsed = null;
-        
-        // Try direct parse
+        const looksLikeVehicle = (o) => o && typeof o === 'object' && ('plate' in o || 'make' in o || 'model' in o || 'year' in o);
+        const unwrapVehicle = (o) => {
+            if (looksLikeVehicle(o)) return o;
+            if (o && typeof o === 'object') {
+                // e.g. {"vehicle": {...}} or {"data": {...}}
+                const nested = Object.values(o).find(v => looksLikeVehicle(v));
+                if (nested) return nested;
+            }
+            return o;
+        };
+
         try {
-            parsed = JSON.parse(aiText);
+            parsed = unwrapVehicle(JSON.parse(aiText));
             console.log('✅ [GROQ AI] Direct JSON parse succeeded');
         } catch (e) {
             console.log('⚠️ [GROQ AI] Direct parse failed, trying extraction...');
-            
-            // Extract from code block
-            const jsonMatch = aiText.match(/```json\s*([\s\S]*?)\s*```/i) || 
+            const jsonMatch = aiText.match(/```json\s*([\s\S]*?)\s*```/i) ||
                              aiText.match(/```\s*([\s\S]*?)\s*```/) ||
                              aiText.match(/\{[\s\S]*\}/);
-            
             if (jsonMatch) {
                 try {
-                    const jsonText = jsonMatch[1] || jsonMatch[0];
-                    parsed = JSON.parse(jsonText);
+                    parsed = unwrapVehicle(JSON.parse(jsonMatch[1] || jsonMatch[0]));
                     console.log('✅ [GROQ AI] Extraction parse succeeded');
                 } catch (e2) {
                     console.error('❌ [GROQ AI] Extraction parse failed:', e2.message);
@@ -8893,7 +8904,7 @@ Use "" for any field that is missing from a block. Return ONLY the JSON array, n
             messages: [
                 {
                     role: 'system',
-                    content: 'You are a precise vehicle registration parser. Return ONLY valid JSON array, no other text.'
+                    content: 'You are a precise vehicle registration parser. Return ONLY valid JSON, no other text, no explanation, no markdown. Respond with an object of the form {"vehicles": [ ... ]} where the array contains one object per registration.'
                 },
                 {
                     role: 'user',
@@ -8901,7 +8912,12 @@ Use "" for any field that is missing from a block. Return ONLY the JSON array, n
                 }
             ],
             temperature: 0,
-            max_tokens: 2000, // Increased for multiple vehicles
+            // Reasoning model: give token headroom (it "thinks" before answering) and keep
+            // reasoning minimal. json_object mode requires an OBJECT, so we wrap the array
+            // as {"vehicles":[...]} and unwrap it below.
+            max_completion_tokens: 4000,
+            reasoning_effort: 'low',
+            response_format: { type: 'json_object' },
             top_p: 1,
             stream: false
         };
@@ -8926,24 +8942,40 @@ Use "" for any field that is missing from a block. Return ONLY the JSON array, n
         console.log('✅ [BATCH] AI Response received');
         console.log('📄 [BATCH] Response preview:', aiResponse.substring(0, 200) + '...');
         
-        // Parse JSON array
+        // Parse JSON — json_object mode returns {"vehicles":[...]}, but we keep
+        // fallbacks in case the model returns a bare array or wraps it in markdown.
         let vehiclesArray;
+        const unwrap = (val) => {
+            if (Array.isArray(val)) return val;
+            if (val && Array.isArray(val.vehicles)) return val.vehicles;
+            // Some models use a different key — grab the first array-valued property.
+            if (val && typeof val === 'object') {
+                const arrProp = Object.values(val).find(v => Array.isArray(v));
+                if (arrProp) return arrProp;
+            }
+            return null;
+        };
         try {
-            // Try direct parse
-            vehiclesArray = JSON.parse(aiResponse);
+            vehiclesArray = unwrap(JSON.parse(aiResponse));
+            if (!vehiclesArray) throw new Error('no array in object');
         } catch (e) {
-            // Try extracting from code block
-            const jsonMatch = aiResponse.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/);
-            if (jsonMatch) {
-                vehiclesArray = JSON.parse(jsonMatch[1]);
-            } else {
-                // Try finding array in text
-                const arrayMatch = aiResponse.match(/\[[\s\S]*\]/);
-                if (arrayMatch) {
-                    vehiclesArray = JSON.parse(arrayMatch[0]);
-                } else {
-                    throw new Error('Could not parse JSON array from response');
-                }
+            // Strip any reasoning preamble / markdown and find the JSON.
+            const objMatch = aiResponse.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/) ||
+                             aiResponse.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/);
+            if (objMatch) {
+                vehiclesArray = unwrap(JSON.parse(objMatch[1]));
+            }
+            if (!vehiclesArray) {
+                // Last resort: find a bare {...} object then a bare [...] array anywhere.
+                const bareObj = aiResponse.match(/\{[\s\S]*\}/);
+                if (bareObj) { try { vehiclesArray = unwrap(JSON.parse(bareObj[0])); } catch(_) {} }
+            }
+            if (!vehiclesArray) {
+                const bareArr = aiResponse.match(/\[[\s\S]*\]/);
+                if (bareArr) { try { vehiclesArray = JSON.parse(bareArr[0]); } catch(_) {} }
+            }
+            if (!vehiclesArray) {
+                throw new Error('Could not parse JSON array from response');
             }
         }
         
