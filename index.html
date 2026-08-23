@@ -8,6 +8,12 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <!-- pdf.js: renders filled PDF pages to canvas so we can copy a page as a PNG image -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        // Point pdf.js at its worker (required for rendering).
+        if (window.pdfjsLib) { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
+    </script>
     
     <style>
         
@@ -11973,7 +11979,109 @@ const channelId = trooperSettings?.DatabaseChannelID || editableTrooperSettings?
     }
 };
 
-const generateCitation = async (ownerData = null, vehicleData = null) => {
+// ── PDF page → PNG clipboard copy ──────────────────────────────────────────
+// pdf-lib fills the form; pdf.js renders a filled page to a canvas; we copy that
+// canvas as a PNG image to the clipboard. Stores the most-recently-filled bytes
+// per document type so the "Copy Page N" buttons have something to render.
+const lastFilledPdfRef = React.useRef({ citation: null, arrest: null });
+const [pngCopyStatus, setPngCopyStatus] = React.useState({}); // {'citation-1':'copying'|'done'|'error'}
+
+// Render page `pageIndex` (0-based) of the given PDF bytes to a PNG blob and copy it.
+const copyPdfPageAsPng = async (pdfBytes, pageIndex, statusKey) => {
+    if (!pdfBytes) { showCustomError('Nothing to copy yet', 'Generate the document first, then copy a page.'); return; }
+    if (!window.pdfjsLib) { showCustomError('Renderer not ready', 'The PDF renderer (pdf.js) failed to load. Check your connection and restart.'); return; }
+    setPngCopyStatus(s => ({ ...s, [statusKey]: 'copying' }));
+    try {
+        // pdf.js consumes the bytes, so hand it a copy (pdf-lib's save() output is reused elsewhere).
+        const data = pdfBytes.slice(0);
+        const pdf = await window.pdfjsLib.getDocument({ data }).promise;
+        if (pageIndex >= pdf.numPages) {
+            setPngCopyStatus(s => ({ ...s, [statusKey]: 'error' }));
+            showCustomError('Page not available', `This document only has ${pdf.numPages} page${pdf.numPages === 1 ? '' : 's'}.`);
+            return;
+        }
+        const page = await pdf.getPage(pageIndex + 1); // pdf.js pages are 1-based
+        const scale = 2.5; // higher scale = crisper screenshot
+        const viewport = page.getViewport({ scale });
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.floor(viewport.width);
+        canvas.height = Math.floor(viewport.height);
+        const ctx = canvas.getContext('2d');
+        // White backdrop so transparent PDF areas don't turn black when pasted.
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        await page.render({ canvasContext: ctx, viewport }).promise;
+
+        const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'));
+        if (!blob) throw new Error('Could not encode PNG');
+
+        // Copy the image to the clipboard.
+        if (navigator.clipboard && window.ClipboardItem) {
+            await navigator.clipboard.write([new window.ClipboardItem({ 'image/png': blob })]);
+        } else {
+            throw new Error('Clipboard image copy not supported here');
+        }
+        setPngCopyStatus(s => ({ ...s, [statusKey]: 'done' }));
+        try { playSound('platePass'); } catch(_) {}
+        setTimeout(() => setPngCopyStatus(s => ({ ...s, [statusKey]: undefined })), 2200);
+    } catch (e) {
+        console.error('[PNG COPY] failed:', e);
+        setPngCopyStatus(s => ({ ...s, [statusKey]: 'error' }));
+        showCustomError('Copy failed', `Could not copy the page as an image: ${e.message}`);
+        setTimeout(() => setPngCopyStatus(s => ({ ...s, [statusKey]: undefined })), 3000);
+    }
+};
+
+// Convenience: (re)generate the citation and copy a specific page as PNG.
+const copyCitationPageAsPng = async (pageIndex, ownerData = null, vehicleData = null) => {
+    const statusKey = `citation-${pageIndex + 1}`;
+    setPngCopyStatus(s => ({ ...s, [statusKey]: 'copying' }));
+    // Fill fresh so the copied image reflects the latest inputs.
+    await generateCitation(ownerData, vehicleData, { returnBytesOnly: true });
+    await copyPdfPageAsPng(lastFilledPdfRef.current.citation, pageIndex, statusKey);
+};
+const copyArrestPageAsPng = async (pageIndex, ownerData = null) => {
+    const statusKey = `arrest-${pageIndex + 1}`;
+    setPngCopyStatus(s => ({ ...s, [statusKey]: 'copying' }));
+    await generateArrestReport(ownerData, { returnBytesOnly: true });
+    await copyPdfPageAsPng(lastFilledPdfRef.current.arrest, pageIndex, statusKey);
+};
+
+// Two buttons: "Copy Page 1" / "Copy Page 2" — each fills the doc and copies that
+// page as a PNG to the clipboard, ready to paste as a screenshot. `kind` is
+// 'citation' or 'arrest'; onCopy(pageIndex) does the work.
+const CopyPagesRow = ({ kind, label, onCopy, accentRgb = '56,189,248' }) => {
+    const st = (n) => pngCopyStatus[`${kind}-${n}`];
+    const btn = (n) => {
+        const s = st(n);
+        const busy = s === 'copying';
+        return (
+            <button key={n} disabled={busy}
+                onClick={() => onCopy(n - 1)}
+                style={{ flex:1, padding:'10px', borderRadius:'9px', border:`1px solid rgba(${accentRgb},0.35)`, background: s === 'done' ? 'rgba(52,211,153,0.15)' : s === 'error' ? 'rgba(239,68,68,0.15)' : `rgba(${accentRgb},0.08)`, color: s === 'done' ? '#6ee7b7' : s === 'error' ? '#fca5a5' : `rgb(${accentRgb})`, fontSize:'11px', fontWeight:'800', letterSpacing:'0.5px', fontFamily:'monospace', cursor: busy ? 'wait' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'7px', transition:'background 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                onMouseEnter={e => { if (!busy) e.currentTarget.style.background = `rgba(${accentRgb},0.18)`; }}
+                onMouseLeave={e => { if (!busy) e.currentTarget.style.background = s === 'done' ? 'rgba(52,211,153,0.15)' : s === 'error' ? 'rgba(239,68,68,0.15)' : `rgba(${accentRgb},0.08)`; }}
+                onMouseDown={e => { if (!busy) e.currentTarget.style.transform = 'scale(0.97)'; }}
+                onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}>
+                {busy ? <><Loader2 size={13} style={{ animation:'spin 1s linear infinite' }} /> Rendering…</>
+                 : s === 'done' ? <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Copied!</>
+                 : s === 'error' ? <>Failed — retry</>
+                 : <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Page {n}</>}
+            </button>
+        );
+    };
+    return (
+        <div style={{ marginTop:'8px' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'6px', color:'#64748b', fontSize:'9px', fontWeight:'800', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'monospace' }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                {label} — copy as image
+            </div>
+            <div style={{ display:'flex', gap:'8px' }}>{btn(1)}{btn(2)}</div>
+        </div>
+    );
+};
+
+const generateCitation = async (ownerData = null, vehicleData = null, opts = {}) => {
     // Enforce the export restriction at the source, so it applies to EVERY entry point
     // (plate search, ID lookup, command bar, etc.) — not just the plate-search button.
     if (featureLocks.exportCitation) { showLockedFeatureAlert('Export Pre-Filled Citation'); return; }
@@ -12441,7 +12549,17 @@ addLog('All available fields filled', 'success');
 
         // Save the filled PDF
         const finalPdfBytes = await pdfDoc.save();
-        
+
+        // Stash the filled bytes so the "Copy Page N" PNG buttons can render them.
+        lastFilledPdfRef.current.citation = finalPdfBytes.slice(0);
+
+        // When invoked purely to get bytes for a PNG copy, skip opening/saving the PDF.
+        if (opts.returnBytesOnly) {
+            try { sessionStatsRef.current.citationsExported += 1; } catch(_) {}
+            logActivity(`Citation (image copy) → ${finalOwner.username || 'Unknown'} · ${finalVehicle.plate || 'No plate'}`);
+            return finalPdfBytes;
+        }
+
         // Create blob
         const blob = new Blob([finalPdfBytes], { type: 'application/pdf' });
         
@@ -12495,7 +12613,7 @@ addLog('All available fields filled', 'success');
 };
 
 
-const generateArrestReport = async (ownerData = null) => {
+const generateArrestReport = async (ownerData = null, opts = {}) => {
     // Enforce the export restriction at the source (see generateCitation) so ID Lookup
     // and every other entry point respect the lock, not just the plate-search button.
     if (featureLocks.exportCitation) { showLockedFeatureAlert('File Arrest Report'); return; }
@@ -12724,7 +12842,16 @@ const getCurrentTime = () => {
         
         // Save the filled PDF
         const finalPdfBytes = await pdfDoc.save();
-        
+
+        // Stash the filled bytes so the "Copy Page N" PNG buttons can render them.
+        lastFilledPdfRef.current.arrest = finalPdfBytes.slice(0);
+
+        // When invoked purely to get bytes for a PNG copy, skip opening/saving the PDF.
+        if (opts.returnBytesOnly) {
+            try { sessionStatsRef.current.arrestsExported += 1; } catch(_) {}
+            return finalPdfBytes;
+        }
+
         // Create blob and open in new tab
         // Create blob
         const blob = new Blob([finalPdfBytes], { type: 'application/pdf' });
@@ -16163,6 +16290,18 @@ return (
                                         );
                                     })()}
 
+                                    {/* CDL — Commercial Driver's License. Static display (no data source yet) — always Inactive. */}
+                                    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',padding:'10px 14px',marginBottom:'8px',background:'rgba(100,116,139,0.08)',border:'1px solid rgba(100,116,139,0.25)',borderRadius:'9px',boxShadow:'inset 0 1px 0 rgba(148,163,184,0.08)' }}>
+                                        <div style={{ display:'flex',alignItems:'center',gap:'9px' }}>
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17h14M6 17l1.5-4.5a2 2 0 011.9-1.5h5.2a2 2 0 011.9 1.5L19 17M6 17v2M18 17v2"/><rect x="2" y="6" width="20" height="4" rx="1"/></svg>
+                                            <span style={{ color:'#94a3b8',fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>CDL</span>
+                                        </div>
+                                        <span style={{ display:'flex',alignItems:'center',gap:'7px',color:'#64748b',fontSize:'11px',fontWeight:'900',letterSpacing:'1.5px',fontFamily:'monospace' }}>
+                                            <span style={{ width:'6px',height:'6px',borderRadius:'50%',background:'#64748b' }} />
+                                            INACTIVE
+                                        </span>
+                                    </div>
+
                                     {/* Warrant badge */}
                                     <div style={{ padding:'12px 14px',background:warrantFlash?'#dc2626':(warrantInfo?'linear-gradient(180deg,#dc2626,#991b1b)':'rgba(16,185,129,0.06)'),border:`1px solid ${warrantInfo?'rgba(239,68,68,0.5)':'rgba(52,211,153,0.2)'}`,borderRadius:'9px',transition:'background 160ms ease-out, border-color 160ms ease-out',animation:warrantInfo?'pulse-border-warrant 2s infinite':'none',boxShadow:warrantInfo?'0 0 20px rgba(239,68,68,0.35), inset 0 1px 0 rgba(255,255,255,0.1)':'inset 0 1px 0 rgba(52,211,153,0.08)' }}>
                                         <div style={{ color:warrantInfo?'#fff':(warrantChecking?'#fbbf24':'#34d399'),fontSize:'11px',fontWeight:'800',fontFamily:'monospace',letterSpacing:'1.2px',textTransform:'uppercase',display:'flex',alignItems:'center',gap:'8px' }}>
@@ -16251,6 +16390,22 @@ return (
                                         )}
                                         File Arrest Report
                                     </button>
+                                        );
+                                    })()}
+
+                                    {/* Copy citation/arrest pages as PNG images (paste as screenshots) */}
+                                    {!isDispatcher && (() => {
+                                        const citReg = registration || {};
+                                        const citOwner = registration?.robloxUser || result || { username: 'UNKNOWN', userId: 'UNKNOWN', displayName: 'UNKNOWN', joinDate: 'UNKNOWN' };
+                                        let arrestOwner = null;
+                                        if (searchResults?.robloxUser?.username) arrestOwner = searchResults.robloxUser;
+                                        else if (registration?.robloxUser?.username) arrestOwner = registration.robloxUser;
+                                        else if (result?.username) arrestOwner = result;
+                                        return (
+                                            <>
+                                                <CopyPagesRow kind="citation" label="Citation" accentRgb="16,185,129" onCopy={(p) => copyCitationPageAsPng(p, citOwner, citReg)} />
+                                                <CopyPagesRow kind="arrest" label="Arrest Report" accentRgb="239,68,68" onCopy={(p) => copyArrestPageAsPng(p, arrestOwner)} />
+                                            </>
                                         );
                                     })()}
                                 </>
@@ -16833,6 +16988,18 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                             </div>
                                         );
                                     })()}
+
+                                    {/* CDL — Commercial Driver's License. Static display (no data source yet) — always Inactive. */}
+                                    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',padding:'10px 14px',marginBottom:'8px',background:'rgba(100,116,139,0.08)',border:'1px solid rgba(100,116,139,0.25)',borderRadius:'9px',boxShadow:'inset 0 1px 0 rgba(148,163,184,0.08)' }}>
+                                        <div style={{ display:'flex',alignItems:'center',gap:'9px' }}>
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17h14M6 17l1.5-4.5a2 2 0 011.9-1.5h5.2a2 2 0 011.9 1.5L19 17M6 17v2M18 17v2"/><rect x="2" y="6" width="20" height="4" rx="1"/></svg>
+                                            <span style={{ color:'#94a3b8',fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>CDL</span>
+                                        </div>
+                                        <span style={{ display:'flex',alignItems:'center',gap:'7px',color:'#64748b',fontSize:'11px',fontWeight:'900',letterSpacing:'1.5px',fontFamily:'monospace' }}>
+                                            <span style={{ width:'6px',height:'6px',borderRadius:'50%',background:'#64748b' }} />
+                                            INACTIVE
+                                        </span>
+                                    </div>
                                 </>
                             ) : (
                                 <>
@@ -16884,9 +17051,21 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(239,68,68,0.3)'; }}>
                                 FILE ARREST REPORT
                             </button>
-                        </div>
 
-                        {/* ══ CITIZEN GOVERNMENT RECORDS (auto-loaded, mirrors plate tab) ══ */}
+                            {/* Copy citation/arrest pages as PNG images (paste as screenshots) */}
+                            {!isDispatcher && (() => {
+                                const robloxData = searchResults.robloxUser || {};
+                                const completeOwnerData = { username: robloxData.username || 'UNKNOWN', userId: robloxData.userId || 'UNKNOWN', displayName: robloxData.displayName || 'UNKNOWN', joinDate: robloxData.joinDate || 'UNKNOWN', avatarUrl: robloxData.avatarUrl || null, discordUserId: searchResults.discordUserId || 'UNKNOWN' };
+                                const tempResult = robloxData.username ? robloxData : { username: 'UNKNOWN', userId: 'UNKNOWN', displayName: 'UNKNOWN', joinDate: 'UNKNOWN' };
+                                const tempReg = { discordUserId: searchResults?.discordUserId || 'UNKNOWN', year: '', make: '', model: '', plate: '', state: '', color: '', vehicleType: '', timestamp: new Date().toLocaleString(), phoneticPlate: '', hasHandicapPermit: false, isEdited: false };
+                                return (
+                                    <>
+                                        <CopyPagesRow kind="citation" label="Citation" accentRgb="16,185,129" onCopy={(p) => copyCitationPageAsPng(p, tempResult, tempReg)} />
+                                        <CopyPagesRow kind="arrest" label="Arrest Report" accentRgb="239,68,68" onCopy={(p) => copyArrestPageAsPng(p, completeOwnerData)} />
+                                    </>
+                                );
+                            })()}
+                        </div>
                         {/* ══════════ UI: GOVERNMENT RECORDS ══════════ */}
                         <div style={{ padding:'18px',background:'linear-gradient(180deg,rgba(12,40,70,0.4) 0%,rgba(8,16,32,0.6) 100%)',border:'1px solid rgba(56,189,248,0.2)',borderRadius:'14px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 8px 28px -14px rgba(0,0,0,0.7)',display:'flex',flexDirection:'column',minHeight:0 }}>
                             <div style={{ display:'flex',alignItems:'center',gap:'11px',marginBottom:'15px',paddingBottom:'13px',borderBottom:'1px solid rgba(56,189,248,0.14)',flexShrink:0 }}>
