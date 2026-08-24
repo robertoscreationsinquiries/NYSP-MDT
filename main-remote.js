@@ -834,7 +834,29 @@ ipcMain.handle('export-pdf', async (event, { type }) => {
         return { success: true, path: outputPath };
     } catch(err) { return { success: false, error: err.message }; }
 });
-// ── Mini-mode ──
+
+// ── Capture a rectangular region of the live window as a PNG ──
+// Used by the in-app PDF editor: the PDF renders in a native <iframe> (real form
+// fields — checkboxes, dropdowns, typing — prefilled exactly like the external
+// viewer). To "copy a page as image" WITH the user's live edits, we screenshot the
+// actual rendered pixels via webContents.capturePage(rect). Returns a PNG data URL
+// the renderer copies to the clipboard.
+ipcMain.handle('capture-region', async (event, rect) => {
+    try {
+        if (!mainWindow) return { success: false, error: 'no window' };
+        // rect: { x, y, width, height } in CSS pixels (device-independent).
+        const r = {
+            x: Math.max(0, Math.round(rect.x)),
+            y: Math.max(0, Math.round(rect.y)),
+            width: Math.max(1, Math.round(rect.width)),
+            height: Math.max(1, Math.round(rect.height)),
+        };
+        const image = await mainWindow.webContents.capturePage(r);
+        return { success: true, dataUrl: image.toDataURL() };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
 // Spotify-miniplayer-style: shrink to a compact always-on-top window in the
 // bottom-right. We must clear the window's minimumSize (1200×700) first, or
 // setSize is silently clamped back up — that's why the old handler never shrank.
