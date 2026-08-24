@@ -2845,8 +2845,11 @@ const [headerShadow, setHeaderShadow] = useState(false);
 const [nightMode, setNightMode] = useState(false);
 const [showUsefulLinks, setShowUsefulLinks] = useState(false);
 const [selectedDepartment, setSelectedDepartment] = useState(null);
-const [mapZoom, setMapZoom] = useState(2);
-const [mapOffset, setMapOffset] = useState({ x: 0, y: 0 });
+const [mapZoom, setMapZoom] = useState(() => { const v = parseFloat(localStorage.getItem('mapZoom')); return (v >= 1 && v <= 4) ? v : 2; });
+const [mapOffset, setMapOffset] = useState(() => { try { const o = JSON.parse(localStorage.getItem('mapOffset')); if (o && typeof o.x === 'number' && typeof o.y === 'number') return o; } catch(_) {} return { x: 0, y: 0 }; });
+// Persist map position so it's remembered across tab switches and app restarts.
+React.useEffect(() => { try { localStorage.setItem('mapZoom', String(mapZoom)); } catch(_) {} }, [mapZoom]);
+React.useEffect(() => { try { localStorage.setItem('mapOffset', JSON.stringify(mapOffset)); } catch(_) {} }, [mapOffset]);
 const [mapDragging, setMapDragging] = useState(false);
 const [mapDragStart, setMapDragStart] = useState(null);
 const [showDataPanel, setShowDataPanel] = useState(false);
@@ -12055,23 +12058,10 @@ const copyPdfPageAsPng = async (pdfBytes, pageIndex, statusKey) => {
 };
 
 // Open the in-app editable PDF popup for the given filled bytes.
-const openInAppPdf = async (pdfBytes, kind, label) => {
+const openInAppPdf = async (pdfBytes, kind, label, messageFormat) => {
     if (!pdfBytes) { showCustomError('Nothing to show', 'The document could not be generated.'); return; }
-    try {
-        let numPages = 2;
-        try {
-            if (window.pdfjsLib) {
-                const pdf = await window.pdfjsLib.getDocument({ data: pdfBytes.slice(0) }).promise;
-                numPages = pdf.numPages;
-            }
-        } catch(_) {}
-        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        // Revoke any previous URL to avoid leaks.
-        setInAppPdf(prev => { if (prev?.url) { try { URL.revokeObjectURL(prev.url); } catch(_){} } return { url, kind, label, numPages }; });
-    } catch (e) {
-        showCustomError('Preview failed', e.message);
-    }
+    // Store a stable copy of the bytes; the editor renders + edits from these.
+    setInAppPdf({ bytes: pdfBytes.slice(0), kind, label, messageFormat });
 };
 
 // Convenience: (re)generate the citation and copy a specific page as PNG.
@@ -12087,6 +12077,197 @@ const copyArrestPageAsPng = async (pageIndex, ownerData = null) => {
     setPngCopyStatus(s => ({ ...s, [statusKey]: 'copying' }));
     await generateArrestReport(ownerData, { returnBytesOnly: true });
     await copyPdfPageAsPng(lastFilledPdfRef.current.arrest, pageIndex, statusKey);
+};
+
+// Full in-app PDF editor: renders each page to a canvas via pdf.js, overlays real
+// editable inputs positioned over each form field, keeps edits in state, and when
+// copying a page re-fills the PDF (pdf-lib) with those edits so the PNG reflects the
+// CURRENT state. Also offers the "Copy Message Format" button.
+const InAppPdfEditor = ({ info, onClose }) => {
+    // info: { bytes, kind, label, messageFormat }
+    const [pages, setPages] = React.useState([]);      // [{ pageIndex, width, height, dataUrl, fields:[...] }]
+    const [edits, setEdits] = React.useState({});      // { fieldName: value }
+    const [loading, setLoading] = React.useState(true);
+    const [copyState, setCopyState] = React.useState({}); // { '1':'copying'|'done'|'error', msg:'done' }
+    const editsRef = React.useRef({});
+    React.useEffect(() => { editsRef.current = edits; }, [edits]);
+
+    // Render all pages + collect field boxes once on open.
+    React.useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            if (!window.pdfjsLib || !info?.bytes) { setLoading(false); return; }
+            try {
+                const pdf = await window.pdfjsLib.getDocument({ data: info.bytes.slice(0) }).promise;
+                const out = [];
+                const initialEdits = {};
+                const SCALE = 1.6; // display scale
+                for (let p = 1; p <= pdf.numPages; p++) {
+                    const page = await pdf.getPage(p);
+                    const viewport = page.getViewport({ scale: SCALE });
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.floor(viewport.width);
+                    canvas.height = Math.floor(viewport.height);
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    await page.render({ canvasContext: ctx, viewport }).promise;
+                    // Collect text-field widgets with pixel-space boxes.
+                    let fields = [];
+                    try {
+                        const anns = await page.getAnnotations();
+                        fields = anns.filter(a => a.subtype === 'Widget' && a.fieldType === 'Tx' && a.fieldName && !a.readOnly).map(a => {
+                            const r = viewport.convertToViewportRectangle(a.rect); // [x1,y1,x2,y2] in canvas px
+                            const left = Math.min(r[0], r[2]), top = Math.min(r[1], r[3]);
+                            const width = Math.abs(r[2] - r[0]), height = Math.abs(r[3] - r[1]);
+                            if (a.fieldValue != null && a.fieldValue !== '' && initialEdits[a.fieldName] == null) initialEdits[a.fieldName] = a.fieldValue;
+                            return { name: a.fieldName, left, top, width, height, multiLine: !!a.multiLine };
+                        });
+                    } catch(_) {}
+                    out.push({ pageIndex: p - 1, width: canvas.width, height: canvas.height, dataUrl: canvas.toDataURL('image/png'), fields });
+                }
+                if (!cancelled) { setPages(out); setEdits(initialEdits); setLoading(false); }
+            } catch (e) {
+                console.error('[IN-APP PDF] render failed:', e);
+                if (!cancelled) setLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [info]);
+
+    // Re-fill the PDF with current edits and copy the given page as PNG.
+    const copyPage = async (pageIndex) => {
+        const key = String(pageIndex + 1);
+        setCopyState(s => ({ ...s, [key]: 'copying' }));
+        try {
+            // Apply edits onto the filled bytes via pdf-lib.
+            const src = info.bytes.slice(0);
+            let bytesToRender = src;
+            try {
+                const doc = await window.PDFLib.PDFDocument.load(src);
+                const form = doc.getForm();
+                Object.entries(editsRef.current).forEach(([name, val]) => {
+                    try { const f = form.getTextField(name); f.setText(val == null ? '' : String(val)); } catch(_) {}
+                });
+                try { form.flatten(); } catch(_) {}  // bake values into the page so they always render
+                bytesToRender = await doc.save();
+            } catch (fillErr) {
+                console.warn('[IN-APP PDF] re-fill failed, copying original state:', fillErr);
+            }
+            // Render the page to PNG.
+            const pdf = await window.pdfjsLib.getDocument({ data: bytesToRender.slice(0) }).promise;
+            const page = await pdf.getPage(pageIndex + 1);
+            const viewport = page.getViewport({ scale: 2.5 });
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.floor(viewport.width); canvas.height = Math.floor(viewport.height);
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            await page.render({ canvasContext: ctx, viewport }).promise;
+            const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+            if (!blob) throw new Error('encode failed');
+            await navigator.clipboard.write([new window.ClipboardItem({ 'image/png': blob })]);
+            setCopyState(s => ({ ...s, [key]: 'done' }));
+            try { playSound('platePass'); } catch(_) {}
+            setTimeout(() => setCopyState(s => ({ ...s, [key]: undefined })), 2200);
+        } catch (e) {
+            console.error('[IN-APP PDF] copy failed:', e);
+            setCopyState(s => ({ ...s, [key]: 'error' }));
+            setTimeout(() => setCopyState(s => ({ ...s, [key]: undefined })), 3000);
+        }
+    };
+
+    const copyMessage = async () => {
+        try {
+            await navigator.clipboard.writeText(info.messageFormat);
+            setCopyState(s => ({ ...s, msg: 'done' }));
+            try { playSound('platePass'); } catch(_) {}
+            setTimeout(() => setCopyState(s => ({ ...s, msg: undefined })), 2200);
+        } catch (e) {
+            setCopyState(s => ({ ...s, msg: 'error' }));
+            setTimeout(() => setCopyState(s => ({ ...s, msg: undefined })), 3000);
+        }
+    };
+
+    const accent = info.kind === 'arrest' ? '239,68,68' : '16,185,129';
+    const pageBtn = (n) => {
+        const s = copyState[String(n)];
+        const busy = s === 'copying';
+        return (
+            <button key={n} disabled={busy || loading} onClick={() => copyPage(n - 1)}
+                style={{ width:'100%', padding:'13px', borderRadius:'11px', border:`1px solid rgba(${accent},0.4)`, background: s === 'done' ? 'rgba(52,211,153,0.16)' : s === 'error' ? 'rgba(239,68,68,0.16)' : `rgba(${accent},0.1)`, color: s === 'done' ? '#6ee7b7' : s === 'error' ? '#fca5a5' : `rgb(${accent})`, fontSize:'12px', fontWeight:'800', letterSpacing:'0.5px', fontFamily:'monospace', cursor: (busy||loading) ? 'wait' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', transition:'background 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)', marginBottom:'10px', opacity: loading ? 0.5 : 1 }}
+                onMouseDown={e => { if (!busy && !loading) e.currentTarget.style.transform = 'scale(0.97)'; }}
+                onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}>
+                {busy ? <><Loader2 size={15} style={{ animation:'spin 1s linear infinite' }} /> Rendering…</>
+                 : s === 'done' ? <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Page {n} Copied!</>
+                 : s === 'error' ? <>Page {n} — retry</>
+                 : <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy Page {n}</>}
+            </button>
+        );
+    };
+
+    return (
+        <div onClick={onClose} style={{ position:'fixed', inset:0, zIndex:100004, background:'rgba(2,4,10,0.85)', backdropFilter:'blur(8px)', display:'flex', alignItems:'center', justifyContent:'center', padding:'22px', boxSizing:'border-box', animation:'fadeIn 0.25s ease-out' }}>
+            <div onClick={e => e.stopPropagation()} style={{ display:'flex', gap:'16px', width:'100%', maxWidth:'1200px', height:'92vh', background:'linear-gradient(180deg,rgba(13,20,38,0.98),rgba(8,13,26,0.99))', border:'1px solid rgba(56,189,248,0.25)', borderRadius:'16px', boxShadow:'0 30px 90px -20px rgba(0,0,0,0.8)', padding:'16px', boxSizing:'border-box', animation:'fadeInUp 0.35s cubic-bezier(0.16,1,0.3,1)' }}>
+
+                {/* Editable page stack */}
+                <div style={{ flex:1, minWidth:0, overflowY:'auto', background:'#3a3f47', borderRadius:'11px', padding:'18px', display:'flex', flexDirection:'column', alignItems:'center', gap:'18px' }}>
+                    {loading && <div style={{ color:'#cbd5e1', fontFamily:'monospace', fontSize:'13px', margin:'auto' }}>Rendering document…</div>}
+                    {!loading && pages.length === 0 && <div style={{ color:'#fca5a5', fontFamily:'monospace', fontSize:'13px', margin:'auto', textAlign:'center' }}>Could not render the document.<br/>The renderer may not have loaded.</div>}
+                    {pages.map((pg) => (
+                        <div key={pg.pageIndex} style={{ position:'relative', width:pg.width, maxWidth:'100%', boxShadow:'0 8px 30px rgba(0,0,0,0.5)', borderRadius:'3px', overflow:'hidden', flexShrink:0 }}>
+                            <img src={pg.dataUrl} alt={`Page ${pg.pageIndex + 1}`} style={{ display:'block', width:'100%' }} draggable={false} />
+                            {/* Field overlay — inputs scale with the rendered image */}
+                            <div style={{ position:'absolute', inset:0 }}>
+                                {pg.fields.map((f, i) => (
+                                    <input key={i} type="text" value={edits[f.name] ?? ''}
+                                        onChange={e => setEdits(prev => ({ ...prev, [f.name]: e.target.value }))}
+                                        title={f.name}
+                                        style={{ position:'absolute', left:`${(f.left / pg.width) * 100}%`, top:`${(f.top / pg.height) * 100}%`, width:`${(f.width / pg.width) * 100}%`, height:`${(f.height / pg.height) * 100}%`, boxSizing:'border-box', border:'1px solid rgba(37,99,235,0.5)', background:'rgba(191,219,254,0.35)', color:'#0b1220', fontSize:`${Math.max(8, f.height * 0.62)}px`, fontFamily:'monospace', padding:'0 2px', outline:'none', borderRadius:'1px' }}
+                                        onFocus={e => { e.target.style.background = 'rgba(191,219,254,0.75)'; e.target.style.borderColor = '#2563eb'; }}
+                                        onBlur={e => { e.target.style.background = 'rgba(191,219,254,0.35)'; e.target.style.borderColor = 'rgba(37,99,235,0.5)'; }}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Right rail */}
+                <div style={{ width:'260px', flexShrink:0, display:'flex', flexDirection:'column' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'12px' }}>
+                        <div style={{ width:'34px', height:'34px', borderRadius:'9px', background:`linear-gradient(135deg,rgba(${accent},0.9),rgba(${accent},0.5))`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, boxShadow:`0 4px 12px -3px rgba(${accent},0.6)` }}>
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+                        </div>
+                        <div style={{ minWidth:0 }}>
+                            <div style={{ color:'#f1f5f9', fontSize:'14px', fontWeight:'800' }}>{info.label}</div>
+                            <div style={{ color:'#7dd3fc', fontSize:'10px', fontFamily:'monospace' }}>In-app editor</div>
+                        </div>
+                    </div>
+
+                    <div style={{ padding:'11px 13px', marginBottom:'14px', background:'rgba(56,189,248,0.06)', border:'1px solid rgba(56,189,248,0.18)', borderRadius:'10px', color:'#94a3b8', fontSize:'11px', lineHeight:1.6 }}>
+                        Edit the highlighted fields on the document. Copying a page captures your current edits as an image.
+                    </div>
+
+                    <div style={{ color:'#64748b', fontSize:'9px', fontWeight:'800', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'monospace', marginBottom:'9px' }}>Copy as image</div>
+                    {pageBtn(1)}
+                    {pages.length > 1 && pageBtn(2)}
+
+                    {/* Copy Message Format */}
+                    <button onClick={copyMessage} disabled={loading}
+                        style={{ width:'100%', padding:'13px', borderRadius:'11px', border:'1px solid rgba(129,140,248,0.4)', background: copyState.msg === 'done' ? 'rgba(52,211,153,0.16)' : 'rgba(129,140,248,0.12)', color: copyState.msg === 'done' ? '#6ee7b7' : '#a5b4fc', fontSize:'12px', fontWeight:'800', letterSpacing:'0.5px', fontFamily:'monospace', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', marginTop:'2px' }}>
+                        {copyState.msg === 'done' ? <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Format Copied!</>
+                         : <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg> Copy Message Format</>}
+                    </button>
+
+                    <div style={{ flex:'1 1 auto' }} />
+
+                    <button onClick={onClose}
+                        style={{ width:'100%', padding:'12px', borderRadius:'10px', border:'1px solid rgba(148,163,184,0.25)', background:'rgba(255,255,255,0.04)', color:'#cbd5e1', fontSize:'12px', fontWeight:'700', cursor:'pointer', letterSpacing:'1px', textTransform:'uppercase', fontFamily:'monospace' }}>
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 // Two buttons: "Copy Page 1" / "Copy Page 2" — each fills the doc and copies that
@@ -12608,7 +12789,8 @@ addLog('All available fields filled', 'success');
             try { sessionStatsRef.current.citationsExported += 1; } catch(_) {}
             logActivity(`Exported Citation → ${finalOwner.username || 'Unknown'} · ${finalVehicle.plate || 'No plate'}`);
             addLog('✔ Citation opened in in-app editor', 'success');
-            await openInAppPdf(finalPdfBytes, 'citation', 'Traffic Citation');
+            const msgFmt = `**Citation/Summons**\n@\n\`§ VIOLATION\`\nPoints: 0\n-# +0 PTS.`;
+            await openInAppPdf(finalPdfBytes, 'citation', 'Traffic Citation', msgFmt);
             return finalPdfBytes;
         }
 
@@ -12908,7 +13090,8 @@ const getCurrentTime = () => {
         if (exportType === 'INAPP') {
             try { sessionStatsRef.current.arrestsExported += 1; } catch(_) {}
             addLog('✔ Arrest report opened in in-app editor', 'success');
-            await openInAppPdf(finalPdfBytes, 'arrest', 'Arrest / Summons Report');
+            const msgFmt = `**Summons/Arrest**\n@\n\`§ VIOLATION\`\nPoints: 0\n-# +0 PTS`;
+            await openInAppPdf(finalPdfBytes, 'arrest', 'Arrest / Summons Report', msgFmt);
             return finalPdfBytes;
         }
 
@@ -14763,7 +14946,7 @@ return (
                                     return;
                                 }
                                 if(isHomeDash){navTo('home', ()=>setHomeSubView('dashboard'));}
-                                else if(item.mapKey){navTo('home', ()=>{setHomeSubView(v=>v==='map'?'dashboard':'map');setShowDataPanel(false);setShowOfficersPanel(false);setShowHistoryPanel(false);setShowNotesPanel(false);setShowTimerPanel(false);setShowSpotifyPanel(false);});}
+                                else if(item.mapKey){const onMapNow=(activeView==='home'&&homeSubView==='map');navTo('home', ()=>{setHomeSubView(onMapNow?'dashboard':'map');setShowDataPanel(false);setShowOfficersPanel(false);setShowHistoryPanel(false);setShowNotesPanel(false);setShowTimerPanel(false);setShowSpotifyPanel(false);});}
                                 else if(item.k==='hist'){const n=!showHistoryPanel;closeAllPanels();setShowHistoryPanel(n);}
                                 else if(item.k==='data'){const n=!showDataPanel;closeAllPanels();setShowDataPanel(n);}
                                 else if(item.k==='officers'){const n=!showOfficersPanel;closeAllPanels();setShowOfficersPanel(n);}
@@ -19268,70 +19451,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
         {/* UPDATE LOG MODAL */}
 {/* ══════════ 2026 WRAPPED ══════════ */}
 {/* ══════════ IN-APP PDF EDITOR (Export Type = In App) ══════════ */}
-{inAppPdf && (() => {
-    const close = () => { setInAppPdf(prev => { if (prev?.url) { try { URL.revokeObjectURL(prev.url); } catch(_){} } return null; }); };
-    const copyPage = (n) => copyPdfPageAsPng(lastFilledPdfRef.current[inAppPdf.kind], n - 1, `${inAppPdf.kind}-${n}`);
-    const st = (n) => pngCopyStatus[`${inAppPdf.kind}-${n}`];
-    const accent = inAppPdf.kind === 'arrest' ? '239,68,68' : '16,185,129';
-    const pageBtn = (n) => {
-        const s = st(n);
-        const busy = s === 'copying';
-        return (
-            <button key={n} disabled={busy} onClick={() => copyPage(n)}
-                style={{ width:'100%', padding:'13px', borderRadius:'11px', border:`1px solid rgba(${accent},0.4)`, background: s === 'done' ? 'rgba(52,211,153,0.16)' : s === 'error' ? 'rgba(239,68,68,0.16)' : `rgba(${accent},0.1)`, color: s === 'done' ? '#6ee7b7' : s === 'error' ? '#fca5a5' : `rgb(${accent})`, fontSize:'12px', fontWeight:'800', letterSpacing:'0.5px', fontFamily:'monospace', cursor: busy ? 'wait' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', transition:'background 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)', marginBottom:'10px' }}
-                onMouseEnter={e => { if (!busy) e.currentTarget.style.background = `rgba(${accent},0.2)`; }}
-                onMouseLeave={e => { if (!busy) e.currentTarget.style.background = s === 'done' ? 'rgba(52,211,153,0.16)' : s === 'error' ? 'rgba(239,68,68,0.16)' : `rgba(${accent},0.1)`; }}
-                onMouseDown={e => { if (!busy) e.currentTarget.style.transform = 'scale(0.97)'; }}
-                onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}>
-                {busy ? <><Loader2 size={15} style={{ animation:'spin 1s linear infinite' }} /> Rendering…</>
-                 : s === 'done' ? <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Page {n} Copied!</>
-                 : s === 'error' ? <>Page {n} — retry</>
-                 : <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy Page {n}</>}
-            </button>
-        );
-    };
-    return (
-        <div onClick={close} style={{ position:'fixed', inset:0, zIndex:100004, background:'rgba(2,4,10,0.82)', backdropFilter:'blur(8px)', display:'flex', alignItems:'center', justifyContent:'center', padding:'24px', boxSizing:'border-box', animation:'fadeIn 0.25s ease-out' }}>
-            <div onClick={e => e.stopPropagation()} style={{ display:'flex', gap:'16px', width:'100%', maxWidth:'1180px', height:'90vh', background:'linear-gradient(180deg,rgba(13,20,38,0.98),rgba(8,13,26,0.99))', border:'1px solid rgba(56,189,248,0.25)', borderRadius:'16px', boxShadow:'0 30px 90px -20px rgba(0,0,0,0.8)', padding:'16px', boxSizing:'border-box', animation:'fadeInUp 0.35s cubic-bezier(0.16,1,0.3,1)' }}>
-
-                {/* PDF viewer (editable via the built-in browser PDF form UI) */}
-                <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column', background:'#525659', borderRadius:'11px', overflow:'hidden' }}>
-                    <iframe src={inAppPdf.url + '#toolbar=1&navpanes=0'} title="PDF Editor" style={{ flex:1, width:'100%', border:'none' }} />
-                </div>
-
-                {/* Right rail: title, copy buttons, help */}
-                <div style={{ width:'250px', flexShrink:0, display:'flex', flexDirection:'column' }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'4px' }}>
-                        <div style={{ width:'34px', height:'34px', borderRadius:'9px', background:`linear-gradient(135deg,rgba(${accent},0.9),rgba(${accent},0.5))`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, boxShadow:`0 4px 12px -3px rgba(${accent},0.6)` }}>
-                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
-                        </div>
-                        <div style={{ minWidth:0 }}>
-                            <div style={{ color:'#f1f5f9', fontSize:'14px', fontWeight:'800' }}>{inAppPdf.label}</div>
-                            <div style={{ color:'#7dd3fc', fontSize:'10px', fontFamily:'monospace', letterSpacing:'0.3px' }}>In-app editor</div>
-                        </div>
-                    </div>
-
-                    <div style={{ margin:'14px 0 10px', padding:'11px 13px', background:'rgba(56,189,248,0.06)', border:'1px solid rgba(56,189,248,0.18)', borderRadius:'10px', color:'#94a3b8', fontSize:'11px', lineHeight:1.6 }}>
-                        Edit any field directly in the document on the left. When you're done, copy a page as an image to paste it as a screenshot.
-                    </div>
-
-                    <div style={{ color:'#64748b', fontSize:'9px', fontWeight:'800', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'monospace', marginBottom:'9px' }}>Copy as image</div>
-                    {pageBtn(1)}
-                    {(inAppPdf.numPages > 1) && pageBtn(2)}
-
-                    <div style={{ flex:'1 1 auto' }} />
-
-                    <button onClick={close}
-                        style={{ width:'100%', padding:'12px', borderRadius:'10px', border:'1px solid rgba(148,163,184,0.25)', background:'rgba(255,255,255,0.04)', color:'#cbd5e1', fontSize:'12px', fontWeight:'700', cursor:'pointer', letterSpacing:'1px', textTransform:'uppercase', fontFamily:'monospace', transition:'background 160ms ease-out' }}
-                        onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.1)'}
-                        onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.04)'}>
-                        Close
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-})()}
+{inAppPdf && <InAppPdfEditor info={inAppPdf} onClose={() => setInAppPdf(null)} />}
 
 {showWrapped && (() => {
     const close = () => { setShowWrapped(false); setWrappedSlide(0); };
