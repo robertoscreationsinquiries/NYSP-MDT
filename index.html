@@ -12077,6 +12077,8 @@ const openInAppPdf = async (pdfBytes, kind, label, messageFormat) => {
     // Store a stable copy of the bytes; the editor renders + edits from these.
     setInAppPdf({ bytes: pdfBytes.slice(0), kind, label, messageFormat });
 };
+// Stable close handler so the editor prop identity doesn't churn on ancestor re-renders.
+const closeInAppPdf = React.useCallback(() => setInAppPdf(null), []);
 
 // Convenience: (re)generate the citation and copy a specific page as PNG.
 const copyCitationPageAsPng = async (pageIndex, ownerData = null, vehicleData = null) => {
@@ -12093,10 +12095,6 @@ const copyArrestPageAsPng = async (pageIndex, ownerData = null) => {
     await copyPdfPageAsPng(lastFilledPdfRef.current.arrest, pageIndex, statusKey);
 };
 
-// Full in-app PDF editor: renders each page to a canvas via pdf.js, overlays real
-// editable inputs positioned over each form field, keeps edits in state, and when
-// copying a page re-fills the PDF (pdf-lib) with those edits so the PNG reflects the
-// CURRENT state. Also offers the "Copy Message Format" button.
 // Full in-app PDF editor using pdf.js's NATIVE annotation/form layer. This renders
 // the PDF's real form fields (text inputs, dropdowns, checkboxes) as interactive HTML
 // over each page canvas — no hand-drawn overlay. Edits live in pdf.js AnnotationStorage;
@@ -12134,6 +12132,12 @@ const InAppPdfEditor = ({ info, onClose }) => {
                     executeNamedAction: () => {}, executeSetOCGState: () => {},
                 };
 
+                // fieldObjects is REQUIRED in 3.11 for interactive form fields to wire up
+                // (the "resetForm / ensure fieldObjects is provided" warning = this was missing).
+                let fieldObjects = null;
+                try { fieldObjects = await pdf.getFieldObjects(); } catch(_) {}
+                pdfRef.current._fieldObjects = fieldObjects;
+
                 const SCALE = 1.6;
                 for (let p = 1; p <= pdf.numPages; p++) {
                     if (cancelled) return;
@@ -12166,9 +12170,12 @@ const InAppPdfEditor = ({ info, onClose }) => {
 
                     const annotations = await page.getAnnotations({ intent: 'display' });
                     try {
-                        // pdf.js 3.x: AnnotationLayer is a class instance with a render() method.
+                        // pdf.js 3.11.174: `new AnnotationLayer({div, page, viewport, ...})`,
+                        // then `.render({ annotations, ..., renderForms:true })`.
                         const annotationLayer = new pdfjs.AnnotationLayer({
                             div: annotationLayerDiv,
+                            accessibilityManager: null,
+                            annotationCanvasMap: null,
                             page,
                             viewport: viewport.clone({ dontFlip: true }),
                         });
@@ -12178,7 +12185,11 @@ const InAppPdfEditor = ({ info, onClose }) => {
                             annotations,
                             page,
                             linkService,
+                            downloadManager: null,
                             annotationStorage: pdf.annotationStorage,
+                            fieldObjects,                       // ← the missing piece
+                            enableScripting: false,
+                            hasJSActions: false,
                             renderForms: true,
                             annotationMode: pdfjs.AnnotationMode.ENABLE_STORAGE,
                         });
@@ -19494,7 +19505,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
         {/* UPDATE LOG MODAL */}
 {/* ══════════ 2026 WRAPPED ══════════ */}
 {/* ══════════ IN-APP PDF EDITOR (Export Type = In App) ══════════ */}
-{inAppPdf && <InAppPdfEditor info={inAppPdf} onClose={() => setInAppPdf(null)} />}
+{inAppPdf && <InAppPdfEditor key="inapp-pdf-editor" info={inAppPdf} onClose={closeInAppPdf} />}
 
 {showWrapped && (() => {
     const close = () => { setShowWrapped(false); setWrappedSlide(0); };
