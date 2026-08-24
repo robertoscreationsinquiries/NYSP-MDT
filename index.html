@@ -2486,13 +2486,13 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
                                 </div>
                                 <div style={{ minWidth:0 }}>
                                     <div style={{ color:'#f1f5f9', fontSize:'14px', fontWeight:'800' }}>{info.label}</div>
-                                    <div style={{ color: phase==='flattened' ? '#6ee7b7' : '#7dd3fc', fontSize:'10px', fontFamily:'monospace' }}>{phase==='flattened' ? 'Flattened · ready to copy' : 'In-app editor'}</div>
+                                    <div style={{ color: phase==='flattened' ? '#6ee7b7' : '#7dd3fc', fontSize:'10px', fontFamily:'monospace' }}>{phase==='flattened' ? 'Flattened · ready to copy' : 'Preview & export'}</div>
                                 </div>
                             </div>
 
                             {phase !== 'flattened' && (
                                 <div style={{ padding:'11px 13px', marginBottom:'14px', background:'rgba(56,189,248,0.06)', border:'1px solid rgba(56,189,248,0.18)', borderRadius:'10px', color:'#94a3b8', fontSize:'11px', lineHeight:1.6 }}>
-                                    Edit the document directly — fields, checkboxes and dropdowns all work. When you're done, flatten it to copy clean page images.
+                                    Preview of your exported data. To change any values, edit them in the MDT fields and re-export — edits typed here in the viewer are not saved. When it looks right, use Flatten &amp; Export to copy clean page images.
                                 </div>
                             )}
                             {phase === 'flattened' && (
@@ -2508,7 +2508,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
                                     <button disabled={phase==='flattening'} onClick={() => setPhase('confirming')}
                                         style={{ width:'100%', padding:'13px', borderRadius:'11px', border:`1px solid rgba(${accent},0.4)`, background:`rgba(${accent},0.1)`, color:`rgb(${accent})`, fontSize:'12px', fontWeight:'800', letterSpacing:'0.5px', fontFamily:'monospace', cursor: phase==='flattening' ? 'wait':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', marginBottom:'10px' }}>
                                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                                        Copy Pages
+                                        Flatten &amp; Export PDF
                                     </button>
                                     {copyState.flattenError && <div style={{ color:'#fca5a5', fontSize:'10px', fontFamily:'monospace', marginBottom:'8px', textAlign:'center' }}>Flatten failed — try again.</div>}
                                 </>
