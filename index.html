@@ -2345,152 +2345,44 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
         })();
 
 
-        // Full in-app PDF editor using pdf.js's NATIVE annotation/form layer. This renders
-        // the PDF's real form fields (text inputs, dropdowns, checkboxes) as interactive HTML
-        // over each page canvas — no hand-drawn overlay. Edits live in pdf.js AnnotationStorage;
-        // copying a page calls saveDocument() to bake the current edits into the rendered PNG.
+        // In-app PDF editor — uses the ACTUAL native PDF viewer (an <iframe> showing the
+        // filled PDF), so it's prefilled and fully interactive exactly like the external
+        // viewer: checkboxes, dropdowns, and text all work. "Copy Page" screenshots the
+        // real rendered PDF (with your live edits) via Electron's capturePage and copies
+        // the PNG to the clipboard. Defined at module scope so it never remounts.
         const InAppPdfEditor = ({ info, onClose, playSound }) => {
-            const containerRef = React.useRef(null);
-            const pdfRef = React.useRef(null);           // the live PDFDocumentProxy (holds AnnotationStorage)
-            const builtRef = React.useRef(false);        // guard: build the viewer only once per open
-            const [numPages, setNumPages] = React.useState(0);
-            const [loading, setLoading] = React.useState(true);
-            const [failed, setFailed] = React.useState(false);
+            const frameWrapRef = React.useRef(null);
             const [copyState, setCopyState] = React.useState({});
+            const url = React.useMemo(() => {
+                try { return URL.createObjectURL(new Blob([info.bytes], { type: 'application/pdf' })); } catch(_) { return null; }
+            }, [info]);
+            // Revoke the blob URL when the editor closes.
+            React.useEffect(() => () => { if (url) { try { URL.revokeObjectURL(url); } catch(_){} } }, [url]);
 
-            // Build the interactive viewer ONCE. (Guarded so it can't loop.)
-            React.useEffect(() => {
-                if (builtRef.current) return;
-                builtRef.current = true;
-                let cancelled = false;
+            const accent = info.kind === 'arrest' ? '239,68,68' : '16,185,129';
 
-                (async () => {
-                    const pdfjs = window.pdfjsLib;
-                    if (!pdfjs || !info?.bytes || !containerRef.current) { setFailed(true); setLoading(false); return; }
-                    try {
-                        const pdf = await pdfjs.getDocument({ data: info.bytes.slice(0), enableXfa: true }).promise;
-                        if (cancelled) return;
-                        pdfRef.current = pdf;
-                        setNumPages(pdf.numPages);
-
-                        // Minimal link service the AnnotationLayer expects.
-                        const linkService = {
-                            externalLinkTarget: 2, externalLinkRel: 'noopener',
-                            getDestinationHash: () => '#', getAnchorUrl: () => '#',
-                            isPageVisible: () => true, isPageCached: () => true,
-                            addLinkAttributes: () => {}, goToDestination: () => {}, goToPage: () => {},
-                            executeNamedAction: () => {}, executeSetOCGState: () => {},
-                        };
-
-                        // fieldObjects is REQUIRED in 3.11 for interactive form fields to wire up
-                        // (the "resetForm / ensure fieldObjects is provided" warning = this was missing).
-                        let fieldObjects = null;
-                        try { fieldObjects = await pdf.getFieldObjects(); } catch(_) {}
-                        pdfRef.current._fieldObjects = fieldObjects;
-
-                        const SCALE = 1.6;
-                        for (let p = 1; p <= pdf.numPages; p++) {
-                            if (cancelled) return;
-                            const page = await pdf.getPage(p);
-                            const viewport = page.getViewport({ scale: SCALE });
-
-                            // Page wrapper (position:relative so the annotation layer aligns).
-                            const pageDiv = document.createElement('div');
-                            pageDiv.className = 'pdf-page';
-                            pageDiv.style.cssText = `position:relative;width:${Math.floor(viewport.width)}px;height:${Math.floor(viewport.height)}px;margin:0 auto 18px;box-shadow:0 8px 30px rgba(0,0,0,0.5);border-radius:3px;overflow:hidden;background:#fff;flex-shrink:0;`;
-
-                            // Canvas (the page graphics).
-                            const canvas = document.createElement('canvas');
-                            canvas.width = Math.floor(viewport.width);
-                            canvas.height = Math.floor(viewport.height);
-                            canvas.style.cssText = 'display:block;width:100%;height:100%;';
-                            pageDiv.appendChild(canvas);
-                            const ctx = canvas.getContext('2d');
-                            ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                            // Render page graphics WITHOUT the form widgets (the annotation layer draws those).
-                            await page.render({ canvasContext: ctx, viewport, annotationMode: pdfjs.AnnotationMode.DISABLE }).promise;
-                            if (cancelled) return;
-
-                            // Native annotation/form layer — real inputs + dropdowns, backed by AnnotationStorage.
-                            const annotationLayerDiv = document.createElement('div');
-                            annotationLayerDiv.className = 'annotationLayer';
-                            annotationLayerDiv.style.cssText = 'position:absolute;top:0;left:0;';
-                            pageDiv.appendChild(annotationLayerDiv);
-
-                            const annotations = await page.getAnnotations({ intent: 'display' });
-                            try {
-                                // pdf.js 3.11.174: `new AnnotationLayer({div, page, viewport, ...})`,
-                                // then `.render({ annotations, ..., renderForms:true })`.
-                                const annotationLayer = new pdfjs.AnnotationLayer({
-                                    div: annotationLayerDiv,
-                                    accessibilityManager: null,
-                                    annotationCanvasMap: null,
-                                    page,
-                                    viewport: viewport.clone({ dontFlip: true }),
-                                });
-                                annotationLayer.render({
-                                    viewport: viewport.clone({ dontFlip: true }),
-                                    div: annotationLayerDiv,
-                                    annotations,
-                                    page,
-                                    linkService,
-                                    downloadManager: null,
-                                    annotationStorage: pdf.annotationStorage,
-                                    fieldObjects,                       // ← the missing piece
-                                    enableScripting: false,
-                                    hasJSActions: false,
-                                    renderForms: true,
-                                    annotationMode: pdfjs.AnnotationMode.ENABLE_STORAGE,
-                                });
-                            } catch (layerErr) {
-                                console.warn('[IN-APP PDF] annotation layer render issue:', layerErr);
-                            }
-
-                            if (!cancelled && containerRef.current) containerRef.current.appendChild(pageDiv);
-                        }
-                        if (!cancelled) setLoading(false);
-                    } catch (e) {
-                        console.error('[IN-APP PDF] build failed:', e);
-                        if (!cancelled) { setFailed(true); setLoading(false); }
-                    }
-                })();
-
-                return () => { cancelled = true; };
-            // eslint-disable-next-line
-            }, []);
-
-            // Copy a page as PNG, baking in the user's current form edits via saveDocument().
-            const copyPage = async (pageIndex) => {
-                const key = String(pageIndex + 1);
+            // Screenshot the iframe's rendered region (the live PDF with edits) via Electron.
+            const copyPage = async (which) => {
+                const key = String(which);
                 setCopyState(s => ({ ...s, [key]: 'copying' }));
                 try {
-                    const pdfjs = window.pdfjsLib;
-                    let bytes;
-                    try {
-                        // saveDocument() serializes the live AnnotationStorage (all edits) into new bytes.
-                        bytes = await pdfRef.current.saveDocument();
-                    } catch (saveErr) {
-                        console.warn('[IN-APP PDF] saveDocument failed, falling back to original bytes:', saveErr);
-                        bytes = info.bytes.slice(0);
-                    }
-                    const pdf = await pdfjs.getDocument({ data: bytes.slice(0) }).promise;
-                    const page = await pdf.getPage(pageIndex + 1);
-                    const viewport = page.getViewport({ scale: 2.5 });
-                    const canvas = document.createElement('canvas');
-                    canvas.width = Math.floor(viewport.width); canvas.height = Math.floor(viewport.height);
-                    const ctx = canvas.getContext('2d');
-                    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    // ENABLE_STORAGE bakes the saved field values into the rendered image.
-                    await page.render({ canvasContext: ctx, viewport, annotationMode: pdfjs.AnnotationMode.ENABLE_STORAGE }).promise;
-                    const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-                    if (!blob) throw new Error('encode failed');
+                    const ipc = window.electron?.ipcRenderer;
+                    const wrap = frameWrapRef.current;
+                    if (!ipc || !wrap) throw new Error('capture unavailable');
+                    // Device-independent CSS-pixel rect of the visible PDF area.
+                    const rect = wrap.getBoundingClientRect();
+                    const res = await ipc.invoke('capture-region', {
+                        x: rect.left, y: rect.top, width: rect.width, height: rect.height,
+                    });
+                    if (!res?.success || !res.dataUrl) throw new Error(res?.error || 'capture failed');
+                    // Convert data URL → blob → clipboard image.
+                    const blob = await (await fetch(res.dataUrl)).blob();
                     await navigator.clipboard.write([new window.ClipboardItem({ 'image/png': blob })]);
                     setCopyState(s => ({ ...s, [key]: 'done' }));
-                    try { playSound('platePass'); } catch(_) {}
+                    try { playSound && playSound('platePass'); } catch(_) {}
                     setTimeout(() => setCopyState(s => ({ ...s, [key]: undefined })), 2200);
                 } catch (e) {
-                    console.error('[IN-APP PDF] copy failed:', e);
+                    console.error('[IN-APP PDF] capture/copy failed:', e);
                     setCopyState(s => ({ ...s, [key]: 'error' }));
                     setTimeout(() => setCopyState(s => ({ ...s, [key]: undefined })), 3000);
                 }
@@ -2500,7 +2392,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
                 try {
                     await navigator.clipboard.writeText(info.messageFormat);
                     setCopyState(s => ({ ...s, msg: 'done' }));
-                    try { playSound('platePass'); } catch(_) {}
+                    try { playSound && playSound('platePass'); } catch(_) {}
                     setTimeout(() => setCopyState(s => ({ ...s, msg: undefined })), 2200);
                 } catch (e) {
                     setCopyState(s => ({ ...s, msg: 'error' }));
@@ -2508,19 +2400,16 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
                 }
             };
 
-            const accent = info.kind === 'arrest' ? '239,68,68' : '16,185,129';
-            const pageBtn = (n) => {
-                const s = copyState[String(n)];
+            const captureBtn = (label, which) => {
+                const s = copyState[String(which)];
                 const busy = s === 'copying';
                 return (
-                    <button key={n} disabled={busy || loading} onClick={() => copyPage(n - 1)}
-                        style={{ width:'100%', padding:'13px', borderRadius:'11px', border:`1px solid rgba(${accent},0.4)`, background: s === 'done' ? 'rgba(52,211,153,0.16)' : s === 'error' ? 'rgba(239,68,68,0.16)' : `rgba(${accent},0.1)`, color: s === 'done' ? '#6ee7b7' : s === 'error' ? '#fca5a5' : `rgb(${accent})`, fontSize:'12px', fontWeight:'800', letterSpacing:'0.5px', fontFamily:'monospace', cursor: (busy||loading) ? 'wait' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', transition:'background 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)', marginBottom:'10px', opacity: loading ? 0.5 : 1 }}
-                        onMouseDown={e => { if (!busy && !loading) e.currentTarget.style.transform = 'scale(0.97)'; }}
-                        onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}>
-                        {busy ? <><Loader2 size={15} style={{ animation:'spin 1s linear infinite' }} /> Rendering…</>
-                         : s === 'done' ? <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Page {n} Copied!</>
-                         : s === 'error' ? <>Page {n} — retry</>
-                         : <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy Page {n}</>}
+                    <button disabled={busy} onClick={() => copyPage(which)}
+                        style={{ width:'100%', padding:'13px', borderRadius:'11px', border:`1px solid rgba(${accent},0.4)`, background: s === 'done' ? 'rgba(52,211,153,0.16)' : s === 'error' ? 'rgba(239,68,68,0.16)' : `rgba(${accent},0.1)`, color: s === 'done' ? '#6ee7b7' : s === 'error' ? '#fca5a5' : `rgb(${accent})`, fontSize:'12px', fontWeight:'800', letterSpacing:'0.5px', fontFamily:'monospace', cursor: busy ? 'wait' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', marginBottom:'10px', transition:'background 160ms ease-out' }}>
+                        {busy ? <><Loader2 size={15} /> Capturing…</>
+                         : s === 'done' ? <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Copied!</>
+                         : s === 'error' ? <>Failed — retry</>
+                         : <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> {label}</>}
                     </button>
                 );
             };
@@ -2529,11 +2418,11 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
                 <div onClick={onClose} style={{ position:'fixed', inset:0, zIndex:100004, background:'rgba(2,4,10,0.85)', backdropFilter:'blur(8px)', display:'flex', alignItems:'center', justifyContent:'center', padding:'22px', boxSizing:'border-box', animation:'fadeIn 0.25s ease-out' }}>
                     <div onClick={e => e.stopPropagation()} style={{ display:'flex', gap:'16px', width:'100%', maxWidth:'1200px', height:'92vh', background:'linear-gradient(180deg,rgba(13,20,38,0.98),rgba(8,13,26,0.99))', border:'1px solid rgba(56,189,248,0.25)', borderRadius:'16px', boxShadow:'0 30px 90px -20px rgba(0,0,0,0.8)', padding:'16px', boxSizing:'border-box', animation:'fadeInUp 0.35s cubic-bezier(0.16,1,0.3,1)' }}>
 
-                        {/* Interactive page stack (native pdf.js form layer) */}
-                        <div style={{ flex:1, minWidth:0, position:'relative', background:'#3a3f47', borderRadius:'11px', overflow:'auto', padding:'18px' }}>
-                            {loading && <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', color:'#cbd5e1', fontFamily:'monospace', fontSize:'13px' }}>Rendering document…</div>}
-                            {failed && <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', color:'#fca5a5', fontFamily:'monospace', fontSize:'13px', textAlign:'center' }}>Could not render the document.<br/>The renderer may not have loaded.</div>}
-                            <div ref={containerRef} style={{ display:'flex', flexDirection:'column', alignItems:'center' }} />
+                        {/* Native PDF viewer — prefilled + fully interactive (checkboxes, dropdowns, text) */}
+                        <div ref={frameWrapRef} style={{ flex:1, minWidth:0, background:'#525659', borderRadius:'11px', overflow:'hidden', display:'flex', flexDirection:'column' }}>
+                            {url
+                                ? <iframe src={url} title="PDF Editor" style={{ flex:1, width:'100%', height:'100%', border:'none' }} />
+                                : <div style={{ margin:'auto', color:'#fca5a5', fontFamily:'monospace', fontSize:'13px' }}>Could not load the document.</div>}
                         </div>
 
                         {/* Right rail */}
@@ -2549,14 +2438,14 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
                             </div>
 
                             <div style={{ padding:'11px 13px', marginBottom:'14px', background:'rgba(56,189,248,0.06)', border:'1px solid rgba(56,189,248,0.18)', borderRadius:'10px', color:'#94a3b8', fontSize:'11px', lineHeight:1.6 }}>
-                                Edit the document's own fields and dropdowns directly. Copying a page captures your current edits as an image.
+                                Edit the document directly — fields, checkboxes and dropdowns all work. Scroll to the page you want, then capture it as an image with your live edits.
                             </div>
 
-                            <div style={{ color:'#64748b', fontSize:'9px', fontWeight:'800', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'monospace', marginBottom:'9px' }}>Copy as image</div>
-                            {pageBtn(1)}
-                            {numPages > 1 && pageBtn(2)}
+                            <div style={{ color:'#64748b', fontSize:'9px', fontWeight:'800', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'monospace', marginBottom:'9px' }}>Capture as image</div>
+                            {captureBtn('Copy Visible Page', 1)}
 
-                            <button onClick={copyMessage} disabled={loading}
+                            {/* Copy Message Format */}
+                            <button onClick={copyMessage}
                                 style={{ width:'100%', padding:'13px', borderRadius:'11px', border:'1px solid rgba(129,140,248,0.4)', background: copyState.msg === 'done' ? 'rgba(52,211,153,0.16)' : 'rgba(129,140,248,0.12)', color: copyState.msg === 'done' ? '#6ee7b7' : '#a5b4fc', fontSize:'12px', fontWeight:'800', letterSpacing:'0.5px', fontFamily:'monospace', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', marginTop:'2px' }}>
                                 {copyState.msg === 'done' ? <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Format Copied!</>
                                  : <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg> Copy Message Format</>}
