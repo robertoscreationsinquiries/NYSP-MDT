@@ -2345,64 +2345,149 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
         })();
 
 
-        // In-app PDF editor. Editing uses the ACTUAL native PDF viewer (an <iframe>),
-        // so it's prefilled and fully interactive (checkboxes, dropdowns, text). To copy
-        // CLEAN page images (no blue field highlights, no viewer chrome), the user
-        // confirms a FLATTEN: pdf-lib bakes the field values into the page and removes the
-        // interactive form entirely (no fields → no highlights). We then render each page
-        // of the flattened PDF to a clean PNG via pdf.js. Module-scoped so it never remounts.
+        // In-app PDF editor — pdf.js AnnotationLayer for REAL editable form fields.
+        //   • Renders each page to a canvas, then renders pdf.js's native annotation/form
+        //     layer on top so the actual fields (text, dropdowns, checkboxes) are editable.
+        //   • Edits live in pdf.annotationStorage.
+        //   • "Flatten & Export PDF" → saveDocument() serializes edits to bytes IN MEMORY →
+        //     pdf-lib flattens (bakes values, removes fields → no blue highlights) → we render
+        //     each page to a clean PNG and copy it. No disk save, no print dialog, no window.
+        // Module-scoped so it never remounts.
         const InAppPdfEditor = ({ info, onClose, playSound }) => {
-            const [phase, setPhase] = React.useState('editing');   // editing | confirming | flattening | flattened
-            const [copyState, setCopyState] = React.useState({});
-            const [flatInfo, setFlatInfo] = React.useState(null);  // { numPages } after flatten
-            const flatBytesRef = React.useRef(null);               // flattened PDF bytes
+            const containerRef = React.useRef(null);
+            const pdfRef = React.useRef(null);         // live PDFDocumentProxy (holds annotationStorage)
+            const builtRef = React.useRef(false);      // build the editable viewer once
+            const flatBytesRef = React.useRef(null);   // flattened bytes (in memory)
+            const [phase, setPhase] = React.useState('loading'); // loading|editing|confirming|flattening|flattened|failed
+            const [numPages, setNumPages] = React.useState(0);
+            const [flatPages, setFlatPages] = React.useState(0);
             const [progress, setProgress] = React.useState('');
-
-            const editUrl = React.useMemo(() => {
-                try { return URL.createObjectURL(new Blob([info.bytes], { type: 'application/pdf' })); } catch(_) { return null; }
-            }, [info]);
-            React.useEffect(() => () => { if (editUrl) { try { URL.revokeObjectURL(editUrl); } catch(_){} } }, [editUrl]);
-
+            const [copyState, setCopyState] = React.useState({});
             const accent = info.kind === 'arrest' ? '239,68,68' : '16,185,129';
 
-            // Flatten the filled PDF (bake values, drop the interactive form) then prepare pages.
+            // ── Build the editable viewer once ──
+            React.useEffect(() => {
+                if (builtRef.current) return;
+                builtRef.current = true;
+                let cancelled = false;
+                (async () => {
+                    const pdfjs = window.pdfjsLib;
+                    if (!pdfjs || !info?.bytes || !containerRef.current) { setPhase('failed'); return; }
+                    try {
+                        const pdf = await pdfjs.getDocument({ data: info.bytes.slice(0), enableXfa: true }).promise;
+                        if (cancelled) return;
+                        pdfRef.current = pdf;
+                        setNumPages(pdf.numPages);
+
+                        const linkService = {
+                            externalLinkTarget: 2, externalLinkRel: 'noopener',
+                            getDestinationHash: () => '#', getAnchorUrl: () => '#',
+                            isPageVisible: () => true, isPageCached: () => true,
+                            addLinkAttributes: () => {}, goToDestination: () => {}, goToPage: () => {},
+                            executeNamedAction: () => {}, executeSetOCGState: () => {},
+                        };
+                        let fieldObjects = null;
+                        try { fieldObjects = await pdf.getFieldObjects(); } catch(_) {}
+
+                        const SCALE = 1.5;
+                        for (let p = 1; p <= pdf.numPages; p++) {
+                            if (cancelled) return;
+                            const page = await pdf.getPage(p);
+                            const viewport = page.getViewport({ scale: SCALE });
+
+                            const pageDiv = document.createElement('div');
+                            pageDiv.style.cssText = `position:relative;width:${Math.floor(viewport.width)}px;height:${Math.floor(viewport.height)}px;margin:0 auto 18px;box-shadow:0 8px 30px rgba(0,0,0,0.5);border-radius:3px;overflow:hidden;background:#fff;flex-shrink:0;`;
+
+                            const canvas = document.createElement('canvas');
+                            canvas.width = Math.floor(viewport.width);
+                            canvas.height = Math.floor(viewport.height);
+                            canvas.style.cssText = 'display:block;width:100%;height:100%;';
+                            pageDiv.appendChild(canvas);
+                            const ctx = canvas.getContext('2d');
+                            ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                            // Page graphics only; the form layer draws the (editable) fields.
+                            await page.render({ canvasContext: ctx, viewport, annotationMode: pdfjs.AnnotationMode.DISABLE }).promise;
+                            if (cancelled) return;
+
+                            const layerDiv = document.createElement('div');
+                            layerDiv.className = 'annotationLayer';
+                            layerDiv.style.cssText = 'position:absolute;top:0;left:0;';
+                            pageDiv.appendChild(layerDiv);
+
+                            const annotations = await page.getAnnotations({ intent: 'display' });
+                            try {
+                                const layer = new pdfjs.AnnotationLayer({
+                                    div: layerDiv,
+                                    accessibilityManager: null,
+                                    annotationCanvasMap: null,
+                                    page,
+                                    viewport: viewport.clone({ dontFlip: true }),
+                                });
+                                layer.render({
+                                    viewport: viewport.clone({ dontFlip: true }),
+                                    div: layerDiv,
+                                    annotations,
+                                    page,
+                                    linkService,
+                                    downloadManager: null,
+                                    annotationStorage: pdf.annotationStorage,
+                                    fieldObjects,
+                                    enableScripting: false,
+                                    hasJSActions: false,
+                                    renderForms: true,
+                                    annotationMode: pdfjs.AnnotationMode.ENABLE_STORAGE,
+                                });
+                            } catch (le) {
+                                console.warn('[IN-APP PDF] annotation layer error:', le);
+                            }
+                            if (!cancelled && containerRef.current) containerRef.current.appendChild(pageDiv);
+                        }
+                        if (!cancelled) setPhase('editing');
+                    } catch (e) {
+                        console.error('[IN-APP PDF] build failed:', e);
+                        if (!cancelled) setPhase('failed');
+                    }
+                })();
+                return () => { cancelled = true; };
+            // eslint-disable-next-line
+            }, []);
+
+            // ── Flatten: saveDocument() → pdf-lib flatten → in-memory bytes ──
             const doFlatten = async () => {
                 setPhase('flattening');
-                setProgress('Baking in field values…');
+                setProgress('Saving your edits…');
                 try {
-                    const src = info.bytes.slice(0);
-                    const doc = await window.PDFLib.PDFDocument.load(src);
+                    let edited;
                     try {
-                        const form = doc.getForm();
-                        // Flatten converts each field's current appearance into page content and
-                        // removes all form fields + widget annotations → no more blue highlights.
-                        form.flatten();
-                    } catch (fe) {
-                        console.warn('[IN-APP PDF] flatten: no form or flatten failed:', fe);
+                        edited = await pdfRef.current.saveDocument(); // serializes annotationStorage edits
+                    } catch (se) {
+                        console.warn('[IN-APP PDF] saveDocument failed, using original bytes:', se);
+                        edited = info.bytes.slice(0);
                     }
-                    setProgress('Finalizing document…');
-                    const bytes = await doc.save();
-                    flatBytesRef.current = bytes;
-
-                    // Count pages for the per-page copy buttons.
-                    let numPages = 1;
+                    setProgress('Flattening PDF…');
+                    let flat = edited;
                     try {
-                        const pj = await window.pdfjsLib.getDocument({ data: bytes.slice(0) }).promise;
-                        numPages = pj.numPages;
-                    } catch(_) {}
-                    setFlatInfo({ numPages });
+                        const doc = await window.PDFLib.PDFDocument.load(edited);
+                        try { doc.getForm().flatten(); } catch(fe) { console.warn('[IN-APP PDF] flatten:', fe); }
+                        flat = await doc.save();
+                    } catch (pe) {
+                        console.warn('[IN-APP PDF] pdf-lib flatten failed, using edited bytes:', pe);
+                    }
+                    flatBytesRef.current = flat;
+                    setProgress('Preparing pages…');
+                    let np = 1;
+                    try { np = (await window.pdfjsLib.getDocument({ data: flat.slice(0) }).promise).numPages; } catch(_) {}
+                    setFlatPages(np);
                     setPhase('flattened');
                     setProgress('');
                 } catch (e) {
                     console.error('[IN-APP PDF] flatten failed:', e);
                     setProgress('');
                     setPhase('editing');
-                    setCopyState(s => ({ ...s, flattenError: true }));
-                    setTimeout(() => setCopyState(s => ({ ...s, flattenError: undefined })), 3500);
                 }
             };
 
-            // Render a page of the FLATTENED pdf to a clean PNG and copy it.
+            // ── Copy a specific flattened page as a clean PNG ──
             const copyFlatPage = async (pageIndex) => {
                 const key = `p${pageIndex + 1}`;
                 setCopyState(s => ({ ...s, [key]: 'copying' }));
@@ -2410,23 +2495,23 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
                     const bytes = flatBytesRef.current;
                     if (!bytes) throw new Error('not flattened');
                     const pdf = await window.pdfjsLib.getDocument({ data: bytes.slice(0) }).promise;
+                    if (pageIndex >= pdf.numPages) throw new Error('page out of range');
                     const page = await pdf.getPage(pageIndex + 1);
-                    const viewport = page.getViewport({ scale: 2.5 }); // crisp
+                    const viewport = page.getViewport({ scale: 2.5 });
                     const canvas = document.createElement('canvas');
                     canvas.width = Math.floor(viewport.width);
                     canvas.height = Math.floor(viewport.height);
                     const ctx = canvas.getContext('2d');
-                    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    // No annotations remain after flatten, so a plain render is fully clean.
-                    await page.render({ canvasContext: ctx, viewport }).promise;
+                    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    await page.render({ canvasContext: ctx, viewport }).promise; // flattened → clean
                     const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
                     if (!blob) throw new Error('encode failed');
                     await navigator.clipboard.write([new window.ClipboardItem({ 'image/png': blob })]);
                     setCopyState(s => ({ ...s, [key]: 'done' }));
                     try { playSound && playSound('platePass'); } catch(_) {}
-                    setTimeout(() => setCopyState(s => ({ ...s, [key]: undefined })), 2200);
+                    setTimeout(() => setCopyState(s => ({ ...s, [key]: undefined })), 2400);
                 } catch (e) {
-                    console.error('[IN-APP PDF] copy flat page failed:', e);
+                    console.error('[IN-APP PDF] copy page failed:', e);
                     setCopyState(s => ({ ...s, [key]: 'error' }));
                     setTimeout(() => setCopyState(s => ({ ...s, [key]: undefined })), 3000);
                 }
@@ -2444,22 +2529,15 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
                 }
             };
 
-            // Flattened viewer URL (clean, non-interactive) for the on-screen preview.
-            const flatUrl = React.useMemo(() => {
-                if (phase !== 'flattened' || !flatBytesRef.current) return null;
-                try { return URL.createObjectURL(new Blob([flatBytesRef.current], { type: 'application/pdf' })); } catch(_) { return null; }
-            }, [phase, flatInfo]);
-            React.useEffect(() => () => { if (flatUrl) { try { URL.revokeObjectURL(flatUrl); } catch(_){} } }, [flatUrl]);
-
             const pageCopyBtn = (n) => {
                 const s = copyState[`p${n}`];
                 const busy = s === 'copying';
                 return (
                     <button key={n} disabled={busy} onClick={() => copyFlatPage(n - 1)}
-                        style={{ width:'100%', padding:'13px', borderRadius:'11px', border:`1px solid rgba(${accent},0.4)`, background: s === 'done' ? 'rgba(52,211,153,0.16)' : s === 'error' ? 'rgba(239,68,68,0.16)' : `rgba(${accent},0.1)`, color: s === 'done' ? '#6ee7b7' : s === 'error' ? '#fca5a5' : `rgb(${accent})`, fontSize:'12px', fontWeight:'800', letterSpacing:'0.5px', fontFamily:'monospace', cursor: busy ? 'wait' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', marginBottom:'10px', transition:'background 160ms ease-out' }}>
+                        style={{ width:'100%', padding:'13px', borderRadius:'11px', border:`1px solid rgba(${accent},0.4)`, background: s==='done'?'rgba(52,211,153,0.16)':s==='error'?'rgba(239,68,68,0.16)':`rgba(${accent},0.1)`, color: s==='done'?'#6ee7b7':s==='error'?'#fca5a5':`rgb(${accent})`, fontSize:'12px', fontWeight:'800', letterSpacing:'0.5px', fontFamily:'monospace', cursor: busy?'wait':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', marginBottom:'10px' }}>
                         {busy ? <><Loader2 size={15} /> Rendering…</>
-                         : s === 'done' ? <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Page {n} Copied!</>
-                         : s === 'error' ? <>Page {n} — retry</>
+                         : s==='done' ? <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Page {n} copied to clipboard</>
+                         : s==='error' ? <>Page {n} — retry</>
                          : <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy Page {n}</>}
                     </button>
                 );
@@ -2469,13 +2547,18 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
                 <div onClick={onClose} style={{ position:'fixed', inset:0, zIndex:100004, background:'rgba(2,4,10,0.85)', backdropFilter:'blur(8px)', display:'flex', alignItems:'center', justifyContent:'center', padding:'22px', boxSizing:'border-box', animation:'fadeIn 0.25s ease-out' }}>
                     <div onClick={e => e.stopPropagation()} style={{ position:'relative', display:'flex', gap:'16px', width:'100%', maxWidth:'1200px', height:'92vh', background:'linear-gradient(180deg,rgba(13,20,38,0.98),rgba(8,13,26,0.99))', border:'1px solid rgba(56,189,248,0.25)', borderRadius:'16px', boxShadow:'0 30px 90px -20px rgba(0,0,0,0.8)', padding:'16px', boxSizing:'border-box', animation:'fadeInUp 0.35s cubic-bezier(0.16,1,0.3,1)' }}>
 
-                        {/* PDF viewer — editing (interactive) or flattened (clean preview) */}
-                        <div style={{ flex:1, minWidth:0, background:'#525659', borderRadius:'11px', overflow:'hidden', display:'flex', flexDirection:'column' }}>
-                            {phase === 'flattened' && flatUrl
-                                ? <iframe src={flatUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH'} title="Flattened PDF" style={{ flex:1, width:'100%', height:'100%', border:'none' }} />
-                                : editUrl
-                                    ? <iframe src={editUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH'} title="PDF Editor" style={{ flex:1, width:'100%', height:'100%', border:'none' }} />
-                                    : <div style={{ margin:'auto', color:'#fca5a5', fontFamily:'monospace', fontSize:'13px' }}>Could not load the document.</div>}
+                        {/* Editable page stack (or flattened preview) */}
+                        <div style={{ flex:1, minWidth:0, position:'relative', background:'#3a3f47', borderRadius:'11px', overflow:'auto', padding:'18px' }}>
+                            {phase === 'loading' && <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', color:'#cbd5e1', fontFamily:'monospace', fontSize:'13px' }}>Loading editable document…</div>}
+                            {phase === 'failed' && <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', color:'#fca5a5', fontFamily:'monospace', fontSize:'13px', textAlign:'center' }}>Could not load the editable document.</div>}
+                            {/* editable pages container (kept mounted; hidden once flattened) */}
+                            <div ref={containerRef} style={{ display: phase==='flattened' ? 'none' : 'flex', flexDirection:'column', alignItems:'center' }} />
+                            {/* flattened preview */}
+                            {phase === 'flattened' && flatBytesRef.current && (
+                                <iframe title="Flattened preview"
+                                    src={(() => { try { return URL.createObjectURL(new Blob([flatBytesRef.current], { type:'application/pdf' })) + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH'; } catch(_) { return 'about:blank'; } })()}
+                                    style={{ width:'100%', height:'100%', border:'none', background:'#525659', borderRadius:'8px' }} />
+                            )}
                         </div>
 
                         {/* Right rail */}
@@ -2486,47 +2569,36 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
                                 </div>
                                 <div style={{ minWidth:0 }}>
                                     <div style={{ color:'#f1f5f9', fontSize:'14px', fontWeight:'800' }}>{info.label}</div>
-                                    <div style={{ color: phase==='flattened' ? '#6ee7b7' : '#7dd3fc', fontSize:'10px', fontFamily:'monospace' }}>{phase==='flattened' ? 'Flattened · ready to copy' : 'Preview & export'}</div>
+                                    <div style={{ color: phase==='flattened' ? '#6ee7b7' : '#7dd3fc', fontSize:'10px', fontFamily:'monospace' }}>{phase==='flattened' ? 'Flattened · ready to copy' : 'Editable — fields, dropdowns, checkboxes'}</div>
                                 </div>
                             </div>
 
-                            {phase !== 'flattened' && (
-                                <div style={{ padding:'11px 13px', marginBottom:'14px', background:'rgba(56,189,248,0.06)', border:'1px solid rgba(56,189,248,0.18)', borderRadius:'10px', color:'#94a3b8', fontSize:'11px', lineHeight:1.6 }}>
-                                    Preview of your exported data. To change any values, edit them in the MDT fields and re-export — edits typed here in the viewer are not saved. When it looks right, use Flatten &amp; Export to copy clean page images.
-                                </div>
-                            )}
-                            {phase === 'flattened' && (
-                                <div style={{ padding:'11px 13px', marginBottom:'14px', background:'rgba(52,211,153,0.07)', border:'1px solid rgba(52,211,153,0.22)', borderRadius:'10px', color:'#a7f3d0', fontSize:'11px', lineHeight:1.6 }}>
-                                    Document flattened — no more editable fields or highlights. Copy each page as a clean image below.
-                                </div>
-                            )}
-
-                            {/* EDITING: single "Copy Page(s)" that triggers the flatten confirm */}
-                            {phase !== 'flattened' && (
+                            {phase !== 'flattened' ? (
                                 <>
-                                    <div style={{ color:'#64748b', fontSize:'9px', fontWeight:'800', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'monospace', marginBottom:'9px' }}>Copy pages</div>
-                                    <button disabled={phase==='flattening'} onClick={() => setPhase('confirming')}
-                                        style={{ width:'100%', padding:'13px', borderRadius:'11px', border:`1px solid rgba(${accent},0.4)`, background:`rgba(${accent},0.1)`, color:`rgb(${accent})`, fontSize:'12px', fontWeight:'800', letterSpacing:'0.5px', fontFamily:'monospace', cursor: phase==='flattening' ? 'wait':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', marginBottom:'10px' }}>
-                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                    <div style={{ padding:'11px 13px', marginBottom:'14px', background:'rgba(56,189,248,0.06)', border:'1px solid rgba(56,189,248,0.18)', borderRadius:'10px', color:'#94a3b8', fontSize:'11px', lineHeight:1.6 }}>
+                                        Edit the fields directly on the document. When you're done, Flatten &amp; Export to copy clean page images with your edits.
+                                    </div>
+                                    <div style={{ color:'#64748b', fontSize:'9px', fontWeight:'800', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'monospace', marginBottom:'9px' }}>Export</div>
+                                    <button disabled={phase!=='editing'} onClick={() => setPhase('confirming')}
+                                        style={{ width:'100%', padding:'13px', borderRadius:'11px', border:`1px solid rgba(${accent},0.4)`, background:`rgba(${accent},0.1)`, color:`rgb(${accent})`, fontSize:'12px', fontWeight:'800', letterSpacing:'0.5px', fontFamily:'monospace', cursor: phase==='editing'?'pointer':'wait', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', marginBottom:'10px', opacity: phase==='editing'?1:0.6 }}>
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>
                                         Flatten &amp; Export PDF
                                     </button>
-                                    {copyState.flattenError && <div style={{ color:'#fca5a5', fontSize:'10px', fontFamily:'monospace', marginBottom:'8px', textAlign:'center' }}>Flatten failed — try again.</div>}
                                 </>
-                            )}
-
-                            {/* FLATTENED: per-page copy buttons */}
-                            {phase === 'flattened' && (
+                            ) : (
                                 <>
+                                    <div style={{ padding:'11px 13px', marginBottom:'14px', background:'rgba(52,211,153,0.07)', border:'1px solid rgba(52,211,153,0.22)', borderRadius:'10px', color:'#a7f3d0', fontSize:'11px', lineHeight:1.6 }}>
+                                        Flattened with your edits — no editable fields or highlights. Copy each page as a clean image.
+                                    </div>
                                     <div style={{ color:'#64748b', fontSize:'9px', fontWeight:'800', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'monospace', marginBottom:'9px' }}>Copy as image</div>
                                     {pageCopyBtn(1)}
-                                    {flatInfo && flatInfo.numPages > 1 && pageCopyBtn(2)}
+                                    {flatPages > 1 && pageCopyBtn(2)}
                                 </>
                             )}
 
-                            {/* Copy Message Format (always available) */}
                             <button onClick={copyMessage}
-                                style={{ width:'100%', padding:'13px', borderRadius:'11px', border:'1px solid rgba(129,140,248,0.4)', background: copyState.msg === 'done' ? 'rgba(52,211,153,0.16)' : 'rgba(129,140,248,0.12)', color: copyState.msg === 'done' ? '#6ee7b7' : '#a5b4fc', fontSize:'12px', fontWeight:'800', letterSpacing:'0.5px', fontFamily:'monospace', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', marginTop:'2px' }}>
-                                {copyState.msg === 'done' ? <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Format Copied!</>
+                                style={{ width:'100%', padding:'13px', borderRadius:'11px', border:'1px solid rgba(129,140,248,0.4)', background: copyState.msg==='done'?'rgba(52,211,153,0.16)':'rgba(129,140,248,0.12)', color: copyState.msg==='done'?'#6ee7b7':'#a5b4fc', fontSize:'12px', fontWeight:'800', letterSpacing:'0.5px', fontFamily:'monospace', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', marginTop:'2px' }}>
+                                {copyState.msg==='done' ? <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Format Copied!</>
                                  : <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg> Copy Message Format</>}
                             </button>
 
@@ -2558,7 +2630,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
                                         </button>
                                         <button onClick={doFlatten}
                                             style={{ flex:1, padding:'12px', borderRadius:'10px', border:'1px solid rgba(251,191,36,0.5)', background:'linear-gradient(135deg,#f59e0b,#d97706)', color:'#1a1206', fontSize:'12px', fontWeight:'900', cursor:'pointer', fontFamily:'monospace', letterSpacing:'0.5px' }}>
-                                            Confirm &amp; Flatten
+                                            Confirm
                                         </button>
                                     </div>
                                 </div>
@@ -2569,8 +2641,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
                         {phase === 'flattening' && (
                             <div style={{ position:'absolute', inset:0, borderRadius:'16px', background:'rgba(2,4,10,0.8)', backdropFilter:'blur(4px)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'16px', zIndex:5 }}>
                                 <div style={{ width:'46px', height:'46px', border:`3px solid rgba(${accent},0.25)`, borderTopColor:`rgb(${accent})`, borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
-                                <div style={{ color:'#e2e8f0', fontSize:'13px', fontFamily:'monospace', fontWeight:'700' }}>Flattening document…</div>
-                                {progress && <div style={{ color:'#94a3b8', fontSize:'11px', fontFamily:'monospace' }}>{progress}</div>}
+                                <div style={{ color:'#e2e8f0', fontSize:'13px', fontFamily:'monospace', fontWeight:'700' }}>{progress || 'Flattening PDF…'}</div>
                             </div>
                         )}
                     </div>
