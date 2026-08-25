@@ -2377,23 +2377,25 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
 
             const accent = info.kind === 'arrest' ? '239,68,68' : '16,185,129';
 
-            // "Open in print" → render the live document (with edits) to a CLEAN pdf via
-            // Electron printToPDF (no print preview, works in Electron), then rasterize
-            // pages for copying. The body class makes @media print isolate the PDF area.
+            // "Export" → flatten the PDF DATA with pdf-lib, then rasterize pages with
+            // pdf.js. We render the PDF bytes directly (not through the viewer or print),
+            // so the output always has content — unlike printToPDF, which renders blank
+            // because Electron can't rasterize the embedded PDF plugin. Flattening removes
+            // the form fields, so the images are clean (no blue highlights).
             const openInPrint = async () => {
                 setPhase('rendering');
-                setProgress('Entering print mode…');
-                document.body.classList.add('nysp-printing-pdf');
-                // Let the print-isolation styles apply before capturing.
-                await new Promise(r => setTimeout(r, 180));
+                setProgress('Flattening PDF…');
+                await new Promise(r => setTimeout(r, 60));
                 try {
-                    const ipc = window.electron?.ipcRenderer;
-                    if (!ipc) throw new Error('no ipc');
-                    setProgress('Rendering clean pages…');
-                    const res = await ipc.invoke('print-to-pdf');
-                    document.body.classList.remove('nysp-printing-pdf');
-                    if (!res?.success || !res.base64) throw new Error(res?.error || 'print failed');
-                    const bytes = Uint8Array.from(atob(res.base64), c => c.charCodeAt(0));
+                    let bytes = info.bytes.slice(0);
+                    try {
+                        const doc = await window.PDFLib.PDFDocument.load(info.bytes.slice(0));
+                        try { doc.getForm().flatten(); } catch (fe) { console.warn('[IN-APP PDF] flatten:', fe); }
+                        bytes = await doc.save();
+                    } catch (pe) {
+                        console.warn('[IN-APP PDF] pdf-lib flatten failed, using original bytes:', pe);
+                    }
+                    setProgress('Preparing pages…');
                     cleanBytesRef.current = bytes;
                     let np = 1;
                     try { np = (await window.pdfjsLib.getDocument({ data: bytes.slice(0) }).promise).numPages; } catch(_) {}
@@ -2401,8 +2403,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
                     setPhase('ready');
                     setProgress('');
                 } catch (e) {
-                    console.error('[IN-APP PDF] printToPDF failed:', e);
-                    document.body.classList.remove('nysp-printing-pdf');
+                    console.error('[IN-APP PDF] export/flatten failed:', e);
                     setProgress('');
                     setPhase('editing');
                     setCopyState(s => ({ ...s, printErr: true }));
@@ -2540,7 +2541,7 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
                                         <div style={{ color:'#f1f5f9', fontSize:'15px', fontWeight:'800' }}>Export</div>
                                     </div>
                                     <div style={{ color:'#cbd5e1', fontSize:'13px', lineHeight:1.65, marginBottom:'18px' }}>
-                                        Export button opens it up in print mode.
+                                        Export will flatten the PDF into clean page images, which means you cannot edit it afterward. Make sure your details are correct first.
                                     </div>
                                     <div style={{ display:'flex', gap:'10px' }}>
                                         <button onClick={() => setPhase('editing')}
@@ -2549,18 +2550,21 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
                                         </button>
                                         <button onClick={openInPrint}
                                             style={{ flex:1, padding:'12px', borderRadius:'10px', border:`1px solid rgba(${accent},0.5)`, background:`rgb(${accent})`, color:'#0b1220', fontSize:'12px', fontWeight:'900', cursor:'pointer', fontFamily:'monospace', letterSpacing:'0.5px' }}>
-                                            Open in print
+                                            Confirm
                                         </button>
+                                    </div>
+                                    <div style={{ color:'#64748b', fontSize:'10px', lineHeight:1.5, marginTop:'12px', fontFamily:'monospace' }}>
+                                        Note: only data filled in the app appears in the export. Edits typed into the viewer above are not included.
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        {/* RENDERING progress overlay (printToPDF) */}
+                        {/* RENDERING progress overlay */}
                         {phase === 'rendering' && (
                             <div style={{ position:'absolute', inset:0, borderRadius:'16px', background:'rgba(2,4,10,0.82)', backdropFilter:'blur(4px)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'16px', zIndex:5 }}>
                                 <div style={{ width:'46px', height:'46px', border:`3px solid rgba(${accent},0.25)`, borderTopColor:`rgb(${accent})`, borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
-                                <div style={{ color:'#e2e8f0', fontSize:'13px', fontFamily:'monospace', fontWeight:'700' }}>{progress || 'Rendering clean pages…'}</div>
+                                <div style={{ color:'#e2e8f0', fontSize:'13px', fontFamily:'monospace', fontWeight:'700' }}>{progress || 'Preparing clean pages…'}</div>
                             </div>
                         )}
                     </div>
