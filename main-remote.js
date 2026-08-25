@@ -1,9 +1,3 @@
-// main-remote.js — loaded from GitHub at startup by main.js
-// All variables from main.js are injected: mainWindow, app, ipcMain, dialog, shell,
-// path, fs, https, os, exec, WORKER_URL, GITHUB_REPO, GITHUB_BRANCH,
-// GITHUB_BRANCH_ENCODED, USE_LOCAL_INDEX, AUTO_OPEN_DEVTOOLS, settings,
-// windowFocused, globalShortcut
-
 console.log('[REMOTE] main-remote.js executing...');
 
 // ════════════════════════════════════════════════════════════
