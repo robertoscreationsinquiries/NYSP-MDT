@@ -1,3 +1,9 @@
+// main-remote.js — loaded from GitHub at startup by main.js
+// All variables from main.js are injected: mainWindow, app, ipcMain, dialog, shell,
+// path, fs, https, os, exec, WORKER_URL, GITHUB_REPO, GITHUB_BRANCH,
+// GITHUB_BRANCH_ENCODED, USE_LOCAL_INDEX, AUTO_OPEN_DEVTOOLS, settings,
+// windowFocused, globalShortcut
+
 console.log('[REMOTE] main-remote.js executing...');
 
 // ════════════════════════════════════════════════════════════
@@ -851,19 +857,18 @@ ipcMain.handle('capture-region', async (event, rect) => {
     }
 });
 
-// ── Print the current window (Electron's own print, not Chrome's unsupported preview) ──
+// ── Render the current window to a clean PDF (no print preview — works in Electron) ──
 // The renderer sets a body class first so @media print isolates just the PDF area.
-// silent:false shows the system print dialog, where the user can pick a printer or
-// "Save as PDF". This works in Electron where iframe.contentWindow.print() does not.
-ipcMain.handle('print-pdf', async () => {
+// printToPDF renders in print mode (no blue field highlights) and captures the live
+// form edits. Returns base64 PDF bytes; the renderer rasterizes pages to images.
+ipcMain.handle('print-to-pdf', async () => {
     try {
         if (!mainWindow) return { success: false, error: 'no window' };
-        return await new Promise((resolve) => {
-            mainWindow.webContents.print(
-                { silent: false, printBackground: true, color: true },
-                (success, failureReason) => resolve({ success, error: success ? null : failureReason })
-            );
+        const data = await mainWindow.webContents.printToPDF({
+            printBackground: true,
+            margins: { marginType: 'none' },
         });
+        return { success: true, base64: data.toString('base64') };
     } catch (err) {
         return { success: false, error: err.message };
     }
