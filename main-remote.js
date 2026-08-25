@@ -844,7 +844,6 @@ ipcMain.handle('export-pdf', async (event, { type }) => {
 ipcMain.handle('capture-region', async (event, rect) => {
     try {
         if (!mainWindow) return { success: false, error: 'no window' };
-        // rect: { x, y, width, height } in CSS pixels (device-independent).
         const r = {
             x: Math.max(0, Math.round(rect.x)),
             y: Math.max(0, Math.round(rect.y)),
@@ -857,6 +856,25 @@ ipcMain.handle('capture-region', async (event, rect) => {
         return { success: false, error: err.message };
     }
 });
+
+// ── Print the current window (Electron's own print, not Chrome's unsupported preview) ──
+// The renderer sets a body class first so @media print isolates just the PDF area.
+// silent:false shows the system print dialog, where the user can pick a printer or
+// "Save as PDF". This works in Electron where iframe.contentWindow.print() does not.
+ipcMain.handle('print-pdf', async () => {
+    try {
+        if (!mainWindow) return { success: false, error: 'no window' };
+        return await new Promise((resolve) => {
+            mainWindow.webContents.print(
+                { silent: false, printBackground: true, color: true },
+                (success, failureReason) => resolve({ success, error: success ? null : failureReason })
+            );
+        });
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
 // Spotify-miniplayer-style: shrink to a compact always-on-top window in the
 // bottom-right. We must clear the window's minimumSize (1200×700) first, or
 // setSize is silently clamped back up — that's why the old handler never shrank.
