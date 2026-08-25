@@ -8,7 +8,7 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    
+    <!-- pdf.js: renders filled PDF pages to canvas so we can copy a page as a PNG image -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <!-- pdf.js annotation-layer CSS: required so the NATIVE form fields (inputs, dropdowns) position + style correctly -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.css">
@@ -2365,8 +2365,11 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
         // UI. Module-scoped so it never remounts.
         const InAppPdfEditor = ({ info, onClose, playSound }) => {
             const iframeRef = React.useRef(null);
-            const [phase, setPhase] = React.useState('editing'); // editing | confirming | printing
+            const [phase, setPhase] = React.useState('editing'); // editing | confirming | rendering | ready
             const [copyState, setCopyState] = React.useState({});
+            const cleanBytesRef = React.useRef(null); // clean PDF bytes from printToPDF
+            const [cleanPages, setCleanPages] = React.useState(0);
+            const [progress, setProgress] = React.useState('');
             const url = React.useMemo(() => {
                 try { return URL.createObjectURL(new Blob([info.bytes], { type: 'application/pdf' })); } catch(_) { return null; }
             }, [info]);
@@ -2374,27 +2377,66 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
 
             const accent = info.kind === 'arrest' ? '239,68,68' : '16,185,129';
 
-            // Open the native print. Electron doesn't support Chrome's print PREVIEW
-            // (iframe.contentWindow.print() throws "app doesn't support print preview"),
-            // so we route through the main process (webContents.print → system dialog).
-            // A body class makes @media print isolate just the PDF area, and we stay in
-            // the editor modal (no fullscreen takeover).
+            // "Open in print" → render the live document (with edits) to a CLEAN pdf via
+            // Electron printToPDF (no print preview, works in Electron), then rasterize
+            // pages for copying. The body class makes @media print isolate the PDF area.
             const openInPrint = async () => {
-                setPhase('editing'); // close the confirm; stay in the modal
+                setPhase('rendering');
+                setProgress('Entering print mode…');
                 document.body.classList.add('nysp-printing-pdf');
+                // Let the print-isolation styles apply before capturing.
+                await new Promise(r => setTimeout(r, 180));
                 try {
-                    if (window.electron?.ipcRenderer) {
-                        await window.electron.ipcRenderer.invoke('print-pdf');
-                    } else {
-                        // Non-Electron fallback (dev in a browser).
-                        const win = iframeRef.current && iframeRef.current.contentWindow;
-                        if (win && win.print) { win.focus(); win.print(); } else { window.print(); }
-                    }
+                    const ipc = window.electron?.ipcRenderer;
+                    if (!ipc) throw new Error('no ipc');
+                    setProgress('Rendering clean pages…');
+                    const res = await ipc.invoke('print-to-pdf');
+                    document.body.classList.remove('nysp-printing-pdf');
+                    if (!res?.success || !res.base64) throw new Error(res?.error || 'print failed');
+                    const bytes = Uint8Array.from(atob(res.base64), c => c.charCodeAt(0));
+                    cleanBytesRef.current = bytes;
+                    let np = 1;
+                    try { np = (await window.pdfjsLib.getDocument({ data: bytes.slice(0) }).promise).numPages; } catch(_) {}
+                    setCleanPages(np);
+                    setPhase('ready');
+                    setProgress('');
                 } catch (e) {
-                    console.warn('[IN-APP PDF] print failed:', e);
-                } finally {
-                    // Remove the print-isolation class after the dialog closes.
-                    setTimeout(() => document.body.classList.remove('nysp-printing-pdf'), 500);
+                    console.error('[IN-APP PDF] printToPDF failed:', e);
+                    document.body.classList.remove('nysp-printing-pdf');
+                    setProgress('');
+                    setPhase('editing');
+                    setCopyState(s => ({ ...s, printErr: true }));
+                    setTimeout(() => setCopyState(s => ({ ...s, printErr: undefined })), 3500);
+                }
+            };
+
+            // Copy a specific page of the clean (printToPDF) document as a PNG.
+            const copyCleanPage = async (pageIndex) => {
+                const key = `p${pageIndex + 1}`;
+                setCopyState(s => ({ ...s, [key]: 'copying' }));
+                try {
+                    const bytes = cleanBytesRef.current;
+                    if (!bytes) throw new Error('no pages');
+                    const pdf = await window.pdfjsLib.getDocument({ data: bytes.slice(0) }).promise;
+                    if (pageIndex >= pdf.numPages) throw new Error('page out of range');
+                    const page = await pdf.getPage(pageIndex + 1);
+                    const viewport = page.getViewport({ scale: 2.5 });
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.floor(viewport.width);
+                    canvas.height = Math.floor(viewport.height);
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    await page.render({ canvasContext: ctx, viewport }).promise;
+                    const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+                    if (!blob) throw new Error('encode failed');
+                    await navigator.clipboard.write([new window.ClipboardItem({ 'image/png': blob })]);
+                    setCopyState(s => ({ ...s, [key]: 'done' }));
+                    try { playSound && playSound('platePass'); } catch(_) {}
+                    setTimeout(() => setCopyState(s => ({ ...s, [key]: undefined })), 2400);
+                } catch (e) {
+                    console.error('[IN-APP PDF] copy clean page failed:', e);
+                    setCopyState(s => ({ ...s, [key]: 'error' }));
+                    setTimeout(() => setCopyState(s => ({ ...s, [key]: undefined })), 3000);
                 }
             };
 
@@ -2435,17 +2477,44 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
                                 </div>
                             </div>
 
-                            <div style={{ padding:'11px 13px', marginBottom:'14px', background:'rgba(56,189,248,0.06)', border:'1px solid rgba(56,189,248,0.18)', borderRadius:'10px', color:'#94a3b8', fontSize:'11px', lineHeight:1.6 }}>
-                                Edit the document directly — fields, checkboxes and dropdowns all work. When you're done, use Export to open it in print mode.
+                            <div style={{ padding:'11px 13px', marginBottom:'14px', background: phase==='ready' ? 'rgba(52,211,153,0.07)' : 'rgba(56,189,248,0.06)', border: phase==='ready' ? '1px solid rgba(52,211,153,0.22)' : '1px solid rgba(56,189,248,0.18)', borderRadius:'10px', color: phase==='ready' ? '#a7f3d0' : '#94a3b8', fontSize:'11px', lineHeight:1.6 }}>
+                                {phase==='ready'
+                                    ? 'Clean pages ready — no fields or highlights. Copy each page as an image.'
+                                    : "Edit the document directly — fields, checkboxes and dropdowns all work. When you're done, use Export to render clean pages."}
                             </div>
 
-                            <div style={{ color:'#64748b', fontSize:'9px', fontWeight:'800', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'monospace', marginBottom:'9px' }}>Export</div>
-                            <button onClick={() => setPhase('confirming')}
-                                style={{ width:'100%', padding:'13px', borderRadius:'11px', border:`1px solid rgba(${accent},0.4)`, background:`rgba(${accent},0.1)`, color:`rgb(${accent})`, fontSize:'12px', fontWeight:'800', letterSpacing:'0.5px', fontFamily:'monospace', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', marginBottom:'10px' }}>
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>
-                                Export
-                            </button>
-
+                            {phase !== 'ready' ? (
+                                <>
+                                    <div style={{ color:'#64748b', fontSize:'9px', fontWeight:'800', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'monospace', marginBottom:'9px' }}>Export</div>
+                                    <button disabled={phase==='rendering'} onClick={() => setPhase('confirming')}
+                                        style={{ width:'100%', padding:'13px', borderRadius:'11px', border:`1px solid rgba(${accent},0.4)`, background:`rgba(${accent},0.1)`, color:`rgb(${accent})`, fontSize:'12px', fontWeight:'800', letterSpacing:'0.5px', fontFamily:'monospace', cursor: phase==='rendering'?'wait':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', marginBottom:'10px', opacity: phase==='rendering'?0.6:1 }}>
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>
+                                        Export
+                                    </button>
+                                    {copyState.printErr && <div style={{ color:'#fca5a5', fontSize:'10px', fontFamily:'monospace', marginBottom:'8px', textAlign:'center' }}>Print render failed — try again.</div>}
+                                </>
+                            ) : (
+                                <>
+                                    <div style={{ color:'#64748b', fontSize:'9px', fontWeight:'800', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'monospace', marginBottom:'9px' }}>Copy as image</div>
+                                    {[1, ...(cleanPages > 1 ? [2] : [])].map(n => {
+                                        const s = copyState[`p${n}`];
+                                        const busy = s === 'copying';
+                                        return (
+                                            <button key={n} disabled={busy} onClick={() => copyCleanPage(n - 1)}
+                                                style={{ width:'100%', padding:'13px', borderRadius:'11px', border:`1px solid rgba(${accent},0.4)`, background: s==='done'?'rgba(52,211,153,0.16)':s==='error'?'rgba(239,68,68,0.16)':`rgba(${accent},0.1)`, color: s==='done'?'#6ee7b7':s==='error'?'#fca5a5':`rgb(${accent})`, fontSize:'12px', fontWeight:'800', letterSpacing:'0.5px', fontFamily:'monospace', cursor: busy?'wait':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', marginBottom:'10px' }}>
+                                                {busy ? <><Loader2 size={15} /> Rendering…</>
+                                                 : s==='done' ? <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Page {n} copied to clipboard</>
+                                                 : s==='error' ? <>Page {n} — retry</>
+                                                 : <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy Page {n}</>}
+                                            </button>
+                                        );
+                                    })}
+                                    <button onClick={() => { setPhase('editing'); cleanBytesRef.current = null; }}
+                                        style={{ width:'100%', padding:'10px', borderRadius:'10px', border:'1px solid rgba(148,163,184,0.25)', background:'rgba(255,255,255,0.03)', color:'#94a3b8', fontSize:'11px', fontWeight:'700', cursor:'pointer', fontFamily:'monospace', letterSpacing:'0.5px', marginBottom:'10px' }}>
+                                        ← Back to editing
+                                    </button>
+                                </>
+                            )}
                             <button onClick={copyMessage}
                                 style={{ width:'100%', padding:'13px', borderRadius:'11px', border:'1px solid rgba(129,140,248,0.4)', background: copyState.msg==='done'?'rgba(52,211,153,0.16)':'rgba(129,140,248,0.12)', color: copyState.msg==='done'?'#6ee7b7':'#a5b4fc', fontSize:'12px', fontWeight:'800', letterSpacing:'0.5px', fontFamily:'monospace', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', marginTop:'2px' }}>
                                 {copyState.msg==='done' ? <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Format Copied!</>
@@ -2484,6 +2553,14 @@ const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
                                         </button>
                                     </div>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* RENDERING progress overlay (printToPDF) */}
+                        {phase === 'rendering' && (
+                            <div style={{ position:'absolute', inset:0, borderRadius:'16px', background:'rgba(2,4,10,0.82)', backdropFilter:'blur(4px)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'16px', zIndex:5 }}>
+                                <div style={{ width:'46px', height:'46px', border:`3px solid rgba(${accent},0.25)`, borderTopColor:`rgb(${accent})`, borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+                                <div style={{ color:'#e2e8f0', fontSize:'13px', fontFamily:'monospace', fontWeight:'700' }}>{progress || 'Rendering clean pages…'}</div>
                             </div>
                         )}
                     </div>
