@@ -5525,7 +5525,8 @@ const parseVehicleBlockFromLines = async (block, discordUserId, timestamp, edite
     if ((!apiKey) && (!parsed || !parsed.make || parsed.make === 'Unknown')) {
         console.log('🔧 [FALLBACK] Using manual line-by-line parser...');
         
-        const date = new Date(edited_timestamp || timestamp);
+        const rawTs = edited_timestamp || timestamp; // raw ISO from Discord
+        const date = new Date(rawTs);
         const displayTime = date.toLocaleString('en-US', {
             month: '2-digit',
             day: '2-digit',
@@ -5553,6 +5554,7 @@ parsed = {
             state: 'Unknown',
             plate: 'Unknown',
             timestamp: displayTime,
+            timestampRaw: rawTs,
             phoneticPlate: '',
             hasHandicapPermit: false,
             discordUserId: discordUserId,  // ENSURE this is set
@@ -5603,7 +5605,8 @@ parsed = {
     
     // STEP 3: Add metadata if AI was successful
     if (parsed && parsed.make !== 'Unknown') {
-        const date = new Date(edited_timestamp || timestamp);
+        const rawTs = edited_timestamp || timestamp; // raw ISO from Discord
+        const date = new Date(rawTs);
         const displayTime = date.toLocaleString('en-US', {
             month: '2-digit',
             day: '2-digit',
@@ -5615,6 +5618,9 @@ parsed = {
         
         // Ensure all fields are present
         if (!parsed.timestamp) parsed.timestamp = displayTime;
+        // Keep the RAW timestamp so every display/export formats from ONE source
+        // (re-parsing the formatted string caused the UI and citation to disagree).
+        if (!parsed.timestampRaw) parsed.timestampRaw = rawTs;
         if (!parsed.discordUserId) parsed.discordUserId = discordUserId;
         if (!parsed.isEdited) parsed.isEdited = !!edited_timestamp;
         if (!parsed.phoneticPlate && parsed.plate && parsed.plate !== 'Unknown') {
@@ -5804,20 +5810,24 @@ Return ONLY the JSON array, no other text.`;
             
             // Add metadata
             vehicle.discordUserId = discordUserId;
-            vehicle.timestamp = vb.timestamp;
+            const rawTs = vb.edited_timestamp || vb.timestamp; // raw ISO from Discord
+            vehicle.timestampRaw = rawTs;
             vehicle.editedTimestamp = vb.edited_timestamp;
             
-            // Format timestamp
-            if (vehicle.timestamp) {
-                const date = new Date(vehicle.timestamp);
-                vehicle.registeredDate = date.toLocaleDateString('en-US', {
-                    year: 'numeric',
+            // Format timestamp — SAME format + source as the single-parse path so the UI
+            // "Registered date" and the citation export never disagree. (MM/DD/YYYY, 24h,
+            // no seconds; formatted from the raw ISO, not re-parsed from a formatted string.)
+            if (rawTs) {
+                const date = new Date(rawTs);
+                vehicle.timestamp = date.toLocaleString('en-US', {
                     month: '2-digit',
                     day: '2-digit',
+                    year: 'numeric',
                     hour: '2-digit',
                     minute: '2-digit',
-                    second: '2-digit'
+                    hour12: false
                 });
+                vehicle.registeredDate = vehicle.timestamp;
             }
             
             // Phonetic plate
@@ -8521,6 +8531,11 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
         finalVehicle.timestamp = vehicleData.timestamp;
         addLog('✔ Restored vehicle timestamp from parameter', 'info');
     }
+    // Carry the RAW timestamp through so the citation date matches the UI exactly
+    // (both derive from the same source instead of re-parsing a formatted string).
+    if (!finalVehicle.timestampRaw) {
+        finalVehicle.timestampRaw = vehicleData?.timestampRaw || registration?.timestampRaw || ownerData?.timestampRaw || null;
+    }
     
     addLog('=== GENERATING CITATION ===', 'info');
     addLog(`Owner: ${finalOwner.username} (${finalOwner.userId})`, 'info');
@@ -8656,8 +8671,12 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
             return false;
         };
         
-        const formatRegistryDate = (timestamp) => {
-            if (!timestamp || timestamp === 'Unknown' || timestamp === 'N/A') {
+        const formatRegistryDate = (timestamp, rawTimestamp) => {
+            // Prefer the RAW ISO timestamp so the citation date is derived from the same
+            // source as the UI (re-parsing a locale-formatted string was unreliable and
+            // caused the export and the on-screen "Registered date" to differ).
+            const source = rawTimestamp || timestamp;
+            if (!source || source === 'Unknown' || source === 'N/A') {
                 const today = new Date();
                 const month = (today.getMonth() + 1).toString().padStart(2, '0');
                 const day = today.getDate().toString().padStart(2, '0');
@@ -8666,7 +8685,7 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
             }
             
             try {
-                const date = new Date(timestamp);
+                const date = new Date(source);
                 if (isNaN(date.getTime())) throw new Error('Invalid date');
                 
                 const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -8783,7 +8802,7 @@ const generateCitation = async (ownerData = null, vehicleData = null) => {
         const hasVehicleData = finalVehicle.plate && finalVehicle.plate.trim() !== '' && finalVehicle.plate !== 'Unknown';
 
         if (hasVehicleData && finalVehicle.timestamp && finalVehicle.timestamp.trim() !== '') {
-            const regDateFormatted = formatRegistryDate(finalVehicle.timestamp);
+            const regDateFormatted = formatRegistryDate(finalVehicle.timestamp, finalVehicle.timestampRaw);
             addLog(`Setting RegDate_af_date to: ${regDateFormatted}`, 'info');
             const regDateSet = setField('RegDate_af_date', regDateFormatted);
             if (!regDateSet) addLog(`❌ FAILED to set RegDate_af_date: ${regDateFormatted}`, 'error');
@@ -10885,7 +10904,7 @@ ENTER APP
                                             </div>
                                         </div>
                                         <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(59,130,246,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div style={{ color: '#64748b', fontSize: '11px' }}>{reg.timestamp ? new Date(reg.timestamp).toLocaleString() : ''}</div>
+                                            <div style={{ color: '#64748b', fontSize: '11px' }}>{reg.timestamp || (reg.timestampRaw ? new Date(reg.timestampRaw).toLocaleString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '')}</div>
                                             <div style={{ color: '#3b82f6', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>&#8594; View Full Details</div>
                                         </div>
                                     </>
