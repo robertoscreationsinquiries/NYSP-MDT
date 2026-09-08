@@ -1045,33 +1045,34 @@ if (USE_LOCAL_INDEX) {
     const GITHUB_SOUNDS_BASE = `https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH_ENCODED}`;
     const soundsScript = `window.SOUNDS = {TIMER_SIDEPANEL: '${GITHUB_SOUNDS_BASE}/TIMER_SIDEPANEL.mp3', panicAlarm: '${GITHUB_SOUNDS_BASE}/panicAlarm.mp3', platePass: '${GITHUB_SOUNDS_BASE}/platePass.mp3', plateFail: '${GITHUB_SOUNDS_BASE}/plateFail.mp3', callAlert: '${GITHUB_SOUNDS_BASE}/CallIncoming.mp3', PriorityCallIncoming: '${GITHUB_SOUNDS_BASE}/PriorityCallIncoming.mp3', warrantAlert: '${GITHUB_SOUNDS_BASE}/warrantAlert.mp3', StartupSFX: '${GITHUB_SOUNDS_BASE}/StartupSFX.mp3', LoginAccessDenied: '${GITHUB_SOUNDS_BASE}/LoginAccessDenied.mp3', LoginIncorrect: '${GITHUB_SOUNDS_BASE}/LoginIncorrect.mp3', LoginPageCorrect: '${GITHUB_SOUNDS_BASE}/LoginPageCorrect.mp3', MIC_ACTIVESFX: '${GITHUB_SOUNDS_BASE}/MIC_ACTIVESFX.mp3', MIC_INACTIVESFX: '${GITHUB_SOUNDS_BASE}/MIC_INACTIVESFX.mp3', MIC_NOTAVAILABLESFX: '${GITHUB_SOUNDS_BASE}/MIC_NOTAVAILABLESFX.mp3', noCitizenSFX: '${GITHUB_SOUNDS_BASE}/noCitizenSFX.mp3', clientSessionExpirationWarning: '${GITHUB_SOUNDS_BASE}/clientSessionExpirationWarning.mp3', PursuitModeActive: '${GITHUB_SOUNDS_BASE}/PursuitModeActive.mp3', PursuitModeNotActive: '${GITHUB_SOUNDS_BASE}/PursuitModeNotActive.mp3' }; window.SOUNDS_BASE64 = window.SOUNDS; console.log('[SOUNDS] Ready from branch ${GITHUB_BRANCH}! Keys:', Object.keys(window.SOUNDS).join(', '));`;
 
-    Promise.all([
-        // PERF: SHA is already resolved by main.js and injected as PRELOADED_SHA.
-        // Previously this block called the GitHub commits API TWICE more (once for
-        // display, once chained before index.html) — the single biggest cause of slow
-        // cold starts, since that API is slow and rate-limited to 60/hr unauthenticated.
-        // Now we reuse the preloaded SHA and go straight to the fast raw CDN.
-        Promise.resolve((typeof PRELOADED_SHA === 'string' ? PRELOADED_SHA : GITHUB_BRANCH_ENCODED).substring(0, 7)),
-        // index.html directly from the raw CDN by SHA (no API hop, cache-busted by SHA)
-        new Promise((resolve, reject) => {
-            const shaRef = (typeof PRELOADED_SHA === 'string' && PRELOADED_SHA) ? PRELOADED_SHA : GITHUB_BRANCH_ENCODED;
-            console.log(`[FETCH] Fetching index.html at SHA: ${String(shaRef).substring(0, 7)}`);
-            https.get(`https://raw.githubusercontent.com/${GITHUB_REPO}/${shaRef}/index.html`, { timeout: 30000 }, (res) => {
-                let html = ''; res.on('data', c => html += c);
-                res.on('end', () => { console.log(`[FETCH] Got index.html: ${html.length} bytes`); resolve(html); });
-            }).on('error', reject);
-        }),
-        fetchRaw('live-announcements.js'),
-        fetchRaw('maintenance.js').catch(() => 'window.MAINTENANCE = false; console.log("[MAINTENANCE] Default: false");'),
-        fetchRaw('pdf-templates.js').catch(() => 'console.log("[PDF] Templates not loaded");'),
-        Promise.resolve(soundsScript),
-        fetchRaw('pdf-export-enhancer.js').catch(() => 'console.log("[PDF] Enhancer not loaded");')
-    ])
-    .then(([commitSha, html, announcements, maintenance, pdfTemplates, sounds, pdfEnhancer]) => {
+    // PERF: The window only needs index.html to paint. Previously we waited on a
+    // Promise.all of ALL six GitHub fetches before writing the HTML — so a single slow
+    // aux file (or its 30s timeout) delayed the whole window. Now we fetch index.html
+    // on its own and load it the moment it arrives; the aux scripts resolve in the
+    // background and inject once the page is ready (and again if they land later).
+    const commitShaShort = (typeof PRELOADED_SHA === 'string' ? PRELOADED_SHA : GITHUB_BRANCH_ENCODED).substring(0, 7);
+    const shaRef = (typeof PRELOADED_SHA === 'string' && PRELOADED_SHA) ? PRELOADED_SHA : GITHUB_BRANCH_ENCODED;
+
+    // Kick off aux fetches immediately (in parallel) — we won't block the window on them.
+    const auxPromises = {
+        announcements: fetchRaw('live-announcements.js').catch(() => 'console.log("[ANN] not loaded");'),
+        maintenance:   fetchRaw('maintenance.js').catch(() => 'window.MAINTENANCE = false; console.log("[MAINTENANCE] Default: false");'),
+        pdfTemplates:  fetchRaw('pdf-templates.js').catch(() => 'console.log("[PDF] Templates not loaded");'),
+        sounds:        Promise.resolve(soundsScript),
+        pdfEnhancer:   fetchRaw('pdf-export-enhancer.js').catch(() => 'console.log("[PDF] Enhancer not loaded");'),
+    };
+
+    new Promise((resolve, reject) => {
+        console.log(`[FETCH] Fetching index.html at SHA: ${String(shaRef).substring(0, 7)}`);
+        https.get(`https://raw.githubusercontent.com/${GITHUB_REPO}/${shaRef}/index.html`, { timeout: 30000 }, (res) => {
+            let html = ''; res.on('data', c => html += c);
+            res.on('end', () => { console.log(`[FETCH] Got index.html: ${html.length} bytes`); resolve(html); });
+        }).on('error', reject).on('timeout', function(){ this.destroy(); reject(new Error('index.html fetch timeout')); });
+    })
+    .then((html) => {
         if (!html.trim().startsWith('<!DOCTYPE') && !html.trim().startsWith('<html')) {
             throw new Error('Invalid HTML returned from GitHub');
         }
-
         console.log('[LOADER] Got valid HTML');
 
         const settingsScript = `<script>
@@ -1079,29 +1080,25 @@ if (USE_LOCAL_INDEX) {
             window.SETTINGS_FILE_CONTENT = ${JSON.stringify(settings)};
             console.log('[PRELOAD] Settings injected BEFORE React loads');
         </script>`;
-        const buildScript = `<script>window.APP_COMMIT_SHA = '${commitSha}'; window.APP_GITHUB_BRANCH = '${GITHUB_BRANCH}'; window.SESSION_INACTIVITY_SECONDS = ${SESSION_INACTIVITY_SECONDS}; window.SESSION_WARNING_COUNTDOWN_SECONDS = ${SESSION_WARNING_COUNTDOWN_SECONDS};</script>`;
+        const buildScript = `<script>window.APP_COMMIT_SHA = '${commitShaShort}'; window.APP_GITHUB_BRANCH = '${GITHUB_BRANCH}'; window.SESSION_INACTIVITY_SECONDS = ${SESSION_INACTIVITY_SECONDS}; window.SESSION_WARNING_COUNTDOWN_SECONDS = ${SESSION_WARNING_COUNTDOWN_SECONDS};</script>`;
 
         html = html.replace('</head>', settingsScript + buildScript + '</head>');
         fs.writeFileSync(tempHtml, html, 'utf8');
         mainWindow.loadFile(tempHtml);
 
         mainWindow.webContents.once('did-finish-load', () => {
-            mainWindow.webContents.executeJavaScript(announcements)
-                .then(() => console.log('[LOADER] Announcements injected'))
-                .catch(e => console.error('[LOADER] Announcements error:', e));
-            mainWindow.webContents.executeJavaScript(maintenance)
-                .then(() => console.log('[LOADER] Maintenance injected'))
-                .catch(e => console.error('[LOADER] Maintenance error:', e));
-            mainWindow.webContents.executeJavaScript(pdfTemplates)
-                .then(() => console.log('[LOADER] PDF templates injected'))
-                .catch(e => console.error('[LOADER] PDF templates error:', e));
-            mainWindow.webContents.executeJavaScript(sounds)
-                .then(() => console.log('[LOADER] ✅ Sounds injected'))
-                .catch(e => console.error('[LOADER] Sounds error:', e));
-            mainWindow.webContents.executeJavaScript(pdfEnhancer)
-                .then(() => console.log('[LOADER] PDF enhancer injected'))
-                .catch(e => console.error('[LOADER] PDF enhancer error:', e));
-
+            // Inject each aux script as soon as ITS fetch resolves — no waiting on the slowest.
+            const injectWhenReady = (label, promise) => promise.then(code => {
+                if (!mainWindow || mainWindow.isDestroyed()) return;
+                mainWindow.webContents.executeJavaScript(code)
+                    .then(() => console.log(`[LOADER] ${label} injected`))
+                    .catch(e => console.error(`[LOADER] ${label} error:`, e));
+            });
+            injectWhenReady('Announcements', auxPromises.announcements);
+            injectWhenReady('Maintenance', auxPromises.maintenance);
+            injectWhenReady('PDF templates', auxPromises.pdfTemplates);
+            injectWhenReady('Sounds', auxPromises.sounds);
+            injectWhenReady('PDF enhancer', auxPromises.pdfEnhancer);
             injectLocalStorage(settings);
         });
     })
