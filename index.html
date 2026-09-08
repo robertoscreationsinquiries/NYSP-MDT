@@ -2647,7 +2647,7 @@ const [showExitConfirm, setShowExitConfirm] = useState(false);
 const [showChatPanel, setShowChatPanel] = useState(false);
 const [showBoloModal, setShowBoloModal] = useState(false);
 const [boloList, setBoloList] = useState([]);
-const [boloForm, setBoloForm] = useState({ plate: '', description: '', reason: '', expiresIn: 10, image: null });
+const [boloForm, setBoloForm] = useState({ boloType: 'vehicle', plate: '', description: '', reason: '', expiresIn: 10, image: null });
 const [boloSelectedImage, setBoloSelectedImage] = useState(null);
 const [boloCooldownUntil, setBoloCooldownUntil] = useState(null);
 const [showApexModal, setShowApexModal] = useState(false);
@@ -2921,6 +2921,10 @@ React.useEffect(() => {
 const markSettingsSaved = React.useCallback(() => {
     savedSettingsSnapshotRef.current = latestValuesRef.current;
     setSavedSignature(settingsSignature);
+    // Live feedback: flip the Save button into a success state briefly.
+    setSavingSettings(false);
+    setSettingsJustSaved(true);
+    setTimeout(() => setSettingsJustSaved(false), 2200);
 }, [settingsSignature]);
 const revertSettings = React.useCallback(() => {
     const s = savedSettingsSnapshotRef.current;
@@ -3024,6 +3028,7 @@ const [showUpdateLog, setShowUpdateLog] = useState(false);
 const [selectedUpdateEntry, setSelectedUpdateEntry] = useState(null);
 const [recentRegistrationFlash, setRecentRegistrationFlash] = useState(false);
 const [savingSettings, setSavingSettings] = useState(false);
+const [settingsJustSaved, setSettingsJustSaved] = useState(false);
 const [editableTrooperSettings, setEditableTrooperSettings] = useState(null);
 const [hasVisitedSettingsBefore, setHasVisitedSettingsBefore] = useState(true);
 const [pageTransitioning, setPageTransitioning] = useState(false);
@@ -4521,11 +4526,53 @@ React.useEffect(() => {
     window.AVAILABLE_OFFICERS_DISABLED = cfCache.officersDisabled;
 }, [cfCache.officersDisabled, cfCache.initialized]);
 
+const seenBoloIdsRef = React.useRef(null);
+const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/robertoscreationsinquiries/NYSP-MDT/main';
 React.useEffect(() => {
     if (!cfCache.initialized) return;
     if (cfCache.boloSession !== selectedUserSession) return; // ignore stale-session bolos
-    setBoloList(cfCache.bolos || []);
+    const incoming = cfCache.bolos || [];
+    // Detect genuinely NEW bolos (ids we haven't seen yet) and chime ONCE.
+    const now = Date.now();
+    const activeIds = incoming.filter(b => (b.expiresAt || 0) > now).map(b => b.id);
+    if (seenBoloIdsRef.current === null) {
+        // First load after (re)selecting a session: seed without chiming.
+        seenBoloIdsRef.current = new Set(activeIds);
+    } else {
+        const isNew = activeIds.some(id => !seenBoloIdsRef.current.has(id));
+        if (isNew) {
+            // Play the high-priority notification alert once for the new BOLO.
+            try {
+                const src = (window.SOUNDS && window.SOUNDS.NotificationAlert_High) || `${GITHUB_RAW_BASE}/NotificationAlert_High.mp3`;
+                const a = new Audio(src); a.volume = 0.7; a.play().catch(() => {});
+            } catch (_) {}
+        }
+        seenBoloIdsRef.current = new Set(activeIds);
+    }
+    setBoloList(incoming);
 }, [cfCache.bolos, cfCache.boloSession, cfCache.initialized, selectedUserSession]);
+// Reset the "seen" set when switching sessions so we don't chime for the pre-existing list.
+React.useEffect(() => { seenBoloIdsRef.current = null; }, [selectedUserSession]);
+
+// Cancel/disregard a BOLO — only the poster can do this (UI is gated to isMine).
+const cancelBolo = React.useCallback((bolo) => {
+    if (!bolo || !bolo.id) return;
+    const doDelete = () => {
+        setBoloList(prev => (prev || []).filter(x => x.id !== bolo.id)); // optimistic
+        fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/bolo/delete', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: bolo.id, ...getRequestAuth() })
+        }).then(() => {
+            const session = selectedUserSession ? `?session=${encodeURIComponent(selectedUserSession)}` : '';
+            return fetch(`https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/bolo${session}`).then(r => r.json()).then(d => { if (d.bolos) setBoloList(d.bolos); });
+        }).catch(() => {});
+        addLog('✔ BOLO cancelled', 'info');
+    };
+    // Simple confirm to prevent accidental removal.
+    if (typeof window !== 'undefined' && window.confirm) {
+        if (window.confirm('Cancel this BOLO? It will be removed for everyone in the session.')) doDelete();
+    } else { doDelete(); }
+}, [selectedUserSession, getRequestAuth]);
 
 
 
@@ -9996,7 +10043,7 @@ if (parseFailedButVehicleExists) {
 
     // ── BOLO CHECK ──
     const normalizedSearched = normalizePlate(searchedPlate);
-    const boloHit = boloList.find(b => b.session === selectedUserSession && normalizePlate(b.plate || '') === normalizedSearched && b.expiresAt > Date.now());
+    const boloHit = boloList.find(b => b.session === selectedUserSession && (b.boloType||'vehicle') !== 'person' && normalizePlate(b.plate || '') === normalizedSearched && b.expiresAt > Date.now());
     if (boloHit) {
         try { if (window.SOUNDS?.warrantAlert) { const _a = new Audio(window.SOUNDS.warrantAlert); _a.volume = 0.8; _a.play().catch(() => {}); } } catch(_) {}
         showCustomError('🚨 BOLO VEHICLE DETECTED', `This vehicle (${searchedPlate}) is flagged as a BOLO.\n\nReason: ${boloHit.reason || 'N/A'}\nDescription: ${boloHit.description || 'N/A'}\nIssued by: ${boloHit.issuedBy}`);
@@ -15897,6 +15944,9 @@ return (
                                 return sessionBolos.map((b,i)=>{
                                     const minsLeft=Math.max(0,Math.ceil((b.expiresAt-Date.now())/60000));
                                     const urgent=minsLeft<=5;
+                                    const myName=`${trooperSettings?.FirstName||''} ${trooperSettings?.LastName||''}`.trim();
+                                    const isMine=!!myName && (b.issuedBy||'').trim()===myName;
+                                    const isPerson=(b.boloType||'vehicle')==='person';
                                     return (
                                         <div key={i} onClick={()=>{ if(b.image) setBoloLightboxImage(b.image); }} style={{ display:'flex',gap:'9px',padding:'8px 10px',background:urgent?'rgba(248,113,113,0.08)':'rgba(0,0,0,0.25)',border:`1px solid ${urgent?'rgba(248,113,113,0.3)':'rgba(248,113,113,0.1)'}`,borderRadius:'7px',marginBottom:'5px',cursor:b.image?'pointer':'default',transition:'background 160ms ease-out, border-color 160ms ease-out',position:'relative',overflow:'hidden' }}
                                             onMouseEnter={e=>{ if(b.image){ e.currentTarget.style.background='rgba(248,113,113,0.12)'; e.currentTarget.style.borderColor='rgba(248,113,113,0.35)'; } }}
@@ -15904,8 +15954,15 @@ return (
                                             {b.image && <div style={{ width:'40px',height:'40px',borderRadius:'5px',background:`url(${b.image}) center/cover`,flexShrink:0,border:'1px solid rgba(248,113,113,0.25)' }} />}
                                             <div style={{ flex:1,minWidth:0 }}>
                                                 <div style={{ display:'flex',alignItems:'center',gap:'7px',marginBottom:'2px' }}>
+                                                    <span title={isPerson?'Person BOLO':'Vehicle BOLO'} style={{ fontSize:'11px',flexShrink:0 }}>{isPerson?'👤':'🚗'}</span>
                                                     {b.plate && <span style={{ color:'#fca5a5',fontSize:'12px',fontWeight:'800',fontFamily:'monospace',letterSpacing:'1px' }}>{b.plate}</span>}
                                                     <span style={{ fontSize:'8px',fontWeight:'700',padding:'1px 5px',borderRadius:'3px',background:urgent?'rgba(248,113,113,0.18)':'rgba(245,158,11,0.12)',color:urgent?'#fca5a5':'#fbbf24',fontFamily:'monospace',letterSpacing:'0.5px',marginLeft:'auto',flexShrink:0 }}>{minsLeft}m</span>
+                                                    {isMine && (
+                                                        <button title="Cancel this BOLO" onClick={(e)=>{ e.stopPropagation(); cancelBolo(b); }}
+                                                            style={{ flexShrink:0,width:'18px',height:'18px',borderRadius:'4px',background:'rgba(248,113,113,0.12)',border:'1px solid rgba(248,113,113,0.3)',color:'#fca5a5',fontSize:'10px',fontWeight:'800',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1,padding:0,transition:'background 140ms ease-out' }}
+                                                            onMouseEnter={ev=>{ ev.currentTarget.style.background='rgba(248,113,113,0.28)'; }}
+                                                            onMouseLeave={ev=>{ ev.currentTarget.style.background='rgba(248,113,113,0.12)'; }}>✕</button>
+                                                    )}
                                                 </div>
                                                 {b.description && <div style={{ color:'#cbd5e1',fontSize:'10px',marginBottom:'1px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontFamily:'monospace' }}>{b.description}</div>}
                                                 <div style={{ color:'#64748b',fontSize:'9px',fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{b.reason||'No reason'} · {b.issuedBy||'Unknown'}</div>
@@ -18828,8 +18885,8 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                     <span style={{ padding: '2px 7px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '4px', color: '#f87171', fontSize: '10px', fontFamily: 'monospace' }}>ActiveSession*</span>
                                 </div>
                                 <div style={{ color: '#374151', fontSize: '11px', marginBottom: '12px' }}>* ActiveSession is not saved - it requires manual activation each launch.</div>
-                                <button onClick={saveSettingsToFile} disabled={savingSettings} style={{ ...S.btn('#22c55e', savingSettings), padding: '13px' }}>
-                                    {savingSettings ? '⏳ Saving...' : '💾 Export to Local File'}
+                                <button onClick={saveSettingsToFile} disabled={savingSettings} style={{ ...S.btn(settingsJustSaved ? '#16a34a' : '#22c55e', savingSettings), padding: '13px', transition: 'background 200ms ease, transform 120ms cubic-bezier(0.23,1,0.32,1)', transform: settingsJustSaved ? 'scale(1.015)' : 'scale(1)' }}>
+                                    {savingSettings ? '⏳ Saving...' : settingsJustSaved ? '✓ Saved!' : '💾 Export to Local File'}
                                 </button>
                             </div>
 
@@ -19791,7 +19848,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
 )}
 
 {showBoloModal && (
-    <div onClick={()=>{ setShowBoloModal(false); setBoloForm({ plate: '', description: '', reason: '', expiresIn: 10, image: null, session: null }); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter:'blur(6px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', animation:'fadeIn 200ms cubic-bezier(0.23,1,0.32,1)' }}>
+    <div onClick={()=>{ setShowBoloModal(false); setBoloForm({ boloType: 'vehicle', plate: '', description: '', reason: '', expiresIn: 10, image: null, session: null }); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter:'blur(6px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', animation:'fadeIn 200ms cubic-bezier(0.23,1,0.32,1)' }}>
         <div onClick={e=>e.stopPropagation()} style={{ background:'linear-gradient(180deg,rgba(15,30,60,0.96) 0%,rgba(40,10,15,0.96) 100%)',border:'1px solid rgba(248,113,113,0.3)',borderRadius:'14px',padding:'24px 28px',width:'100%',maxWidth:'600px',boxShadow:'0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(248,113,113,0.08), inset 0 1px 0 rgba(248,113,113,0.1)',maxHeight:'92vh',overflowY:'auto',animation:'panelSlideIn 220ms cubic-bezier(0.23,1,0.32,1)' }}>
 
             {/* Header */}
@@ -19806,7 +19863,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                         <div style={{ color:'#64748b',fontSize:'10px',letterSpacing:'1px',fontFamily:'monospace' }}>Broadcast to selected session</div>
                     </div>
                 </div>
-                <button onClick={()=>{ setShowBoloModal(false); setBoloForm({ plate: '', description: '', reason: '', expiresIn: 10, image: null, session: null }); }}
+                <button onClick={()=>{ setShowBoloModal(false); setBoloForm({ boloType: 'vehicle', plate: '', description: '', reason: '', expiresIn: 10, image: null, session: null }); }}
                     style={{ background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'6px',color:'#f87171',cursor:'pointer',width:'30px',height:'30px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'13px',fontFamily:'monospace',padding:0,transition:'background 160ms ease-out, color 160ms ease-out' }}
                     onMouseEnter={e=>{ e.currentTarget.style.background='rgba(239,68,68,0.18)'; }}
                     onMouseLeave={e=>{ e.currentTarget.style.background='rgba(239,68,68,0.08)'; }}>✕</button>
@@ -19822,6 +19879,19 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                     </div>
                 </div>
             )}
+
+            {/* BOLO type toggle: Vehicle ↔ Person */}
+            <div style={{ display:'flex',gap:'8px',marginBottom:'16px',background:'rgba(0,0,0,0.3)',padding:'5px',borderRadius:'10px',border:'1px solid rgba(248,113,113,0.15)' }}>
+                {[{ t:'vehicle', icon:'🚗', label:'Vehicle' }, { t:'person', icon:'👤', label:'Person' }].map(({ t, icon, label })=>{
+                    const on = (boloForm.boloType||'vehicle')===t;
+                    return (
+                        <button key={t} onClick={()=>setBoloForm(f=>({...f, boloType:t }))}
+                            style={{ flex:1,padding:'11px',borderRadius:'7px',border:`1px solid ${on?'rgba(248,113,113,0.5)':'transparent'}`,background:on?'linear-gradient(180deg,rgba(248,113,113,0.2),rgba(220,38,38,0.1))':'transparent',color:on?'#fca5a5':'#64748b',fontSize:'11px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',transition:'background 180ms cubic-bezier(0.23,1,0.32,1), color 180ms ease-out, border-color 180ms ease-out',boxShadow:on?'inset 0 1px 0 rgba(255,255,255,0.08)':'none' }}>
+                            <span style={{ fontSize:'15px' }}>{icon}</span>{label}
+                        </button>
+                    );
+                })}
+            </div>
 
             {/* Two-column layout */}
             <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'14px',marginBottom:'14px' }}>
@@ -19849,9 +19919,9 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                 {/* Plate + session + expires */}
                 <div style={{ display:'flex',flexDirection:'column',gap:'10px' }}>
                     <div>
-                        <div style={{ color:'#64748b',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',marginBottom:'5px',fontFamily:'monospace' }}>License Plate</div>
+                        <div style={{ color:'#64748b',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',marginBottom:'5px',fontFamily:'monospace' }}>{(boloForm.boloType||'vehicle')==='person' ? 'Name / Identifier' : 'License Plate'}</div>
                         <input value={boloForm.plate} onChange={e=>setBoloForm(f=>({...f,plate:e.target.value.toUpperCase()}))}
-                            placeholder="e.g. ABC1234"
+                            placeholder={(boloForm.boloType||'vehicle')==='person' ? 'e.g. JOHN DOE' : 'e.g. ABC1234'}
                             style={{ width:'100%',background:'rgba(0,0,0,0.35)',border:'1px solid rgba(56,189,248,0.15)',borderRadius:'7px',padding:'9px 12px',color:'#e2e8f0',fontSize:'12px',fontFamily:'monospace',fontWeight:'700',outline:'none',boxSizing:'border-box',letterSpacing:'2px',transition:'border-color 160ms ease-out' }}
                             onFocus={e=>{ e.target.style.borderColor='rgba(56,189,248,0.4)'; }}
                             onBlur={e=>{ e.target.style.borderColor='rgba(56,189,248,0.15)'; }} />
@@ -19881,7 +19951,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
             </div>
 
             {/* Description + Reason */}
-            {[{ label:'Vehicle Description', key:'description', placeholder:'e.g. Black 2019 Ford F-150, tinted windows' }, { label:'Reason for BOLO', key:'reason', placeholder:'e.g. Fleeing law enforcement' }].map(({ label, key, placeholder })=>(
+            {[{ label:(boloForm.boloType||'vehicle')==='person' ? 'Person Description' : 'Vehicle Description', key:'description', placeholder:(boloForm.boloType||'vehicle')==='person' ? 'e.g. Male, ~30s, black hoodie, last seen on foot near Main St' : 'e.g. Black 2019 Ford F-150, tinted windows' }, { label:'Reason for BOLO', key:'reason', placeholder:'e.g. Fleeing law enforcement' }].map(({ label, key, placeholder })=>(
                 <div key={key} style={{ marginBottom:'12px' }}>
                     <div style={{ color:'#64748b',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',textTransform:'uppercase',marginBottom:'5px',fontFamily:'monospace' }}>{label}</div>
                     <textarea value={boloForm[key]} onChange={e=>setBoloForm(f=>({...f,[key]:e.target.value.toUpperCase()}))}
@@ -19897,16 +19967,16 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                 onClick={()=>{
                     if(boloCooldownUntil && Date.now() < boloCooldownUntil) return;
                     if(!boloForm.session) { showCustomError('Session Required', 'Please select which session this BOLO should appear in.'); return; }
-                    if(!boloForm.plate && !boloForm.description) { showCustomError('Missing Info', 'Please enter at least a license plate or vehicle description.'); return; }
+                    if(!boloForm.plate && !boloForm.description) { showCustomError('Missing Info', (boloForm.boloType||'vehicle')==='person' ? 'Please enter at least a name/identifier or a description.' : 'Please enter at least a license plate or vehicle description.'); return; }
                     const payload = { ...boloForm, issuedBy: `${trooperSettings?.FirstName} ${trooperSettings?.LastName}`, ...getRequestAuth() };
                     fetch('https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/bolo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
                         .then(()=>{
                             const session = selectedUserSession ? `?session=${encodeURIComponent(selectedUserSession)}` : '';
                             return fetch(`https://ny-cad-proxy.robertoscreationsinquiries.workers.dev/bolo${session}`).then(r=>r.json()).then(d=>{ if(d.bolos) setBoloList(d.bolos); });
                         }).catch(()=>{});
-                    setBoloCooldownUntil(Date.now() + 15 * 60 * 1000);
+                    setBoloCooldownUntil(Date.now() + 3 * 60 * 1000);
                     setShowBoloModal(false);
-                    setBoloForm({ plate: '', description: '', reason: '', expiresIn: 10, image: null, session: null });
+                    setBoloForm({ boloType: 'vehicle', plate: '', description: '', reason: '', expiresIn: 10, image: null, session: null });
                 }}
                 style={{ width:'100%',padding:'13px',background:(boloCooldownUntil && Date.now() < boloCooldownUntil) ? 'rgba(75,85,99,0.18)' : 'linear-gradient(180deg,#dc2626,#991b1b)',border:`1px solid ${(boloCooldownUntil && Date.now() < boloCooldownUntil) ? 'rgba(75,85,99,0.3)' : 'rgba(239,68,68,0.5)'}`,borderRadius:'9px',color:(boloCooldownUntil && Date.now() < boloCooldownUntil) ? '#475569' : 'white',cursor:(boloCooldownUntil && Date.now() < boloCooldownUntil) ? 'not-allowed' : 'pointer',fontSize:'12px',fontWeight:'800',textTransform:'uppercase',letterSpacing:'2.5px',fontFamily:'monospace',boxShadow:(boloCooldownUntil && Date.now() < boloCooldownUntil) ? 'none' : '0 4px 16px rgba(239,68,68,0.3), inset 0 1px 0 rgba(255,255,255,0.15)',transition:'filter 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
                 onMouseEnter={e=>{ if(!e.currentTarget.disabled){ e.currentTarget.style.filter='brightness(1.1)'; } }}
