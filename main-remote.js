@@ -1023,7 +1023,7 @@ if (USE_LOCAL_INDEX) {
     Promise.all([
         fetchRaw('live-announcements.js'),
         fetchRaw('maintenance.js').catch(() => 'window.MAINTENANCE = false; console.log("[MAINTENANCE] Default: false");'),
-        fetchRaw('pdf-templates.js').catch(() => 'console.log("[PDF] Templates not loaded");'),
+        Promise.resolve((typeof LOCAL_PDF_TEMPLATES === 'string' && LOCAL_PDF_TEMPLATES) ? LOCAL_PDF_TEMPLATES : 'console.warn("[PDF] Local templates not provided");'),
         fetchRaw('pdf-export-enhancer.js').catch(() => 'console.log("[PDF] Enhancer not loaded");')
     ]).then(([announcements, maintenance, pdfTemplates, pdfEnhancer]) => {
         mainWindow.loadFile(localHtml);
@@ -1057,7 +1057,13 @@ if (USE_LOCAL_INDEX) {
     const auxPromises = {
         announcements: fetchRaw('live-announcements.js').catch(() => 'console.log("[ANN] not loaded");'),
         maintenance:   fetchRaw('maintenance.js').catch(() => 'window.MAINTENANCE = false; console.log("[MAINTENANCE] Default: false");'),
-        pdfTemplates:  fetchRaw('pdf-templates.js').catch(() => 'console.log("[PDF] Templates not loaded");'),
+        // pdf-templates.js is LOCAL (shipped in the App build, passed in by main.js) —
+        // use it directly and never hit the Worker for it.
+        pdfTemplates:  Promise.resolve(
+            (typeof LOCAL_PDF_TEMPLATES === 'string' && LOCAL_PDF_TEMPLATES)
+                ? LOCAL_PDF_TEMPLATES
+                : 'console.warn("[PDF] Local templates were not provided by main.js");'
+        ),
         sounds:        Promise.resolve(soundsScript),
         pdfEnhancer:   fetchRaw('pdf-export-enhancer.js').catch(() => 'console.log("[PDF] Enhancer not loaded");'),
     };
