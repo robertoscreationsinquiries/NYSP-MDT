@@ -1053,16 +1053,26 @@ if (USE_LOCAL_INDEX) {
     const commitShaShort = (typeof PRELOADED_SHA === 'string' ? PRELOADED_SHA : GITHUB_BRANCH_ENCODED).substring(0, 7);
     const shaRef = (typeof PRELOADED_SHA === 'string' && PRELOADED_SHA) ? PRELOADED_SHA : GITHUB_BRANCH_ENCODED;
 
+    // pdf-templates.js source selection, with clear logging so we can see the chain:
+    //   1. LOCAL file passed in by a rebuilt main.js  → use it
+    //   2. otherwise fetch from the Worker (original behavior — works with old main.js)
+    let _pdfTemplatesPromise;
+    if (typeof LOCAL_PDF_TEMPLATES === 'string' && LOCAL_PDF_TEMPLATES.length > 0) {
+        console.log(`[PDF] Using LOCAL templates from main.js (${LOCAL_PDF_TEMPLATES.length} bytes)`);
+        _pdfTemplatesPromise = Promise.resolve(LOCAL_PDF_TEMPLATES);
+    } else {
+        console.log('[PDF] No local templates from main.js — fetching from Worker (/pdf-templates)');
+        _pdfTemplatesPromise = fetchRaw('pdf-templates.js').catch((e) => {
+            console.error('[PDF] Worker template fetch FAILED:', e && e.message);
+            return 'console.error("[PDF] Templates could not be loaded from Worker or local file.");';
+        });
+    }
+
     // Kick off aux fetches immediately (in parallel) — we won't block the window on them.
     const auxPromises = {
         announcements: fetchRaw('live-announcements.js').catch(() => 'console.log("[ANN] not loaded");'),
         maintenance:   fetchRaw('maintenance.js').catch(() => 'window.MAINTENANCE = false; console.log("[MAINTENANCE] Default: false");'),
-        // pdf-templates.js: prefer the LOCAL copy passed in by a rebuilt main.js; if it
-        // wasn't provided (older main.js still installed), fall back to the Worker exactly
-        // like before — so this never breaks anyone.
-        pdfTemplates:  (typeof LOCAL_PDF_TEMPLATES === 'string' && LOCAL_PDF_TEMPLATES)
-            ? Promise.resolve(LOCAL_PDF_TEMPLATES)
-            : fetchRaw('pdf-templates.js').catch(() => 'console.log("[PDF] Templates not loaded");'),
+        pdfTemplates:  _pdfTemplatesPromise,
         sounds:        Promise.resolve(soundsScript),
         pdfEnhancer:   fetchRaw('pdf-export-enhancer.js').catch(() => 'console.log("[PDF] Enhancer not loaded");'),
     };
