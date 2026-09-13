@@ -1103,6 +1103,15 @@ if (USE_LOCAL_INDEX) {
             injectWhenReady('Announcements', auxPromises.announcements);
             injectWhenReady('Maintenance', auxPromises.maintenance);
             injectWhenReady('PDF templates', auxPromises.pdfTemplates);
+            // DIAGNOSTIC: after injecting, report whether the globals actually got set.
+            auxPromises.pdfTemplates.then(() => {
+                setTimeout(() => {
+                    if (!mainWindow || mainWindow.isDestroyed()) return;
+                    mainWindow.webContents.executeJavaScript(
+                        "(function(){var t=window.PDF_TEMPLATES; if(!t){console.error('[PDF][DIAG] window.PDF_TEMPLATES is UNDEFINED after inject — the local file did not define it, or was empty.');return 'undefined';} var keys=Object.keys(t); console.log('[PDF][DIAG] PDF_TEMPLATES keys:', keys.join(', ')||'(empty object)'); console.log('[PDF][DIAG] TRAFFIC_CITATION present:', !!t.TRAFFIC_CITATION, ' ARREST_REPORT present:', !!t.ARREST_REPORT); return keys.join(',');})()"
+                    ).then(r => console.log('[PDF][DIAG] renderer template state =', r)).catch(e => console.error('[PDF][DIAG] check failed:', e.message));
+                }, 500);
+            }).catch(() => {});
             injectWhenReady('Sounds', auxPromises.sounds);
             injectWhenReady('PDF enhancer', auxPromises.pdfEnhancer);
             injectLocalStorage(settings);
