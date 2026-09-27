@@ -3133,6 +3133,10 @@ const [timerEditValue, setTimerEditValue] = useState('');
 const timerEndAtRef = React.useRef(null);      // wall-clock ms when timer should hit 0
 const timerRemainingRef = React.useRef(300);   // last known remaining (for pause)
 const timerFinishAudioRef = React.useRef(null); // the looping end-sound Audio instance
+// Timer end-sound choice: 'DEFAULT' → TIMER_SIDEPANEL, 'FOLDED' → TIMER_SIDEPANEL_FOLDED.
+// Persisted to localStorage + the settings file (TIMER_SOUND=), loaded on launch.
+const [timerSound, setTimerSound] = useState(() => localStorage.getItem('timerSound') || 'DEFAULT');
+React.useEffect(() => { try { localStorage.setItem('timerSound', timerSound); } catch(_) {} }, [timerSound]);
 const [notepads, setNotepads] = useState(() => {
     try {
         const saved = localStorage.getItem('mdtNotepads');
@@ -3797,8 +3801,12 @@ const formatTimerDisplay = (totalSec) => {
 };
 const playTimerFinishLoop = () => {
     try {
-        if (window.SOUNDS && window.SOUNDS.TIMER_SIDEPANEL) {
-            const a = new Audio(window.SOUNDS.TIMER_SIDEPANEL);
+        // Choose the sound based on the user's setting; fall back to the raw GitHub asset
+        // so it works even if window.SOUNDS doesn't carry the key.
+        const key = timerSound === 'FOLDED' ? 'TIMER_SIDEPANEL_FOLDED' : 'TIMER_SIDEPANEL';
+        const src = (window.SOUNDS && window.SOUNDS[key]) || `${GITHUB_RAW_BASE}/${key}.mp3`;
+        if (src) {
+            const a = new Audio(src);
             a.loop = true; a.volume = 0.6;
             a.play().catch(() => {});
             timerFinishAudioRef.current = a;
@@ -4541,9 +4549,9 @@ React.useEffect(() => {
     } else {
         const isNew = activeIds.some(id => !seenBoloIdsRef.current.has(id));
         if (isNew) {
-            // Play the high-priority notification alert once for the new BOLO.
+            // Play the dedicated BOLO notification sound once for a genuinely new BOLO.
             try {
-                const src = (window.SOUNDS && window.SOUNDS.NotificationAlert_High) || `${GITHUB_RAW_BASE}/NotificationAlert_High.mp3`;
+                const src = (window.SOUNDS && window.SOUNDS.BOLO_NOTIFICATION) || `${GITHUB_RAW_BASE}/BOLO_NOTIFICATION.mp3`;
                 const a = new Audio(src); a.volume = 0.7; a.play().catch(() => {});
             } catch (_) {}
         }
@@ -4744,6 +4752,10 @@ if (trimmedLine.startsWith('PHONETIC_MODE=')) {
 if (trimmedLine.startsWith('EXPORT_TYPE=')) {
     const val = trimmedLine.split('=')[1]?.trim();
     if (val === 'INAPP' || val === 'EXTERNAL') setExportType(val);
+}
+if (trimmedLine.startsWith('TIMER_SOUND=')) {
+    const val = trimmedLine.split('=')[1]?.trim();
+    if (val === 'DEFAULT' || val === 'FOLDED') setTimerSound(val);
 }
 if (trimmedLine.startsWith('RECORDS_PREFILL=')) {
     setRecordsPrefill(trimmedLine.split('=')[1]?.trim() !== 'FALSE');
@@ -7339,6 +7351,7 @@ PURSUIT_ENABLED=${pursuitEnabled ? 'TRUE' : 'FALSE'}
 PURSUIT_HOTKEY=${pursuitHotkey || ''}
 PHONETIC_MODE=${phoneticMode || 'POLICE'}
 EXPORT_TYPE=${exportType || 'EXTERNAL'}
+TIMER_SOUND=${timerSound || 'DEFAULT'}
 RECORDS_PREFILL=${recordsPrefill ? 'TRUE' : 'FALSE'}
 OFFENSE_TIME_OFFSET_ENABLED=${offenseTimeOffsetEnabled ? 'TRUE' : 'FALSE'}
 OFFENSE_TIME_OFFSET_MINUTES=${offenseTimeOffsetMinutes}
@@ -7402,6 +7415,7 @@ if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
                     if (key === 'PURSUIT_HOTKEY') { setPursuitHotkey(val); setPursuitHotkeyDraft(val); }
                     if (key === 'PHONETIC_MODE') setPhoneticMode(val);
                     if (key === 'EXPORT_TYPE' && (val === 'INAPP' || val === 'EXTERNAL')) setExportType(val);
+                    if (key === 'TIMER_SOUND' && (val === 'DEFAULT' || val === 'FOLDED')) setTimerSound(val);
                     if (key === 'RECORDS_PREFILL') setRecordsPrefill(val !== 'FALSE');
                     if (key === 'OFFENSE_TIME_OFFSET_ENABLED') setOffenseTimeOffsetEnabled(val !== 'FALSE');
                     if (key === 'OFFENSE_TIME_OFFSET_MINUTES') { const n = parseInt(val, 10); if (!isNaN(n) && n >= 0 && n <= 999) setOffenseTimeOffsetMinutes(n); }
@@ -17386,30 +17400,36 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
 
                             <button onClick={async () => {
                                 if (!searchResults) { showCustomError('Error', 'No search results available.'); return; }
+                                if (featureLocks.exportCitation) { showLockedFeatureAlert('Export Pre-Filled Citation'); return; }
                                 const robloxData = searchResults.robloxUser || result || {};
                                 const tempResult = { username: robloxData.username || result?.username || 'UNKNOWN', userId: robloxData.userId || result?.userId || 'UNKNOWN', displayName: robloxData.displayName || result?.displayName || 'UNKNOWN', joinDate: robloxData.joinDate || result?.joinDate || 'UNKNOWN', avatarUrl: robloxData.avatarUrl || result?.avatarUrl || null };
                                 const tempRegistration = { discordUserId: searchResults.discordUserId || 'UNKNOWN', year: '', make: '', model: '', plate: '', state: '', color: '', vehicleType: '', timestamp: '', phoneticPlate: '', hasHandicapPermit: false, isEdited: false };
                                 addLog('Exporting citation WITHOUT vehicle registration', 'info');
                                 await generateCitation(tempResult, tempRegistration);
                             }}
-                                style={{ width: '100%', marginTop: '10px', padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', boxShadow: '0 4px 12px rgba(16,185,129,0.3)', transition: 'all 0.2s' }}
-                                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(16,185,129,0.5)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(16,185,129,0.3)'; }}>
-                                EXPORT CITATION (NO REGISTRATION)
+                                style={featureLocks.exportCitation
+                                    ? { width:'100%', marginTop:'10px', padding:'12px', background:'rgba(71,85,105,0.25)', border:'1px solid rgba(100,116,139,0.35)', borderRadius:'10px', color:'#64748b', fontSize:'13px', fontWeight:'700', cursor:'not-allowed', textTransform:'uppercase', letterSpacing:'0.5px' }
+                                    : { width: '100%', marginTop: '10px', padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', boxShadow: '0 4px 12px rgba(16,185,129,0.3)', transition: 'all 0.2s' }}
+                                onMouseEnter={e => { if (featureLocks.exportCitation) return; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(16,185,129,0.5)'; }}
+                                onMouseLeave={e => { if (featureLocks.exportCitation) return; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(16,185,129,0.3)'; }}>
+                                {featureLocks.exportCitation ? '🔒 EXPORT RESTRICTED' : 'EXPORT CITATION (NO REGISTRATION)'}
                             </button>
 
                             <button onClick={async () => {
                                 const robloxData = searchResults.robloxUser || {};
                                 const temp_RblxData = robloxData.username || null;
                                 if (!temp_RblxData || temp_RblxData === 'UNKNOWN') { showCustomError('Error', 'No search results available. Please search for a user first.'); return; }
+                                if (featureLocks.exportCitation) { showLockedFeatureAlert('File Arrest Report'); return; }
                                 const completeOwnerData = { username: robloxData.username || 'UNKNOWN', userId: robloxData.userId || 'UNKNOWN', displayName: robloxData.displayName || 'UNKNOWN', joinDate: robloxData.joinDate || 'UNKNOWN', avatarUrl: robloxData.avatarUrl || null, discordUserId: searchResults.discordUserId || 'UNKNOWN' };
                                 addLog('Exporting Arrest/Summons Report', 'info');
                                 await generateArrestReport(completeOwnerData);
                             }}
-                                style={{ width: '100%', marginTop: '10px', padding: '12px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', boxShadow: '0 4px 12px rgba(239,68,68,0.3)', transition: 'all 0.2s' }}
-                                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(239,68,68,0.5)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(239,68,68,0.3)'; }}>
-                                FILE ARREST REPORT
+                                style={featureLocks.exportCitation
+                                    ? { width:'100%', marginTop:'10px', padding:'12px', background:'rgba(71,85,105,0.25)', border:'1px solid rgba(100,116,139,0.35)', borderRadius:'10px', color:'#64748b', fontSize:'13px', fontWeight:'700', cursor:'not-allowed', textTransform:'uppercase', letterSpacing:'0.5px' }
+                                    : { width: '100%', marginTop: '10px', padding: '12px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', boxShadow: '0 4px 12px rgba(239,68,68,0.3)', transition: 'all 0.2s' }}
+                                onMouseEnter={e => { if (featureLocks.exportCitation) return; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(239,68,68,0.5)'; }}
+                                onMouseLeave={e => { if (featureLocks.exportCitation) return; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(239,68,68,0.3)'; }}>
+                                {featureLocks.exportCitation ? '🔒 EXPORT RESTRICTED' : 'FILE ARREST REPORT'}
                             </button>
 
                             {/* Copy citation/arrest pages as PNG images (paste as screenshots) */}
@@ -18580,6 +18600,23 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                             <button key={opt.id} onClick={() => setExportType(opt.id)}
                                                 style={{ flex:1, padding:'11px 14px', fontSize:'11.5px', fontWeight:'800', letterSpacing:'0.5px', border:'none', cursor:'pointer', transition:'all 0.2s', fontFamily:'monospace', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', background: exportType === opt.id ? 'linear-gradient(135deg,#0ea5e9,#2563eb)' : 'transparent', color: exportType === opt.id ? '#fff' : '#64748b' }}>
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{opt.icon}</svg>
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Timer Alert Sound — choose which sound loops when the sidepanel timer hits 0 */}
+                                <div style={{ padding:'14px', background:'rgba(4,8,18,0.5)', border:'1px solid rgba(56,189,248,0.15)', borderRadius:'10px', marginBottom:'9px' }}>
+                                    <div style={{ marginBottom:'11px' }}>
+                                        <div style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'700' }}>Timer Alert Sound</div>
+                                        <div style={{ color:'#64748b', fontSize:'11px', marginTop:'3px', lineHeight:1.55 }}>Which sound loops when the side-panel timer reaches zero. Tap an option to preview it.</div>
+                                    </div>
+                                    <div style={{ display:'flex', background:'rgba(0,0,0,0.35)', borderRadius:'9px', border:'1px solid rgba(56,189,248,0.2)', overflow:'hidden' }}>
+                                        {[{ id:'DEFAULT', label:'Default', key:'TIMER_SIDEPANEL' }, { id:'FOLDED', label:'Alternate', key:'TIMER_SIDEPANEL_FOLDED' }].map(opt => (
+                                            <button key={opt.id} onClick={() => { setTimerSound(opt.id); try { const s=(window.SOUNDS&&window.SOUNDS[opt.key])||`${GITHUB_RAW_BASE}/${opt.key}.mp3`; const a=new Audio(s); a.volume=0.6; a.play().catch(()=>{}); } catch(_){} }}
+                                                style={{ flex:1, padding:'11px 14px', fontSize:'11.5px', fontWeight:'800', letterSpacing:'0.5px', border:'none', cursor:'pointer', transition:'all 0.2s', fontFamily:'monospace', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', background: timerSound === opt.id ? 'linear-gradient(135deg,#0ea5e9,#2563eb)' : 'transparent', color: timerSound === opt.id ? '#fff' : '#64748b' }}>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7"/></svg>
                                                 {opt.label}
                                             </button>
                                         ))}
