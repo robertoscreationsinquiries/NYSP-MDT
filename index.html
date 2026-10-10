@@ -3156,6 +3156,9 @@ React.useEffect(() => {
 
 const [showQuitConfirm, setShowQuitConfirm] = useState(false);
 const [boloLightboxImage, setBoloLightboxImage] = useState(null);
+const [boloLightboxZoom, setBoloLightboxZoom] = useState(1);
+// Reset zoom whenever the BOLO lightbox opens/closes on a new image.
+React.useEffect(() => { setBoloLightboxZoom(1); }, [boloLightboxImage]);
 const [activityLog, setActivityLog] = useState([]);
 
 // ── Session usage stats ──
@@ -14960,6 +14963,41 @@ return (
     );
 })()}
 
+{/* ─────────────────────────────────────────────────────────── */}
+{/* BOLO IMAGE VIEWER — click a BOLO's attached photo to open,   */}
+{/* zoom in/out (buttons or scroll wheel), and exit.             */}
+{/* ─────────────────────────────────────────────────────────── */}
+{boloLightboxImage && (() => {
+    const ctrlBtn = {
+        width:'38px',height:'38px',borderRadius:'9px',background:'rgba(7,12,24,0.75)',
+        border:'1px solid rgba(248,113,113,0.35)',color:'#fca5a5',fontSize:'18px',fontWeight:'800',
+        cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1,
+        fontFamily:'monospace',transition:'background 150ms ease-out, border-color 150ms ease-out',userSelect:'none'
+    };
+    const ctrlHover = (e,on) => { e.currentTarget.style.background = on ? 'rgba(248,113,113,0.2)' : 'rgba(7,12,24,0.75)'; e.currentTarget.style.borderColor = on ? 'rgba(248,113,113,0.7)' : 'rgba(248,113,113,0.35)'; };
+    const clampZoom = (z) => Math.min(5, Math.max(1, +z.toFixed(2)));
+    return (
+    <div onClick={() => setBoloLightboxImage(null)}
+        onWheel={(e) => { e.preventDefault(); setBoloLightboxZoom(z => clampZoom(z + (e.deltaY < 0 ? 0.25 : -0.25))); }}
+        style={{ position:'fixed',inset:0,zIndex:100070,background:'rgba(2,5,12,0.88)',backdropFilter:'blur(6px)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'16px',padding:'34px',animation:'lightboxBackdropIn 180ms ease-out' }}>
+        {/* Image area — clicks inside don't close */}
+        <div onClick={(e)=>e.stopPropagation()} style={{ maxWidth:'calc(100vw - 80px)',maxHeight:'calc(100vh - 150px)',overflow:boloLightboxZoom>1?'auto':'visible',borderRadius:'12px',display:'flex',alignItems:'center',justifyContent:'center' }}>
+            <img src={boloLightboxImage} alt="BOLO attachment"
+                style={{ display:'block',transform:`scale(${boloLightboxZoom})`,transformOrigin:'center center',transition:'transform 140ms ease-out',maxWidth: boloLightboxZoom<=1 ? 'calc(100vw - 80px)':'none',maxHeight: boloLightboxZoom<=1 ? 'calc(100vh - 150px)':'none',borderRadius:'12px',border:'1px solid rgba(248,113,113,0.35)',boxShadow:'0 30px 90px rgba(0,0,0,0.7), 0 0 50px rgba(248,113,113,0.12)',objectFit:'contain',animation:'lightboxImageIn 240ms cubic-bezier(0.23,1,0.32,1)' }} />
+        </div>
+        {/* Controls — clicks inside don't close */}
+        <div onClick={(e)=>e.stopPropagation()} style={{ display:'flex',alignItems:'center',gap:'10px',background:'rgba(7,12,24,0.6)',border:'1px solid rgba(248,113,113,0.2)',borderRadius:'12px',padding:'8px 12px' }}>
+            <button title="Zoom out" style={ctrlBtn} onClick={()=>setBoloLightboxZoom(z=>clampZoom(z-0.25))} onMouseEnter={e=>ctrlHover(e,true)} onMouseLeave={e=>ctrlHover(e,false)}>−</button>
+            <span style={{ color:'#fca5a5',fontSize:'11px',fontFamily:'monospace',fontWeight:'700',minWidth:'46px',textAlign:'center',letterSpacing:'1px' }}>{Math.round(boloLightboxZoom*100)}%</span>
+            <button title="Zoom in" style={ctrlBtn} onClick={()=>setBoloLightboxZoom(z=>clampZoom(z+0.25))} onMouseEnter={e=>ctrlHover(e,true)} onMouseLeave={e=>ctrlHover(e,false)}>+</button>
+            <button title="Reset zoom" style={{ ...ctrlBtn,width:'auto',padding:'0 12px',fontSize:'10px',letterSpacing:'1.5px',textTransform:'uppercase' }} onClick={()=>setBoloLightboxZoom(1)} onMouseEnter={e=>ctrlHover(e,true)} onMouseLeave={e=>ctrlHover(e,false)}>Reset</button>
+            <div style={{ width:'1px',height:'22px',background:'rgba(248,113,113,0.25)' }} />
+            <button title="Close" style={{ ...ctrlBtn,width:'auto',padding:'0 14px',fontSize:'10px',letterSpacing:'1.5px',textTransform:'uppercase' }} onClick={()=>setBoloLightboxImage(null)} onMouseEnter={e=>ctrlHover(e,true)} onMouseLeave={e=>ctrlHover(e,false)}>✕ Close</button>
+        </div>
+    </div>
+    );
+})()}
+
 {!maintenanceActive && !showUpdateScreen && !showLoginScreen && !showLoader && (
         <div className="app-container">
 
@@ -16239,6 +16277,11 @@ return (
                             onBlur={e => { e.target.style.borderColor = 'rgba(56,189,248,0.18)'; e.target.style.background = 'rgba(0,0,0,0.3)'; }}
                         />
                         <p style={{ color: '#4b5563', fontSize: '11px', marginTop: '6px', fontStyle: 'italic' }}>Extracts vehicle & owner details, including warrants, records, etc.</p>
+                        {/* EU AI Act transparency notice — plate parsing is performed by an automated AI text model. */}
+                        <p style={{ color: '#475569', fontSize: '9px', marginTop: '4px', fontStyle: 'italic', letterSpacing: '0.3px', lineHeight: 1.4, display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+                            <span style={{ opacity: 0.8, flexShrink: 0 }}>✨</span>
+                            <span>AI-assisted — vehicle data is interpreted by an automated AI text model and may contain errors. Verify before acting.</span>
+                        </p>
                     </div>
 
 {/* Main search button */}
@@ -16287,6 +16330,11 @@ return (
                             </button>
                         )}
                     </div>
+                    {/* EU AI Act transparency notice — APEX uses AI image recognition; Voice to Plate uses AI speech recognition. */}
+                    <p style={{ color: '#475569', fontSize: '9px', marginTop: '6px', fontStyle: 'italic', letterSpacing: '0.3px', lineHeight: 1.4, display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+                        <span style={{ opacity: 0.8, flexShrink: 0 }}>✨</span>
+                        <span>APEX Scan uses AI image recognition and Voice to Plate uses AI speech recognition — both may misread or mishear. Always verify the plate before acting.</span>
+                    </p>
                     {/* Voice status bar */}
                     {(voiceActive || voiceNotif) && (
                         <div style={{ marginTop: '8px', padding: '8px 12px', background: voiceActive ? 'rgba(220,38,38,0.08)' : 'rgba(59,130,246,0.08)', border: '1px solid ' + (voiceActive ? 'rgba(220,38,38,0.25)' : 'rgba(59,130,246,0.2)'), borderRadius: '8px', fontSize: '11px', color: voiceActive ? '#fca5a5' : '#93c5fd', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -17230,6 +17278,11 @@ if (searchCooldown || loadingSearch || !searchCitizenId || searchCitizenId.trim(
                             onBlur={e => { e.target.style.borderColor = 'rgba(56,189,248,0.18)'; e.target.style.background = 'rgba(0,0,0,0.3)'; }}
                         />
                         <p style={{ color: '#4b5563', fontSize: '11px', marginTop: '6px', fontStyle: 'italic' }}>Extracts registered vehicles, warrants, and government records.</p>
+                        {/* EU AI Act transparency notice — record parsing is performed by an automated AI text model. */}
+                        <p style={{ color: '#475569', fontSize: '9px', marginTop: '4px', fontStyle: 'italic', letterSpacing: '0.3px', lineHeight: 1.4, display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+                            <span style={{ opacity: 0.8, flexShrink: 0 }}>✨</span>
+                            <span>AI-assisted — records are interpreted by an automated AI text model and may contain errors. Verify before acting.</span>
+                        </p>
                     </div>
 
                     <button
@@ -20588,6 +20641,13 @@ if (window.electronAPI?.quit) {
                         <div style={{ color: '#94a3b8', fontSize: '11.5px', lineHeight: '1.55' }}>{dev.reason}</div>
                     </div>
                 ))}
+                {/* EU AI Act transparency notice — disclose AI involvement in building this interface. */}
+                <div style={{ marginTop: '18px', paddingTop: '14px', borderTop: '1px solid rgba(56,189,248,0.12)', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                    <span style={{ fontSize: '13px', opacity: 0.85, flexShrink: 0, lineHeight: '1.4' }}>✨</span>
+                    <div style={{ color: '#64748b', fontSize: '10.5px', lineHeight: '1.6', fontStyle: 'italic' }}>
+                        This application's user interface was designed and built with the assistance of artificial intelligence. Some of the text within the app was also AI-generated, though portions may have been reviewed and modified by the developers.
+                    </div>
+                </div>
             </div>
         </div>
     </div>
