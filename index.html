@@ -2342,91 +2342,185 @@ const CDLBadge = ({ username, onOpen }) => {
 };
 
 // Detail popup for a found CDL record (the `record` object returned by the API).
+// Styled as an official DOT credential record: reserved license-render panel on the
+// left (1276×2022 native, scaled to fit), status/credential detail on the right, and a
+// chronological action ledger below.
+const CDL_STANDING = (st) => {
+    const s = (st || '').toLowerCase();
+    if (s === 'active')      return { rgb:'52,211,153', fg:'#34d399', label:'ACTIVE' };
+    if (s === 'suspended')   return { rgb:'245,158,11', fg:'#fbbf24', label:'SUSPENDED' };
+    if (s === 'revoked')     return { rgb:'239,68,68',  fg:'#f87171', label:'REVOKED' };
+    if (s === 'surrendered') return { rgb:'148,163,184', fg:'#cbd5e1', label:'SURRENDERED' };
+    return { rgb:'100,116,139', fg:'#94a3b8', label:(st || '—').toUpperCase() };
+};
+const CDL_STATUS = (status, tone) => {
+    const s = (status || '').toLowerCase();
+    if (s === 'active' || tone === 'success') return { rgb:'52,211,153', fg:'#34d399', label:'ACTIVE', note:'Valid — license in good standing' };
+    if (s === 'suspended')   return { rgb:'245,158,11', fg:'#fbbf24', label:'SUSPENDED', note:'Driving privileges temporarily withdrawn' };
+    if (s === 'revoked')     return { rgb:'239,68,68',  fg:'#f87171', label:'REVOKED', note:'License terminated by the Department' };
+    if (s === 'surrendered') return { rgb:'148,163,184', fg:'#cbd5e1', label:'SURRENDERED', note:'License voluntarily surrendered' };
+    return { rgb:'148,163,184', fg:'#94a3b8', label:(status || 'UNKNOWN').toUpperCase(), note:'' };
+};
+
 const CDLModal = ({ record, onClose }) => {
     if (!record) return null;
     const h = record.holder || {};
     const r = record.record || {};
-    const active = (r.tone === 'success') || /^active$/i.test(r.status || '');
-    const accent = active ? { rgb:'52,211,153', fg:'#34d399' } : { rgb:'239,68,68', fg:'#f87171' };
+    const st = CDL_STATUS(r.status, r.tone);
     const events = Array.isArray(r.visibleEvents) ? r.visibleEvents : [];
-    const Field = ({ label, value }) => (
-        <div style={{ display:'flex',flexDirection:'column',gap:'3px',minWidth:0 }}>
-            <span style={{ color:'#64748b',fontSize:'8px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>{label}</span>
-            <span style={{ color:'#e2e8f0',fontSize:'12px',fontWeight:'700',fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{value || '—'}</span>
+    const issued = h.issued || r.issued || null;
+    const scheduledText = r.scheduled ? (typeof r.scheduled === 'string' ? r.scheduled : JSON.stringify(r.scheduled)) : null;
+    const labelCss = { color:'#64748b',fontSize:'8px',fontWeight:'800',letterSpacing:'1.6px',textTransform:'uppercase',fontFamily:'monospace' };
+    const Field = ({ label, value, mono = true }) => (
+        <div style={{ display:'flex',flexDirection:'column',gap:'4px',minWidth:0 }}>
+            <span style={labelCss}>{label}</span>
+            <span style={{ color:'#e2e8f0',fontSize:'12px',fontWeight:'700',fontFamily:mono?'monospace':'inherit',fontVariantNumeric:'tabular-nums',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{value || '—'}</span>
         </div>
     );
     return (
         <div onClick={e=>{ if(e.target===e.currentTarget) onClose(); }}
-            style={{ position:'fixed',inset:0,zIndex:100065,background:'rgba(2,5,12,0.82)',backdropFilter:'blur(6px)',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px',animation:'fadeIn 200ms ease-out' }}>
-            <div style={{ width:'100%',maxWidth:'480px',maxHeight:'88vh',display:'flex',flexDirection:'column',background:'linear-gradient(160deg,#0a0f1e,#0d1117)',border:`1px solid rgba(${accent.rgb},0.35)`,borderRadius:'16px',overflow:'hidden',boxShadow:`0 24px 80px rgba(0,0,0,0.7), 0 0 40px rgba(${accent.rgb},0.12)` }}>
+            style={{ position:'fixed',inset:0,zIndex:100065,background:'rgba(2,5,12,0.85)',backdropFilter:'blur(7px)',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px',animation:'fadeIn 200ms ease-out' }}>
+            <div style={{ width:'100%',maxWidth:'760px',maxHeight:'90vh',display:'flex',flexDirection:'column',background:'linear-gradient(160deg,#0b1120,#0a0d14)',border:`1px solid rgba(${st.rgb},0.3)`,borderRadius:'14px',overflow:'hidden',boxShadow:`0 28px 90px rgba(0,0,0,0.75), 0 0 46px rgba(${st.rgb},0.1)` }}>
+
+                {/* Classification bar */}
+                <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'5px 14px',background:`rgba(${st.rgb},0.14)`,borderBottom:`1px solid rgba(${st.rgb},0.3)`,flexShrink:0 }}>
+                    <span style={{ color:st.fg,fontSize:'8px',fontWeight:'800',letterSpacing:'2px',fontFamily:'monospace' }}>◆ OFFICIAL USE ONLY · LAW ENFORCEMENT</span>
+                    <span style={{ color:'#475569',fontSize:'8px',fontWeight:'700',letterSpacing:'1.5px',fontFamily:'monospace' }}>ORCR · DOT RECORD</span>
+                </div>
+
                 {/* Header */}
-                <div style={{ display:'flex',alignItems:'center',gap:'12px',padding:'18px 20px',borderBottom:`1px solid rgba(${accent.rgb},0.2)`,background:`rgba(${accent.rgb},0.06)`,flexShrink:0 }}>
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={accent.fg} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17h14M6 17l1.5-4.5a2 2 0 011.9-1.5h5.2a2 2 0 011.9 1.5L19 17M6 17v2M18 17v2"/><rect x="2" y="6" width="20" height="4" rx="1"/></svg>
+                <div style={{ display:'flex',alignItems:'center',gap:'13px',padding:'15px 18px',borderBottom:'1px solid rgba(148,163,184,0.12)',flexShrink:0,background:'linear-gradient(180deg,rgba(148,163,184,0.05),transparent)' }}>
+                    <div style={{ width:'40px',height:'40px',borderRadius:'10px',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',background:`rgba(${st.rgb},0.1)`,border:`1px solid rgba(${st.rgb},0.3)` }}>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={st.fg} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17h14M6 17l1.5-4.5a2 2 0 011.9-1.5h5.2a2 2 0 011.9 1.5L19 17M6 17v2M18 17v2"/><rect x="2" y="6" width="20" height="4" rx="1"/></svg>
+                    </div>
                     <div style={{ flex:1,minWidth:0 }}>
-                        <div style={{ color:'#f1f5f9',fontSize:'14px',fontWeight:'900',letterSpacing:'1px',fontFamily:'monospace' }}>COMMERCIAL DRIVER'S LICENSE</div>
-                        <div style={{ color:accent.fg,fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace',marginTop:'3px',display:'flex',alignItems:'center',gap:'6px' }}>
-                            <span style={{ width:'6px',height:'6px',borderRadius:'50%',background:accent.fg,boxShadow:`0 0 7px ${accent.fg}` }} />
-                            {(r.status || (active ? 'ACTIVE' : 'INACTIVE')).toUpperCase()}{h.cls ? ` · CLASS ${h.cls}` : ''}
-                        </div>
+                        <div style={{ color:'#64748b',fontSize:'8.5px',fontWeight:'800',letterSpacing:'2px',fontFamily:'monospace',textTransform:'uppercase' }}>Department of Transportation</div>
+                        <div style={{ color:'#f1f5f9',fontSize:'15px',fontWeight:'900',letterSpacing:'0.5px',fontFamily:'monospace',marginTop:'1px' }}>COMMERCIAL DRIVER LICENSE RECORD</div>
                     </div>
                     <button onClick={onClose} title="Close" style={{ width:'30px',height:'30px',borderRadius:'8px',background:'rgba(148,163,184,0.1)',border:'1px solid rgba(148,163,184,0.25)',color:'#94a3b8',cursor:'pointer',fontSize:'13px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0 }}
                         onMouseEnter={e=>{ e.currentTarget.style.color='#e2e8f0'; e.currentTarget.style.borderColor='rgba(226,232,240,0.5)'; }}
                         onMouseLeave={e=>{ e.currentTarget.style.color='#94a3b8'; e.currentTarget.style.borderColor='rgba(148,163,184,0.25)'; }}>✕</button>
                 </div>
-                {/* Body */}
-                <div style={{ padding:'18px 20px',overflowY:'auto' }}>
-                    <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'13px 16px',marginBottom:'16px' }}>
-                        <Field label="Holder" value={h.username} />
-                        <Field label="USDOT #" value={h.usdot} />
-                        <Field label="Class" value={h.cls ? `Class ${h.cls}` : null} />
-                        <Field label="Issued" value={h.issued || r.issued} />
-                        <Field label="Roblox ID" value={h.robloxId} />
-                        <Field label="Discord ID" value={h.discordId} />
-                    </div>
-                    <div style={{ marginBottom:'14px' }}>
-                        <span style={{ color:'#64748b',fontSize:'8px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Endorsements</span>
-                        <div style={{ display:'flex',flexWrap:'wrap',gap:'6px',marginTop:'6px' }}>
-                            {(Array.isArray(h.endorsements) && h.endorsements.length) ? h.endorsements.map((e,i)=>(
-                                <span key={i} style={{ padding:'3px 9px',borderRadius:'6px',background:'rgba(56,189,248,0.1)',border:'1px solid rgba(56,189,248,0.3)',color:'#7dd3fc',fontSize:'11px',fontWeight:'800',fontFamily:'monospace',letterSpacing:'1px' }}>{e}</span>
-                            )) : <span style={{ color:'#475569',fontSize:'11px',fontFamily:'monospace' }}>None</span>}
+
+                {/* Body — reserved license panel (left) + credential detail (right) */}
+                <div style={{ display:'flex',flexWrap:'wrap',gap:'18px',padding:'18px',overflowY:'auto' }}>
+
+                    {/* ── RESERVED LICENSE RENDER PANEL — native 1276 × 2022, scaled to fit ── */}
+                    {/* The future plate/license visual drops straight into this slot. Keep the */}
+                    {/* 1276:2022 aspect ratio so the reserved footprint matches the real asset.  */}
+                    <div data-cdl-license-render="true" data-native-width="1276" data-native-height="2022"
+                        style={{ width:'228px',flexShrink:0,aspectRatio:'1276 / 2022',borderRadius:'10px',position:'relative',overflow:'hidden',background:'repeating-linear-gradient(135deg, rgba(148,163,184,0.05) 0px, rgba(148,163,184,0.05) 11px, rgba(148,163,184,0.02) 11px, rgba(148,163,184,0.02) 22px)',border:'1px dashed rgba(148,163,184,0.3)' }}>
+                        {/* top credential strip */}
+                        <div style={{ position:'absolute',top:0,left:0,right:0,padding:'8px 10px',background:`linear-gradient(180deg,rgba(${st.rgb},0.22),transparent)`,borderBottom:`1px solid rgba(${st.rgb},0.25)` }}>
+                            <div style={{ color:st.fg,fontSize:'8px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace' }}>CDL · CLASS {h.cls || '—'}</div>
+                            <div style={{ color:'#94a3b8',fontSize:'10px',fontWeight:'800',fontFamily:'monospace',marginTop:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{h.username || '—'}</div>
+                        </div>
+                        {/* centered reserved note */}
+                        <div style={{ position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'8px',padding:'14px',textAlign:'center' }}>
+                            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                            <div style={{ color:'#64748b',fontSize:'9px',fontWeight:'800',letterSpacing:'1px',fontFamily:'monospace',lineHeight:1.5 }}>LICENSE RENDER<br/>RESERVED</div>
+                            <div style={{ color:'#3b4656',fontSize:'8px',fontFamily:'monospace',letterSpacing:'0.5px' }}>1276 × 2022</div>
+                        </div>
+                        {/* bottom status ribbon */}
+                        <div style={{ position:'absolute',bottom:0,left:0,right:0,padding:'7px 10px',background:`rgba(${st.rgb},0.16)`,borderTop:`1px solid rgba(${st.rgb},0.3)`,display:'flex',alignItems:'center',gap:'6px' }}>
+                            <span style={{ width:'6px',height:'6px',borderRadius:'50%',background:st.fg,boxShadow:`0 0 7px ${st.fg}`,flexShrink:0 }} />
+                            <span style={{ color:st.fg,fontSize:'9px',fontWeight:'900',letterSpacing:'1.5px',fontFamily:'monospace' }}>{st.label}</span>
                         </div>
                     </div>
-                    {Array.isArray(h.previouslyHeld) && h.previouslyHeld.length > 0 && (
-                        <div style={{ marginBottom:'14px' }}>
-                            <span style={{ color:'#64748b',fontSize:'8px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Previously Held</span>
-                            <div style={{ display:'flex',flexWrap:'wrap',gap:'6px',marginTop:'6px' }}>
-                                {h.previouslyHeld.map((e,i)=>(<span key={i} style={{ padding:'3px 9px',borderRadius:'6px',background:'rgba(148,163,184,0.08)',border:'1px solid rgba(148,163,184,0.2)',color:'#94a3b8',fontSize:'11px',fontWeight:'700',fontFamily:'monospace' }}>{typeof e==='string'?e:JSON.stringify(e)}</span>))}
+
+                    {/* ── CREDENTIAL DETAIL ── */}
+                    <div style={{ flex:'1 1 320px',minWidth:0,display:'flex',flexDirection:'column',gap:'14px' }}>
+
+                        {/* Status banner */}
+                        <div style={{ padding:'13px 15px',borderRadius:'11px',background:`rgba(${st.rgb},0.08)`,border:`1px solid rgba(${st.rgb},0.3)`,boxShadow:`inset 0 1px 0 rgba(${st.rgb},0.12)` }}>
+                            <div style={{ display:'flex',alignItems:'center',gap:'10px' }}>
+                                <span style={{ width:'9px',height:'9px',borderRadius:'50%',background:st.fg,boxShadow:`0 0 10px ${st.fg}`,flexShrink:0 }} />
+                                <span style={{ color:st.fg,fontSize:'18px',fontWeight:'900',letterSpacing:'1.5px',fontFamily:'monospace' }}>{st.label}</span>
+                                {h.cls && <span style={{ marginLeft:'auto',padding:'3px 10px',borderRadius:'6px',background:`rgba(${st.rgb},0.14)`,border:`1px solid rgba(${st.rgb},0.3)`,color:st.fg,fontSize:'11px',fontWeight:'800',fontFamily:'monospace',letterSpacing:'1px',flexShrink:0 }}>CLASS {h.cls}</span>}
+                            </div>
+                            {st.note && <div style={{ color:'#94a3b8',fontSize:'10.5px',marginTop:'6px',lineHeight:1.5 }}>{st.note}</div>}
+                        </div>
+
+                        {/* Issued + scheduled issuance */}
+                        <div style={{ display:'flex',gap:'10px',flexWrap:'wrap' }}>
+                            <div style={{ flex:'1 1 130px',padding:'10px 12px',borderRadius:'9px',background:'rgba(0,0,0,0.25)',border:'1px solid rgba(148,163,184,0.15)' }}>
+                                <div style={labelCss}>Issued</div>
+                                <div style={{ color:'#e2e8f0',fontSize:'13px',fontWeight:'800',fontFamily:'monospace',fontVariantNumeric:'tabular-nums',marginTop:'4px' }}>{issued || '—'}</div>
+                            </div>
+                            <div style={{ flex:'1 1 130px',padding:'10px 12px',borderRadius:'9px',background:scheduledText?'rgba(245,158,11,0.08)':'rgba(0,0,0,0.25)',border:`1px solid ${scheduledText?'rgba(245,158,11,0.35)':'rgba(148,163,184,0.15)'}` }}>
+                                <div style={{ ...labelCss, color:scheduledText?'#fbbf24':'#64748b' }}>Scheduled Issuance</div>
+                                <div style={{ color:scheduledText?'#fcd34d':'#64748b',fontSize:'13px',fontWeight:'800',fontFamily:'monospace',fontVariantNumeric:'tabular-nums',marginTop:'4px',lineHeight:1.4 }}>{scheduledText || 'None scheduled'}</div>
                             </div>
                         </div>
-                    )}
-                    {r.scheduled && (
-                        <div style={{ marginBottom:'14px',padding:'10px 12px',borderRadius:'9px',background:'rgba(245,158,11,0.08)',border:'1px solid rgba(245,158,11,0.3)',color:'#fbbf24',fontSize:'11px',fontFamily:'monospace',lineHeight:1.5 }}>
-                            ⏳ Scheduled: {typeof r.scheduled==='string'?r.scheduled:JSON.stringify(r.scheduled)}
+
+                        {/* Endorsements — prominent */}
+                        <div>
+                            <div style={labelCss}>Endorsements</div>
+                            <div style={{ display:'flex',flexWrap:'wrap',gap:'7px',marginTop:'7px' }}>
+                                {(Array.isArray(h.endorsements) && h.endorsements.length) ? h.endorsements.map((e,i)=>(
+                                    <span key={i} style={{ minWidth:'30px',textAlign:'center',padding:'6px 11px',borderRadius:'7px',background:'rgba(56,189,248,0.12)',border:'1px solid rgba(56,189,248,0.35)',color:'#7dd3fc',fontSize:'14px',fontWeight:'900',fontFamily:'monospace',letterSpacing:'1px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.12)' }}>{e}</span>
+                                )) : <span style={{ color:'#475569',fontSize:'11px',fontFamily:'monospace',padding:'4px 0' }}>No endorsements on file</span>}
+                            </div>
                         </div>
-                    )}
-                    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'8px' }}>
-                        <span style={{ color:'#64748b',fontSize:'8px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>History</span>
-                        <span style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace' }}>{r.actionCount != null ? `${r.actionCount} action(s)` : `${events.length} event(s)`}</span>
-                    </div>
-                    <div style={{ display:'flex',flexDirection:'column',gap:'7px' }}>
-                        {events.length ? events.map((ev)=>{
-                            const bad = ev.standing && ev.standing !== 'active';
-                            const ergb = bad ? '239,68,68' : '100,116,139';
-                            return (
-                                <div key={ev.id} style={{ padding:'9px 11px',borderRadius:'8px',background:'rgba(0,0,0,0.25)',border:`1px solid rgba(${ergb},0.22)`,borderLeft:`3px solid rgba(${ergb},0.7)` }}>
-                                    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',marginBottom:'3px' }}>
-                                        <span style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'800',fontFamily:'monospace',letterSpacing:'0.5px' }}>{ev.action}</span>
-                                        <span style={{ color:'#64748b',fontSize:'9px',fontFamily:'monospace',flexShrink:0 }}>{ev.dateKey}</span>
-                                    </div>
-                                    {ev.reasoning && <div style={{ color:'#94a3b8',fontSize:'10px',lineHeight:1.5,fontFamily:'monospace',marginBottom:'2px' }}>{ev.reasoning}</div>}
-                                    <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace' }}>{ev.branch}{ev.standing?` · ${ev.standing}`:''}</div>
+
+                        {/* Holder identifiers */}
+                        <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'13px 16px',paddingTop:'4px' }}>
+                            <Field label="Holder" value={h.username} />
+                            <Field label="USDOT #" value={h.usdot} />
+                            <Field label="Roblox ID" value={h.robloxId} />
+                            <Field label="Discord ID" value={h.discordId} />
+                        </div>
+
+                        {/* Previously held (only when present) */}
+                        {Array.isArray(h.previouslyHeld) && h.previouslyHeld.length > 0 && (
+                            <div>
+                                <div style={labelCss}>Previously Held</div>
+                                <div style={{ display:'flex',flexWrap:'wrap',gap:'6px',marginTop:'6px' }}>
+                                    {h.previouslyHeld.map((e,i)=>(<span key={i} style={{ padding:'4px 9px',borderRadius:'6px',background:'rgba(148,163,184,0.08)',border:'1px solid rgba(148,163,184,0.2)',color:'#94a3b8',fontSize:'11px',fontWeight:'700',fontFamily:'monospace' }}>{typeof e==='string'?e:JSON.stringify(e)}</span>))}
                                 </div>
-                            );
-                        }) : <div style={{ color:'#475569',fontSize:'11px',fontFamily:'monospace',textAlign:'center',padding:'14px' }}>No recorded events.</div>}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* ── ACTION LEDGER (visibleEvents) — full width below the two columns ── */}
+                    <div style={{ flex:'1 1 100%',minWidth:0 }}>
+                        <div style={{ display:'flex',alignItems:'center',gap:'10px',marginBottom:'9px' }}>
+                            <span style={labelCss}>Action History</span>
+                            <div style={{ flex:1,height:'1px',background:'rgba(148,163,184,0.12)' }} />
+                            <span style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',fontVariantNumeric:'tabular-nums' }}>{r.actionCount != null ? `${r.actionCount} action(s)` : `${events.length} event(s)`}</span>
+                        </div>
+                        <div style={{ display:'flex',flexDirection:'column',gap:'7px' }}>
+                            {events.length ? events.map((ev)=>{
+                                const sd = CDL_STANDING(ev.standing);
+                                return (
+                                    <div key={ev.id} style={{ display:'flex',gap:'11px',padding:'10px 12px',borderRadius:'9px',background:'rgba(0,0,0,0.28)',border:'1px solid rgba(148,163,184,0.1)',borderLeft:`3px solid rgba(${sd.rgb},0.75)` }}>
+                                        {/* date rail */}
+                                        <div style={{ flexShrink:0,width:'74px',color:'#94a3b8',fontSize:'10px',fontWeight:'700',fontFamily:'monospace',fontVariantNumeric:'tabular-nums',letterSpacing:'0.3px',paddingTop:'1px' }}>{ev.dateKey || '—'}</div>
+                                        {/* body */}
+                                        <div style={{ flex:1,minWidth:0 }}>
+                                            <div style={{ display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap',marginBottom:'3px' }}>
+                                                <span style={{ color:'#f1f5f9',fontSize:'11.5px',fontWeight:'900',fontFamily:'monospace',letterSpacing:'0.5px' }}>{ev.action || 'ACTION'}</span>
+                                                {ev.standing && <span style={{ padding:'1px 7px',borderRadius:'4px',background:`rgba(${sd.rgb},0.14)`,border:`1px solid rgba(${sd.rgb},0.35)`,color:sd.fg,fontSize:'8px',fontWeight:'800',fontFamily:'monospace',letterSpacing:'1px' }}>{sd.label}</span>}
+                                                {ev.id != null && <span style={{ marginLeft:'auto',color:'#3b4656',fontSize:'8px',fontFamily:'monospace',flexShrink:0 }}>#{ev.id}</span>}
+                                            </div>
+                                            {ev.reasoning && <div style={{ color:'#cbd5e1',fontSize:'10.5px',lineHeight:1.55,marginBottom:'3px' }}>{ev.reasoning}</div>}
+                                            <div style={{ display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap',color:'#64748b',fontSize:'9px',fontFamily:'monospace' }}>
+                                                {ev.branch && <span>🏛 {ev.branch}</span>}
+                                                {ev.standingReference && <span>· standing ref {ev.standingReference}</span>}
+                                                {ev.sourceReference && <span>· source ref {ev.sourceReference}</span>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            }) : <div style={{ color:'#475569',fontSize:'11px',fontFamily:'monospace',textAlign:'center',padding:'18px',border:'1px dashed rgba(148,163,184,0.15)',borderRadius:'9px' }}>No recorded events.</div>}
+                        </div>
                     </div>
                 </div>
-                <div style={{ padding:'10px 20px',borderTop:'1px solid rgba(255,255,255,0.05)',textAlign:'center',flexShrink:0 }}>
-                    <span style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px' }}>Data via ORCR DOT{record.today ? ` · as of ${record.today}` : ''}</span>
+
+                {/* Footer */}
+                <div style={{ padding:'9px 18px',borderTop:'1px solid rgba(255,255,255,0.05)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0,background:'rgba(0,0,0,0.2)' }}>
+                    <span style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px' }}>Data via ORCR DOT</span>
+                    {record.today && <span style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',fontVariantNumeric:'tabular-nums' }}>Record as of {record.today}</span>}
                 </div>
             </div>
         </div>
