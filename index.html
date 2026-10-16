@@ -2427,15 +2427,15 @@ const CDLModal = ({ record, onClose }) => {
                         onMouseLeave={e=>{ e.currentTarget.style.color='#94a3b8'; e.currentTarget.style.borderColor='rgba(148,163,184,0.25)'; }}>✕</button>
                 </div>
 
-                {/* Body — horizontal reserved license banner on top, credential detail below */}
-                <div style={{ display:'flex',flexWrap:'wrap',gap:'18px',padding:'18px',overflowY:'auto' }}>
+                {/* Body — horizontal reserved license on the LEFT, credential detail beside it on the RIGHT */}
+                <div style={{ display:'flex',flexWrap:'wrap',gap:'18px',padding:'18px',overflowY:'auto',alignItems:'flex-start' }}>
 
                     {/* ── RESERVED LICENSE RENDER PANEL — HORIZONTAL, native 2022 × 1276 ── */}
-                    {/* Landscape so troopers read the CDL like a physical license card. The future */}
-                    {/* plate/license visual drops straight into this slot; keep the 2022:1276 ratio */}
-                    {/* so the reserved footprint matches the real asset.                            */}
+                    {/* Landscape so troopers read the CDL like a physical license card. Sits on the */}
+                    {/* left; endorsements and credential detail sit directly to its right. The future */}
+                    {/* plate/license visual drops straight into this slot; keep the 2022:1276 ratio.  */}
                     <div data-cdl-license-render="true" data-native-width="2022" data-native-height="1276"
-                        style={{ flex:'1 1 100%',maxWidth:'440px',margin:'0 auto',aspectRatio:'2022 / 1276',borderRadius:'12px',position:'relative',overflow:'hidden',background:'repeating-linear-gradient(135deg, rgba(148,163,184,0.05) 0px, rgba(148,163,184,0.05) 11px, rgba(148,163,184,0.02) 11px, rgba(148,163,184,0.02) 22px)',border:'1px dashed rgba(148,163,184,0.3)' }}>
+                        style={{ flex:'0 0 300px',maxWidth:'300px',alignSelf:'flex-start',aspectRatio:'2022 / 1276',borderRadius:'12px',position:'relative',overflow:'hidden',background:'repeating-linear-gradient(135deg, rgba(148,163,184,0.05) 0px, rgba(148,163,184,0.05) 11px, rgba(148,163,184,0.02) 11px, rgba(148,163,184,0.02) 22px)',border:'1px dashed rgba(148,163,184,0.3)' }}>
                         {/* top credential strip */}
                         <div style={{ position:'absolute',top:0,left:0,right:0,padding:'9px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',background:`linear-gradient(180deg,rgba(${st.rgb},0.22),transparent)`,borderBottom:`1px solid rgba(${st.rgb},0.25)` }}>
                             <div style={{ minWidth:0 }}>
@@ -2458,8 +2458,8 @@ const CDLModal = ({ record, onClose }) => {
                         </div>
                     </div>
 
-                    {/* ── CREDENTIAL DETAIL ── */}
-                    <div style={{ flex:'1 1 100%',minWidth:0,display:'flex',flexDirection:'column',gap:'14px' }}>
+                    {/* ── CREDENTIAL DETAIL (sits to the right of the license) ── */}
+                    <div style={{ flex:'1 1 300px',minWidth:0,display:'flex',flexDirection:'column',gap:'14px' }}>
 
                         {/* Status banner */}
                         <div style={{ padding:'13px 15px',borderRadius:'11px',background:`rgba(${st.rgb},0.08)`,border:`1px solid rgba(${st.rgb},0.3)`,boxShadow:`inset 0 1px 0 rgba(${st.rgb},0.12)` }}>
@@ -17647,61 +17647,55 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                     <User size={16} style={{ color:'#fff' }} />
                                 </div>
                                 <div>
-                                    <div style={{ color:'#6ee7b7',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace' }}>Registered Owner</div>
-                                    <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px',marginTop:'1px' }}>Identity on file</div>
+                                    <div style={{ color:'#6ee7b7',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace' }}>Citizen Identity</div>
+                                    <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px',marginTop:'1px' }}>On file with NYSP records</div>
                                 </div>
                             </div>
 
                             {searchResults.robloxUser ? (
                                 <>
-                                    {/* Avatar + headline identity row */}
-                                    <div style={{ display:'flex',gap:'14px',alignItems:'center',marginBottom:'13px' }}>
-                                        {searchResults.robloxUser.avatarUrl && (
-                                            <div style={{ position:'relative',flexShrink:0,width:'78px',height:'78px',borderRadius:'12px',overflow:'hidden',border:'1px solid rgba(52,211,153,0.4)',boxShadow:'0 0 0 4px rgba(52,211,153,0.07), 0 8px 20px -6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(52,211,153,0.15)' }}>
-                                                <img src={searchResults.robloxUser.avatarUrl} alt="Avatar" style={{ width:'100%',height:'100%',objectFit:'cover',display:'block' }}
-                                                    onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.style.display = 'none'; }} />
-                                            </div>
-                                        )}
+                                    {/* Identity hero — avatar + name */}
+                                    <div style={{ display:'flex',gap:'14px',alignItems:'center',marginBottom:'16px' }}>
+                                        <div style={{ position:'relative',flexShrink:0,width:'72px',height:'72px',borderRadius:'12px',overflow:'hidden',border:'1px solid rgba(52,211,153,0.4)',background:'rgba(52,211,153,0.06)',boxShadow:'0 0 0 4px rgba(52,211,153,0.06), 0 8px 20px -6px rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center' }}>
+                                            {searchResults.robloxUser.avatarUrl
+                                                ? <img src={searchResults.robloxUser.avatarUrl} alt={`${searchResults.robloxUser.username || 'citizen'} avatar`} style={{ width:'100%',height:'100%',objectFit:'cover',display:'block' }} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.style.display = 'none'; }} />
+                                                : <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/></svg>}
+                                        </div>
                                         <div style={{ flex:1,minWidth:0 }}>
-                                            {searchResults.robloxUser?.username && (
-                                                <div style={{ display:'flex',alignItems:'center',gap:'6px',marginBottom:'3px',minWidth:0 }}>
-                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/></svg>
-                                                    <span style={{ color:'#f1f5f9',fontSize:'16px',fontWeight:'800',fontFamily:'monospace',letterSpacing:'0.2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{searchResults.robloxUser.username}</span>
-                                                </div>
-                                            )}
+                                            <div style={{ color:'#f1f5f9',fontSize:'17px',fontWeight:'800',fontFamily:'monospace',letterSpacing:'0.2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{searchResults.robloxUser.username || 'Unknown'}</div>
                                             {searchResults.robloxUser?.displayName && searchResults.robloxUser.displayName !== searchResults.robloxUser.username && (
-                                                <div style={{ color:'#94a3b8',fontSize:'11px',fontFamily:'monospace',marginBottom:'4px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',paddingLeft:'19px' }}>“{searchResults.robloxUser.displayName}”</div>
+                                                <div style={{ color:'#94a3b8',fontSize:'11px',fontFamily:'monospace',marginTop:'3px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>“{searchResults.robloxUser.displayName}”</div>
                                             )}
                                             {searchResults.robloxUser?.joinDate && (
-                                                <div style={{ display:'flex',alignItems:'center',gap:'5px',color:'#64748b',fontSize:'10px',fontFamily:'monospace',letterSpacing:'0.5px',paddingLeft:'19px' }}>
-                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                                                <div style={{ display:'flex',alignItems:'center',gap:'5px',color:'#64748b',fontSize:'10px',fontFamily:'monospace',letterSpacing:'0.5px',marginTop:'5px' }}>
+                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
                                                     Joined {searchResults.robloxUser.joinDate}
                                                 </div>
                                             )}
                                         </div>
                                     </div>
 
-                                    {/* ID rows — 2-column grid */}
-                                    <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',marginBottom:'8px' }}>
-                                        {searchResults.robloxUser?.userId && (
-                                            <div className="info-item" style={{ flexDirection:'column',alignItems:'flex-start',gap:'3px',padding:'8px 11px' }}>
-                                                <span className="info-label" style={{ fontSize:'8px',display:'flex',alignItems:'center',gap:'4px' }}><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M15 8h3M15 12h3M7 16h10"/></svg>CITIZEN-ID</span>
-                                                <div style={{ display:'flex',alignItems:'center',gap:'6px',width:'100%',minWidth:0 }}>
-                                                    <span className="info-value" style={{ fontSize:'11px',textAlign:'left',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{searchResults.robloxUser.userId}</span>
-                                                    <button className="copy-btn btn-ripple" onClick={() => copyToClipboard(searchResults.robloxUser.userId, 'roblox')} style={{ flexShrink:0 }}>{copiedField === 'roblox' ? '✓' : '⧉'}</button>
-                                                </div>
+                                    {/* IDENTIFIERS — two consistent copyable chips */}
+                                    <div style={{ color:'#475569',fontSize:'8px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'7px' }}>Identifiers</div>
+                                    <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'15px' }}>
+                                        <div style={{ padding:'9px 11px',borderRadius:'8px',background:'rgba(0,0,0,0.25)',border:'1px solid rgba(148,163,184,0.12)',minWidth:0 }}>
+                                            <div style={{ display:'flex',alignItems:'center',gap:'5px',color:'#64748b',fontSize:'8px',fontWeight:'800',letterSpacing:'1.2px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'5px' }}><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M15 8h3M15 12h3M7 16h10"/></svg>Citizen-ID</div>
+                                            <div style={{ display:'flex',alignItems:'center',gap:'6px',minWidth:0 }}>
+                                                <span style={{ color:'#e2e8f0',fontSize:'12px',fontWeight:'700',fontFamily:'monospace',fontVariantNumeric:'tabular-nums',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{searchResults.robloxUser?.userId || 'UNKNOWN'}</span>
+                                                <button className="copy-btn btn-ripple" onClick={() => copyToClipboard(searchResults.robloxUser?.userId, 'roblox')} style={{ flexShrink:0 }}>{copiedField === 'roblox' ? '✓' : '⧉'}</button>
                                             </div>
-                                        )}
-                                        <div className="info-item" style={{ flexDirection:'column',alignItems:'flex-start',gap:'3px',padding:'8px 11px' }}>
-                                            <span className="info-label" style={{ fontSize:'8px',display:'flex',alignItems:'center',gap:'4px' }}><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>Contact-ID</span>
-                                            <div style={{ display:'flex',alignItems:'center',gap:'6px',width:'100%',minWidth:0 }}>
-                                                <span className="info-value" style={{ fontSize:'11px',textAlign:'left',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{searchResults?.discordUserId || 'UNKNOWN'}</span>
+                                        </div>
+                                        <div style={{ padding:'9px 11px',borderRadius:'8px',background:'rgba(0,0,0,0.25)',border:'1px solid rgba(148,163,184,0.12)',minWidth:0 }}>
+                                            <div style={{ display:'flex',alignItems:'center',gap:'5px',color:'#64748b',fontSize:'8px',fontWeight:'800',letterSpacing:'1.2px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'5px' }}><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>Contact-ID</div>
+                                            <div style={{ display:'flex',alignItems:'center',gap:'6px',minWidth:0 }}>
+                                                <span style={{ color:'#e2e8f0',fontSize:'12px',fontWeight:'700',fontFamily:'monospace',fontVariantNumeric:'tabular-nums',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{searchResults?.discordUserId || 'UNKNOWN'}</span>
                                                 <button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }} style={{ flexShrink:0 }}>{copiedField === 'discord' ? '✓' : '⧉'}</button>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* LICENSE status — default ACTIVE */}
+                                    {/* STANDING — license + CDL, matched row styling */}
+                                    <div style={{ color:'#475569',fontSize:'8px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'7px' }}>Standing</div>
                                     {(() => {
                                         const licenseStatus = searchResults?.licenseStatus || 'ACTIVE';
                                         const lc = licenseStatus === 'ACTIVE' ? { rgb:'52,211,153', fg:'#34d399', label:'ACTIVE' }
