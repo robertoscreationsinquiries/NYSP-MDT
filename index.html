@@ -2281,33 +2281,44 @@ const CDLBadge = ({ username, onOpen }) => {
     const fresh = cdlCache[key] && (Date.now() - cdlCache[key].ts) < CDL_TTL_MS ? cdlCache[key] : null;
     const [phase, setPhase] = React.useState(() => fresh ? fresh.phase : 'idle');
     const [data, setData]   = React.useState(() => fresh ? fresh.data  : null);
+    const [errCode, setErrCode] = React.useState(null);
 
     React.useEffect(() => {
-        if (!uname || uname.toUpperCase() === 'UNKNOWN') { setPhase('none'); setData(null); return; }
+        if (!uname || uname.toUpperCase() === 'UNKNOWN') { setPhase('none'); setData(null); setErrCode(null); return; }
         const cached = cdlCache[key] && (Date.now() - cdlCache[key].ts) < CDL_TTL_MS ? cdlCache[key] : null;
-        if (cached) { setPhase(cached.phase); setData(cached.data); return; }
+        if (cached) { setPhase(cached.phase); setData(cached.data); setErrCode(null); return; }
         let cancelled = false;
-        setPhase('searching'); setData(null);
+        setPhase('searching'); setData(null); setErrCode(null);
         (async () => {
             let outcome;
             try {
                 const resp = await fetch(CDL_API_BASE + encodeURIComponent(uname), { headers: { 'Accept': 'application/json' } });
-                const json = await resp.json().catch(() => null);
-                const rec = json && json.record ? json.record : null;
-                if (!rec || (json && json.error)) {
-                    outcome = { phase: 'none', data: null };
+                if (!resp.ok) {
+                    // Server reachable but returned an error status (e.g. 500/502/503/504).
+                    outcome = { phase: 'error', data: null, code: resp.status };
                 } else {
-                    const status = (rec.record && rec.record.status) || '';
-                    const tone   = (rec.record && rec.record.tone) || '';
-                    const active = tone === 'success' || /^active$/i.test(status);
-                    outcome = { phase: active ? 'active' : 'suspended', data: rec };
+                    const json = await resp.json().catch(() => null);
+                    const rec = json && json.record ? json.record : null;
+                    const errCodeStr = json && json.error && json.error.code ? String(json.error.code) : null;
+                    if (errCodeStr && errCodeStr !== 'no_record') {
+                        // A structured API error that isn't the benign "no record on file".
+                        outcome = { phase: 'error', data: null, code: errCodeStr };
+                    } else if (!rec || errCodeStr === 'no_record') {
+                        outcome = { phase: 'none', data: null };
+                    } else {
+                        const status = (rec.record && rec.record.status) || '';
+                        const tone   = (rec.record && rec.record.tone) || '';
+                        const active = tone === 'success' || /^active$/i.test(status);
+                        outcome = { phase: active ? 'active' : 'suspended', data: rec };
+                    }
                 }
             } catch (e) {
-                // Unreachable / network error → treat as "searched, nothing found" (grey).
-                outcome = { phase: 'none', data: null };
+                // Network failure / unreachable host → the trooper is told the API is down.
+                outcome = { phase: 'error', data: null, code: 'OFFLINE' };
             }
-            cdlCache[key] = { ...outcome, ts: Date.now() };
-            if (!cancelled) { setPhase(outcome.phase); setData(outcome.data); }
+            // Cache only resolved (non-error) outcomes so a transient outage retries next search.
+            if (outcome.phase !== 'error') cdlCache[key] = { phase: outcome.phase, data: outcome.data, ts: Date.now() };
+            if (!cancelled) { setPhase(outcome.phase); setData(outcome.data); setErrCode(outcome.code || null); }
         })();
         return () => { cancelled = true; };
     }, [key]);
@@ -2318,25 +2329,39 @@ const CDLBadge = ({ username, onOpen }) => {
         ? { rgb:'52,211,153', fg:'#34d399', label: (data?.record?.status || 'ACTIVE').toUpperCase(), glow:true }
         : phase === 'suspended'
         ? { rgb:'239,68,68',  fg:'#f87171', label: (data?.record?.status || 'SUSPENDED').toUpperCase(), glow:true }
+        : phase === 'error'
+        ? { rgb:'234,88,12',  fg:'#fb923c', label: `API ERROR${errCode && errCode !== 'OFFLINE' ? ' ' + errCode : ''}`, glow:true }
         : { rgb:'100,116,139', fg:'#64748b', label:'NO CDL', glow:false };
 
     const clickable = (phase === 'active' || phase === 'suspended') && !!data;
     const cls = data?.holder?.cls;
+    const errText = phase === 'error'
+        ? `Error code ${errCode === 'OFFLINE' || errCode == null ? '504' : errCode}, no API connection established.`
+        : null;
 
     return (
-        <div onClick={() => { if (clickable) onOpen(data); }}
-            title={clickable ? 'View CDL record' : (phase === 'searching' ? 'Checking CDL…' : 'No CDL on file')}
-            style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',padding:'10px 14px',marginBottom:'8px',background:`rgba(${cfg.rgb},0.08)`,border:`1px solid rgba(${cfg.rgb},0.28)`,borderRadius:'9px',boxShadow:`inset 0 1px 0 rgba(${cfg.rgb},0.1)`,cursor:clickable?'pointer':'default',transition:'background 160ms ease-out, border-color 160ms ease-out' }}
-            onMouseEnter={e=>{ if(clickable){ e.currentTarget.style.background=`rgba(${cfg.rgb},0.15)`; e.currentTarget.style.borderColor=`rgba(${cfg.rgb},0.45)`; } }}
-            onMouseLeave={e=>{ if(clickable){ e.currentTarget.style.background=`rgba(${cfg.rgb},0.08)`; e.currentTarget.style.borderColor=`rgba(${cfg.rgb},0.28)`; } }}>
-            <div style={{ display:'flex',alignItems:'center',gap:'9px' }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={cfg.fg} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17h14M6 17l1.5-4.5a2 2 0 011.9-1.5h5.2a2 2 0 011.9 1.5L19 17M6 17v2M18 17v2"/><rect x="2" y="6" width="20" height="4" rx="1"/></svg>
-                <span style={{ color:'#94a3b8',fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>CDL{cls && clickable ? ` · ${cls}` : ''}</span>
+        <div style={{ marginBottom:'8px' }}>
+            <div onClick={() => { if (clickable) onOpen(data); }}
+                title={clickable ? 'View CDL record' : (phase === 'searching' ? 'Checking CDL…' : (phase === 'error' ? errText : 'No CDL on file'))}
+                style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',padding:'10px 14px',background:`rgba(${cfg.rgb},0.08)`,border:`1px solid rgba(${cfg.rgb},0.28)`,borderRadius:'9px',boxShadow:`inset 0 1px 0 rgba(${cfg.rgb},0.1)`,cursor:clickable?'pointer':'default',transition:'background 160ms ease-out, border-color 160ms ease-out' }}
+                onMouseEnter={e=>{ if(clickable){ e.currentTarget.style.background=`rgba(${cfg.rgb},0.15)`; e.currentTarget.style.borderColor=`rgba(${cfg.rgb},0.45)`; } }}
+                onMouseLeave={e=>{ if(clickable){ e.currentTarget.style.background=`rgba(${cfg.rgb},0.08)`; e.currentTarget.style.borderColor=`rgba(${cfg.rgb},0.28)`; } }}>
+                <div style={{ display:'flex',alignItems:'center',gap:'9px' }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={cfg.fg} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17h14M6 17l1.5-4.5a2 2 0 011.9-1.5h5.2a2 2 0 011.9 1.5L19 17M6 17v2M18 17v2"/><rect x="2" y="6" width="20" height="4" rx="1"/></svg>
+                    <span style={{ color:'#94a3b8',fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>CDL{cls && clickable ? ` · ${cls}` : ''}</span>
+                </div>
+                <span style={{ display:'flex',alignItems:'center',gap:'7px',color:cfg.fg,fontSize:'11px',fontWeight:'900',letterSpacing:'1.5px',fontFamily:'monospace' }}>
+                    <span style={{ width:'6px',height:'6px',borderRadius:'50%',background:cfg.fg,boxShadow:cfg.glow?`0 0 7px ${cfg.fg}`:'none',animation:cfg.pulse?'pulse 1s infinite':'none' }} />
+                    {cfg.label}{clickable ? ' ›' : ''}
+                </span>
             </div>
-            <span style={{ display:'flex',alignItems:'center',gap:'7px',color:cfg.fg,fontSize:'11px',fontWeight:'900',letterSpacing:'1.5px',fontFamily:'monospace' }}>
-                <span style={{ width:'6px',height:'6px',borderRadius:'50%',background:cfg.fg,boxShadow:cfg.glow?`0 0 7px ${cfg.fg}`:'none',animation:cfg.pulse?'pulse 1s infinite':'none' }} />
-                {cfg.label}{clickable ? ' ›' : ''}
-            </span>
+            {/* API-down notice so the trooper knows the status is unavailable, not clear. */}
+            {phase === 'error' && (
+                <div style={{ display:'flex',alignItems:'center',gap:'6px',marginTop:'4px',padding:'5px 10px',background:'rgba(234,88,12,0.08)',border:'1px solid rgba(234,88,12,0.25)',borderRadius:'7px' }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fb923c" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+                    <span style={{ color:'#fdba74',fontSize:'9.5px',fontWeight:'700',fontFamily:'monospace',letterSpacing:'0.3px',lineHeight:1.4 }}>{errText} CDL status unavailable.</span>
+                </div>
+            )}
         </div>
     );
 };
@@ -2402,34 +2427,39 @@ const CDLModal = ({ record, onClose }) => {
                         onMouseLeave={e=>{ e.currentTarget.style.color='#94a3b8'; e.currentTarget.style.borderColor='rgba(148,163,184,0.25)'; }}>✕</button>
                 </div>
 
-                {/* Body — reserved license panel (left) + credential detail (right) */}
+                {/* Body — horizontal reserved license banner on top, credential detail below */}
                 <div style={{ display:'flex',flexWrap:'wrap',gap:'18px',padding:'18px',overflowY:'auto' }}>
 
-                    {/* ── RESERVED LICENSE RENDER PANEL — native 1276 × 2022, scaled to fit ── */}
-                    {/* The future plate/license visual drops straight into this slot. Keep the */}
-                    {/* 1276:2022 aspect ratio so the reserved footprint matches the real asset.  */}
-                    <div data-cdl-license-render="true" data-native-width="1276" data-native-height="2022"
-                        style={{ width:'228px',flexShrink:0,aspectRatio:'1276 / 2022',borderRadius:'10px',position:'relative',overflow:'hidden',background:'repeating-linear-gradient(135deg, rgba(148,163,184,0.05) 0px, rgba(148,163,184,0.05) 11px, rgba(148,163,184,0.02) 11px, rgba(148,163,184,0.02) 22px)',border:'1px dashed rgba(148,163,184,0.3)' }}>
+                    {/* ── RESERVED LICENSE RENDER PANEL — HORIZONTAL, native 2022 × 1276 ── */}
+                    {/* Landscape so troopers read the CDL like a physical license card. The future */}
+                    {/* plate/license visual drops straight into this slot; keep the 2022:1276 ratio */}
+                    {/* so the reserved footprint matches the real asset.                            */}
+                    <div data-cdl-license-render="true" data-native-width="2022" data-native-height="1276"
+                        style={{ flex:'1 1 100%',maxWidth:'440px',margin:'0 auto',aspectRatio:'2022 / 1276',borderRadius:'12px',position:'relative',overflow:'hidden',background:'repeating-linear-gradient(135deg, rgba(148,163,184,0.05) 0px, rgba(148,163,184,0.05) 11px, rgba(148,163,184,0.02) 11px, rgba(148,163,184,0.02) 22px)',border:'1px dashed rgba(148,163,184,0.3)' }}>
                         {/* top credential strip */}
-                        <div style={{ position:'absolute',top:0,left:0,right:0,padding:'8px 10px',background:`linear-gradient(180deg,rgba(${st.rgb},0.22),transparent)`,borderBottom:`1px solid rgba(${st.rgb},0.25)` }}>
-                            <div style={{ color:st.fg,fontSize:'8px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace' }}>CDL · CLASS {h.cls || '—'}</div>
-                            <div style={{ color:'#94a3b8',fontSize:'10px',fontWeight:'800',fontFamily:'monospace',marginTop:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{h.username || '—'}</div>
+                        <div style={{ position:'absolute',top:0,left:0,right:0,padding:'9px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',background:`linear-gradient(180deg,rgba(${st.rgb},0.22),transparent)`,borderBottom:`1px solid rgba(${st.rgb},0.25)` }}>
+                            <div style={{ minWidth:0 }}>
+                                <div style={{ color:st.fg,fontSize:'8px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace' }}>CDL · CLASS {h.cls || '—'}</div>
+                                <div style={{ color:'#cbd5e1',fontSize:'11px',fontWeight:'800',fontFamily:'monospace',marginTop:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{h.username || '—'}</div>
+                            </div>
+                            <span style={{ color:'#475569',fontSize:'8px',fontWeight:'800',letterSpacing:'1px',fontFamily:'monospace',flexShrink:0 }}>DOT</span>
                         </div>
                         {/* centered reserved note */}
                         <div style={{ position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'8px',padding:'14px',textAlign:'center' }}>
-                            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-                            <div style={{ color:'#64748b',fontSize:'9px',fontWeight:'800',letterSpacing:'1px',fontFamily:'monospace',lineHeight:1.5 }}>LICENSE RENDER<br/>RESERVED</div>
-                            <div style={{ color:'#3b4656',fontSize:'8px',fontFamily:'monospace',letterSpacing:'0.5px' }}>1276 × 2022</div>
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="8" cy="10" r="1.6"/><path d="M22 16l-5.5-5.5L7 20"/></svg>
+                            <div style={{ color:'#64748b',fontSize:'9px',fontWeight:'800',letterSpacing:'1px',fontFamily:'monospace',lineHeight:1.5 }}>LICENSE RENDER · RESERVED</div>
+                            <div style={{ color:'#3b4656',fontSize:'8px',fontFamily:'monospace',letterSpacing:'0.5px' }}>2022 × 1276</div>
                         </div>
                         {/* bottom status ribbon */}
-                        <div style={{ position:'absolute',bottom:0,left:0,right:0,padding:'7px 10px',background:`rgba(${st.rgb},0.16)`,borderTop:`1px solid rgba(${st.rgb},0.3)`,display:'flex',alignItems:'center',gap:'6px' }}>
+                        <div style={{ position:'absolute',bottom:0,left:0,right:0,padding:'8px 14px',background:`rgba(${st.rgb},0.16)`,borderTop:`1px solid rgba(${st.rgb},0.3)`,display:'flex',alignItems:'center',gap:'7px' }}>
                             <span style={{ width:'6px',height:'6px',borderRadius:'50%',background:st.fg,boxShadow:`0 0 7px ${st.fg}`,flexShrink:0 }} />
                             <span style={{ color:st.fg,fontSize:'9px',fontWeight:'900',letterSpacing:'1.5px',fontFamily:'monospace' }}>{st.label}</span>
+                            {issued && <span style={{ marginLeft:'auto',color:'#64748b',fontSize:'8px',fontFamily:'monospace',fontVariantNumeric:'tabular-nums',flexShrink:0 }}>ISS {issued}</span>}
                         </div>
                     </div>
 
                     {/* ── CREDENTIAL DETAIL ── */}
-                    <div style={{ flex:'1 1 320px',minWidth:0,display:'flex',flexDirection:'column',gap:'14px' }}>
+                    <div style={{ flex:'1 1 100%',minWidth:0,display:'flex',flexDirection:'column',gap:'14px' }}>
 
                         {/* Status banner */}
                         <div style={{ padding:'13px 15px',borderRadius:'11px',background:`rgba(${st.rgb},0.08)`,border:`1px solid rgba(${st.rgb},0.3)`,boxShadow:`inset 0 1px 0 rgba(${st.rgb},0.12)` }}>
@@ -8368,9 +8398,30 @@ const copyToClipboard = (text, fieldName) => {
     });
 };
 
+// Build the Discord "record messaging format" a trooper pastes (Ctrl+V) after issuing a
+// record. The points value is pulled from the most recent government record that carries a
+// "Points: X" line (pastRecords is newest-first); decimals are preserved. Falls back to 0.
+const buildRecordMessagingFormat = (discordUserId) => {
+    let pts = null;
+    const recs = Array.isArray(pastRecords) ? pastRecords : [];
+    for (const rec of recs) {
+        if (rec && rec.totalPoints != null && !Number.isNaN(rec.totalPoints)) { pts = rec.totalPoints; break; }
+    }
+    const did = (discordUserId && discordUserId !== 'UNKNOWN') ? String(discordUserId).replace(/[<>@\s]/g, '') : '';
+    const pointsLine = (pts != null) ? String(pts) : '0';
+    return '**Written Warning/Citation/Summons/Arrest Report**\n'
+         + '<@' + did + '> \n'
+         + '`§ PENALCODE`\n'
+         + 'Points: ' + pointsLine + '\n'
+         + '-# +X PTS';
+};
+const copyRecordMessagingFormat = (discordUserId, fieldName) => {
+    copyToClipboard(buildRecordMessagingFormat(discordUserId), fieldName);
+};
+
 const formatTimestampMilitary = (timestamp) => {
     if (!timestamp) return 'Unknown';
-    
+
     const date = new Date(timestamp);
     
     // Check if valid date
@@ -17072,21 +17123,18 @@ return (
                                         );
                                     })()}
 
-                                    {/* Copy citation/arrest pages as PNG images (paste as screenshots) */}
-                                    {!isDispatcher && (() => {
-                                        const citReg = registration || {};
-                                        const citOwner = registration?.robloxUser || result || { username: 'UNKNOWN', userId: 'UNKNOWN', displayName: 'UNKNOWN', joinDate: 'UNKNOWN' };
-                                        let arrestOwner = null;
-                                        if (searchResults?.robloxUser?.username) arrestOwner = searchResults.robloxUser;
-                                        else if (registration?.robloxUser?.username) arrestOwner = registration.robloxUser;
-                                        else if (result?.username) arrestOwner = result;
-                                        return (
-                                            <>
-                                                <CopyPagesRow kind="citation" label="Citation" accentRgb="16,185,129" onCopy={(p) => copyCitationPageAsPng(p, citOwner, citReg)} />
-                                                <CopyPagesRow kind="arrest" label="Arrest Report" accentRgb="239,68,68" onCopy={(p) => copyArrestPageAsPng(p, arrestOwner)} />
-                                            </>
-                                        );
-                                    })()}
+                                    {/* Copy the Discord record messaging format — paste straight into chat with Ctrl+V */}
+                                    {!isDispatcher && (
+                                        <button onClick={() => copyRecordMessagingFormat(registration?.discordUserId, 'recordFmtPlate')}
+                                            style={{ width:'100%',marginTop:'8px',padding:'12px',background: copiedField==='recordFmtPlate' ? 'linear-gradient(180deg,#0ea5e9,#0369a1)' : 'linear-gradient(180deg,rgba(56,189,248,0.16),rgba(14,116,144,0.1))',border:'1px solid rgba(56,189,248,0.4)',borderRadius:'8px',color: copiedField==='recordFmtPlate' ? '#fff' : '#7dd3fc',fontSize:'12px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1.5px',fontFamily:'monospace',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.12)',transition:'filter 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1), background 160ms ease-out' }}
+                                            onMouseEnter={e=>{ e.currentTarget.style.filter='brightness(1.12)'; }}
+                                            onMouseLeave={e=>{ e.currentTarget.style.filter=''; }}
+                                            onMouseDown={e=>{ e.currentTarget.style.transform='scale(0.98)'; }}
+                                            onMouseUp={e=>{ e.currentTarget.style.transform=''; }}>
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                            {copiedField==='recordFmtPlate' ? '✓ Copied — paste with Ctrl + V' : 'Copy Record Messaging Format'}
+                                        </button>
+                                    )}
                                 </>
                             )}
                         </div>
@@ -17733,19 +17781,16 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                 {featureLocks.exportCitation ? '🔒 EXPORT RESTRICTED' : 'FILE ARREST REPORT'}
                             </button>
 
-                            {/* Copy citation/arrest pages as PNG images (paste as screenshots) */}
-                            {!isDispatcher && (() => {
-                                const robloxData = searchResults.robloxUser || {};
-                                const completeOwnerData = { username: robloxData.username || 'UNKNOWN', userId: robloxData.userId || 'UNKNOWN', displayName: robloxData.displayName || 'UNKNOWN', joinDate: robloxData.joinDate || 'UNKNOWN', avatarUrl: robloxData.avatarUrl || null, discordUserId: searchResults.discordUserId || 'UNKNOWN' };
-                                const tempResult = robloxData.username ? robloxData : { username: 'UNKNOWN', userId: 'UNKNOWN', displayName: 'UNKNOWN', joinDate: 'UNKNOWN' };
-                                const tempReg = { discordUserId: searchResults?.discordUserId || 'UNKNOWN', year: '', make: '', model: '', plate: '', state: '', color: '', vehicleType: '', timestamp: new Date().toLocaleString(), phoneticPlate: '', hasHandicapPermit: false, isEdited: false };
-                                return (
-                                    <>
-                                        <CopyPagesRow kind="citation" label="Citation" accentRgb="16,185,129" onCopy={(p) => copyCitationPageAsPng(p, tempResult, tempReg)} />
-                                        <CopyPagesRow kind="arrest" label="Arrest Report" accentRgb="239,68,68" onCopy={(p) => copyArrestPageAsPng(p, completeOwnerData)} />
-                                    </>
-                                );
-                            })()}
+                            {/* Copy the Discord record messaging format — paste straight into chat with Ctrl+V */}
+                            {!isDispatcher && (
+                                <button onClick={() => copyRecordMessagingFormat(searchResults?.discordUserId, 'recordFmtCitizen')}
+                                    style={{ width:'100%',marginTop:'10px',padding:'12px',background: copiedField==='recordFmtCitizen' ? 'linear-gradient(135deg,#0ea5e9,#0369a1)' : 'linear-gradient(135deg,rgba(56,189,248,0.16),rgba(14,116,144,0.1))',border:'1px solid rgba(56,189,248,0.4)',borderRadius:'10px',color: copiedField==='recordFmtCitizen' ? '#fff' : '#7dd3fc',fontSize:'13px',fontWeight:'700',cursor:'pointer',textTransform:'uppercase',letterSpacing:'0.5px',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',transition:'all 0.2s' }}
+                                    onMouseEnter={e=>{ e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.boxShadow='0 6px 18px rgba(56,189,248,0.4)'; }}
+                                    onMouseLeave={e=>{ e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='none'; }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                    {copiedField==='recordFmtCitizen' ? '✓ Copied — paste with Ctrl + V' : 'Copy Record Messaging Format'}
+                                </button>
+                            )}
                         </div>
                         {/* ══════════ UI: GOVERNMENT RECORDS ══════════ */}
                         <div style={{ padding:'18px',background:'linear-gradient(180deg,rgba(12,40,70,0.4) 0%,rgba(8,16,32,0.6) 100%)',border:'1px solid rgba(56,189,248,0.2)',borderRadius:'14px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 8px 28px -14px rgba(0,0,0,0.7)',display:'flex',flexDirection:'column',minHeight:0 }}>
