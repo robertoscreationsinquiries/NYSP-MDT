@@ -17654,20 +17654,20 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
 
                             {searchResults.robloxUser ? (
                                 <>
-                                    {/* Identity hero — avatar + name */}
-                                    <div style={{ display:'flex',gap:'14px',alignItems:'center',marginBottom:'16px' }}>
-                                        <div style={{ position:'relative',flexShrink:0,width:'72px',height:'72px',borderRadius:'12px',overflow:'hidden',border:'1px solid rgba(52,211,153,0.4)',background:'rgba(52,211,153,0.06)',boxShadow:'0 0 0 4px rgba(52,211,153,0.06), 0 8px 20px -6px rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center' }}>
+                                    {/* Identity — compact hero */}
+                                    <div style={{ display:'flex',gap:'12px',alignItems:'center',marginBottom:'13px' }}>
+                                        <div style={{ flexShrink:0,width:'52px',height:'52px',borderRadius:'11px',overflow:'hidden',border:'1px solid rgba(52,211,153,0.4)',background:'rgba(52,211,153,0.06)',display:'flex',alignItems:'center',justifyContent:'center' }}>
                                             {searchResults.robloxUser.avatarUrl
                                                 ? <img src={searchResults.robloxUser.avatarUrl} alt={`${searchResults.robloxUser.username || 'citizen'} avatar`} style={{ width:'100%',height:'100%',objectFit:'cover',display:'block' }} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.style.display = 'none'; }} />
-                                                : <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/></svg>}
+                                                : <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/></svg>}
                                         </div>
                                         <div style={{ flex:1,minWidth:0 }}>
-                                            <div style={{ color:'#f1f5f9',fontSize:'17px',fontWeight:'800',fontFamily:'monospace',letterSpacing:'0.2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{searchResults.robloxUser.username || 'Unknown'}</div>
+                                            <div style={{ color:'#f1f5f9',fontSize:'15px',fontWeight:'800',fontFamily:'monospace',letterSpacing:'0.2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{searchResults.robloxUser.username || 'Unknown'}</div>
                                             {searchResults.robloxUser?.displayName && searchResults.robloxUser.displayName !== searchResults.robloxUser.username && (
-                                                <div style={{ color:'#94a3b8',fontSize:'11px',fontFamily:'monospace',marginTop:'3px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>“{searchResults.robloxUser.displayName}”</div>
+                                                <div style={{ color:'#94a3b8',fontSize:'10.5px',fontFamily:'monospace',marginTop:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>“{searchResults.robloxUser.displayName}”</div>
                                             )}
                                             {searchResults.robloxUser?.joinDate && (
-                                                <div style={{ display:'flex',alignItems:'center',gap:'5px',color:'#64748b',fontSize:'10px',fontFamily:'monospace',letterSpacing:'0.5px',marginTop:'5px' }}>
+                                                <div style={{ display:'flex',alignItems:'center',gap:'5px',color:'#64748b',fontSize:'9.5px',fontFamily:'monospace',letterSpacing:'0.3px',marginTop:'4px' }}>
                                                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
                                                     Joined {searchResults.robloxUser.joinDate}
                                                 </div>
@@ -17675,26 +17675,25 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                         </div>
                                     </div>
 
-                                    {/* IDENTIFIERS — two consistent copyable chips */}
-                                    <div style={{ color:'#475569',fontSize:'8px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'7px' }}>Identifiers</div>
-                                    <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'15px' }}>
-                                        <div style={{ padding:'9px 11px',borderRadius:'8px',background:'rgba(0,0,0,0.25)',border:'1px solid rgba(148,163,184,0.12)',minWidth:0 }}>
-                                            <div style={{ display:'flex',alignItems:'center',gap:'5px',color:'#64748b',fontSize:'8px',fontWeight:'800',letterSpacing:'1.2px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'5px' }}><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M15 8h3M15 12h3M7 16h10"/></svg>Citizen-ID</div>
+                                    {/* IDENTIFIERS — one slim card, two divided rows (label left · value + copy right) */}
+                                    <div style={{ background:'rgba(0,0,0,0.22)',border:'1px solid rgba(148,163,184,0.1)',borderRadius:'9px',padding:'0 12px',marginBottom:'13px' }}>
+                                        <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',padding:'8px 0',borderBottom:'1px solid rgba(148,163,184,0.08)' }}>
+                                            <span style={{ color:'#64748b',fontSize:'9px',fontWeight:'800',letterSpacing:'1.2px',textTransform:'uppercase',fontFamily:'monospace',flexShrink:0 }}>Citizen-ID</span>
                                             <div style={{ display:'flex',alignItems:'center',gap:'6px',minWidth:0 }}>
-                                                <span style={{ color:'#e2e8f0',fontSize:'12px',fontWeight:'700',fontFamily:'monospace',fontVariantNumeric:'tabular-nums',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{searchResults.robloxUser?.userId || 'UNKNOWN'}</span>
+                                                <span style={{ color:'#e2e8f0',fontSize:'11.5px',fontWeight:'700',fontFamily:'monospace',fontVariantNumeric:'tabular-nums',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{searchResults.robloxUser?.userId || 'UNKNOWN'}</span>
                                                 <button className="copy-btn btn-ripple" onClick={() => copyToClipboard(searchResults.robloxUser?.userId, 'roblox')} style={{ flexShrink:0 }}>{copiedField === 'roblox' ? '✓' : '⧉'}</button>
                                             </div>
                                         </div>
-                                        <div style={{ padding:'9px 11px',borderRadius:'8px',background:'rgba(0,0,0,0.25)',border:'1px solid rgba(148,163,184,0.12)',minWidth:0 }}>
-                                            <div style={{ display:'flex',alignItems:'center',gap:'5px',color:'#64748b',fontSize:'8px',fontWeight:'800',letterSpacing:'1.2px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'5px' }}><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>Contact-ID</div>
+                                        <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',padding:'8px 0' }}>
+                                            <span style={{ color:'#64748b',fontSize:'9px',fontWeight:'800',letterSpacing:'1.2px',textTransform:'uppercase',fontFamily:'monospace',flexShrink:0 }}>Contact-ID</span>
                                             <div style={{ display:'flex',alignItems:'center',gap:'6px',minWidth:0 }}>
-                                                <span style={{ color:'#e2e8f0',fontSize:'12px',fontWeight:'700',fontFamily:'monospace',fontVariantNumeric:'tabular-nums',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{searchResults?.discordUserId || 'UNKNOWN'}</span>
+                                                <span style={{ color:'#e2e8f0',fontSize:'11.5px',fontWeight:'700',fontFamily:'monospace',fontVariantNumeric:'tabular-nums',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{searchResults?.discordUserId || 'UNKNOWN'}</span>
                                                 <button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }} style={{ flexShrink:0 }}>{copiedField === 'discord' ? '✓' : '⧉'}</button>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* STANDING — license + CDL, matched row styling */}
+                                    {/* STANDING — license · CDL · warrant, one matched row set */}
                                     <div style={{ color:'#475569',fontSize:'8px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'7px' }}>Standing</div>
                                     {(() => {
                                         const licenseStatus = searchResults?.licenseStatus || 'ACTIVE';
@@ -17728,18 +17727,32 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                 </>
                             )}
 
-                            {/* Warrant Status — matches plate tab */}
-                            <div style={{ padding:'12px 14px',background:warrantFlash?'#dc2626':(searchResults.warrants?'linear-gradient(180deg,#dc2626,#991b1b)':'rgba(16,185,129,0.06)'),border:`1px solid ${searchResults.warrants?'rgba(239,68,68,0.5)':'rgba(52,211,153,0.2)'}`,borderRadius:'9px',transition:'background 160ms ease-out, border-color 160ms ease-out',animation:searchResults.warrants?'pulse-border-warrant 2s infinite':'none',boxShadow:searchResults.warrants?'0 0 20px rgba(239,68,68,0.35), inset 0 1px 0 rgba(255,255,255,0.1)':'inset 0 1px 0 rgba(52,211,153,0.08)' }}>
-                                <div style={{ color:searchResults.warrants?'#fff':'#34d399',fontSize:'11px',fontWeight:'800',fontFamily:'monospace',letterSpacing:'1.2px',textTransform:'uppercase',display:'flex',alignItems:'center',gap:'8px' }}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/>{!searchResults.warrants && <path d="M9 12l2 2 4-4"/>}{searchResults.warrants && <path d="M12 8v4M12 16h.01"/>}</svg>
-                                    {searchResults.warrants ? (
-                                        <>Warrant: Active {searchResults.warrants.bench > 0 && `Bench${searchResults.warrants.bench > 1 ? ` ×${searchResults.warrants.bench}` : ''}`}{searchResults.warrants.bench > 0 && searchResults.warrants.arrest > 0 && ', '}{searchResults.warrants.arrest > 0 && `Arrest${searchResults.warrants.arrest > 1 ? ` ×${searchResults.warrants.arrest}` : ''}`}</>
-                                    ) : ('No Active Warrants')}
-                                </div>
-                            </div>
+                            {/* Warrant — compact row matching the License / CDL rows above */}
+                            {(() => {
+                                const hasW = !!searchResults.warrants;
+                                const fg = warrantFlash ? '#fff' : (hasW ? '#f87171' : '#34d399');
+                                const rgb = hasW ? '239,68,68' : '52,211,153';
+                                return (
+                                    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',padding:'10px 14px',marginBottom:'8px',background:warrantFlash?'#dc2626':`rgba(${rgb},0.08)`,border:`1px solid rgba(${rgb},${hasW?0.4:0.28})`,borderRadius:'9px',boxShadow:hasW?`0 0 14px rgba(239,68,68,0.22), inset 0 1px 0 rgba(255,255,255,0.05)`:`inset 0 1px 0 rgba(${rgb},0.1)`,animation:hasW?'pulse-border-warrant 2s infinite':'none',transition:'background 160ms ease-out, border-color 160ms ease-out' }}>
+                                        <div style={{ display:'flex',alignItems:'center',gap:'9px' }}>
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={fg} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/>{!hasW && <path d="M9 12l2 2 4-4"/>}{hasW && <path d="M12 8v4M12 16h.01"/>}</svg>
+                                            <span style={{ color:warrantFlash?'rgba(255,255,255,0.85)':'#94a3b8',fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Warrant</span>
+                                        </div>
+                                        <span style={{ display:'flex',alignItems:'center',gap:'7px',color:fg,fontSize:'11px',fontWeight:'900',letterSpacing:'1.5px',fontFamily:'monospace' }}>
+                                            <span style={{ width:'6px',height:'6px',borderRadius:'50%',background:fg,boxShadow:`0 0 7px ${fg}` }} />
+                                            {hasW ? (
+                                                <>ACTIVE{searchResults.warrants.bench > 0 ? ` · B${searchResults.warrants.bench > 1 ? '×'+searchResults.warrants.bench : ''}` : ''}{searchResults.warrants.arrest > 0 ? ` · A${searchResults.warrants.arrest > 1 ? '×'+searchResults.warrants.arrest : ''}` : ''}</>
+                                            ) : 'CLEAR'}
+                                        </span>
+                                    </div>
+                                );
+                            })()}
 
                             {/* Spacer pushes action buttons to the bottom edge of the card */}
-                            <div style={{ flex:'1 1 auto',minHeight:'14px' }} data-spacer="true" />
+                            <div style={{ flex:'1 1 auto',minHeight:'12px' }} data-spacer="true" />
+
+                            {/* ACTIONS — one consistent compact button set, colour-coded by action */}
+                            <div style={{ color:'#475569',fontSize:'8px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'8px' }}>Actions</div>
 
                             <button onClick={async () => {
                                 if (!searchResults) { showCustomError('Error', 'No search results available.'); return; }
@@ -17751,11 +17764,16 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                 await generateCitation(tempResult, tempRegistration);
                             }}
                                 style={featureLocks.exportCitation
-                                    ? { width:'100%', marginTop:'10px', padding:'12px', background:'rgba(71,85,105,0.25)', border:'1px solid rgba(100,116,139,0.35)', borderRadius:'10px', color:'#64748b', fontSize:'13px', fontWeight:'700', cursor:'not-allowed', textTransform:'uppercase', letterSpacing:'0.5px' }
-                                    : { width: '100%', marginTop: '10px', padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', boxShadow: '0 4px 12px rgba(16,185,129,0.3)', transition: 'all 0.2s' }}
-                                onMouseEnter={e => { if (featureLocks.exportCitation) return; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(16,185,129,0.5)'; }}
-                                onMouseLeave={e => { if (featureLocks.exportCitation) return; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(16,185,129,0.3)'; }}>
-                                {featureLocks.exportCitation ? '🔒 EXPORT RESTRICTED' : 'EXPORT CITATION (NO REGISTRATION)'}
+                                    ? { width:'100%',marginBottom:'8px',padding:'10px 12px',borderRadius:'9px',fontSize:'11.5px',fontWeight:'800',cursor:'not-allowed',textTransform:'uppercase',letterSpacing:'1px',fontFamily:'monospace',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',background:'rgba(100,116,139,0.15)',border:'1px solid rgba(100,116,139,0.3)',color:'#64748b' }
+                                    : { width:'100%',marginBottom:'8px',padding:'10px 12px',borderRadius:'9px',fontSize:'11.5px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px',fontFamily:'monospace',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',background:'rgba(52,211,153,0.12)',border:'1px solid rgba(52,211,153,0.4)',color:'#6ee7b7',transition:'filter 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                                onMouseEnter={e => { if (featureLocks.exportCitation) return; e.currentTarget.style.filter='brightness(1.14)'; }}
+                                onMouseLeave={e => { if (featureLocks.exportCitation) return; e.currentTarget.style.filter=''; }}
+                                onMouseDown={e => { if (featureLocks.exportCitation) return; e.currentTarget.style.transform='scale(0.985)'; }}
+                                onMouseUp={e => { e.currentTarget.style.transform=''; }}>
+                                {featureLocks.exportCitation
+                                    ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                                    : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>}
+                                {featureLocks.exportCitation ? 'Export Restricted' : 'Export Citation · No Reg'}
                             </button>
 
                             <button onClick={async () => {
@@ -17768,21 +17786,28 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                 await generateArrestReport(completeOwnerData);
                             }}
                                 style={featureLocks.exportCitation
-                                    ? { width:'100%', marginTop:'10px', padding:'12px', background:'rgba(71,85,105,0.25)', border:'1px solid rgba(100,116,139,0.35)', borderRadius:'10px', color:'#64748b', fontSize:'13px', fontWeight:'700', cursor:'not-allowed', textTransform:'uppercase', letterSpacing:'0.5px' }
-                                    : { width: '100%', marginTop: '10px', padding: '12px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', borderRadius: '10px', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', boxShadow: '0 4px 12px rgba(239,68,68,0.3)', transition: 'all 0.2s' }}
-                                onMouseEnter={e => { if (featureLocks.exportCitation) return; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(239,68,68,0.5)'; }}
-                                onMouseLeave={e => { if (featureLocks.exportCitation) return; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(239,68,68,0.3)'; }}>
-                                {featureLocks.exportCitation ? '🔒 EXPORT RESTRICTED' : 'FILE ARREST REPORT'}
+                                    ? { width:'100%',marginBottom:'8px',padding:'10px 12px',borderRadius:'9px',fontSize:'11.5px',fontWeight:'800',cursor:'not-allowed',textTransform:'uppercase',letterSpacing:'1px',fontFamily:'monospace',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',background:'rgba(100,116,139,0.15)',border:'1px solid rgba(100,116,139,0.3)',color:'#64748b' }
+                                    : { width:'100%',marginBottom:'8px',padding:'10px 12px',borderRadius:'9px',fontSize:'11.5px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px',fontFamily:'monospace',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',background:'rgba(248,113,113,0.12)',border:'1px solid rgba(248,113,113,0.4)',color:'#fca5a5',transition:'filter 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1)' }}
+                                onMouseEnter={e => { if (featureLocks.exportCitation) return; e.currentTarget.style.filter='brightness(1.14)'; }}
+                                onMouseLeave={e => { if (featureLocks.exportCitation) return; e.currentTarget.style.filter=''; }}
+                                onMouseDown={e => { if (featureLocks.exportCitation) return; e.currentTarget.style.transform='scale(0.985)'; }}
+                                onMouseUp={e => { e.currentTarget.style.transform=''; }}>
+                                {featureLocks.exportCitation
+                                    ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                                    : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/><path d="M12 8v4M12 16h.01"/></svg>}
+                                {featureLocks.exportCitation ? 'Export Restricted' : 'File Arrest Report'}
                             </button>
 
                             {/* Copy the Discord record messaging format — paste straight into chat with Ctrl+V */}
                             {!isDispatcher && (
                                 <button onClick={() => copyRecordMessagingFormat(searchResults?.discordUserId, 'recordFmtCitizen')}
-                                    style={{ width:'100%',marginTop:'10px',padding:'12px',background: copiedField==='recordFmtCitizen' ? 'linear-gradient(135deg,#0ea5e9,#0369a1)' : 'linear-gradient(135deg,rgba(56,189,248,0.16),rgba(14,116,144,0.1))',border:'1px solid rgba(56,189,248,0.4)',borderRadius:'10px',color: copiedField==='recordFmtCitizen' ? '#fff' : '#7dd3fc',fontSize:'13px',fontWeight:'700',cursor:'pointer',textTransform:'uppercase',letterSpacing:'0.5px',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',transition:'all 0.2s' }}
-                                    onMouseEnter={e=>{ e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.boxShadow='0 6px 18px rgba(56,189,248,0.4)'; }}
-                                    onMouseLeave={e=>{ e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='none'; }}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                                    {copiedField==='recordFmtCitizen' ? '✓ Copied — paste with Ctrl + V' : 'Copy Record Messaging Format'}
+                                    style={{ width:'100%',padding:'10px 12px',borderRadius:'9px',fontSize:'11.5px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px',fontFamily:'monospace',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',background: copiedField==='recordFmtCitizen' ? 'rgba(56,189,248,0.28)' : 'rgba(56,189,248,0.12)',border:'1px solid rgba(56,189,248,0.4)',color:'#7dd3fc',transition:'filter 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1), background 160ms ease-out' }}
+                                    onMouseEnter={e=>{ e.currentTarget.style.filter='brightness(1.14)'; }}
+                                    onMouseLeave={e=>{ e.currentTarget.style.filter=''; }}
+                                    onMouseDown={e=>{ e.currentTarget.style.transform='scale(0.985)'; }}
+                                    onMouseUp={e=>{ e.currentTarget.style.transform=''; }}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                    {copiedField==='recordFmtCitizen' ? '✓ Copied — Ctrl + V to paste' : 'Copy Record Messaging Format'}
                                 </button>
                             )}
                         </div>
