@@ -17284,7 +17284,7 @@ return (
                             {/* RECORDS LIST — 1:1 artboard rows: date · type + penal codes · points · expand */}
                             {!plateGovLoading && plateGovRecords !== null && plateGovRecords.length > 0 && (
                                 <React.Fragment>
-                                <div style={{ flex:'1 1 auto',minHeight:0,maxHeight:'620px',overflowY:'auto',display:'flex',flexDirection:'column',gap:'10px',paddingRight:'2px' }}>
+                                <div style={{ flex:'1 1 auto',minHeight:0,overflowY:'auto',display:'flex',flexDirection:'column',gap:'10px',paddingRight:'2px' }}>
                                     {plateGovRecords.map((record, index) => {
                                         const isWarrantType = record.type === 'Bench Warrant' || record.type === 'Arrest Warrant';
                                         const tc = isWarrantType ? { fg:'#fca5a5', rgb:'239,68,68' }
@@ -17533,7 +17533,7 @@ return (
 )}
 {activeView === 'database-search' && (
     <div style={{ position:'fixed',top:'44px',left:0,right:0,bottom:0,display:'flex',flexDirection:'column',background:'#07090f',overflow:'hidden' }}>
-    <div style={{ flex:1,overflowY:'auto',padding:'20px',boxSizing:'border-box' }}>
+    <div style={{ flex:1,overflowY:'auto',padding:'20px',boxSizing:'border-box',display:'flex',flexDirection:'column' }}>
 
         {!tokenSaved ? (
             /* ── NO TOKEN WARNING ── */
@@ -17555,10 +17555,10 @@ return (
                 </button>
             </div>
         ) : (
-            <div>
+            <div style={{ display:'flex',flexDirection:'column',flex:'1 1 auto',minHeight:0 }}>
                 {/* ══════════ UI: CITIZEN LOOKUP ══════════ */}
-                <div style={{ background:'linear-gradient(180deg,rgba(30,58,138,0.22) 0%,rgba(10,16,30,0.6) 100%)',border:'1px solid rgba(56,189,248,0.2)',borderRadius:'14px',padding:'18px',marginBottom:'14px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 8px 28px -14px rgba(0,0,0,0.7)' }}>
-                    <div style={{ display:'flex',alignItems:'center',gap:'11px',marginBottom:'15px',paddingBottom:'13px',borderBottom:'1px solid rgba(56,189,248,0.14)' }}>
+                <div style={{ background:'linear-gradient(180deg,rgba(30,58,138,0.22) 0%,rgba(10,16,30,0.6) 100%)',border:'1px solid rgba(56,189,248,0.2)',borderRadius:'14px',marginBottom:'14px',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 8px 28px -14px rgba(0,0,0,0.7)' }}>
+                    <div style={{ display:'flex',alignItems:'center',gap:'11px',padding:'15px 16px',borderBottom:'1px solid rgba(56,189,248,0.16)',background:'linear-gradient(180deg,rgba(56,189,248,0.06),transparent)' }}>
                         <div style={{ width:'32px',height:'32px',borderRadius:'9px',background:'linear-gradient(135deg,rgba(34,211,238,0.9),rgba(37,99,235,0.6))',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 12px -3px rgba(37,99,235,0.6), inset 0 1px 0 rgba(255,255,255,0.3)' }}>
                             <Search size={15} style={{ color:'#fff' }} />
                         </div>
@@ -17567,6 +17567,7 @@ return (
                             <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px',marginTop:'1px' }}>Run a citizen record</div>
                         </div>
                     </div>
+                    <div style={{ padding:'16px' }}>
 
                     <div style={{ marginBottom: '12px' }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#94a3b8', fontSize: '10px', fontWeight: '700', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '1.5px', fontFamily:'monospace' }}>
@@ -17626,6 +17627,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                             </div>
                         </div>
                     )}
+                    </div>
                 </div>
 
                 {/* ── CITIZEN NOT FOUND ── */}
@@ -17645,7 +17647,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
 
                 {/* ── RESULTS ── */}
                 {searchResults && (
-                    <div className={`results-grid ${visualEffects ? 'pulse-animation' : ''}`} style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr)' }}>
+                    <div className={`results-grid ${visualEffects ? 'pulse-animation' : ''}`} style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr)', flex:'1 1 auto', minHeight:0 }}>
 
                         {/* ── OWNER BOX — citizen credential card ── */}
                         <div style={{ background:'linear-gradient(180deg,rgba(12,22,32,0.6),rgba(9,13,19,0.8))',border:'1px solid rgba(52,211,153,0.2)',borderRadius:'16px',overflow:'hidden',boxShadow:'0 10px 34px -16px rgba(0,0,0,0.8)',display:'flex',flexDirection:'column',minHeight:0 }}>
@@ -17922,7 +17924,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                             {/* RECORDS LIST — 1:1 artboard rows: date · type + penal codes · points · expand */}
                             {!plateGovLoading && plateGovRecords !== null && plateGovRecords.length > 0 && (
                                 <React.Fragment>
-                                <div style={{ flex:'1 1 auto',minHeight:0,maxHeight:'620px',overflowY:'auto',display:'flex',flexDirection:'column',gap:'10px',paddingRight:'2px' }}>
+                                <div style={{ flex:'1 1 auto',minHeight:0,overflowY:'auto',display:'flex',flexDirection:'column',gap:'10px',paddingRight:'2px' }}>
                                     {plateGovRecords.map((record, index) => {
                                         const isWarrantType = record.type === 'Bench Warrant' || record.type === 'Arrest Warrant';
                                         const tc = isWarrantType ? { fg:'#fca5a5', rgb:'239,68,68' }
@@ -18113,26 +18115,26 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px', maxHeight: '600px', overflowY: 'auto', padding:'16px', paddingRight:'14px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px', flex:'1 1 auto', minHeight:0, alignContent:'flex-start', overflowY: 'auto', padding:'16px', paddingRight:'14px' }}>
                                     {searchResults.vehicles.map((vehicle, index) => (
                                         <div
                                             key={index}
                                             onClick={() => setSelectedVehicleForCitation(vehicle)}
-                                            style={{ padding:'0',background:selectedVehicleForCitation===vehicle?'linear-gradient(180deg,rgba(16,185,129,0.18) 0%,rgba(5,150,105,0.08) 100%)':'rgba(0,0,0,0.25)',border:selectedVehicleForCitation===vehicle?'1px solid rgba(16,185,129,0.45)':'1px solid rgba(56,189,248,0.1)',borderRadius:'10px',cursor:'pointer',transition:'background 160ms ease-out, border-color 160ms ease-out, transform 160ms cubic-bezier(0.23,1,0.32,1)',position:'relative',overflow:'hidden',boxShadow:selectedVehicleForCitation===vehicle?'inset 0 1px 0 rgba(52,211,153,0.15), 0 0 16px rgba(16,185,129,0.08)':'inset 0 1px 0 rgba(56,189,248,0.04)' }}
-                                            onMouseEnter={e=>{ if(selectedVehicleForCitation!==vehicle){ e.currentTarget.style.background='rgba(56,189,253,0.06)'; e.currentTarget.style.borderColor='rgba(56,189,248,0.3)'; e.currentTarget.style.transform='translateY(-1px)'; } }}
-                                            onMouseLeave={e => { if (selectedVehicleForCitation !== vehicle) { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(15,23,42,0.8), rgba(30,58,138,0.1))'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.transform = 'translateY(0)'; } }}
+                                            style={{ padding:'0',background:selectedVehicleForCitation===vehicle?'linear-gradient(180deg,rgba(148,163,184,0.16) 0%,rgba(100,116,139,0.06) 100%)':'linear-gradient(180deg,rgba(30,37,48,0.5),rgba(12,16,22,0.6))',border:selectedVehicleForCitation===vehicle?'1px solid rgba(203,213,225,0.45)':'1px solid rgba(148,163,184,0.14)',borderRadius:'10px',cursor:'pointer',transition:'background 160ms ease-out, border-color 160ms ease-out, transform 160ms cubic-bezier(0.23,1,0.32,1)',position:'relative',overflow:'hidden',boxShadow:selectedVehicleForCitation===vehicle?'inset 0 1px 0 rgba(203,213,225,0.15), 0 0 16px rgba(148,163,184,0.08)':'inset 0 1px 0 rgba(148,163,184,0.05)' }}
+                                            onMouseEnter={e=>{ if(selectedVehicleForCitation!==vehicle){ e.currentTarget.style.background='rgba(148,163,184,0.1)'; e.currentTarget.style.borderColor='rgba(148,163,184,0.32)'; e.currentTarget.style.transform='translateY(-1px)'; } }}
+                                            onMouseLeave={e => { if (selectedVehicleForCitation !== vehicle) { e.currentTarget.style.background = 'linear-gradient(180deg,rgba(30,37,48,0.5),rgba(12,16,22,0.6))'; e.currentTarget.style.borderColor = 'rgba(148,163,184,0.14)'; e.currentTarget.style.transform = 'translateY(0)'; } }}
                                         >
                                             {selectedVehicleForCitation === vehicle && (
-                                                <div style={{ position: 'absolute', top: '12px', right: '12px', width: '24px', height: '24px', background: 'linear-gradient(135deg, #10b981, #059669)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '12px', fontWeight: 'bold', zIndex: 2 }}>✓</div>
+                                                <div style={{ position: 'absolute', top: '12px', right: '12px', width: '24px', height: '24px', background: 'linear-gradient(135deg, #e2e8f0, #94a3b8)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0b1016', fontSize: '12px', fontWeight: 'bold', zIndex: 2 }}>✓</div>
                                             )}
 
                                             {/* Plate Display */}
-                                            <div style={{ background:'radial-gradient(ellipse at 50% 50%, rgba(16,185,129,0.18) 0%, rgba(6,78,59,0.4) 70%)', borderBottom:'1px solid rgba(52,211,153,0.3)', borderRadius:'11px 11px 0 0', padding:'16px', textAlign:'center', position:'relative', overflow:'hidden' }}>
+                                            <div style={{ background:'radial-gradient(ellipse at 50% 50%, rgba(148,163,184,0.16) 0%, rgba(30,41,59,0.55) 70%)', borderBottom:'1px solid rgba(148,163,184,0.25)', borderRadius:'11px 11px 0 0', padding:'16px', textAlign:'center', position:'relative', overflow:'hidden' }}>
                                                 <div style={{ position:'absolute',inset:0,background:'repeating-linear-gradient(180deg,transparent 0px,transparent 3px,rgba(255,255,255,0.015) 3px,rgba(255,255,255,0.015) 4px)',pointerEvents:'none' }} />
                                                 <div style={{ position:'relative' }}>
-                                                    <div style={{ fontSize:'9px', color:'#6ee7b7', fontWeight:'800', marginBottom:'5px', letterSpacing:'3px', fontFamily:'monospace' }}>LICENSE PLATE</div>
-                                                    <div style={{ fontSize:'28px', fontWeight:'900', color:'white', letterSpacing:'6px', fontFamily:'monospace', textShadow:'0 2px 12px rgba(16,185,129,0.4)' }}>{vehicle.plate}</div>
-                                                    <div style={{ fontSize:'11px', color:'#a7f3d0', fontWeight:'700', marginTop:'6px', letterSpacing:'2px', fontFamily:'monospace' }}>{vehicle.state}</div>
+                                                    <div style={{ fontSize:'9px', color:'#cbd5e1', fontWeight:'800', marginBottom:'5px', letterSpacing:'3px', fontFamily:'monospace' }}>LICENSE PLATE</div>
+                                                    <div style={{ fontSize:'28px', fontWeight:'900', color:'white', letterSpacing:'6px', fontFamily:'monospace', textShadow:'0 2px 12px rgba(0,0,0,0.55)' }}>{vehicle.plate}</div>
+                                                    <div style={{ fontSize:'11px', color:'#94a3b8', fontWeight:'700', marginTop:'6px', letterSpacing:'2px', fontFamily:'monospace' }}>{vehicle.state}</div>
                                                 </div>
                                             </div>
 
@@ -18144,9 +18146,9 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                                     { label: 'COLOR', value: vehicle.color, icon:<><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 22a10 10 0 110-20 8 8 0 018 8c0 2-1 3-3 3h-2a2 2 0 00-1 4 2 2 0 01-1 5z"/></> },
                                                     { label: 'PHONETIC', value: vehicle.phoneticPlate || '-', mono:true, icon:<path d="M3 10v4M7 6v12M11 3v18M15 7v10M19 10v4"/> },
                                                 ].map(({ label, value, sub, icon, mono }) => (
-                                                    <div key={label} style={{ background:'rgba(4,8,18,0.5)', border:'1px solid rgba(96,165,250,0.12)', borderRadius:'9px', padding:'10px 12px' }}>
+                                                    <div key={label} style={{ background:'rgba(10,14,20,0.5)', border:'1px solid rgba(148,163,184,0.12)', borderRadius:'9px', padding:'10px 12px' }}>
                                                         <div style={{ display:'flex',alignItems:'center',gap:'5px',marginBottom:'5px' }}>
-                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{icon}</svg>
+                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{icon}</svg>
                                                             <div style={{ fontSize:'8px', color:'#64748b', fontWeight:'800', letterSpacing:'1.5px', fontFamily:'monospace' }}>{label}</div>
                                                         </div>
                                                         <div style={{ fontSize: mono?'12px':'13px', color:'#f1f5f9', fontWeight:'700', fontFamily: mono?'monospace':'inherit', letterSpacing: mono?'1px':'normal' }}>{value}</div>
@@ -18155,8 +18157,8 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                                 ))}
                                             </div>
 
-                                            <div style={{ margin: '0 12px 12px', background: 'rgba(16,185,129,0.06)', borderRadius: '8px', padding: '8px 12px' }}>
-                                                <div style={{ fontSize: '11px', color: '#6ee7b7', fontWeight: '600' }}>
+                                            <div style={{ margin: '0 12px 12px', background: 'rgba(148,163,184,0.06)', borderRadius: '8px', padding: '8px 12px' }}>
+                                                <div style={{ fontSize: '11px', color: '#cbd5e1', fontWeight: '600' }}>
                                                     {vehicle.isEdited ? 'Last Edited: ' : 'Registered: '}
                                                     <span style={{ color: 'white', fontWeight: '700' }}>{vehicle.timestamp ? new Date(vehicle.timestamp).toLocaleString() : 'N/A'}</span>
                                                 </div>
