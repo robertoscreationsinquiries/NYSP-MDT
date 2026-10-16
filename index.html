@@ -17690,8 +17690,32 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                         </div>
                                     </div>
 
-                                    {/* STANDING — License · CDL · Warrant, identical panels */}
+                                    {/* IDENTIFIERS */}
                                     <div style={{ padding:'0 16px' }}>
+                                        <div style={{ display:'flex',alignItems:'center',gap:'9px',marginBottom:'10px' }}>
+                                            <span style={{ color:'#64748b',fontSize:'9px',fontWeight:'800',letterSpacing:'2px',fontFamily:'monospace' }}>IDENTIFIERS</span>
+                                            <span style={{ flex:1,height:'1px',background:'rgba(148,163,184,0.12)' }} />
+                                        </div>
+                                        <div style={{ display:'grid',gridTemplateColumns:'repeat(2, minmax(0, 1fr))',gap:'9px' }}>
+                                            <div style={{ background:'rgba(255,255,255,0.025)',border:'1px solid rgba(148,163,184,0.1)',borderRadius:'11px',padding:'10px 12px',minWidth:0 }}>
+                                                <div style={{ color:'#5b6b7f',fontSize:'8px',fontWeight:'800',letterSpacing:'1.4px',textTransform:'uppercase',fontFamily:'monospace' }}>Citizen-ID</div>
+                                                <div style={{ display:'flex',alignItems:'center',gap:'7px',marginTop:'6px',minWidth:0 }}>
+                                                    <span style={{ color:'#cbd5e1',fontSize:'11px',fontWeight:'600',fontFamily:'monospace',fontVariantNumeric:'tabular-nums',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{searchResults.robloxUser?.userId || 'UNKNOWN'}</span>
+                                                    <button className="copy-btn btn-ripple" onClick={() => copyToClipboard(searchResults.robloxUser?.userId, 'roblox')} style={{ flexShrink:0 }}>{copiedField === 'roblox' ? '✓' : '⧉'}</button>
+                                                </div>
+                                            </div>
+                                            <div style={{ background:'rgba(255,255,255,0.025)',border:'1px solid rgba(148,163,184,0.1)',borderRadius:'11px',padding:'10px 12px',minWidth:0 }}>
+                                                <div style={{ color:'#5b6b7f',fontSize:'8px',fontWeight:'800',letterSpacing:'1.4px',textTransform:'uppercase',fontFamily:'monospace' }}>Contact-ID</div>
+                                                <div style={{ display:'flex',alignItems:'center',gap:'7px',marginTop:'6px',minWidth:0 }}>
+                                                    <span style={{ color:'#cbd5e1',fontSize:'11px',fontWeight:'600',fontFamily:'monospace',fontVariantNumeric:'tabular-nums',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{searchResults?.discordUserId || 'UNKNOWN'}</span>
+                                                    <button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }} style={{ flexShrink:0 }}>{copiedField === 'discord' ? '✓' : '⧉'}</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* STANDING — License · CDL · Warrant, identical panels */}
+                                    <div style={{ padding:'16px 16px 0' }}>
                                         <div style={{ display:'flex',alignItems:'center',gap:'9px',marginBottom:'10px' }}>
                                             <span style={{ color:'#64748b',fontSize:'9px',fontWeight:'800',letterSpacing:'2px',fontFamily:'monospace' }}>STANDING</span>
                                             <span style={{ flex:1,height:'1px',background:'rgba(148,163,184,0.12)' }} />
@@ -17740,30 +17764,6 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                                     </div>
                                                 );
                                             })()}
-                                        </div>
-                                    </div>
-
-                                    {/* IDENTIFIERS */}
-                                    <div style={{ padding:'16px 16px 0' }}>
-                                        <div style={{ display:'flex',alignItems:'center',gap:'9px',marginBottom:'10px' }}>
-                                            <span style={{ color:'#64748b',fontSize:'9px',fontWeight:'800',letterSpacing:'2px',fontFamily:'monospace' }}>IDENTIFIERS</span>
-                                            <span style={{ flex:1,height:'1px',background:'rgba(148,163,184,0.12)' }} />
-                                        </div>
-                                        <div style={{ display:'grid',gridTemplateColumns:'repeat(2, minmax(0, 1fr))',gap:'9px' }}>
-                                            <div style={{ background:'rgba(255,255,255,0.025)',border:'1px solid rgba(148,163,184,0.1)',borderRadius:'11px',padding:'10px 12px',minWidth:0 }}>
-                                                <div style={{ color:'#5b6b7f',fontSize:'8px',fontWeight:'800',letterSpacing:'1.4px',textTransform:'uppercase',fontFamily:'monospace' }}>Citizen-ID</div>
-                                                <div style={{ display:'flex',alignItems:'center',gap:'7px',marginTop:'6px',minWidth:0 }}>
-                                                    <span style={{ color:'#cbd5e1',fontSize:'11px',fontWeight:'600',fontFamily:'monospace',fontVariantNumeric:'tabular-nums',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{searchResults.robloxUser?.userId || 'UNKNOWN'}</span>
-                                                    <button className="copy-btn btn-ripple" onClick={() => copyToClipboard(searchResults.robloxUser?.userId, 'roblox')} style={{ flexShrink:0 }}>{copiedField === 'roblox' ? '✓' : '⧉'}</button>
-                                                </div>
-                                            </div>
-                                            <div style={{ background:'rgba(255,255,255,0.025)',border:'1px solid rgba(148,163,184,0.1)',borderRadius:'11px',padding:'10px 12px',minWidth:0 }}>
-                                                <div style={{ color:'#5b6b7f',fontSize:'8px',fontWeight:'800',letterSpacing:'1.4px',textTransform:'uppercase',fontFamily:'monospace' }}>Contact-ID</div>
-                                                <div style={{ display:'flex',alignItems:'center',gap:'7px',marginTop:'6px',minWidth:0 }}>
-                                                    <span style={{ color:'#cbd5e1',fontSize:'11px',fontWeight:'600',fontFamily:'monospace',fontVariantNumeric:'tabular-nums',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{searchResults?.discordUserId || 'UNKNOWN'}</span>
-                                                    <button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }} style={{ flexShrink:0 }}>{copiedField === 'discord' ? '✓' : '⧉'}</button>
-                                                </div>
-                                            </div>
                                         </div>
                                     </div>
                                 </>
@@ -18061,7 +18061,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                         </div>
 
                         {/* ── VEHICLE REGISTRATION WARNING ── */}
-                        {searchResults.vehicleErrorMessage && (
+                        {searchResults.vehicleErrorMessage && !searchResults.noRegistrationFound && (
                             <div style={{ gridColumn:'1 / -1', padding: '20px 24px', background: 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.1))', border: '1px solid rgba(239,68,68,0.35)', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '16px', boxShadow: '0 4px 16px rgba(239,68,68,0.15)', animation: visualEffects ? 'pulse-glow-red-subtle 2s infinite' : 'none' }}>
                                 <div style={{ width: '48px', height: '48px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(239,68,68,0.4)', fontSize: '22px' }}>
                                     {searchResults.noRegistrationFound ? '📭' : '⚠️'}
@@ -18074,7 +18074,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                         )}
 
 {/* ── NO VEHICLES — empty state fills the column to the right of Government Records (artboard) ── */}
-{!(searchResults.vehicles?.length > 0 || searchResults.failedVehicleRaw?.length > 0) && !searchResults.vehicleErrorMessage && (
+{!(searchResults.vehicles?.length > 0 || searchResults.failedVehicleRaw?.length > 0) && (
                             <div style={{ display:'flex',flexDirection:'column',minHeight:0,background:'linear-gradient(180deg,rgba(20,26,36,0.6),rgba(8,13,18,0.7))',border:'1px solid rgba(148,163,184,0.16)',borderRadius:'14px',overflow:'hidden',boxShadow:'0 8px 28px -14px rgba(0,0,0,0.7)' }}>
                                 <div style={{ display:'flex',alignItems:'center',gap:'11px',padding:'15px 16px',borderBottom:'1px solid rgba(148,163,184,0.12)',background:'linear-gradient(180deg,rgba(148,163,184,0.05),transparent)',flexShrink:0 }}>
                                     <div style={{ width:'32px',height:'32px',borderRadius:'9px',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(135deg,#94a3b8,#475569)' }}>
@@ -18098,22 +18098,22 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
 )}
 {/* ── REGISTERED VEHICLES ── */}
 {(searchResults.vehicles?.length > 0 || searchResults.failedVehicleRaw?.length > 0) && (
-                            <div style={{ background:'linear-gradient(180deg,rgba(30,58,138,0.22) 0%,rgba(10,16,30,0.6) 100%)',border:'1px solid rgba(96,165,250,0.2)',borderRadius:'14px',padding:'18px',boxShadow:'inset 0 1px 0 rgba(96,165,250,0.08), 0 8px 28px -14px rgba(0,0,0,0.7)' }}>
-                                <div style={{ display:'flex',alignItems:'center',gap:'11px',marginBottom:'15px',paddingBottom:'13px',borderBottom:'1px solid rgba(96,165,250,0.14)',flexWrap:'wrap' }}>
-                                    <div style={{ width:'32px',height:'32px',borderRadius:'9px',background:'linear-gradient(135deg,rgba(34,211,238,0.9),rgba(37,99,235,0.6))',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 12px -3px rgba(37,99,235,0.6), inset 0 1px 0 rgba(255,255,255,0.3)' }}>
-                                        <Car size={16} style={{ color:'#fff' }} />
+                            <div style={{ display:'flex',flexDirection:'column',minHeight:0,background:'linear-gradient(180deg,rgba(20,26,36,0.6),rgba(8,13,18,0.7))',border:'1px solid rgba(148,163,184,0.16)',borderRadius:'14px',overflow:'hidden',boxShadow:'0 8px 28px -14px rgba(0,0,0,0.7)' }}>
+                                <div style={{ display:'flex',alignItems:'center',gap:'11px',padding:'15px 16px',borderBottom:'1px solid rgba(148,163,184,0.12)',background:'linear-gradient(180deg,rgba(148,163,184,0.05),transparent)',flexWrap:'wrap',flexShrink:0 }}>
+                                    <div style={{ width:'32px',height:'32px',borderRadius:'9px',background:'linear-gradient(135deg,#94a3b8,#475569)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 12px -3px rgba(71,85,105,0.6), inset 0 1px 0 rgba(255,255,255,0.2)' }}>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0b1016" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17h14M6 17l1.5-4.5a2 2 0 011.9-1.5h5.2a2 2 0 011.9 1.5L19 17M6 17v2M18 17v2"/><rect x="2" y="7" width="20" height="4" rx="1"/></svg>
                                     </div>
                                     <div>
                                         <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
-                                            <span style={{ color:'#93c5fd',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace' }}>Registered Vehicles</span>
-                                            <span style={{ padding:'1px 8px',background:'rgba(96,165,250,0.14)',border:'1px solid rgba(96,165,250,0.3)',borderRadius:'999px',color:'#93c5fd',fontSize:'10px',fontWeight:'800',fontFamily:'monospace' }}>{(searchResults.vehicles?.length || 0) + (searchResults.failedVehicleRaw?.length || 0)}</span>
+                                            <span style={{ color:'#cbd5e1',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace' }}>Registered Vehicles</span>
+                                            <span style={{ padding:'1px 8px',background:'rgba(148,163,184,0.14)',border:'1px solid rgba(148,163,184,0.3)',borderRadius:'999px',color:'#cbd5e1',fontSize:'10px',fontWeight:'800',fontFamily:'monospace' }}>{(searchResults.vehicles?.length || 0) + (searchResults.failedVehicleRaw?.length || 0)}</span>
                                             {searchResults.failedVehicleRaw?.length > 0 && <span style={{ background:'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,0.3)',borderRadius:'999px',padding:'2px 9px',color:'#fbbf24',fontSize:'9px',fontWeight:'800',letterSpacing:'1px',textTransform:'uppercase',fontFamily:'monospace' }}>⚠ {searchResults.failedVehicleRaw.length} Improper</span>}
                                         </div>
                                         <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px',marginTop:'2px' }}>Click a vehicle to select it for citation</div>
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px', maxHeight: '600px', overflowY: 'auto', paddingRight:'2px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px', maxHeight: '600px', overflowY: 'auto', padding:'16px', paddingRight:'14px' }}>
                                     {searchResults.vehicles.map((vehicle, index) => (
                                         <div
                                             key={index}
@@ -18213,6 +18213,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
 
                                 {/* Citation with selected vehicle */}
                                 {selectedVehicleForCitation && !isDispatcher && (
+                                    <div style={{ padding:'0 16px 16px' }}>
                                     <button onClick={async () => {
                                         if (!searchResults || !selectedVehicleForCitation) { showCustomError('Error', 'Please select a vehicle first.'); return; }
                                         const tempResult = searchResults.robloxUser || { username: 'UNKNOWN', userId: 'UNKNOWN', displayName: 'UNKNOWN', joinDate: 'UNKNOWN' };
@@ -18225,6 +18226,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                         onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(16,185,129,0.4)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
                                         EXPORT PRE-FILLED CITATION (WITH REGISTRATION)
                                     </button>
+                                    </div>
                                 )}
                             </div>
                         )}
