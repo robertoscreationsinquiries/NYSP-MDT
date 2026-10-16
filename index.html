@@ -2266,6 +2266,173 @@ const WarrantDots = () => {
     return <span>WARRANT: {'.'.repeat(dots)}</span>;
 };
 
+// ── CDL (Commercial Driver's License) — live lookup against the ORCR DOT API ──
+// Phase → colour: searching=yellow, none=grey, active=green, suspended/revoked=red.
+// The row is clickable (opens the detail modal via onOpen) ONLY when a record is
+// found (green/red). Results are cached per-username for 60s so flipping between the
+// plate/citizen tabs doesn't re-hit the API, while still catching status changes.
+const CDL_API_BASE = 'https://orcrdot.com/api/v2/records?username=';
+const cdlCache = {}; // lowercaseUsername -> { phase, data, ts }
+const CDL_TTL_MS = 60 * 1000;
+
+const CDLBadge = ({ username, onOpen }) => {
+    const uname = (username || '').trim();
+    const key = uname.toLowerCase();
+    const fresh = cdlCache[key] && (Date.now() - cdlCache[key].ts) < CDL_TTL_MS ? cdlCache[key] : null;
+    const [phase, setPhase] = React.useState(() => fresh ? fresh.phase : 'idle');
+    const [data, setData]   = React.useState(() => fresh ? fresh.data  : null);
+
+    React.useEffect(() => {
+        if (!uname || uname.toUpperCase() === 'UNKNOWN') { setPhase('none'); setData(null); return; }
+        const cached = cdlCache[key] && (Date.now() - cdlCache[key].ts) < CDL_TTL_MS ? cdlCache[key] : null;
+        if (cached) { setPhase(cached.phase); setData(cached.data); return; }
+        let cancelled = false;
+        setPhase('searching'); setData(null);
+        (async () => {
+            let outcome;
+            try {
+                const resp = await fetch(CDL_API_BASE + encodeURIComponent(uname), { headers: { 'Accept': 'application/json' } });
+                const json = await resp.json().catch(() => null);
+                const rec = json && json.record ? json.record : null;
+                if (!rec || (json && json.error)) {
+                    outcome = { phase: 'none', data: null };
+                } else {
+                    const status = (rec.record && rec.record.status) || '';
+                    const tone   = (rec.record && rec.record.tone) || '';
+                    const active = tone === 'success' || /^active$/i.test(status);
+                    outcome = { phase: active ? 'active' : 'suspended', data: rec };
+                }
+            } catch (e) {
+                // Unreachable / network error → treat as "searched, nothing found" (grey).
+                outcome = { phase: 'none', data: null };
+            }
+            cdlCache[key] = { ...outcome, ts: Date.now() };
+            if (!cancelled) { setPhase(outcome.phase); setData(outcome.data); }
+        })();
+        return () => { cancelled = true; };
+    }, [key]);
+
+    const cfg = phase === 'searching'
+        ? { rgb:'245,158,11', fg:'#fbbf24', label:'SEARCHING', pulse:true, glow:true }
+        : phase === 'active'
+        ? { rgb:'52,211,153', fg:'#34d399', label: (data?.record?.status || 'ACTIVE').toUpperCase(), glow:true }
+        : phase === 'suspended'
+        ? { rgb:'239,68,68',  fg:'#f87171', label: (data?.record?.status || 'SUSPENDED').toUpperCase(), glow:true }
+        : { rgb:'100,116,139', fg:'#64748b', label:'NO CDL', glow:false };
+
+    const clickable = (phase === 'active' || phase === 'suspended') && !!data;
+    const cls = data?.holder?.cls;
+
+    return (
+        <div onClick={() => { if (clickable) onOpen(data); }}
+            title={clickable ? 'View CDL record' : (phase === 'searching' ? 'Checking CDL…' : 'No CDL on file')}
+            style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',padding:'10px 14px',marginBottom:'8px',background:`rgba(${cfg.rgb},0.08)`,border:`1px solid rgba(${cfg.rgb},0.28)`,borderRadius:'9px',boxShadow:`inset 0 1px 0 rgba(${cfg.rgb},0.1)`,cursor:clickable?'pointer':'default',transition:'background 160ms ease-out, border-color 160ms ease-out' }}
+            onMouseEnter={e=>{ if(clickable){ e.currentTarget.style.background=`rgba(${cfg.rgb},0.15)`; e.currentTarget.style.borderColor=`rgba(${cfg.rgb},0.45)`; } }}
+            onMouseLeave={e=>{ if(clickable){ e.currentTarget.style.background=`rgba(${cfg.rgb},0.08)`; e.currentTarget.style.borderColor=`rgba(${cfg.rgb},0.28)`; } }}>
+            <div style={{ display:'flex',alignItems:'center',gap:'9px' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={cfg.fg} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17h14M6 17l1.5-4.5a2 2 0 011.9-1.5h5.2a2 2 0 011.9 1.5L19 17M6 17v2M18 17v2"/><rect x="2" y="6" width="20" height="4" rx="1"/></svg>
+                <span style={{ color:'#94a3b8',fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>CDL{cls && clickable ? ` · ${cls}` : ''}</span>
+            </div>
+            <span style={{ display:'flex',alignItems:'center',gap:'7px',color:cfg.fg,fontSize:'11px',fontWeight:'900',letterSpacing:'1.5px',fontFamily:'monospace' }}>
+                <span style={{ width:'6px',height:'6px',borderRadius:'50%',background:cfg.fg,boxShadow:cfg.glow?`0 0 7px ${cfg.fg}`:'none',animation:cfg.pulse?'pulse 1s infinite':'none' }} />
+                {cfg.label}{clickable ? ' ›' : ''}
+            </span>
+        </div>
+    );
+};
+
+// Detail popup for a found CDL record (the `record` object returned by the API).
+const CDLModal = ({ record, onClose }) => {
+    if (!record) return null;
+    const h = record.holder || {};
+    const r = record.record || {};
+    const active = (r.tone === 'success') || /^active$/i.test(r.status || '');
+    const accent = active ? { rgb:'52,211,153', fg:'#34d399' } : { rgb:'239,68,68', fg:'#f87171' };
+    const events = Array.isArray(r.visibleEvents) ? r.visibleEvents : [];
+    const Field = ({ label, value }) => (
+        <div style={{ display:'flex',flexDirection:'column',gap:'3px',minWidth:0 }}>
+            <span style={{ color:'#64748b',fontSize:'8px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>{label}</span>
+            <span style={{ color:'#e2e8f0',fontSize:'12px',fontWeight:'700',fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{value || '—'}</span>
+        </div>
+    );
+    return (
+        <div onClick={e=>{ if(e.target===e.currentTarget) onClose(); }}
+            style={{ position:'fixed',inset:0,zIndex:100065,background:'rgba(2,5,12,0.82)',backdropFilter:'blur(6px)',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px',animation:'fadeIn 200ms ease-out' }}>
+            <div style={{ width:'100%',maxWidth:'480px',maxHeight:'88vh',display:'flex',flexDirection:'column',background:'linear-gradient(160deg,#0a0f1e,#0d1117)',border:`1px solid rgba(${accent.rgb},0.35)`,borderRadius:'16px',overflow:'hidden',boxShadow:`0 24px 80px rgba(0,0,0,0.7), 0 0 40px rgba(${accent.rgb},0.12)` }}>
+                {/* Header */}
+                <div style={{ display:'flex',alignItems:'center',gap:'12px',padding:'18px 20px',borderBottom:`1px solid rgba(${accent.rgb},0.2)`,background:`rgba(${accent.rgb},0.06)`,flexShrink:0 }}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={accent.fg} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17h14M6 17l1.5-4.5a2 2 0 011.9-1.5h5.2a2 2 0 011.9 1.5L19 17M6 17v2M18 17v2"/><rect x="2" y="6" width="20" height="4" rx="1"/></svg>
+                    <div style={{ flex:1,minWidth:0 }}>
+                        <div style={{ color:'#f1f5f9',fontSize:'14px',fontWeight:'900',letterSpacing:'1px',fontFamily:'monospace' }}>COMMERCIAL DRIVER'S LICENSE</div>
+                        <div style={{ color:accent.fg,fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace',marginTop:'3px',display:'flex',alignItems:'center',gap:'6px' }}>
+                            <span style={{ width:'6px',height:'6px',borderRadius:'50%',background:accent.fg,boxShadow:`0 0 7px ${accent.fg}` }} />
+                            {(r.status || (active ? 'ACTIVE' : 'INACTIVE')).toUpperCase()}{h.cls ? ` · CLASS ${h.cls}` : ''}
+                        </div>
+                    </div>
+                    <button onClick={onClose} title="Close" style={{ width:'30px',height:'30px',borderRadius:'8px',background:'rgba(148,163,184,0.1)',border:'1px solid rgba(148,163,184,0.25)',color:'#94a3b8',cursor:'pointer',fontSize:'13px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0 }}
+                        onMouseEnter={e=>{ e.currentTarget.style.color='#e2e8f0'; e.currentTarget.style.borderColor='rgba(226,232,240,0.5)'; }}
+                        onMouseLeave={e=>{ e.currentTarget.style.color='#94a3b8'; e.currentTarget.style.borderColor='rgba(148,163,184,0.25)'; }}>✕</button>
+                </div>
+                {/* Body */}
+                <div style={{ padding:'18px 20px',overflowY:'auto' }}>
+                    <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'13px 16px',marginBottom:'16px' }}>
+                        <Field label="Holder" value={h.username} />
+                        <Field label="USDOT #" value={h.usdot} />
+                        <Field label="Class" value={h.cls ? `Class ${h.cls}` : null} />
+                        <Field label="Issued" value={h.issued || r.issued} />
+                        <Field label="Roblox ID" value={h.robloxId} />
+                        <Field label="Discord ID" value={h.discordId} />
+                    </div>
+                    <div style={{ marginBottom:'14px' }}>
+                        <span style={{ color:'#64748b',fontSize:'8px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Endorsements</span>
+                        <div style={{ display:'flex',flexWrap:'wrap',gap:'6px',marginTop:'6px' }}>
+                            {(Array.isArray(h.endorsements) && h.endorsements.length) ? h.endorsements.map((e,i)=>(
+                                <span key={i} style={{ padding:'3px 9px',borderRadius:'6px',background:'rgba(56,189,248,0.1)',border:'1px solid rgba(56,189,248,0.3)',color:'#7dd3fc',fontSize:'11px',fontWeight:'800',fontFamily:'monospace',letterSpacing:'1px' }}>{e}</span>
+                            )) : <span style={{ color:'#475569',fontSize:'11px',fontFamily:'monospace' }}>None</span>}
+                        </div>
+                    </div>
+                    {Array.isArray(h.previouslyHeld) && h.previouslyHeld.length > 0 && (
+                        <div style={{ marginBottom:'14px' }}>
+                            <span style={{ color:'#64748b',fontSize:'8px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>Previously Held</span>
+                            <div style={{ display:'flex',flexWrap:'wrap',gap:'6px',marginTop:'6px' }}>
+                                {h.previouslyHeld.map((e,i)=>(<span key={i} style={{ padding:'3px 9px',borderRadius:'6px',background:'rgba(148,163,184,0.08)',border:'1px solid rgba(148,163,184,0.2)',color:'#94a3b8',fontSize:'11px',fontWeight:'700',fontFamily:'monospace' }}>{typeof e==='string'?e:JSON.stringify(e)}</span>))}
+                            </div>
+                        </div>
+                    )}
+                    {r.scheduled && (
+                        <div style={{ marginBottom:'14px',padding:'10px 12px',borderRadius:'9px',background:'rgba(245,158,11,0.08)',border:'1px solid rgba(245,158,11,0.3)',color:'#fbbf24',fontSize:'11px',fontFamily:'monospace',lineHeight:1.5 }}>
+                            ⏳ Scheduled: {typeof r.scheduled==='string'?r.scheduled:JSON.stringify(r.scheduled)}
+                        </div>
+                    )}
+                    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'8px' }}>
+                        <span style={{ color:'#64748b',fontSize:'8px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>History</span>
+                        <span style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace' }}>{r.actionCount != null ? `${r.actionCount} action(s)` : `${events.length} event(s)`}</span>
+                    </div>
+                    <div style={{ display:'flex',flexDirection:'column',gap:'7px' }}>
+                        {events.length ? events.map((ev)=>{
+                            const bad = ev.standing && ev.standing !== 'active';
+                            const ergb = bad ? '239,68,68' : '100,116,139';
+                            return (
+                                <div key={ev.id} style={{ padding:'9px 11px',borderRadius:'8px',background:'rgba(0,0,0,0.25)',border:`1px solid rgba(${ergb},0.22)`,borderLeft:`3px solid rgba(${ergb},0.7)` }}>
+                                    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',marginBottom:'3px' }}>
+                                        <span style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'800',fontFamily:'monospace',letterSpacing:'0.5px' }}>{ev.action}</span>
+                                        <span style={{ color:'#64748b',fontSize:'9px',fontFamily:'monospace',flexShrink:0 }}>{ev.dateKey}</span>
+                                    </div>
+                                    {ev.reasoning && <div style={{ color:'#94a3b8',fontSize:'10px',lineHeight:1.5,fontFamily:'monospace',marginBottom:'2px' }}>{ev.reasoning}</div>}
+                                    <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace' }}>{ev.branch}{ev.standing?` · ${ev.standing}`:''}</div>
+                                </div>
+                            );
+                        }) : <div style={{ color:'#475569',fontSize:'11px',fontFamily:'monospace',textAlign:'center',padding:'14px' }}>No recorded events.</div>}
+                    </div>
+                </div>
+                <div style={{ padding:'10px 20px',borderTop:'1px solid rgba(255,255,255,0.05)',textAlign:'center',flexShrink:0 }}>
+                    <span style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px' }}>Data via ORCR DOT{record.today ? ` · as of ${record.today}` : ''}</span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const ToggleRow = ({ label, desc, on, accent, onToggle }) => {
             const A = '56,189,248'; // unified cyan accent for all toggles
             return (
@@ -3156,6 +3323,8 @@ React.useEffect(() => {
 
 const [showQuitConfirm, setShowQuitConfirm] = useState(false);
 const [boloLightboxImage, setBoloLightboxImage] = useState(null);
+// CDL detail popup — holds the API `record` object of the currently-opened CDL.
+const [cdlModal, setCdlModal] = useState(null);
 const [boloLightboxZoom, setBoloLightboxZoom] = useState(1);
 // Reset zoom whenever the BOLO lightbox opens/closes on a new image.
 React.useEffect(() => { setBoloLightboxZoom(1); }, [boloLightboxImage]);
@@ -14998,6 +15167,9 @@ return (
     );
 })()}
 
+{/* CDL detail popup — opened from a green/red CDL badge in either search tab */}
+{cdlModal && <CDLModal record={cdlModal} onClose={() => setCdlModal(null)} />}
+
 {!maintenanceActive && !showUpdateScreen && !showLoginScreen && !showLoader && (
         <div className="app-container">
 
@@ -16712,17 +16884,8 @@ return (
                                         );
                                     })()}
 
-                                    {/* CDL — Commercial Driver's License. Static display (no data source yet) — always Inactive. */}
-                                    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',padding:'10px 14px',marginBottom:'8px',background:'rgba(100,116,139,0.08)',border:'1px solid rgba(100,116,139,0.25)',borderRadius:'9px',boxShadow:'inset 0 1px 0 rgba(148,163,184,0.08)' }}>
-                                        <div style={{ display:'flex',alignItems:'center',gap:'9px' }}>
-                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17h14M6 17l1.5-4.5a2 2 0 011.9-1.5h5.2a2 2 0 011.9 1.5L19 17M6 17v2M18 17v2"/><rect x="2" y="6" width="20" height="4" rx="1"/></svg>
-                                            <span style={{ color:'#94a3b8',fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>CDL</span>
-                                        </div>
-                                        <span style={{ display:'flex',alignItems:'center',gap:'7px',color:'#64748b',fontSize:'11px',fontWeight:'900',letterSpacing:'1.5px',fontFamily:'monospace' }}>
-                                            <span style={{ width:'6px',height:'6px',borderRadius:'50%',background:'#64748b' }} />
-                                            INACTIVE
-                                        </span>
-                                    </div>
+                                    {/* CDL — Commercial Driver's License. Live lookup against the ORCR DOT API. */}
+                                    <CDLBadge username={result?.username} onOpen={setCdlModal} />
 
                                     {/* Warrant badge */}
                                     <div style={{ padding:'12px 14px',background:warrantFlash?'#dc2626':(warrantInfo?'linear-gradient(180deg,#dc2626,#991b1b)':'rgba(16,185,129,0.06)'),border:`1px solid ${warrantInfo?'rgba(239,68,68,0.5)':'rgba(52,211,153,0.2)'}`,borderRadius:'9px',transition:'background 160ms ease-out, border-color 160ms ease-out',animation:warrantInfo?'pulse-border-warrant 2s infinite':'none',boxShadow:warrantInfo?'0 0 20px rgba(239,68,68,0.35), inset 0 1px 0 rgba(255,255,255,0.1)':'inset 0 1px 0 rgba(52,211,153,0.08)' }}>
@@ -17416,17 +17579,8 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                         );
                                     })()}
 
-                                    {/* CDL — Commercial Driver's License. Static display (no data source yet) — always Inactive. */}
-                                    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',padding:'10px 14px',marginBottom:'8px',background:'rgba(100,116,139,0.08)',border:'1px solid rgba(100,116,139,0.25)',borderRadius:'9px',boxShadow:'inset 0 1px 0 rgba(148,163,184,0.08)' }}>
-                                        <div style={{ display:'flex',alignItems:'center',gap:'9px' }}>
-                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17h14M6 17l1.5-4.5a2 2 0 011.9-1.5h5.2a2 2 0 011.9 1.5L19 17M6 17v2M18 17v2"/><rect x="2" y="6" width="20" height="4" rx="1"/></svg>
-                                            <span style={{ color:'#94a3b8',fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>CDL</span>
-                                        </div>
-                                        <span style={{ display:'flex',alignItems:'center',gap:'7px',color:'#64748b',fontSize:'11px',fontWeight:'900',letterSpacing:'1.5px',fontFamily:'monospace' }}>
-                                            <span style={{ width:'6px',height:'6px',borderRadius:'50%',background:'#64748b' }} />
-                                            INACTIVE
-                                        </span>
-                                    </div>
+                                    {/* CDL — Commercial Driver's License. Live lookup against the ORCR DOT API. */}
+                                    <CDLBadge username={searchResults.robloxUser?.username} onOpen={setCdlModal} />
                                 </>
                             ) : (
                                 <>
