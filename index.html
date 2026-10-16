@@ -17284,7 +17284,7 @@ return (
                             {/* RECORDS LIST — 1:1 artboard rows: date · type + penal codes · points · expand */}
                             {!plateGovLoading && plateGovRecords !== null && plateGovRecords.length > 0 && (
                                 <React.Fragment>
-                                <div style={{ flex:'1 1 auto',minHeight:0,overflowY:'auto',display:'flex',flexDirection:'column',gap:'10px',paddingRight:'2px' }}>
+                                <div style={{ maxHeight:'520px',overflowY:'auto',display:'flex',flexDirection:'column',gap:'10px',paddingRight:'2px' }}>
                                     {plateGovRecords.map((record, index) => {
                                         const isWarrantType = record.type === 'Bench Warrant' || record.type === 'Arrest Warrant';
                                         const tc = isWarrantType ? { fg:'#fca5a5', rgb:'239,68,68' }
@@ -17533,7 +17533,7 @@ return (
 )}
 {activeView === 'database-search' && (
     <div style={{ position:'fixed',top:'44px',left:0,right:0,bottom:0,display:'flex',flexDirection:'column',background:'#07090f',overflow:'hidden' }}>
-    <div style={{ flex:1,overflowY:'auto',padding:'20px',boxSizing:'border-box',display:'flex',flexDirection:'column' }}>
+    <div style={{ flex:1,overflowY:'auto',padding:'20px',boxSizing:'border-box' }}>
 
         {!tokenSaved ? (
             /* ── NO TOKEN WARNING ── */
@@ -17555,7 +17555,7 @@ return (
                 </button>
             </div>
         ) : (
-            <div style={{ display:'flex',flexDirection:'column',flex:'1 1 auto',minHeight:0 }}>
+            <div>
                 {/* ══════════ UI: CITIZEN LOOKUP ══════════ */}
                 <div style={{ background:'linear-gradient(180deg,rgba(30,58,138,0.22) 0%,rgba(10,16,30,0.6) 100%)',border:'1px solid rgba(56,189,248,0.2)',borderRadius:'14px',marginBottom:'14px',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 8px 28px -14px rgba(0,0,0,0.7)' }}>
                     <div style={{ display:'flex',alignItems:'center',gap:'11px',padding:'15px 16px',borderBottom:'1px solid rgba(56,189,248,0.16)',background:'linear-gradient(180deg,rgba(56,189,248,0.06),transparent)' }}>
@@ -17647,7 +17647,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
 
                 {/* ── RESULTS ── */}
                 {searchResults && (
-                    <div className={`results-grid ${visualEffects ? 'pulse-animation' : ''}`} style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr)', gridTemplateRows: 'minmax(0, 1fr)', flex:'1 1 auto', minHeight:0 }}>
+                    <div className={`results-grid ${visualEffects ? 'pulse-animation' : ''}`} style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr)', alignItems:'start' }}>
 
                         {/* ── OWNER BOX — citizen credential card ── */}
                         <div style={{ background:'linear-gradient(180deg,rgba(12,22,32,0.6),rgba(9,13,19,0.8))',border:'1px solid rgba(52,211,153,0.2)',borderRadius:'16px',overflow:'hidden',boxShadow:'0 10px 34px -16px rgba(0,0,0,0.8)',display:'flex',flexDirection:'column',minHeight:0 }}>
@@ -17924,7 +17924,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                             {/* RECORDS LIST — 1:1 artboard rows: date · type + penal codes · points · expand */}
                             {!plateGovLoading && plateGovRecords !== null && plateGovRecords.length > 0 && (
                                 <React.Fragment>
-                                <div style={{ flex:'1 1 auto',minHeight:0,overflowY:'auto',display:'flex',flexDirection:'column',gap:'10px',paddingRight:'2px' }}>
+                                <div style={{ maxHeight:'520px',overflowY:'auto',display:'flex',flexDirection:'column',gap:'10px',paddingRight:'2px' }}>
                                     {plateGovRecords.map((record, index) => {
                                         const isWarrantType = record.type === 'Bench Warrant' || record.type === 'Arrest Warrant';
                                         const tc = isWarrantType ? { fg:'#fca5a5', rgb:'239,68,68' }
@@ -18115,7 +18115,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px', flex:'1 1 auto', minHeight:0, alignContent:'flex-start', overflowY: 'auto', padding:'16px', paddingRight:'14px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px', maxHeight: '520px', overflowY: 'auto', alignContent:'flex-start', padding:'16px', paddingRight:'14px' }}>
                                     {searchResults.vehicles.map((vehicle, index) => (
                                         <div
                                             key={index}
