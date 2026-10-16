@@ -2297,24 +2297,25 @@ const CDLBadge = ({ username, onOpen }) => {
             let outcome;
             try {
                 const resp = await fetch(CDL_API_BASE + encodeURIComponent(uname), { headers: { 'Accept': 'application/json' } });
-                if (!resp.ok) {
-                    // Server reachable but returned an error status (e.g. 500/502/503/504).
+                // Parse the body first — the API returns the benign "no_record" error
+                // with a non-2xx status, so !resp.ok alone must NOT be treated as an outage.
+                const json = await resp.json().catch(() => null);
+                const rec = json && json.record ? json.record : null;
+                const errCodeStr = json && json.error && json.error.code ? String(json.error.code) : null;
+                if (errCodeStr === 'no_record' || (resp.ok && !rec && !errCodeStr)) {
+                    // Server answered: simply no commercial licence on file → grey, not an error.
+                    outcome = { phase: 'none', data: null };
+                } else if (errCodeStr) {
+                    // A structured API error that isn't "no record on file".
+                    outcome = { phase: 'error', data: null, code: errCodeStr };
+                } else if (!resp.ok) {
+                    // Non-2xx with no recognisable body → a genuine API/transport error.
                     outcome = { phase: 'error', data: null, code: resp.status };
                 } else {
-                    const json = await resp.json().catch(() => null);
-                    const rec = json && json.record ? json.record : null;
-                    const errCodeStr = json && json.error && json.error.code ? String(json.error.code) : null;
-                    if (errCodeStr && errCodeStr !== 'no_record') {
-                        // A structured API error that isn't the benign "no record on file".
-                        outcome = { phase: 'error', data: null, code: errCodeStr };
-                    } else if (!rec || errCodeStr === 'no_record') {
-                        outcome = { phase: 'none', data: null };
-                    } else {
-                        const status = (rec.record && rec.record.status) || '';
-                        const tone   = (rec.record && rec.record.tone) || '';
-                        const active = tone === 'success' || /^active$/i.test(status);
-                        outcome = { phase: active ? 'active' : 'suspended', data: rec };
-                    }
+                    const status = (rec.record && rec.record.status) || '';
+                    const tone   = (rec.record && rec.record.tone) || '';
+                    const active = tone === 'success' || /^active$/i.test(status);
+                    outcome = { phase: active ? 'active' : 'suspended', data: rec };
                 }
             } catch (e) {
                 // Network failure / unreachable host → the trooper is told the API is down.
@@ -17295,7 +17296,7 @@ return (
                                             : { fg:'#7dd3fc', rgb:'56,189,248' };
                                         const TYPE_LABEL = { 'Citation':'CITATION','Mailed Citation':'MAILED CITATION','Written Warning':'WRITTEN WARNING','Vehicle Removal':'VEHICLE REMOVAL','Summons':'SUMMONS','Arrest':'ARREST REPORT','Points Amend':'POINTS AMENDMENT','Bench Warrant':'BENCH WARRANT','Arrest Warrant':'ARREST WARRANT' };
                                         const typeLabel = TYPE_LABEL[record.type] || (record.type || 'RECORD').toUpperCase();
-                                        const lines = (record.content || '').split('\n').filter(l => l.trim());
+                                        const lines = (record.content || '').split('\n').filter(l => l.trim() && !/^<@!?\d+>\s*$/.test(l.trim()));
                                         const renderWithWarrantHighlight = (text, keyPrefix) => text.split(/(warrant)/gi).map((part, pi) =>
                                             /^warrant$/i.test(part)
                                                 ? <span key={`${keyPrefix}-${pi}`} style={{ color:'#fff',background:'rgba(239,68,68,0.5)',border:'1px solid rgba(239,68,68,0.65)',borderRadius:'3px',padding:'0 3px',fontWeight:'800' }}>{part}</span>
@@ -17348,20 +17349,19 @@ return (
                                                 {/* EXPANDED — issuing officer · record content · attachments */}
                                                 {expanded && (
                                                     <div style={{ padding:'0 15px 13px',animation:'recordExpandIn 240ms cubic-bezier(0.23,1,0.32,1)' }}>
-                                                        <div style={{ display:'flex',alignItems:'center',gap:'7px',padding:'8px 10px',marginBottom:'10px',background:'rgba(0,0,0,0.3)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:'8px',fontFamily:'monospace' }}>
-                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={tc.fg} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/></svg>
-                                                            <span style={{ color:'#64748b',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase' }}>Issuing officer</span>
-                                                            <span style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'700',marginLeft:'auto',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{record.authorUsername}</span>
-                                                        </div>
                                                         {record.content && (
                                                             <div style={{ background:'rgba(0,0,0,0.3)',border:'1px solid rgba(255,255,255,0.07)',borderRadius:'8px',overflow:'hidden',marginBottom: attCount > 0 ? '10px':'0' }}>
                                                                 <div style={{ padding:'4px 10px',background:'rgba(255,255,255,0.03)',borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
                                                                     <span style={{ color:'#4b5563',fontSize:'8px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase' }}>RECORD CONTENT</span>
                                                                 </div>
                                                                 <div style={{ padding:'8px 10px' }}>
+                                                                    <div style={{ display:'flex',gap:'8px',padding:'2.5px 0',borderBottom:'1px solid rgba(255,255,255,0.035)' }}>
+                                                                        <span style={{ color:`rgba(${tc.rgb},0.85)`,fontSize:'9.5px',fontWeight:'700',letterSpacing:'0.5px',textTransform:'uppercase',minWidth:'92px',flexShrink:0,fontFamily:'monospace',paddingTop:'1px' }}>Issued By</span>
+                                                                        <span style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'700',fontFamily:'monospace',wordBreak:'break-word' }}>{record.authorUsername}</span>
+                                                                    </div>
                                                                     {lines.map((line, li) => {
                                                                         const isHeader = line.includes('**') || line.startsWith('__') || /^[A-Z\s]{4,}:/.test(line);
-                                                                        const clean = line.replace(/\*\*/g, '').replace(/__/g, '');
+                                                                        const clean = line.replace(/\*\*/g, '').replace(/__/g, '').replace(/[`´]/g, '');
                                                                         const colonIdx = clean.indexOf(':');
                                                                         const hasLabel = colonIdx > 0 && colonIdx < 30;
                                                                         return (
@@ -17534,29 +17534,6 @@ return (
 {activeView === 'database-search' && (
     <div style={{ position:'fixed',top:'44px',left:0,right:0,bottom:0,display:'flex',flexDirection:'column',background:'#07090f',overflow:'hidden' }}>
     <div style={{ flex:1,overflowY:'auto',padding:'20px',boxSizing:'border-box' }}>
-
-        {/* ── HEADER — matches License Plate Search ── */}
-        <div className="mini-hide" style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'16px',padding:'14px 20px',marginBottom:'14px',background:'linear-gradient(135deg,rgba(30,58,138,0.25) 0%,rgba(15,30,60,0.4) 100%)',border:'1px solid rgba(56,189,248,0.18)',borderRadius:'12px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 0 24px rgba(14,165,233,0.04)' }}>
-            <div style={{ display:'flex',alignItems:'center',gap:'14px' }}>
-                <div style={{ width:'42px',height:'42px',background:'linear-gradient(135deg,#1e40af 0%,#0ea5e9 100%)',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 14px rgba(14,165,233,0.35), inset 0 1px 0 rgba(255,255,255,0.15)' }}>
-                    <User size={22} style={{ color:'white' }} />
-                </div>
-                <div>
-                    <div style={{ display:'flex',alignItems:'center',gap:'10px',marginBottom:'3px' }}>
-                        <div style={{ color:'#e2e8f0',fontSize:'18px',fontWeight:'700',letterSpacing:'0.3px' }}>Citizen Search</div>
-                        <span style={{ padding:'2px 8px',background:'rgba(34,211,238,0.1)',border:'1px solid rgba(34,211,238,0.3)',borderRadius:'5px',color:'#22d3ee',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',fontFamily:'monospace' }}>CITIZEN REGISTRY</span>
-                    </div>
-                    <div style={{ color:'#22d3ee',fontSize:'11px',fontFamily:'monospace',letterSpacing:'0.3px' }}>Search citizen records by ID</div>
-                </div>
-            </div>
-            <button
-                onClick={() => { if (visualEffects) { setPageTransitioning(true); setTimeout(() => { setActiveView('home'); setPageTransitioning(false); }, 300); } else { setActiveView('home'); } }}
-                style={{ padding:'7px 14px', background:'rgba(56,189,248,0.1)', border:'1px solid rgba(56,189,248,0.25)', borderRadius:'8px', color:'#7dd3fc', cursor:'pointer', fontSize:'11px', fontWeight:'700', letterSpacing:'1px', display:'inline-flex', alignItems:'center', gap:'6px', fontFamily:'monospace', transition:'background 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out', whiteSpace:'nowrap' }}
-                onMouseEnter={e => { e.currentTarget.style.background='rgba(56,189,248,0.2)'; e.currentTarget.style.borderColor='rgba(56,189,248,0.5)'; e.currentTarget.style.color='#fff'; }}
-                onMouseLeave={e => { e.currentTarget.style.background='rgba(56,189,248,0.1)'; e.currentTarget.style.borderColor='rgba(56,189,248,0.25)'; e.currentTarget.style.color='#7dd3fc'; }}>
-                ← Dashboard
-            </button>
-        </div>
 
         {!tokenSaved ? (
             /* ── NO TOKEN WARNING ── */
@@ -17957,7 +17934,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                             : { fg:'#7dd3fc', rgb:'56,189,248' };
                                         const TYPE_LABEL = { 'Citation':'CITATION','Mailed Citation':'MAILED CITATION','Written Warning':'WRITTEN WARNING','Vehicle Removal':'VEHICLE REMOVAL','Summons':'SUMMONS','Arrest':'ARREST REPORT','Points Amend':'POINTS AMENDMENT','Bench Warrant':'BENCH WARRANT','Arrest Warrant':'ARREST WARRANT' };
                                         const typeLabel = TYPE_LABEL[record.type] || (record.type || 'RECORD').toUpperCase();
-                                        const lines = (record.content || '').split('\n').filter(l => l.trim());
+                                        const lines = (record.content || '').split('\n').filter(l => l.trim() && !/^<@!?\d+>\s*$/.test(l.trim()));
                                         const renderWithWarrantHighlight = (text, keyPrefix) => text.split(/(warrant)/gi).map((part, pi) =>
                                             /^warrant$/i.test(part)
                                                 ? <span key={`${keyPrefix}-${pi}`} style={{ color:'#fff',background:'rgba(239,68,68,0.5)',border:'1px solid rgba(239,68,68,0.65)',borderRadius:'3px',padding:'0 3px',fontWeight:'800' }}>{part}</span>
@@ -18010,20 +17987,19 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                                 {/* EXPANDED — issuing officer · record content · attachments */}
                                                 {expanded && (
                                                     <div style={{ padding:'0 15px 13px',animation:'recordExpandIn 240ms cubic-bezier(0.23,1,0.32,1)' }}>
-                                                        <div style={{ display:'flex',alignItems:'center',gap:'7px',padding:'8px 10px',marginBottom:'10px',background:'rgba(0,0,0,0.3)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:'8px',fontFamily:'monospace' }}>
-                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={tc.fg} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/></svg>
-                                                            <span style={{ color:'#64748b',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase' }}>Issuing officer</span>
-                                                            <span style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'700',marginLeft:'auto',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{record.authorUsername}</span>
-                                                        </div>
                                                         {record.content && (
                                                             <div style={{ background:'rgba(0,0,0,0.3)',border:'1px solid rgba(255,255,255,0.07)',borderRadius:'8px',overflow:'hidden',marginBottom: attCount > 0 ? '10px':'0' }}>
                                                                 <div style={{ padding:'4px 10px',background:'rgba(255,255,255,0.03)',borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
                                                                     <span style={{ color:'#4b5563',fontSize:'8px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase' }}>RECORD CONTENT</span>
                                                                 </div>
                                                                 <div style={{ padding:'8px 10px' }}>
+                                                                    <div style={{ display:'flex',gap:'8px',padding:'2.5px 0',borderBottom:'1px solid rgba(255,255,255,0.035)' }}>
+                                                                        <span style={{ color:`rgba(${tc.rgb},0.85)`,fontSize:'9.5px',fontWeight:'700',letterSpacing:'0.5px',textTransform:'uppercase',minWidth:'92px',flexShrink:0,fontFamily:'monospace',paddingTop:'1px' }}>Issued By</span>
+                                                                        <span style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'700',fontFamily:'monospace',wordBreak:'break-word' }}>{record.authorUsername}</span>
+                                                                    </div>
                                                                     {lines.map((line, li) => {
                                                                         const isHeader = line.includes('**') || line.startsWith('__') || /^[A-Z\s]{4,}:/.test(line);
-                                                                        const clean = line.replace(/\*\*/g, '').replace(/__/g, '');
+                                                                        const clean = line.replace(/\*\*/g, '').replace(/__/g, '').replace(/[`´]/g, '');
                                                                         const colonIdx = clean.indexOf(':');
                                                                         const hasLabel = colonIdx > 0 && colonIdx < 30;
                                                                         return (
@@ -21389,7 +21365,7 @@ if (window.electronAPI?.quit) {
                                         <div style={{ padding: '12px 16px' }}>
                                             {record.content.split('\n').filter(l => l.trim()).map((line, li) => {
                                                 const isHeader = line.includes('**') || line.startsWith('__') || /^[A-Z\s]{4,}:/.test(line);
-                                                const clean = line.replace(/\*\*/g, '').replace(/__/g, '');
+                                                const clean = line.replace(/\*\*/g, '').replace(/__/g, '').replace(/[`´]/g, '');
                                                 const colonIdx = clean.indexOf(':');
                                                 const hasLabel = colonIdx > 0 && colonIdx < 30;
                                                 return (
