@@ -11073,7 +11073,16 @@ console.log('📦 [VEHICLES] Processing', vMessages.length, 'messages...!');
 
                 const validYears = ['1952', '1995', '2001', '2002', '2004', '2005', '2006', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025', '2026'];
 
-                const flush = () => { if (currentCar.length > 0) { carBlocks.push([...currentCar]); currentCar = []; inCar = false; } };
+                const flush = () => {
+                    if (currentCar.length > 0) {
+                        // Only emit a block that holds real vehicle data. A block that is just the
+                        // owner mention (<@id>) is NOT a vehicle — emitting it produced a phantom
+                        // "improper" entry (bug: 7 vehicles showed 7 extra improper registrations).
+                        const hasRealData = currentCar.some(l => !(l.includes('<@') || /^@\w/.test(l)));
+                        if (hasRealData) carBlocks.push([...currentCar]);
+                        currentCar = []; inCar = false;
+                    }
+                };
 
                 for (const line of lines) {
                     if (!line) continue;
@@ -17456,7 +17465,7 @@ return (
                             </div>
                         </div>
 
-                        {/* ══════════ UI: VEHICLE DETAILS — Registered Vehicles list frame (1:1 with Citizen-ID) ══════════ */}
+                        {/* ══════════ UI: VEHICLE DETAILS — Registered Vehicle frame (plate tab: single matched vehicle, fills the column) ══════════ */}
 {registration && !registration.parseFailed && (() => {
                             const isStolen = !!registration?.reportedStolen;
                             const vehicles = [registration];
@@ -17468,19 +17477,18 @@ return (
                                     </div>
                                     <div>
                                         <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
-                                            <span style={{ color:'#cbd5e1',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace' }}>Registered Vehicles</span>
-                                            <span style={{ padding:'1px 8px',background:'rgba(148,163,184,0.14)',border:'1px solid rgba(148,163,184,0.3)',borderRadius:'999px',color:'#cbd5e1',fontSize:'10px',fontWeight:'800',fontFamily:'monospace' }}>{vehicles.length}</span>
+                                            <span style={{ color:'#cbd5e1',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace' }}>Registered Vehicle</span>
                                             {isStolen && <span style={{ background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,0.4)',borderRadius:'999px',padding:'2px 9px',color:'#fca5a5',fontSize:'9px',fontWeight:'800',letterSpacing:'1px',textTransform:'uppercase',fontFamily:'monospace' }}>⚠ Stolen</span>}
                                         </div>
                                         <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px',marginTop:'2px' }}>Vehicle matched to the searched plate</div>
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gridAutoRows:'max-content', gap: '12px', flex:'1 1 auto', minHeight:0, alignContent:'start', overflowY: 'auto', padding:'16px', paddingRight:'14px' }}>
+                                <div style={{ display:'flex', flexDirection:'column', flex:'1 1 auto', minHeight:0, overflowY: 'auto', padding:'16px', paddingRight:'14px' }}>
                                     {vehicles.map((vehicle, index) => (
-                                        <div key={index} style={{ padding:'0',background:'linear-gradient(180deg,rgba(30,37,48,0.5),rgba(12,16,22,0.6))',border: isStolen ? '1px solid rgba(239,68,68,0.45)' : '1px solid rgba(148,163,184,0.14)',borderRadius:'10px',position:'relative',overflow:'hidden',boxShadow: isStolen ? 'inset 0 1px 0 rgba(239,68,68,0.12), 0 0 18px -6px rgba(239,68,68,0.4)' : 'inset 0 1px 0 rgba(148,163,184,0.05)' }}>
+                                        <div key={index} style={{ padding:'0',background:'linear-gradient(180deg,rgba(30,37,48,0.5),rgba(12,16,22,0.6))',border: isStolen ? '1px solid rgba(239,68,68,0.45)' : '1px solid rgba(148,163,184,0.14)',borderRadius:'10px',position:'relative',overflow:'hidden',display:'flex',flexDirection:'column',flex:'1 1 auto',minHeight:0,boxShadow: isStolen ? 'inset 0 1px 0 rgba(239,68,68,0.12), 0 0 18px -6px rgba(239,68,68,0.4)' : 'inset 0 1px 0 rgba(148,163,184,0.05)' }}>
                                             {/* Plate Display */}
-                                            <div style={{ background: isStolen ? 'radial-gradient(ellipse at 50% 50%, rgba(239,68,68,0.16) 0%, rgba(69,10,10,0.5) 70%)' : 'radial-gradient(ellipse at 50% 50%, rgba(148,163,184,0.16) 0%, rgba(30,41,59,0.55) 70%)', borderBottom: isStolen ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(148,163,184,0.25)', borderRadius:'11px 11px 0 0', padding:'16px', textAlign:'center', position:'relative', overflow:'hidden' }}>
+                                            <div style={{ flexShrink:0, background: isStolen ? 'radial-gradient(ellipse at 50% 50%, rgba(239,68,68,0.16) 0%, rgba(69,10,10,0.5) 70%)' : 'radial-gradient(ellipse at 50% 50%, rgba(148,163,184,0.16) 0%, rgba(30,41,59,0.55) 70%)', borderBottom: isStolen ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(148,163,184,0.25)', borderRadius:'11px 11px 0 0', padding:'16px', textAlign:'center', position:'relative', overflow:'hidden' }}>
                                                 <div style={{ position:'absolute',inset:0,background:'repeating-linear-gradient(180deg,transparent 0px,transparent 3px,rgba(255,255,255,0.015) 3px,rgba(255,255,255,0.015) 4px)',pointerEvents:'none' }} />
                                                 <div style={{ position:'relative' }}>
                                                     {isStolen && <div style={{ display:'inline-flex',alignItems:'center',gap:'5px',marginBottom:'7px',padding:'2px 10px',background:'#ef4444',color:'#fff',fontSize:'9px',fontWeight:'900',borderRadius:'999px',letterSpacing:'1.5px',fontFamily:'monospace',boxShadow:'0 0 12px rgba(239,68,68,0.6)' }}>⚠ STOLEN</div>}
@@ -17491,7 +17499,7 @@ return (
                                             </div>
 
                                             {/* Vehicle Info Grid */}
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '12px' }}>
+                                            <div style={{ flexShrink:0, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '12px' }}>
                                                 {[
                                                     { label: 'VEHICLE', value: `${vehicle.year || ''} ${vehicle.make || ''}`.trim() || '—', sub: vehicle.model, icon:<path d="M5 17h14M6 17l1.5-4.5a2 2 0 011.9-1.5h5.2a2 2 0 011.9 1.5L19 17M6 17v2M18 17v2M8 13h8" /> },
                                                     { label: 'TYPE', value: vehicle.vehicleType || '—', icon:<><rect x="3" y="11" width="18" height="7" rx="1.5"/><path d="M5 11V8a2 2 0 012-2h10a2 2 0 012 2v3"/></> },
@@ -17509,7 +17517,10 @@ return (
                                                 ))}
                                             </div>
 
-                                            <div style={{ margin: '0 12px 12px', background: 'rgba(148,163,184,0.06)', borderRadius: '8px', padding: '8px 12px' }}>
+                                            {/* Spacer pushes the footer to the bottom so the card fills the frame */}
+                                            <div style={{ flex:'1 1 auto', minHeight:'8px' }} />
+
+                                            <div style={{ flexShrink:0, margin: '0 12px 12px', background: 'rgba(148,163,184,0.06)', borderRadius: '8px', padding: '8px 12px' }}>
                                                 <div style={{ fontSize: '11px', color: '#cbd5e1', fontWeight: '600' }}>
                                                     {vehicle.isEdited ? 'Last Edited: ' : 'Registered: '}
                                                     <span style={{ color: 'white', fontWeight: '700' }}>{vehicle.timestamp ? (String(vehicle.timestamp).includes('/') ? vehicle.timestamp : new Date(vehicle.timestamp).toLocaleString()) : 'N/A'}</span>
@@ -17517,7 +17528,7 @@ return (
                                             </div>
 
                                             {vehicle.hasHandicapPermit && (
-                                                <div style={{ margin:'0 12px 12px',padding:'8px 12px',background:'linear-gradient(180deg,rgba(251,191,36,0.12),rgba(251,191,36,0.04))',border:'1px solid rgba(251,191,36,0.35)',borderRadius:'8px',display:'flex',alignItems:'center',gap:'8px',color:'#fde047',fontSize:'10px',fontWeight:'700',textTransform:'uppercase',letterSpacing:'1.5px',fontFamily:'monospace' }}>
+                                                <div style={{ flexShrink:0, margin:'0 12px 12px',padding:'8px 12px',background:'linear-gradient(180deg,rgba(251,191,36,0.12),rgba(251,191,36,0.04))',border:'1px solid rgba(251,191,36,0.35)',borderRadius:'8px',display:'flex',alignItems:'center',gap:'8px',color:'#fde047',fontSize:'10px',fontWeight:'700',textTransform:'uppercase',letterSpacing:'1.5px',fontFamily:'monospace' }}>
                                                     <Accessibility size={13} /> Handicap Permit
                                                 </div>
                                             )}
