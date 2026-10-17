@@ -9640,9 +9640,27 @@ Use "" for any field that is missing from a block. Return ONLY the JSON array, n
         
         console.log('✅ [BATCH] Parsed', vehiclesArray.length, 'vehicles from AI');
         
-        // Add metadata to each vehicle
+        // Add metadata to each vehicle.
+        // Match each AI-returned vehicle back to its SOURCE block by plate text so the
+        // per-registration timestamp reflects when THAT registration message was sent,
+        // even if the model reorders or drops a block. Positional index is the fallback.
+        const _norm = (x) => String(x == null ? '' : x).toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const _usedBlocks = new Set();
         const processedVehicles = vehiclesArray.map((vehicle, index) => {
-            const vb = vehicleBlocks[index];
+            let vbIdx = -1;
+            const plateKey = _norm(vehicle.plate);
+            if (plateKey && plateKey !== 'UNKNOWN') {
+                for (let b = 0; b < vehicleBlocks.length; b++) {
+                    if (_usedBlocks.has(b)) continue;
+                    const btext = Array.isArray(vehicleBlocks[b].block) ? vehicleBlocks[b].block.join('\n') : (vehicleBlocks[b].block || '');
+                    if (_norm(btext).includes(plateKey)) { vbIdx = b; break; }
+                }
+            }
+            if (vbIdx === -1) vbIdx = (index < vehicleBlocks.length && !_usedBlocks.has(index)) ? index : vehicleBlocks.findIndex((_, b) => !_usedBlocks.has(b));
+            if (vbIdx === -1) vbIdx = index;
+            _usedBlocks.add(vbIdx);
+            const vb = vehicleBlocks[vbIdx] || vehicleBlocks[index] || {};
+            if (!vehicle.rawContent) { try { vehicle.rawContent = Array.isArray(vb.block) ? vb.block.join('\n') : (vb.block || ''); } catch(_){} }
             
             // Convert .type to .vehicleType
             if (vehicle.type && !vehicle.vehicleType) {
@@ -16531,32 +16549,6 @@ return (
 
 {activeView === 'search' && (
 <div style={{ position:'fixed',top:'52px',left:0,right:0,bottom:0,background:'var(--dept-screen-bg, radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 50%, #050a14 100%))',padding:'20px',boxSizing:'border-box',overflowY:'auto' }}>
-{/* Header card — matches home dashboard */}
-<div className="mini-hide" style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'16px',padding:'14px 20px',marginBottom:'14px',background:'linear-gradient(135deg,rgba(30,58,138,0.25) 0%,rgba(15,30,60,0.4) 100%)',border:'1px solid rgba(56,189,248,0.18)',borderRadius:'12px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 0 24px rgba(14,165,233,0.04)' }}>
-    <div style={{ display:'flex',alignItems:'center',gap:'14px' }}>
-        <div style={{ width:'42px',height:'42px',background:'linear-gradient(135deg,#1e40af 0%,#0ea5e9 100%)',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 14px rgba(14,165,233,0.35), inset 0 1px 0 rgba(255,255,255,0.15)' }}>
-            <Car size={22} style={{ color:'white' }} />
-        </div>
-        <div>
-            <div style={{ display:'flex',alignItems:'center',gap:'10px',marginBottom:'3px' }}>
-                <div style={{ color:'#e2e8f0',fontSize:'18px',fontWeight:'700',letterSpacing:'0.3px' }}>License Plate Search</div>
-                <span style={{ padding:'2px 8px',background:'rgba(34,211,238,0.1)',border:'1px solid rgba(34,211,238,0.3)',borderRadius:'5px',color:'#22d3ee',fontSize:'9px',fontWeight:'700',letterSpacing:'1.5px',fontFamily:'monospace' }}>VEHICLE REGISTRY</span>
-            </div>
-            <div style={{ color:'#22d3ee',fontSize:'11px',fontFamily:'monospace',letterSpacing:'0.3px' }}>Search for active vehicle registrations</div>
-        </div>
-    </div>
-    <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
-        {searchCooldown && <div style={{ display:'flex',alignItems:'center',gap:'6px',padding:'6px 12px',background:'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,0.3)',borderRadius:'999px' }}>
-            <div style={{ width:'6px',height:'6px',borderRadius:'50%',background:'#f59e0b',animation:'pulse 1.5s ease-in-out infinite' }} />
-            <span style={{ color:'#fbbf24',fontSize:'10px',fontWeight:'700',letterSpacing:'1px',fontFamily:'monospace' }}>COOLDOWN</span>
-        </div>}
-        {tokenSaved && <div style={{ display:'flex',alignItems:'center',gap:'6px',padding:'6px 12px',background:'rgba(16,185,129,0.1)',border:'1px solid rgba(16,185,129,0.3)',borderRadius:'999px',boxShadow:'0 0 16px rgba(16,185,129,0.1), inset 0 1px 0 rgba(16,185,129,0.15)' }}>
-            <div style={{ width:'6px',height:'6px',borderRadius:'50%',background:'#10b981',boxShadow:'0 0 6px #10b981' }} />
-            <span style={{ color:'#34d399',fontSize:'10px',fontWeight:'700',letterSpacing:'1.2px',fontFamily:'monospace' }}>DB CONNECTED</span>
-        </div>}
-    </div>
-</div>
-
         {!tokenSaved ? (
             /* ── NO TOKEN WARNING ── */
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px', padding: '40px', textAlign: 'center' }}>
@@ -16580,8 +16572,8 @@ return (
             <div style={{ display:'flex',flexDirection:'column',gap:'14px' }}>
 
                 {/* ══════════ UI: PLATE LOOKUP ══════════ */}
-                <div style={{ background:'linear-gradient(180deg,rgba(30,58,138,0.22) 0%,rgba(10,16,30,0.6) 100%)',border:'1px solid rgba(56,189,248,0.2)',borderRadius:'14px',padding:'18px',marginBottom:'14px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 8px 28px -14px rgba(0,0,0,0.7)' }}>
-                    <div style={{ display:'flex',alignItems:'center',gap:'11px',marginBottom:'15px',paddingBottom:'13px',borderBottom:'1px solid rgba(56,189,248,0.14)' }}>
+                <div style={{ flexShrink:0,background:'linear-gradient(180deg,rgba(30,58,138,0.22) 0%,rgba(10,16,30,0.6) 100%)',border:'1px solid rgba(56,189,248,0.2)',borderRadius:'14px',marginBottom:'14px',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 8px 28px -14px rgba(0,0,0,0.7)' }}>
+                    <div style={{ display:'flex',alignItems:'center',gap:'11px',padding:'15px 16px',borderBottom:'1px solid rgba(56,189,248,0.16)',background:'linear-gradient(180deg,rgba(56,189,248,0.06),transparent)' }}>
                         <div style={{ width:'32px',height:'32px',borderRadius:'9px',background:'linear-gradient(135deg,rgba(34,211,238,0.9),rgba(37,99,235,0.6))',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 12px -3px rgba(37,99,235,0.6), inset 0 1px 0 rgba(255,255,255,0.3)' }}>
                             <Search size={15} style={{ color:'#fff' }} />
                         </div>
@@ -16590,6 +16582,7 @@ return (
                             <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px',marginTop:'1px' }}>Run a registration</div>
                         </div>
                     </div>
+                    <div style={{ padding:'16px' }}>
 
                     <div style={{ marginBottom: '12px' }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#94a3b8', fontSize: '10px', fontWeight: '700', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '1.5px',fontFamily:'monospace' }}>
@@ -16715,6 +16708,7 @@ return (
                             <div style={{ height: '100%', width: `${searchProgress}%`, background: 'linear-gradient(90deg, #3b82f6, #60a5fa)', transition: 'width 0.3s ease', borderRadius: '6px' }}></div>
                         </div>
                     )}
+                    </div>
                 </div>
 
                 {/* ── ERROR ── */}
@@ -18187,7 +18181,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                                 )}
                                             </div>
                                             <div style={{ margin:'0 12px 12px', background:'rgba(245,158,11,0.06)', borderRadius:'8px', padding:'8px 12px' }}>
-                                                <div style={{ fontSize:'11px', color:'#fcd34d', fontWeight:'600' }}>Registered: <span style={{ color:'white', fontWeight:'700' }}>vehicle.timestamp ? (String(vehicle.timestamp).includes('/') ? vehicle.timestamp : new Date(vehicle.timestamp).toLocaleString()) : 'Unknown'</span></div>
+                                                <div style={{ fontSize:'11px', color:'#fcd34d', fontWeight:'600' }}>Registered: <span style={{ color:'white', fontWeight:'700' }}>{vehicle.timestamp ? (String(vehicle.timestamp).includes('/') ? vehicle.timestamp : new Date(vehicle.timestamp).toLocaleString()) : 'Unknown'}</span></div>
                                             </div>
                                             </>
                                             ) : (<>
@@ -18276,7 +18270,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                                 )}
                                             </div>
                                             <div style={{ margin:'0 12px 12px', background:'rgba(245,158,11,0.06)', borderRadius:'8px', padding:'8px 12px' }}>
-                                                <div style={{ fontSize:'11px', color:'#fcd34d', fontWeight:'600' }}>Registered: <span style={{ color:'white', fontWeight:'700' }}>rawTimestamp || 'Unknown'</span></div>
+                                                <div style={{ fontSize:'11px', color:'#fcd34d', fontWeight:'600' }}>Registered: <span style={{ color:'white', fontWeight:'700' }}>{rawTimestamp || 'Unknown'}</span></div>
                                             </div>
                                         </div>
                         );
