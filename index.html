@@ -9660,6 +9660,7 @@ Use "" for any field that is missing from a block. Return ONLY the JSON array, n
             if (vbIdx === -1) vbIdx = index;
             _usedBlocks.add(vbIdx);
             const vb = vehicleBlocks[vbIdx] || vehicleBlocks[index] || {};
+            vehicle._vbIdx = vbIdx;
             if (!vehicle.rawContent) { try { vehicle.rawContent = Array.isArray(vb.block) ? vb.block.join('\n') : (vb.block || ''); } catch(_){} }
             
             // Convert .type to .vehicleType
@@ -9707,6 +9708,22 @@ Use "" for any field that is missing from a block. Return ONLY the JSON array, n
             return isValid;
         });
         
+        // Blocks not consumed by a VALID vehicle are the improper/failed ones. Expose
+        // them with their own message text + timestamp so the caller can show the real
+        // Discord content for each improper registration (instead of guessing by a
+        // positional slice, which mis-sources content when the model reorders/drops).
+        try {
+            const _used = new Set(validVehicles.map(v => v._vbIdx));
+            const _failed = [];
+            vehicleBlocks.forEach((vb, b) => {
+                if (_used.has(b)) return;
+                const t = Array.isArray(vb.block) ? vb.block.join('\n') : (vb.block || '');
+                if (t && t.trim()) _failed.push({ content: t, timestamp: vb.timestamp || vb.edited_timestamp || null });
+            });
+            validVehicles._failedRawBlocks = _failed;
+        } catch(_) {}
+        validVehicles.forEach(v => { try { delete v._vbIdx; } catch(_){} });
+
         console.log('✅ [BATCH] Returning', validVehicles.length, 'valid vehicles');
         console.log('═══════════════════════════════════════════════════');
         
@@ -11141,15 +11158,21 @@ console.log('📦 [VEHICLES] Processing', vMessages.length, 'messages...!');
                 parseFailCount = allVehicleBlocks.length - parsedVehicles.length;
                 if (parseFailCount > 0) {
                     // APPEND (don't overwrite) so improper messages flagged earlier at the
-                    // block-splitting stage are preserved. Store as {content} objects with the
-                    // block's own raw text, so the improper cards always show the Discord message
-                    // (bug: previously overwrote with a positional slice, leaving fields empty).
+                    // block-splitting stage are preserved. Prefer the EXACT unmatched blocks
+                    // identified during parsing (correct content + per-message timestamp even
+                    // when the model reordered or dropped entries); fall back to a positional
+                    // slice only for the single-vehicle fast path, which returns no such list.
                     allVehicleBlocks._failedRaw = allVehicleBlocks._failedRaw || [];
-                    const failedBlocks = allVehicleBlocks.slice(parsedVehicles.length);
-                    failedBlocks.forEach(b => {
-                        const text = Array.isArray(b.block) ? b.block.join('\n') : (b.block || '');
+                    const failedList = (parsedVehicles && parsedVehicles._failedRawBlocks && parsedVehicles._failedRawBlocks.length)
+                        ? parsedVehicles._failedRawBlocks
+                        : allVehicleBlocks.slice(parsedVehicles.length).map(b => ({
+                            content: Array.isArray(b.block) ? b.block.join('\n') : (b.block || ''),
+                            timestamp: b.timestamp || b.edited_timestamp || null
+                          }));
+                    failedList.forEach(entry => {
+                        const text = entry && entry.content ? entry.content : '';
                         if (text && text.trim()) {
-                            allVehicleBlocks._failedRaw.push({ content: text, timestamp: b.timestamp || b.edited_timestamp || null });
+                            allVehicleBlocks._failedRaw.push({ content: text, timestamp: entry.timestamp || null });
                         }
                     });
                 }
@@ -16548,7 +16571,7 @@ return (
 }}>
 
 {activeView === 'search' && (
-<div style={{ position:'fixed',top:'52px',left:0,right:0,bottom:0,background:'var(--dept-screen-bg, radial-gradient(ellipse at 50% 0%, #0f1f3a 0%, #0a1428 50%, #050a14 100%))',padding:'20px',boxSizing:'border-box',overflowY:'auto' }}>
+<div style={{ position:'fixed',top:'52px',left:0,right:0,bottom:0,background:'#07090f',padding:'20px',boxSizing:'border-box',overflowY:'auto' }}>
         {!tokenSaved ? (
             /* ── NO TOKEN WARNING ── */
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px', padding: '40px', textAlign: 'center' }}>
@@ -18126,7 +18149,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                 </div>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gridAutoRows:'max-content', gap: '12px', flex:'1 1 auto', minHeight:0, alignContent:'start', overflowY: 'auto', padding:'16px', paddingRight:'14px' }}>
-                                    {searchResults.vehicles.map((vehicle, index) => { const _vEmpty = v => { const s=(v==null?'':String(v)).trim().toLowerCase(); return !s||s==='unknown'||s==='n/a'; }; const isImproper = _vEmpty(vehicle.plate) && _vEmpty(vehicle.make) && _vEmpty(vehicle.model); const vehRaw = (vehicle.rawContent || vehicle.content || ''); return (
+                                    {searchResults.vehicles.map((vehicle, index) => { const _vEmpty = v => { const s=(v==null?'':String(v)).trim().toLowerCase(); return !s||s==='unknown'||s==='n/a'; }; const isImproper = _vEmpty(vehicle.plate) || (_vEmpty(vehicle.make) && _vEmpty(vehicle.model)); const vehRaw = (vehicle.rawContent || vehicle.content || ''); return (
                                         <div
                                             key={index}
                                             onClick={() => setSelectedVehicleForCitation(vehicle)}
