@@ -5833,21 +5833,10 @@ const triggerCommandBarError = (msg) => {
     }, 300);
 };
 
-React.useEffect(() => {
-    // Command palette keeps a local fallback and an independent background binding.
-    let disposed = false;
-    let globallyRegistered = !!window.electron?.ipcRenderer && !!actionBarKeybind && !keybindsRequireFocus && !isRecordingKeybind && !isRecordingMicHotkey;
-    const ipc = window.electron?.ipcRenderer;
-    const toggleCommand = () => {
-        if (disposed || !actionBarKeybind || isRecordingKeybind || isRecordingMicHotkey) return;
+useEffect(() => {
+const handler = (e) => {
+if (isRecordingKeybind || isRecordingMicHotkey) return;
         if (keybindsRequireFocus && !document.hasFocus()) return;
-        setCommandBarOpen(o => !o);
-        setCommandBarInput('/');
-        setCommandBarError('');
-        setCommandBarHint('');
-    };
-    const handler = (e) => {
-        if (globallyRegistered || e.repeat) return;
         const ctrl = actionBarKeybind.includes('CTRL') ? e.ctrlKey : true;
         const shift = actionBarKeybind.includes('SHIFT') ? e.shiftKey : !e.shiftKey || actionBarKeybind.includes('SHIFT');
         const alt = actionBarKeybind.includes('ALT') ? e.altKey : !e.altKey;
@@ -5858,31 +5847,18 @@ React.useEffect(() => {
         if (isF) keyMatch = e.key === keyChar;
         else keyMatch = e.key.toUpperCase() === keyChar;
 
-        if (ctrl && shift && alt && keyMatch) {
+if (ctrl && shift && alt && keyMatch) {
             e.preventDefault();
-            toggleCommand();
+            if (isRecordingKeybind) return;
+            setCommandBarOpen(o => !o);
+            setCommandBarInput('/');
+            setCommandBarError('');
+            setCommandBarHint('');
         }
     };
     window.addEventListener('keydown', handler);
-    ipc?.on('command-shortcut-fired', toggleCommand);
-    ipc?.invoke('register-command-shortcut', {
-        key: !keybindsRequireFocus && !isRecordingKeybind && !isRecordingMicHotkey ? actionBarKeybind : null,
-        requireFocus: keybindsRequireFocus
-    }).then(result => {
-        if (disposed) return;
-        globallyRegistered = !!result?.success && !!actionBarKeybind && !keybindsRequireFocus && !isRecordingKeybind && !isRecordingMicHotkey;
-        if (result && !result.success) addLog(`⚠️ Command palette background hotkey: ${result.error}`, 'warning');
-    }).catch(() => {
-        globallyRegistered = false;
-        if (!disposed) addLog('⚠️ Command palette background hotkey could not be registered.', 'warning');
-    });
-    return () => {
-        disposed = true;
-        window.removeEventListener('keydown', handler);
-        ipc?.removeListener('command-shortcut-fired', toggleCommand);
-        ipc?.invoke('register-command-shortcut', { key: null }).catch(() => {});
-    };
-}, [actionBarKeybind, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey]);
+    return () => window.removeEventListener('keydown', handler);
+}, [actionBarKeybind]);
 
 const formatDate = (date, includeTime = false) => {
       const d = new Date(date);
@@ -6792,10 +6768,14 @@ React.useEffect(() => {
 }, [ecoMode, ecoFrameRate, hoverEffects, clickEffects, backgroundGradients, blurEffects, reduceMotion, throttleBackground]);
 
 React.useEffect(() => {
-    // Panic background dispatch has its own listener and eligibility checks.
-    const onPanic = () => {
-        if (document.hasFocus() || keybindsRequireFocus || isRecordingKeybind || isRecordingMicHotkey) return;
-        if (panicEnabledRef.current && !isDispatcher && Date.now() >= panicCooldownUntilRef.current) {
+    if (micHotkey) {
+        window.electron?.ipcRenderer?.invoke('register-global-shortcut', { key: micHotkey, id: 'mic-toggle', requireFocus: keybindsRequireFocus });
+    }
+    window.electron?.on('global-shortcut-fired', (id) => {
+        if (id === 'mic-toggle' && activeView === 'search' && useMicrophone && !loading && !searchCooldown && !voiceCooldown) {
+            voiceActive ? stopVoicePlate() : startVoicePlate();
+        }
+        if (id === 'panic-trigger' && panicEnabledRef.current && !isDispatcher && Date.now() >= panicCooldownUntilRef.current) {
             if (panicTriggerModeRef.current === 'HOLD') {
                 // Tabbed-out HOLD: replicate the in-window 2s hold timing.
                 // First press starts arming; pressing the hotkey again during arming cancels.
@@ -6815,11 +6795,10 @@ React.useEffect(() => {
                 window._panicArmingTimer = setTimeout(() => {
                     window._panicArmingTimer = null;
                     window._panicArmedAt = null;
-                    if (!document.hasFocus() && panicEnabledRef.current && Date.now() >= panicCooldownUntilRef.current) {
+                    if (Date.now() >= panicCooldownUntilRef.current) {
                         setPanicNotif('');
                         setPanicModalOpen(true);
                         startPanicAlarm();
-                        panicCooldownUntilRef.current = Date.now() + 60000;
                         setPanicCooldownUntil(Date.now() + 60000);
                     }
                 }, 2000);
@@ -6829,7 +6808,6 @@ React.useEffect(() => {
                 if (panicTapTimerRef.current) clearTimeout(panicTapTimerRef.current);
                 if (panicTapCountRef.current >= 3) {
                     panicTapCountRef.current = 0;
-                    panicCooldownUntilRef.current = Date.now() + 60000;
                     setPanicCooldownUntil(Date.now() + 60000);
                     triggerPanicActivate();
                 } else {
@@ -6837,18 +6815,15 @@ React.useEffect(() => {
                 }
             }
         }
-    };
-    const ipc = window.electron?.ipcRenderer;
-    ipc?.on('panic-shortcut-fired', onPanic);
-    return () => {
-        ipc?.removeListener('panic-shortcut-fired', onPanic);
-        if (window._panicArmingTimer) clearTimeout(window._panicArmingTimer);
-        window._panicArmingTimer = null;
-        window._panicArmedAt = null;
-        if (panicTapTimerRef.current) clearTimeout(panicTapTimerRef.current);
-        panicTapCountRef.current = 0;
-    };
-}, [keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey, isDispatcher, panicEnabled, panicTriggerMode]);
+        // ── Pursuit Mode toggle ──
+        // Single keypress flips the state. Ref read because this listener was bound
+        // with stale state; ref always reflects the latest.
+        if (id === 'pursuit-trigger' && pursuitEnabledRef.current) {
+            togglePursuitMode();
+        }
+    });
+    return () => window.electron?.removeAllListeners?.('global-shortcut-fired');
+}, [micHotkey, voiceActive, useMicrophone, loading, searchCooldown, voiceCooldown, activeView, keybindsRequireFocus]);
 
 
 React.useEffect(() => {
@@ -8554,18 +8529,10 @@ React.useEffect(() => {
 }, [calls]);
 
 React.useEffect(() => {
-    // Mic registration and dispatch share one lifetime, separate from other hotkeys.
-    let disposed = false;
-    let globallyRegistered = !!window.electron?.ipcRenderer && !!micHotkey && !isRecordingKeybind && !isRecordingMicHotkey;
-    const ipc = window.electron?.ipcRenderer;
-    const toggleMic = () => {
-        if (disposed || !micHotkey || isRecordingKeybind || isRecordingMicHotkey) return;
-        if (keybindsRequireFocus && !document.hasFocus()) return;
-        if (activeView !== 'search' || !useMicrophone || loading || searchCooldown || voiceCooldown) return;
-        voiceActive ? stopVoicePlate() : startVoicePlate();
-    };
+    if (!micHotkey) return;
     const handler = (e) => {
-        if (globallyRegistered || e.repeat) return;
+if (isRecordingKeybind || isRecordingMicHotkey) return;
+        if (keybindsRequireFocus && !document.hasFocus()) return;
         const parts = [];
         if (e.ctrlKey) parts.push('CTRL');
         if (e.shiftKey) parts.push('SHIFT');
@@ -8573,37 +8540,19 @@ React.useEffect(() => {
         const key = e.key.toUpperCase();
         if (!['CONTROL','SHIFT','ALT','META'].includes(key)) parts.push(key);
         const pressed = parts.join('+');
-        if (pressed === micHotkey) {
+        if (pressed === micHotkey && activeView === 'search') {
             e.preventDefault();
-            toggleMic();
+            if (!useMicrophone) return;
+            if (loading || searchCooldown) return;
+            voiceActive ? stopVoicePlate() : startVoicePlate();
         }
     };
     window.addEventListener('keydown', handler);
-    ipc?.on('mic-shortcut-fired', toggleMic);
-    ipc?.invoke('register-global-shortcut', {
-        key: micHotkey && !isRecordingKeybind && !isRecordingMicHotkey ? micHotkey : null,
-        id: 'mic-toggle', requireFocus: keybindsRequireFocus
-    }).then(result => {
-        if (disposed) return;
-        globallyRegistered = !!result?.success && !!micHotkey && !isRecordingKeybind && !isRecordingMicHotkey;
-        if (result && !result.success) addLog(`⚠️ Mic background hotkey: ${result.error}`, 'warning');
-    }).catch(() => {
-        globallyRegistered = false;
-        if (!disposed) addLog('⚠️ Mic background hotkey could not be registered.', 'warning');
-    });
-    return () => {
-        disposed = true;
-        window.removeEventListener('keydown', handler);
-        ipc?.removeListener('mic-shortcut-fired', toggleMic);
-        ipc?.invoke('register-global-shortcut', { key: null }).catch(() => {});
-    };
-}, [micHotkey, voiceActive, useMicrophone, loading, searchCooldown, voiceCooldown, activeView, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey]);
+    return () => window.removeEventListener('keydown', handler);
+}, [micHotkey, voiceActive, useMicrophone, loading, searchCooldown, activeView, isRecordingKeybind, isRecordingMicHotkey]);
 
 React.useEffect(() => {
     if (!panicEnabled || !panicHotkey || isDispatcher) return;
-    // Register Panic only while unfocused, preserving physical keyup when focused.
-    let disposed = false;
-    const ipc = window.electron?.ipcRenderer;
     let holdTimer = null;
     const handler = (e) => {
         if (isRecordingKeybind || isRecordingMicHotkey) return;
@@ -8616,14 +8565,13 @@ React.useEffect(() => {
         if (!['CONTROL','SHIFT','ALT','META'].includes(k)) parts.push(k);
         const pressed = parts.join('+');
         if (pressed !== panicHotkey) return;
-        if (Date.now() < panicCooldownUntilRef.current) return;
+        if (Date.now() < panicCooldownUntil) return;
 
         if (panicTriggerMode === 'HOLD') {
             if (!holdTimer) {
                 holdTimer = setTimeout(() => {
                     setPanicModalOpen(true);
                     startPanicAlarm();
-                    panicCooldownUntilRef.current = Date.now() + 60000;
                     setPanicCooldownUntil(Date.now() + 60000);
                 }, 2000);
             }
@@ -8636,7 +8584,6 @@ React.useEffect(() => {
             if (panicTapCountRef.current >= 3) {
                 panicTapCountRef.current = 0;
                 setPanicTapCount(0);
-                panicCooldownUntilRef.current = Date.now() + 60000;
                 setPanicCooldownUntil(Date.now() + 60000);
                 window.electron?.ipcRenderer?.invoke('trigger-panic-roblox').catch(() => {});
                 setPanicNotif('🚨 Panic button activated. All units have been notified. Update responding units with your location.');
@@ -8658,35 +8605,17 @@ React.useEffect(() => {
     };
     window.addEventListener('keydown', handler);
     window.addEventListener('keyup', cancelHandler);
-    const updateRegistration = () => {
-        cancelHandler();
-        if (document.hasFocus() && window._panicArmingTimer) {
-            clearTimeout(window._panicArmingTimer);
-            window._panicArmingTimer = null;
-            window._panicArmedAt = null;
-            setPanicNotif('');
-        }
-        ipc?.invoke('register-panic-shortcut', {
-            key: !document.hasFocus() && !keybindsRequireFocus && !isRecordingKeybind && !isRecordingMicHotkey ? panicHotkey : null
-        }).then(result => {
-            if (!disposed && result && !result.success) addLog(`⚠️ Panic background hotkey: ${result.error}`, 'warning');
-        }).catch(() => {
-            if (!disposed) addLog('⚠️ Panic background hotkey could not be registered.', 'warning');
-        });
-    };
-    window.addEventListener('focus', updateRegistration);
-    window.addEventListener('blur', updateRegistration);
-    updateRegistration();
+    // Also register as global shortcut so it works when tabbed out
+    if (panicEnabled && panicHotkey && !isDispatcher) {
+        window.electron?.ipcRenderer?.invoke('register-panic-shortcut', { key: panicHotkey, requireFocus: false });
+    }
     return () => {
-        disposed = true;
         window.removeEventListener('keydown', handler);
         window.removeEventListener('keyup', cancelHandler);
-        window.removeEventListener('focus', updateRegistration);
-        window.removeEventListener('blur', updateRegistration);
         if (holdTimer) clearTimeout(holdTimer);
-        ipc?.invoke('register-panic-shortcut', { key: null }).catch(() => {});
+        window.electron?.ipcRenderer?.invoke('register-panic-shortcut', { key: null });
     };
-}, [panicEnabled, panicHotkey, panicTriggerMode, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey, panicCooldownUntil, isDispatcher]);
+}, [panicEnabled, panicHotkey, panicTriggerMode, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey, panicCooldownUntil]);
 
 // ══════════════════════════════════════════════════════════════════
 // PURSUIT MODE — toggle handler, registration effect, sound + alert
@@ -8698,7 +8627,6 @@ React.useEffect(() => {
 // the callback shape is still cleaner this way.
 const togglePursuitMode = React.useCallback(() => {
     const turningOn = !pursuitActiveRef.current;
-    pursuitActiveRef.current = turningOn;
     setPursuitActive(turningOn);
     if (turningOn) {
         // Activating: stop any currently-playing call alert immediately. Don't wait
@@ -8747,44 +8675,16 @@ const togglePursuitMode = React.useCallback(() => {
 // requireFocus is honoured per the user's "Only Fire When App is Focused" setting,
 // just like the mic hotkey — that's why the 🖥️ emoji appears in the description.
 React.useEffect(() => {
-    // Pursuit owns its listener so mic state changes cannot remove it.
-    let disposed = false;
-    let globallyRegistered = !!window.electron?.ipcRenderer && !!pursuitEnabled && !!pursuitHotkey && !isRecordingKeybind && !isRecordingMicHotkey;
-    const ipc = window.electron?.ipcRenderer;
-    const toggle = () => {
-        if (disposed || !pursuitEnabled || !pursuitHotkey || isRecordingKeybind || isRecordingMicHotkey) return;
-        if (keybindsRequireFocus && !document.hasFocus()) return;
-        togglePursuitMode();
-    };
-    const handler = e => {
-        if (globallyRegistered || e.repeat) return;
-        const parts = [];
-        if (e.ctrlKey) parts.push('CTRL');
-        if (e.shiftKey) parts.push('SHIFT');
-        if (e.altKey) parts.push('ALT');
-        if (!['CONTROL','SHIFT','ALT','META'].includes(e.key.toUpperCase())) parts.push(e.key.toUpperCase());
-        if (parts.join('+') !== pursuitHotkey) return;
-        e.preventDefault();
-        toggle();
-    };
-    window.addEventListener('keydown', handler);
-    ipc?.on('pursuit-shortcut-fired', toggle);
-    ipc?.invoke('register-pursuit-shortcut', {
-        key: pursuitEnabled && pursuitHotkey && !isRecordingKeybind && !isRecordingMicHotkey ? pursuitHotkey : null,
-        requireFocus: keybindsRequireFocus
-    }).then(result => {
-        if (disposed) return;
-        globallyRegistered = !!result?.success && !!pursuitEnabled && !!pursuitHotkey && !isRecordingKeybind && !isRecordingMicHotkey;
-        if (result && !result.success) addLog(`⚠️ Pursuit background hotkey: ${result.error}`, 'warning');
-    }).catch(() => {
-        globallyRegistered = false;
-        if (!disposed) addLog('⚠️ Pursuit background hotkey could not be registered.', 'warning');
-    });
+    if (pursuitEnabled && pursuitHotkey && !isRecordingKeybind && !isRecordingMicHotkey) {
+        window.electron?.ipcRenderer?.invoke('register-pursuit-shortcut', {
+            key: pursuitHotkey,
+            requireFocus: keybindsRequireFocus
+        });
+    } else {
+        window.electron?.ipcRenderer?.invoke('register-pursuit-shortcut', { key: null });
+    }
     return () => {
-        disposed = true;
-        window.removeEventListener('keydown', handler);
-        ipc?.removeListener('pursuit-shortcut-fired', toggle);
-        ipc?.invoke('register-pursuit-shortcut', { key: null }).catch(() => {});
+        window.electron?.ipcRenderer?.invoke('register-pursuit-shortcut', { key: null });
     };
 }, [pursuitEnabled, pursuitHotkey, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey]);
 
@@ -8814,24 +8714,11 @@ React.useEffect(() => {
 }, [acknowledgedCalls]);
 
 React.useEffect(() => {
-    let disposed = false;
-    const acknowledge = () => {
-        if (disposed || !acknowledgeKeybindRef.current) return;
-        if (isRecordingKeybind || isRecordingMicHotkey) return;
-        if (keybindsRequireFocus && !document.hasFocus()) return;
-        const allIds = currentCallsRef.current.map(c => c.id);
-        const currentAcked = acknowledgedCallsRef.current;
-        const unacked = allIds.filter(id => !currentAcked.includes(id));
-        if (unacked.length === 0) return;
-        const updated = [...currentAcked, ...unacked];
-        // A focused keypress may arrive through both keyboard and IPC listeners.
-        acknowledgedCallsRef.current = updated;
-        setAcknowledgedCalls(updated);
-        addLog(`✅ ${unacked.length} call(s) acknowledged via hotkey`, 'success');
-    };
     const handler = (e) => {
         const hotkey = acknowledgeKeybindRef.current;
-        if (!hotkey || isRecordingKeybind || isRecordingMicHotkey) return;
+        if (!hotkey) return;
+        if (isRecordingKeybind || isRecordingMicHotkey) return;
+        if (keybindsRequireFocus && !document.hasFocus()) return;
         const parts = [];
         if (e.ctrlKey) parts.push('CTRL');
         if (e.shiftKey) parts.push('SHIFT');
@@ -8839,31 +8726,21 @@ React.useEffect(() => {
         const k = e.key.toUpperCase();
         if (!['CONTROL','SHIFT','ALT','META'].includes(k)) parts.push(k);
         const pressed = parts.join('+');
+        console.log('[ACK KEY] keydown:', pressed, '| hotkey:', hotkey, '| calls:', currentCallsRef.current.length, '| tab:', document.visibilityState);
         if (pressed !== hotkey) return;
         e.preventDefault();
-        acknowledge();
+        const allIds = currentCallsRef.current.map(c => c.id);
+        const currentAcked = acknowledgedCallsRef.current;
+        const unacked = allIds.filter(id => !currentAcked.includes(id));
+        console.log('[ACK KEY] ✅ Match - total calls:', allIds.length, '| unacked:', unacked.length);
+        if (unacked.length === 0) { console.log('[ACK KEY] Nothing to acknowledge'); return; }
+        setAcknowledgedCalls([...currentAcked, ...unacked]);
+        addLog(`✅ ${unacked.length} call(s) acknowledged via hotkey`, 'success');
     };
-    const ipc = window.electron?.ipcRenderer;
     window.addEventListener('keydown', handler);
-    ipc?.on('acknowledge-shortcut-fired', acknowledge);
-    // Focus-only mode keeps the ordinary keyboard handler and releases the OS key.
-    ipc?.invoke('register-acknowledge-shortcut', {
-        key: !keybindsRequireFocus && !isRecordingKeybind && !isRecordingMicHotkey
-            ? acknowledgeKeybind : null
-    }).then(result => {
-        if (!disposed && result && !result.success) {
-            addLog(`⚠️ Acknowledge background hotkey: ${result.error}`, 'warning');
-        }
-    }).catch(() => {
-        if (!disposed) addLog('⚠️ Acknowledge background hotkey could not be registered.', 'warning');
-    });
-    return () => {
-        disposed = true;
-        window.removeEventListener('keydown', handler);
-        ipc?.removeListener('acknowledge-shortcut-fired', acknowledge);
-        ipc?.invoke('register-acknowledge-shortcut', { key: null }).catch(() => {});
-    };
-}, [acknowledgeKeybind, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey]);
+    console.log('[ACK KEY] 🎧 Acknowledge hotkey listener registered');
+    return () => window.removeEventListener('keydown', handler);
+}, [keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey]);
 
 React.useEffect(() => {
     const handler = (e) => {
@@ -9564,6 +9441,7 @@ parsed = {
     
     console.log('════════════════════════════════════════════════════');
     
+    try { if (parsed && !parsed.rawContent) parsed.rawContent = Array.isArray(block) ? block.join('\n') : (block || ''); } catch(_) {}
     return parsed;
 };
 
@@ -11234,8 +11112,9 @@ console.log('📦 [VEHICLES] Processing', vMessages.length, 'messages...!');
                 console.log('📊 [BATCH] Successfully parsed:', parsedVehicles.length, 'vehicles');
                 
                 // Add to allVehicles
-                parsedVehicles.forEach(v => {
+                parsedVehicles.forEach((v, i) => {
                     if (v && v.plate !== 'Unknown') {
+                        if (!v.rawContent) { const _b = allVehicleBlocks[i]; if (_b) { try { v.rawContent = Array.isArray(_b.block) ? _b.block.join('\n') : (_b.block || ''); } catch(_){} } }
                         allVehicles.push(v);
                     }
                 });
@@ -17407,7 +17286,7 @@ return (
                             {/* RECORDS LIST — 1:1 artboard rows: date · type + penal codes · points · expand */}
                             {!plateGovLoading && plateGovRecords !== null && plateGovRecords.length > 0 && (
                                 <React.Fragment>
-                                <div style={{ maxHeight:'520px',overflowY:'auto',display:'flex',flexDirection:'column',gap:'10px',paddingRight:'2px' }}>
+                                <div style={{ flex:'1 1 auto',minHeight:0,overflowY:'auto',display:'flex',flexDirection:'column',gap:'10px',paddingRight:'2px' }}>
                                     {plateGovRecords.map((record, index) => {
                                         const isWarrantType = record.type === 'Bench Warrant' || record.type === 'Arrest Warrant';
                                         const tc = isWarrantType ? { fg:'#fca5a5', rgb:'239,68,68' }
@@ -17656,7 +17535,7 @@ return (
 )}
 {activeView === 'database-search' && (
     <div style={{ position:'fixed',top:'44px',left:0,right:0,bottom:0,display:'flex',flexDirection:'column',background:'#07090f',overflow:'hidden' }}>
-    <div style={{ flex:1,overflowY:'auto',padding:'20px',boxSizing:'border-box' }}>
+    <div style={{ flex:1,overflowY:'auto',padding:'20px',boxSizing:'border-box',display:'flex',flexDirection:'column' }}>
 
         {!tokenSaved ? (
             /* ── NO TOKEN WARNING ── */
@@ -17678,9 +17557,9 @@ return (
                 </button>
             </div>
         ) : (
-            <div>
+            <div style={{ display:'flex',flexDirection:'column',flex:'1 1 auto',minHeight:0 }}>
                 {/* ══════════ UI: CITIZEN LOOKUP ══════════ */}
-                <div style={{ background:'linear-gradient(180deg,rgba(30,58,138,0.22) 0%,rgba(10,16,30,0.6) 100%)',border:'1px solid rgba(56,189,248,0.2)',borderRadius:'14px',marginBottom:'14px',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 8px 28px -14px rgba(0,0,0,0.7)' }}>
+                <div style={{ flexShrink:0,background:'linear-gradient(180deg,rgba(30,58,138,0.22) 0%,rgba(10,16,30,0.6) 100%)',border:'1px solid rgba(56,189,248,0.2)',borderRadius:'14px',marginBottom:'14px',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 8px 28px -14px rgba(0,0,0,0.7)' }}>
                     <div style={{ display:'flex',alignItems:'center',gap:'11px',padding:'15px 16px',borderBottom:'1px solid rgba(56,189,248,0.16)',background:'linear-gradient(180deg,rgba(56,189,248,0.06),transparent)' }}>
                         <div style={{ width:'32px',height:'32px',borderRadius:'9px',background:'linear-gradient(135deg,rgba(34,211,238,0.9),rgba(37,99,235,0.6))',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 12px -3px rgba(37,99,235,0.6), inset 0 1px 0 rgba(255,255,255,0.3)' }}>
                             <Search size={15} style={{ color:'#fff' }} />
@@ -17770,7 +17649,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
 
                 {/* ── RESULTS ── */}
                 {searchResults && (
-                    <div className={`results-grid ${visualEffects ? 'pulse-animation' : ''}`} style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr)', alignItems:'start' }}>
+                    <div className={`results-grid ${visualEffects ? 'pulse-animation' : ''}`} style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr)', gridTemplateRows:'minmax(0, 1fr)', flex:'1 1 auto', minHeight:0 }}>
 
                         {/* ── OWNER BOX — citizen credential card ── */}
                         <div style={{ background:'linear-gradient(180deg,rgba(12,22,32,0.6),rgba(9,13,19,0.8))',border:'1px solid rgba(52,211,153,0.2)',borderRadius:'16px',overflow:'hidden',boxShadow:'0 10px 34px -16px rgba(0,0,0,0.8)',display:'flex',flexDirection:'column',minHeight:0 }}>
@@ -18047,7 +17926,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                             {/* RECORDS LIST — 1:1 artboard rows: date · type + penal codes · points · expand */}
                             {!plateGovLoading && plateGovRecords !== null && plateGovRecords.length > 0 && (
                                 <React.Fragment>
-                                <div style={{ maxHeight:'520px',overflowY:'auto',display:'flex',flexDirection:'column',gap:'10px',paddingRight:'2px' }}>
+                                <div style={{ flex:'1 1 auto',minHeight:0,overflowY:'auto',display:'flex',flexDirection:'column',gap:'10px',paddingRight:'2px' }}>
                                     {plateGovRecords.map((record, index) => {
                                         const isWarrantType = record.type === 'Bench Warrant' || record.type === 'Arrest Warrant';
                                         const tc = isWarrantType ? { fg:'#fca5a5', rgb:'239,68,68' }
@@ -18238,8 +18117,8 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px', maxHeight: '520px', overflowY: 'auto', alignContent:'flex-start', padding:'16px', paddingRight:'14px' }}>
-                                    {searchResults.vehicles.map((vehicle, index) => (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gridAutoRows:'max-content', gap: '12px', flex:'1 1 auto', minHeight:0, alignContent:'start', overflowY: 'auto', padding:'16px', paddingRight:'14px' }}>
+                                    {searchResults.vehicles.map((vehicle, index) => { const _vEmpty = v => { const s=(v==null?'':String(v)).trim().toLowerCase(); return !s||s==='unknown'||s==='n/a'; }; const isImproper = _vEmpty(vehicle.plate) && _vEmpty(vehicle.make) && _vEmpty(vehicle.model); const vehRaw = (vehicle.rawContent || vehicle.content || ''); return (
                                         <div
                                             key={index}
                                             onClick={() => setSelectedVehicleForCitation(vehicle)}
@@ -18251,6 +18130,53 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                                 <div style={{ position: 'absolute', top: '12px', right: '12px', width: '24px', height: '24px', background: 'linear-gradient(135deg, #e2e8f0, #94a3b8)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0b1016', fontSize: '12px', fontWeight: 'bold', zIndex: 2 }}>✓</div>
                                             )}
 
+                                            {isImproper ? (<>
+                                            {/* IMPROPER REGISTRATION — shows registered date + the Discord message, gov-records style */}
+                                            <div style={{ display:'flex',alignItems:'center',gap:'10px',padding:'13px 14px',borderBottom:'1px solid rgba(245,158,11,0.18)',background:'linear-gradient(180deg,rgba(245,158,11,0.07),transparent)' }}>
+                                                <div style={{ width:'30px',height:'30px',borderRadius:'8px',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(245,158,11,0.14)',border:'1px solid rgba(245,158,11,0.3)' }}>
+                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+                                                </div>
+                                                <div style={{ flex:1,minWidth:0 }}>
+                                                    <div style={{ color:'#fbbf24',fontSize:'11px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace' }}>IMPROPER REGISTRATION</div>
+                                                    <div style={{ color:'#64748b',fontSize:'9px',fontFamily:'monospace',marginTop:'2px' }}>Could not be parsed · manual verification required</div>
+                                                </div>
+                                            </div>
+                                            <div style={{ padding:'12px 14px' }}>
+                                                <div style={{ display:'flex',alignItems:'center',gap:'7px',padding:'8px 10px',marginBottom:'10px',background:'rgba(0,0,0,0.25)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:'8px',fontFamily:'monospace' }}>
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                                                    <span style={{ color:'#64748b',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase' }}>Registered</span>
+                                                    <span style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'700',marginLeft:'auto',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{vehicle.timestamp ? (String(vehicle.timestamp).includes('/') ? vehicle.timestamp : new Date(vehicle.timestamp).toLocaleString()) : 'Unknown'}</span>
+                                                </div>
+                                                {vehRaw ? (
+                                                    <div style={{ background:'rgba(0,0,0,0.25)',border:'1px solid rgba(255,255,255,0.07)',borderRadius:'8px',overflow:'hidden' }}>
+                                                        <div style={{ padding:'4px 10px',background:'rgba(255,255,255,0.03)',borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+                                                            <span style={{ color:'#4b5563',fontSize:'8px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase' }}>Record Content</span>
+                                                        </div>
+                                                        <div style={{ padding:'8px 10px' }}>
+                                                            {String(vehRaw).split('\n').filter(l => l.trim() && !/^<@!?\d+>\s*$/.test(l.trim())).map((line, li, arr) => {
+                                                                const clean = line.replace(/\*\*/g,'').replace(/__/g,'').replace(/[`´]/g,'');
+                                                                const ci = clean.indexOf(':'); const hasLabel = ci > 0 && ci < 30;
+                                                                return (
+                                                                    <div key={li} style={{ display:'flex',gap:'8px',padding:'2.5px 0',borderBottom: li < arr.length - 1 ? '1px solid rgba(255,255,255,0.035)' : 'none' }}>
+                                                                        {hasLabel ? (
+                                                                            <>
+                                                                                <span style={{ color:'rgba(245,158,11,0.85)',fontSize:'9.5px',fontWeight:'700',letterSpacing:'0.5px',textTransform:'uppercase',minWidth:'84px',flexShrink:0,fontFamily:'monospace',paddingTop:'1px' }}>{clean.substring(0, ci).trim()}</span>
+                                                                                <span style={{ color:'#e2e8f0',fontSize:'11px',fontFamily:'monospace',wordBreak:'break-word' }}>{clean.substring(ci + 1).trim()}</span>
+                                                                            </>
+                                                                        ) : (
+                                                                            <span style={{ color:'#94a3b8',fontSize:'10.5px',fontFamily:'monospace',wordBreak:'break-word' }}>{clean}</span>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ color:'#64748b',fontSize:'10px',fontFamily:'monospace',fontStyle:'italic',padding:'2px' }}>No readable registration content — manual search required.</div>
+                                                )}
+                                            </div>
+                                            </>
+                                            ) : (<>
                                             {/* Plate Display */}
                                             <div style={{ background:'radial-gradient(ellipse at 50% 50%, rgba(148,163,184,0.16) 0%, rgba(30,41,59,0.55) 70%)', borderBottom:'1px solid rgba(148,163,184,0.25)', borderRadius:'11px 11px 0 0', padding:'16px', textAlign:'center', position:'relative', overflow:'hidden' }}>
                                                 <div style={{ position:'absolute',inset:0,background:'repeating-linear-gradient(180deg,transparent 0px,transparent 3px,rgba(255,255,255,0.015) 3px,rgba(255,255,255,0.015) 4px)',pointerEvents:'none' }} />
@@ -18286,52 +18212,59 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                                     <span style={{ color: 'white', fontWeight: '700' }}>{vehicle.timestamp ? new Date(vehicle.timestamp).toLocaleString() : 'N/A'}</span>
                                                 </div>
                                             </div>
+                                            </>)}
                                         </div>
-                                    ))}
+                                    ); })}
                                     {searchResults.failedVehicleRaw?.map((raw, idx) => {
                                         const rawContent = typeof raw === 'object' ? raw.content : raw;
                                         const rawTimestamp = typeof raw === 'object' && raw.timestamp ? new Date(raw.timestamp).toLocaleString() : null;
                                         return (
-                                        <div key={`improper-${idx}`} style={{ background: 'linear-gradient(180deg, rgba(120,53,15,0.25), rgba(15,10,4,0.6))', border: '1px solid rgba(245,158,11,0.28)', borderRadius: '12px', overflow: 'hidden', boxShadow:'inset 0 1px 0 rgba(245,158,11,0.1)' }}>
-                                            <div style={{ background:'radial-gradient(ellipse at 50% 50%, rgba(245,158,11,0.15) 0%, rgba(69,26,3,0.5) 70%)', borderBottom:'1px solid rgba(245,158,11,0.3)', padding:'14px 16px', display:'flex', alignItems:'center', gap:'12px' }}>
-                                                <div style={{ width:'40px',height:'40px',borderRadius:'11px',background:'rgba(245,158,11,0.2)',border:'1px solid rgba(245,158,11,0.4)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0 }}>
-                                                    <svg width="20" height="20" fill="none" stroke="#fbbf24" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                                        <div key={`improper-${idx}`} style={{ display:'flex',flexDirection:'column',background:'linear-gradient(180deg,rgba(30,37,48,0.5),rgba(12,16,22,0.6))',border:'1px solid rgba(245,158,11,0.28)',borderRadius:'10px',overflow:'hidden' }}>
+                                            {/* IMPROPER REGISTRATION — shows registered date + the Discord message, gov-records style */}
+                                            <div style={{ display:'flex',alignItems:'center',gap:'10px',padding:'13px 14px',borderBottom:'1px solid rgba(245,158,11,0.18)',background:'linear-gradient(180deg,rgba(245,158,11,0.07),transparent)' }}>
+                                                <div style={{ width:'30px',height:'30px',borderRadius:'8px',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(245,158,11,0.14)',border:'1px solid rgba(245,158,11,0.3)' }}>
+                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
                                                 </div>
-                                                <div>
-                                                    <div style={{ fontSize:'12px', color:'#fff', fontWeight:'800', letterSpacing:'0.5px' }}>Improper Registration</div>
-                                                    <div style={{ fontSize:'10px', color:'#fcd34d', fontWeight:'600', fontFamily:'monospace', marginTop:'2px' }}>Entry {idx + 1} · Manual search required</div>
+                                                <div style={{ flex:1,minWidth:0 }}>
+                                                    <div style={{ color:'#fbbf24',fontSize:'11px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace' }}>IMPROPER REGISTRATION</div>
+                                                    <div style={{ color:'#64748b',fontSize:'9px',fontFamily:'monospace',marginTop:'2px' }}>Could not be parsed · manual verification required</div>
                                                 </div>
                                             </div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '12px' }}>
-                                                <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px' }}>
-                                                    <div style={{ fontSize: '9px', color: '#fde68a', fontWeight: '700', marginBottom: '4px', letterSpacing: '1px' }}>STATUS</div>
-                                                    <div style={{ fontSize: '13px', color: 'white', fontWeight: '700' }}>Improper Format</div>
+                                            <div style={{ padding:'12px 14px' }}>
+                                                <div style={{ display:'flex',alignItems:'center',gap:'7px',padding:'8px 10px',marginBottom:'10px',background:'rgba(0,0,0,0.25)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:'8px',fontFamily:'monospace' }}>
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                                                    <span style={{ color:'#64748b',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase' }}>Registered</span>
+                                                    <span style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'700',marginLeft:'auto',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{rawTimestamp || 'Unknown'}</span>
                                                 </div>
-                                                <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px' }}>
-                                                    <div style={{ fontSize: '9px', color: '#fde68a', fontWeight: '700', marginBottom: '4px', letterSpacing: '1px' }}>ACTION</div>
-                                                    <div style={{ fontSize: '13px', color: 'white', fontWeight: '700' }}>Manual Search</div>
-                                                </div>
-                                                {rawTimestamp && (
-                                                    <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px', gridColumn: '1 / -1' }}>
-                                                        <div style={{ fontSize: '9px', color: '#fde68a', fontWeight: '700', marginBottom: '4px', letterSpacing: '1px' }}>REGISTERED AT</div>
-                                                        <div style={{ fontSize: '12px', color: 'white', fontWeight: '700', fontFamily: 'monospace' }}>{rawTimestamp}</div>
+                                                {rawContent ? (
+                                                    <div style={{ background:'rgba(0,0,0,0.25)',border:'1px solid rgba(255,255,255,0.07)',borderRadius:'8px',overflow:'hidden' }}>
+                                                        <div style={{ padding:'4px 10px',background:'rgba(255,255,255,0.03)',borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+                                                            <span style={{ color:'#4b5563',fontSize:'8px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase' }}>Record Content</span>
+                                                        </div>
+                                                        <div style={{ padding:'8px 10px' }}>
+                                                            {String(rawContent).split('\n').filter(l => l.trim() && !/^<@!?\d+>\s*$/.test(l.trim())).map((line, li, arr) => {
+                                                                const clean = line.replace(/\*\*/g,'').replace(/__/g,'').replace(/[`´]/g,'');
+                                                                const ci = clean.indexOf(':'); const hasLabel = ci > 0 && ci < 30;
+                                                                return (
+                                                                    <div key={li} style={{ display:'flex',gap:'8px',padding:'2.5px 0',borderBottom: li < arr.length - 1 ? '1px solid rgba(255,255,255,0.035)' : 'none' }}>
+                                                                        {hasLabel ? (
+                                                                            <>
+                                                                                <span style={{ color:'rgba(245,158,11,0.85)',fontSize:'9.5px',fontWeight:'700',letterSpacing:'0.5px',textTransform:'uppercase',minWidth:'84px',flexShrink:0,fontFamily:'monospace',paddingTop:'1px' }}>{clean.substring(0, ci).trim()}</span>
+                                                                                <span style={{ color:'#e2e8f0',fontSize:'11px',fontFamily:'monospace',wordBreak:'break-word' }}>{clean.substring(ci + 1).trim()}</span>
+                                                                            </>
+                                                                        ) : (
+                                                                            <span style={{ color:'#94a3b8',fontSize:'10.5px',fontFamily:'monospace',wordBreak:'break-word' }}>{clean}</span>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
                                                     </div>
+                                                ) : (
+                                                    <div style={{ color:'#64748b',fontSize:'10px',fontFamily:'monospace',fontStyle:'italic',padding:'2px' }}>No readable registration content — manual search required.</div>
                                                 )}
-                                                <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px', gridColumn: '1 / -1' }}>
-                                                    <div style={{ fontSize: '9px', color: '#fde68a', fontWeight: '700', marginBottom: '4px', letterSpacing: '1px' }}>RAW DISCORD MESSAGE</div>
-                                                    <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#fde68a', lineHeight: '1.7', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                                                        {rawContent.split('\n').map((line, i) => (
-                                                            <div key={i}><span style={{ color: '#6b7280', userSelect: 'none', marginRight: '8px' }}>{String(i + 1).padStart(2, '0')}</span>{line}</div>
-      ))}
-                                    </div>
-                                </div>
-                            </div>
-                            <div style={{ margin: '0 12px 12px', background: 'rgba(245,158,11,0.06)', borderRadius: '8px', padding: '8px 12px' }}>
-                                <div style={{ fontSize: '11px', color: '#fde68a', fontWeight: '600' }}>
-                                    Status: <span style={{ color: 'white', fontWeight: '700' }}>Could not be parsed - verify manually</span>
-                                </div>
-                            </div>
-                        </div>
+                                            </div>
+                                        </div>
                         );
                     })}
                 </div>
