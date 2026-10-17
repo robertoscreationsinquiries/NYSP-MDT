@@ -16571,7 +16571,8 @@ return (
 }}>
 
 {activeView === 'search' && (
-<div style={{ position:'fixed',top:'44px',left:0,right:0,bottom:0,background:'#07090f',padding:'20px',boxSizing:'border-box',overflowY:'auto' }}>
+<div style={{ position:'fixed',top:'44px',left:0,right:0,bottom:0,display:'flex',flexDirection:'column',background:'#07090f',overflow:'hidden' }}>
+    <div style={{ flex:1,overflowY:'auto',padding:'20px',boxSizing:'border-box',display:'flex',flexDirection:'column' }}>
         {!tokenSaved ? (
             /* ── NO TOKEN WARNING ── */
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px', padding: '40px', textAlign: 'center' }}>
@@ -16592,7 +16593,7 @@ return (
                 </button>
             </div>
         ) : (
-            <div style={{ display:'flex',flexDirection:'column',gap:'14px' }}>
+            <div style={{ display:'flex',flexDirection:'column',flex:'1 1 auto',minHeight:0 }}>
 
                 {/* ══════════ UI: PLATE LOOKUP ══════════ */}
                 <div style={{ flexShrink:0,background:'linear-gradient(180deg,rgba(30,58,138,0.22) 0%,rgba(10,16,30,0.6) 100%)',border:'1px solid rgba(56,189,248,0.2)',borderRadius:'14px',marginBottom:'14px',overflow:'hidden',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.08), 0 8px 28px -14px rgba(0,0,0,0.7)' }}>
@@ -16930,7 +16931,7 @@ return (
                 
 
                 {(result || registration || loadingRoblox || robloxError) && registration && !registration.notFound && !registration.multipleMatches && (
-                    <div className={`results-grid ${visualEffects ? 'pulse-animation' : ''}`} style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr)' }}>
+                    <div className={`results-grid ${visualEffects ? 'pulse-animation' : ''}`} style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr)', gridTemplateRows:'minmax(0, 1fr)', flex:'1 1 auto', minHeight:0 }}>
 
                         {/* ══════════ UI: REGISTERED OWNER ══════════ */}
                         {/* ══════════ UI: REGISTERED OWNER — 1:1 replica of the Citizen-ID credential card ══════════ */}
@@ -17455,104 +17456,74 @@ return (
                             </div>
                         </div>
 
-                        {/* ══════════ UI: VEHICLE DETAILS ══════════ */}
+                        {/* ══════════ UI: VEHICLE DETAILS — Registered Vehicles list frame (1:1 with Citizen-ID) ══════════ */}
 {registration && !registration.parseFailed && (() => {
                             const isStolen = !!registration?.reportedStolen;
-                            // Flash priority: STOLEN (red, urgent) > recent edit > normal.
-                            const flashing = isStolen || recentRegistrationFlash;
+                            const vehicles = [registration];
                             return (
-                            <div style={{ background: isStolen ? 'linear-gradient(180deg,rgba(70,10,10,0.5) 0%,rgba(20,6,6,0.7) 100%)' : 'linear-gradient(180deg,rgba(30,58,138,0.22) 0%,rgba(10,16,30,0.6) 100%)',border:flashing?'1.5px solid rgba(239,68,68,0.6)':'1px solid rgba(96,165,250,0.2)',borderRadius:'14px',animation:flashing?(isStolen?'stolenPulse 1.15s ease-in-out infinite':'flash-red-border 1.5s infinite'):'plateRevealIn 380ms cubic-bezier(0.23,1,0.32,1)',boxShadow:flashing?'0 0 32px -4px rgba(239,68,68,0.4), inset 0 1px 0 rgba(239,68,68,0.12)':'inset 0 1px 0 rgba(96,165,250,0.08), 0 8px 28px -14px rgba(0,0,0,0.7)',display:'flex',flexDirection:'column',overflow:'hidden' }}>
-
-                                {/* Header strip */}
-                                <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'15px 18px',borderBottom:`1px solid ${isStolen?'rgba(239,68,68,0.2)':'rgba(96,165,250,0.14)'}` }}>
-                                    <div style={{ display:'flex',alignItems:'center',gap:'11px' }}>
-                                        <div style={{ width:'32px',height:'32px',borderRadius:'9px',background: isStolen ? 'linear-gradient(135deg,rgba(239,68,68,0.9),rgba(185,28,28,0.6))' : 'linear-gradient(135deg,rgba(34,211,238,0.9),rgba(37,99,235,0.6))',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow: isStolen ? '0 4px 12px -3px rgba(239,68,68,0.6), inset 0 1px 0 rgba(255,255,255,0.3)' : '0 4px 12px -3px rgba(37,99,235,0.6), inset 0 1px 0 rgba(255,255,255,0.3)' }}>
-                                            <Car size={16} style={{ color:'#fff' }} />
-                                        </div>
-                                        <div>
-                                            <div style={{ color: isStolen ? '#fca5a5' : '#93c5fd',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace' }}>Vehicle Details</div>
-                                            <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px',marginTop:'1px' }}>Registered Vehicle</div>
-                                        </div>
+                            <div style={{ display:'flex',flexDirection:'column',minHeight:0,background:'linear-gradient(180deg,rgba(20,26,36,0.6),rgba(8,13,18,0.7))',border:'1px solid rgba(148,163,184,0.16)',borderRadius:'14px',overflow:'hidden',boxShadow:'0 8px 28px -14px rgba(0,0,0,0.7)' }}>
+                                <div style={{ display:'flex',alignItems:'center',gap:'11px',padding:'15px 16px',borderBottom:'1px solid rgba(148,163,184,0.12)',background:'linear-gradient(180deg,rgba(148,163,184,0.05),transparent)',flexWrap:'wrap',flexShrink:0 }}>
+                                    <div style={{ width:'32px',height:'32px',borderRadius:'9px',background:'linear-gradient(135deg,#94a3b8,#475569)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 12px -3px rgba(71,85,105,0.6), inset 0 1px 0 rgba(255,255,255,0.2)' }}>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0b1016" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17h14M6 17l1.5-4.5a2 2 0 011.9-1.5h5.2a2 2 0 011.9 1.5L19 17M6 17v2M18 17v2"/><rect x="2" y="7" width="20" height="4" rx="1"/></svg>
                                     </div>
-                                    {isStolen ? (<span style={{ display:'flex',alignItems:'center',gap:'5px',padding:'3px 10px',background:'#ef4444',color:'#fff',fontSize:'9px',fontWeight:'900',borderRadius:'999px',letterSpacing:'1.5px',fontFamily:'monospace',boxShadow:'0 0 14px rgba(239,68,68,0.7)',animation:'pursuitPulse 1.2s ease-in-out infinite' }}>⚠ STOLEN</span>)
-                                     : recentRegistrationFlash ? (<span style={{ padding:'3px 9px',background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.4)',color:'#fca5a5',fontSize:'9px',fontWeight:'800',borderRadius:'999px',letterSpacing:'1.5px',fontFamily:'monospace',animation:'pulse-glow 1s infinite' }}>RECENT EDIT</span>) : null}
-                                </div>
-
-                                {/* ══ STOLEN ALERT BANNER (inside Vehicle Details) ══ */}
-                                {isStolen && (
-                                    <div style={{ margin:'14px 18px 0', padding:'13px 16px', borderRadius:'11px', position:'relative', overflow:'hidden', background:'linear-gradient(135deg, rgba(127,29,29,0.85) 0%, rgba(50,8,8,0.9) 100%)', border:'1px solid rgba(239,68,68,0.55)', boxShadow:'inset 0 1px 0 rgba(255,255,255,0.08)' }}>
-                                        <div style={{ position:'absolute', top:0, left:0, right:0, height:'2px', background:'linear-gradient(90deg, transparent, #ef4444, transparent)', backgroundSize:'55% 100%', animation:'callBeamSlide 1.8s linear infinite' }} />
-                                        <div style={{ position:'absolute', inset:0, background:'repeating-linear-gradient(45deg, rgba(0,0,0,0.2) 0 12px, transparent 12px 24px)', opacity:0.4, pointerEvents:'none' }} />
-                                        <div style={{ position:'relative', display:'flex', alignItems:'center', gap:'13px' }}>
-                                            <div style={{ flexShrink:0, width:'38px', height:'38px', borderRadius:'10px', background:'rgba(239,68,68,0.3)', border:'1px solid #ef4444', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 0 14px rgba(239,68,68,0.6)', animation:'pursuitPulse 1.2s ease-in-out infinite' }}>
-                                                <svg width="21" height="21" fill="none" stroke="#fff" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.3" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
-                                            </div>
-                                            <div style={{ flex:1, minWidth:0 }}>
-                                                <div style={{ color:'#fff', fontSize:'14px', fontWeight:'900', letterSpacing:'1px', textTransform:'uppercase', lineHeight:1.1, marginBottom:'3px' }}>Reported Stolen</div>
-                                                <div style={{ color:'#fecaca', fontSize:'11px', fontWeight:'600', fontFamily:'monospace', lineHeight:1.4 }}>Exercise caution.</div>
-                                            </div>
+                                    <div>
+                                        <div style={{ display:'flex',alignItems:'center',gap:'8px' }}>
+                                            <span style={{ color:'#cbd5e1',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace' }}>Registered Vehicles</span>
+                                            <span style={{ padding:'1px 8px',background:'rgba(148,163,184,0.14)',border:'1px solid rgba(148,163,184,0.3)',borderRadius:'999px',color:'#cbd5e1',fontSize:'10px',fontWeight:'800',fontFamily:'monospace' }}>{vehicles.length}</span>
+                                            {isStolen && <span style={{ background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,0.4)',borderRadius:'999px',padding:'2px 9px',color:'#fca5a5',fontSize:'9px',fontWeight:'800',letterSpacing:'1px',textTransform:'uppercase',fontFamily:'monospace' }}>⚠ Stolen</span>}
                                         </div>
-                                    </div>
-                                )}
-
-                                {/* License Plate Hero */}
-                                <div style={{ margin:'16px 18px 14px',padding:'22px',background:'radial-gradient(ellipse at 50% 50%, rgba(16,185,129,0.18) 0%, rgba(6,78,59,0.4) 70%)',border:'1px solid rgba(52,211,153,0.5)',borderRadius:'12px',textAlign:'center',boxShadow:'0 0 32px rgba(16,185,129,0.18), inset 0 1px 0 rgba(52,211,153,0.2), inset 0 -1px 0 rgba(0,0,0,0.2)',position:'relative',overflow:'hidden' }}>
-                                    {/* Subtle scan line effect */}
-                                    <div style={{ position:'absolute',inset:0,background:'repeating-linear-gradient(180deg,transparent 0px,transparent 3px,rgba(255,255,255,0.015) 3px,rgba(255,255,255,0.015) 4px)',pointerEvents:'none',borderRadius:'12px' }} />
-                                    <div style={{ position:'relative' }}>
-                                        <div style={{ fontSize:'10px',color:'#6ee7b7',fontWeight:'700',marginBottom:'8px',letterSpacing:'4px',fontFamily:'monospace' }}>LICENSE PLATE</div>
-                                        <div style={{ fontSize:'38px',fontWeight:'900',color:'white',letterSpacing:'8px',fontFamily:'monospace',textShadow:'0 2px 12px rgba(16,185,129,0.4), 0 0 24px rgba(16,185,129,0.2)',lineHeight:1.1 }}>{registration?.plate}</div>
-                                        <div style={{ fontSize:'13px',color:'#a7f3d0',fontWeight:'700',marginTop:'8px',letterSpacing:'3px',fontFamily:'monospace' }}>{registration?.state}</div>
+                                        <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px',marginTop:'2px' }}>Vehicle matched to the searched plate</div>
                                     </div>
                                 </div>
 
-                                {/* Info Grid */}
-                                <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',padding:'0 18px 14px' }}>
-                                    {[
-                                        { label:'VEHICLE',value:`${registration?.year || ''} ${registration?.make || ''}`.trim()||'—',sub:registration?.model, icon:<path d="M5 17h14M6 17l1.5-4.5a2 2 0 011.9-1.5h5.2a2 2 0 011.9 1.5L19 17M6 17v2M18 17v2M8 13h8" /> },
-                                        { label:'TYPE',   value:registration?.vehicleType||'—', icon:<><rect x="3" y="11" width="18" height="7" rx="1.5"/><path d="M5 11V8a2 2 0 012-2h10a2 2 0 012 2v3"/></> },
-                                        { label:'COLOR',  value:registration?.color||'—', icon:<><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 22a10 10 0 110-20 8 8 0 018 8c0 2-1 3-3 3h-2a2 2 0 00-1 4 2 2 0 01-1 5z"/></> },
-                                        { label:'STATE',  value:registration?.state||'—', icon:<><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></> },
-                                    ].map(({ label, value, sub, icon })=>(
-                                        <div key={label} style={{ background:'rgba(4,8,18,0.5)',border:'1px solid rgba(96,165,250,0.12)',borderRadius:'9px',padding:'11px 14px',transition:'background 200ms ease-out, border-color 200ms ease-out, transform 120ms cubic-bezier(0.34,1.56,0.64,1)' }}
-                                            onMouseEnter={e=>{ e.currentTarget.style.background='rgba(96,165,250,0.06)'; e.currentTarget.style.borderColor='rgba(96,165,250,0.28)'; e.currentTarget.style.transform='translateY(-1px)'; }}
-                                            onMouseLeave={e=>{ e.currentTarget.style.background='rgba(4,8,18,0.5)'; e.currentTarget.style.borderColor='rgba(96,165,250,0.12)'; e.currentTarget.style.transform='translateY(0)'; }}>
-                                            <div style={{ display:'flex',alignItems:'center',gap:'5px',marginBottom:'5px' }}>
-                                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{icon}</svg>
-                                                <div style={{ fontSize:'9px',color:'#64748b',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace' }}>{label}</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gridAutoRows:'max-content', gap: '12px', flex:'1 1 auto', minHeight:0, alignContent:'start', overflowY: 'auto', padding:'16px', paddingRight:'14px' }}>
+                                    {vehicles.map((vehicle, index) => (
+                                        <div key={index} style={{ padding:'0',background:'linear-gradient(180deg,rgba(30,37,48,0.5),rgba(12,16,22,0.6))',border: isStolen ? '1px solid rgba(239,68,68,0.45)' : '1px solid rgba(148,163,184,0.14)',borderRadius:'10px',position:'relative',overflow:'hidden',boxShadow: isStolen ? 'inset 0 1px 0 rgba(239,68,68,0.12), 0 0 18px -6px rgba(239,68,68,0.4)' : 'inset 0 1px 0 rgba(148,163,184,0.05)' }}>
+                                            {/* Plate Display */}
+                                            <div style={{ background: isStolen ? 'radial-gradient(ellipse at 50% 50%, rgba(239,68,68,0.16) 0%, rgba(69,10,10,0.5) 70%)' : 'radial-gradient(ellipse at 50% 50%, rgba(148,163,184,0.16) 0%, rgba(30,41,59,0.55) 70%)', borderBottom: isStolen ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(148,163,184,0.25)', borderRadius:'11px 11px 0 0', padding:'16px', textAlign:'center', position:'relative', overflow:'hidden' }}>
+                                                <div style={{ position:'absolute',inset:0,background:'repeating-linear-gradient(180deg,transparent 0px,transparent 3px,rgba(255,255,255,0.015) 3px,rgba(255,255,255,0.015) 4px)',pointerEvents:'none' }} />
+                                                <div style={{ position:'relative' }}>
+                                                    {isStolen && <div style={{ display:'inline-flex',alignItems:'center',gap:'5px',marginBottom:'7px',padding:'2px 10px',background:'#ef4444',color:'#fff',fontSize:'9px',fontWeight:'900',borderRadius:'999px',letterSpacing:'1.5px',fontFamily:'monospace',boxShadow:'0 0 12px rgba(239,68,68,0.6)' }}>⚠ STOLEN</div>}
+                                                    <div style={{ fontSize:'9px', color:'#cbd5e1', fontWeight:'800', marginBottom:'5px', letterSpacing:'3px', fontFamily:'monospace' }}>LICENSE PLATE</div>
+                                                    <div style={{ fontSize:'28px', fontWeight:'900', color:'white', letterSpacing:'6px', fontFamily:'monospace', textShadow:'0 2px 12px rgba(0,0,0,0.55)' }}>{vehicle.plate}</div>
+                                                    <div style={{ fontSize:'11px', color:'#94a3b8', fontWeight:'700', marginTop:'6px', letterSpacing:'2px', fontFamily:'monospace' }}>{vehicle.state}</div>
+                                                </div>
                                             </div>
-                                            <div style={{ fontSize:'14px',color:'#f1f5f9',fontWeight:'700',fontFamily:'monospace' }}>{value}</div>
-                                            {sub && <div style={{ fontSize:'11px',color:'#94a3b8',marginTop:'2px',fontFamily:'monospace' }}>{sub}</div>}
+
+                                            {/* Vehicle Info Grid */}
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '12px' }}>
+                                                {[
+                                                    { label: 'VEHICLE', value: `${vehicle.year || ''} ${vehicle.make || ''}`.trim() || '—', sub: vehicle.model, icon:<path d="M5 17h14M6 17l1.5-4.5a2 2 0 011.9-1.5h5.2a2 2 0 011.9 1.5L19 17M6 17v2M18 17v2M8 13h8" /> },
+                                                    { label: 'TYPE', value: vehicle.vehicleType || '—', icon:<><rect x="3" y="11" width="18" height="7" rx="1.5"/><path d="M5 11V8a2 2 0 012-2h10a2 2 0 012 2v3"/></> },
+                                                    { label: 'COLOR', value: vehicle.color || '—', icon:<><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 22a10 10 0 110-20 8 8 0 018 8c0 2-1 3-3 3h-2a2 2 0 00-1 4 2 2 0 01-1 5z"/></> },
+                                                    { label: 'PHONETIC', value: vehicle.phoneticPlate || '-', mono:true, icon:<path d="M3 10v4M7 6v12M11 3v18M15 7v10M19 10v4"/> },
+                                                ].map(({ label, value, sub, icon, mono }) => (
+                                                    <div key={label} style={{ background:'rgba(10,14,20,0.5)', border:'1px solid rgba(148,163,184,0.12)', borderRadius:'9px', padding:'10px 12px' }}>
+                                                        <div style={{ display:'flex',alignItems:'center',gap:'5px',marginBottom:'5px' }}>
+                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{icon}</svg>
+                                                            <div style={{ fontSize:'8px', color:'#64748b', fontWeight:'800', letterSpacing:'1.5px', fontFamily:'monospace' }}>{label}</div>
+                                                        </div>
+                                                        <div style={{ fontSize: mono?'12px':'13px', color:'#f1f5f9', fontWeight:'700', fontFamily: mono?'monospace':'inherit', letterSpacing: mono?'1px':'normal' }}>{value}</div>
+                                                        {sub && <div style={{ fontSize:'11px', color:'#94a3b8', marginTop:'2px', fontFamily:'monospace' }}>{sub}</div>}
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <div style={{ margin: '0 12px 12px', background: 'rgba(148,163,184,0.06)', borderRadius: '8px', padding: '8px 12px' }}>
+                                                <div style={{ fontSize: '11px', color: '#cbd5e1', fontWeight: '600' }}>
+                                                    {vehicle.isEdited ? 'Last Edited: ' : 'Registered: '}
+                                                    <span style={{ color: 'white', fontWeight: '700' }}>{vehicle.timestamp ? (String(vehicle.timestamp).includes('/') ? vehicle.timestamp : new Date(vehicle.timestamp).toLocaleString()) : 'N/A'}</span>
+                                                </div>
+                                            </div>
+
+                                            {vehicle.hasHandicapPermit && (
+                                                <div style={{ margin:'0 12px 12px',padding:'8px 12px',background:'linear-gradient(180deg,rgba(251,191,36,0.12),rgba(251,191,36,0.04))',border:'1px solid rgba(251,191,36,0.35)',borderRadius:'8px',display:'flex',alignItems:'center',gap:'8px',color:'#fde047',fontSize:'10px',fontWeight:'700',textTransform:'uppercase',letterSpacing:'1.5px',fontFamily:'monospace' }}>
+                                                    <Accessibility size={13} /> Handicap Permit
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
-
-                                {/* Phonetic */}
-                                <div style={{ margin:'0 18px 14px',background:'rgba(34,211,238,0.05)',border:'1px solid rgba(34,211,238,0.18)',borderRadius:'9px',padding:'11px 14px' }}>
-                                    <div style={{ display:'flex',alignItems:'center',gap:'5px',marginBottom:'4px' }}>
-                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 10v4M7 6v12M11 3v18M15 7v10M19 10v4"/></svg>
-                                        <div style={{ fontSize:'9px',color:'#22d3ee',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace' }}>PHONETIC SPELLING</div>
-                                    </div>
-                                    <div style={{ fontSize:'14px',color:'#f1f5f9',fontWeight:'700',fontFamily:'monospace',letterSpacing:'1px' }}>{registration?.phoneticPlate}</div>
-                                </div>
-
-                                {/* Spacer pushes timestamp + handicap to the bottom of the card */}
-                                <div style={{ flex:'1 1 auto',minHeight:'8px' }} data-spacer="true" />
-
-                                {/* Timestamp */}
-                                <div style={{ margin:'0 18px 18px',padding:'9px 14px',background:'rgba(0,0,0,0.25)',border:'1px solid rgba(56,189,248,0.08)',borderRadius:'7px' }}>
-                                    <div style={{ fontSize:'10px',color:'#94a3b8',fontFamily:'monospace' }}>
-                                        {registration.isEdited ? 'Last Edited:' : 'Registered:'}{' '}
-                                        <span style={{ color:'#34d399',fontWeight:'700',letterSpacing:'0.5px' }}>{registration.timestamp}</span>
-                                    </div>
-                                </div>
-
-                                {/* Handicap Permit */}
-                                {registration.hasHandicapPermit && (
-                                    <div style={{ margin:'0 18px 18px',padding:'10px 14px',background:'linear-gradient(180deg,rgba(251,191,36,0.12),rgba(251,191,36,0.04))',border:'1px solid rgba(251,191,36,0.35)',borderRadius:'8px',display:'flex',alignItems:'center',gap:'8px',color:'#fde047',fontSize:'11px',fontWeight:'700',textTransform:'uppercase',letterSpacing:'1.5px',fontFamily:'monospace',boxShadow:'0 0 16px rgba(251,191,36,0.08)' }}>
-                                        <Accessibility size={14} /> Handicap Permit
-                                    </div>
-                                )}
                             </div>
                             );
                         })()}
@@ -17562,6 +17533,7 @@ return (
                 
             </div>
         )}
+    </div>
     </div>
 )}
 {activeView === 'database-search' && (
