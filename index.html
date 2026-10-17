@@ -16571,7 +16571,7 @@ return (
 }}>
 
 {activeView === 'search' && (
-<div style={{ position:'fixed',top:'52px',left:0,right:0,bottom:0,background:'#07090f',padding:'20px',boxSizing:'border-box',overflowY:'auto' }}>
+<div style={{ position:'fixed',top:'44px',left:0,right:0,bottom:0,background:'#07090f',padding:'20px',boxSizing:'border-box',overflowY:'auto' }}>
         {!tokenSaved ? (
             /* ── NO TOKEN WARNING ── */
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px', padding: '40px', textAlign: 'center' }}>
@@ -16611,27 +16611,61 @@ return (
                         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#94a3b8', fontSize: '10px', fontWeight: '700', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '1.5px',fontFamily:'monospace' }}>
                             <Search size={12} /> License Plate
                         </label>
-                        <input
-                            type="text"
-                            value={licensePlate}
-                            onChange={(e) => setLicensePlate(e.target.value.toUpperCase())}
-                            onKeyPress={(e) => {
-                                if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    if (searchCooldown) return;
-                                    if (!loading) { console.log('⌨️ [ENTER] License plate search triggered'); lookupUser(); }
-                                }
-                            }}
-                            placeholder="Enter License Plate..."
-                            style={{ width:'100%',padding:'12px 14px',background:'rgba(0,0,0,0.3)',border:'1px solid rgba(56,189,248,0.18)',borderRadius:'7px',color:'#e2e8f0',fontSize:'14px',fontFamily:'monospace',fontWeight:'700',letterSpacing:'2.5px',boxSizing:'border-box',outline:'none',transition:'border-color 160ms ease-out, background 160ms ease-out' }}
-                            onFocus={e => { e.target.style.borderColor = 'rgba(56,189,248,0.45)'; e.target.style.background = 'rgba(0,0,0,0.4)'; }}
-                            onBlur={e => { e.target.style.borderColor = 'rgba(56,189,248,0.18)'; e.target.style.background = 'rgba(0,0,0,0.3)'; }}
-                        />
+                        {/* Search bar with APEX + Voice to its right — keeps the header the same size as the Citizen tab */}
+                        <div style={{ display:'flex', gap:'8px', alignItems:'stretch' }}>
+                            <input
+                                type="text"
+                                value={licensePlate}
+                                onChange={(e) => setLicensePlate(e.target.value.toUpperCase())}
+                                onKeyPress={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        if (searchCooldown) return;
+                                        if (!loading) { console.log('⌨️ [ENTER] License plate search triggered'); lookupUser(); }
+                                    }
+                                }}
+                                placeholder="Enter License Plate..."
+                                style={{ flex:1,minWidth:0,padding:'12px 14px',background:'rgba(0,0,0,0.3)',border:'1px solid rgba(56,189,248,0.18)',borderRadius:'7px',color:'#e2e8f0',fontSize:'14px',fontFamily:'monospace',fontWeight:'700',letterSpacing:'2.5px',boxSizing:'border-box',outline:'none',transition:'border-color 160ms ease-out, background 160ms ease-out' }}
+                                onFocus={e => { e.target.style.borderColor = 'rgba(56,189,248,0.45)'; e.target.style.background = 'rgba(0,0,0,0.4)'; }}
+                                onBlur={e => { e.target.style.borderColor = 'rgba(56,189,248,0.18)'; e.target.style.background = 'rgba(0,0,0,0.3)'; }}
+                            />
+                            {/* APEX button — right of the search bar */}
+                            <button
+                                className="apex-btn apex-scope"
+                                onClick={() => { setApexImage(null); setApexResult(null); setShowApexModal(true); }}
+                                disabled={loading || searchCooldown}
+                                title="APEX — Automated Plate Extraction & Recognition"
+                                style={{ flexShrink:0, padding:'0 14px', borderRadius:'7px', color: (loading || searchCooldown) ? '#4b5563' : undefined, fontSize: '11px', fontWeight: '700', cursor: (loading || searchCooldown) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', letterSpacing: '1px', textTransform: 'uppercase', opacity: (loading || searchCooldown) ? 0.5 : 1 }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 7h.01M17 7h.01M12 7h.01M7 12h10"/></svg>
+                                APEX
+                            </button>
+                            {/* Voice button — right of the search bar */}
+                            {useMicrophone && (
+                                <button
+                                    onClick={() => {
+                                        if (loading || searchCooldown) {
+                                            if (soundSettings.MicNotAvailable && window.SOUNDS?.MIC_NOTAVAILABLESFX) {
+                                                try { const a = new Audio(window.SOUNDS.MIC_NOTAVAILABLESFX); a.volume = 0.5; a.play().catch(() => {}); } catch(_) {}
+                                            }
+                                            return;
+                                        }
+                                        voiceActive ? stopVoicePlate() : startVoicePlate();
+                                    }}
+                                    title="Voice to Plate"
+                                    disabled={loading || searchCooldown}
+                                    style={{ flexShrink:0, padding: '0 14px', background: voiceActive ? 'linear-gradient(135deg,#dc2626,#991b1b)' : 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(37,99,235,0.08))', border: '1px solid ' + (voiceActive ? '#dc2626' : 'rgba(59,130,246,0.3)'), borderRadius: '7px', color: (loading || searchCooldown) ? '#4b5563' : voiceActive ? 'white' : '#93c5fd', fontSize: '11px', fontWeight: '700', cursor: (loading || searchCooldown) ? 'not-allowed' : 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', letterSpacing: '1px', textTransform: 'uppercase', boxShadow: voiceActive ? '0 4px 14px rgba(220,38,38,0.4)' : 'none' }}
+                                    onMouseEnter={e => { if (!loading && !searchCooldown && !voiceActive) { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.28), rgba(37,99,235,0.16))'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(59,130,246,0.25)'; }}}
+                                    onMouseLeave={e => { if (!voiceActive) { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(37,99,235,0.08))'; e.currentTarget.style.boxShadow = 'none'; }}}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                                    {voiceActive ? '●' : 'VOICE'}
+                                </button>
+                            )}
+                        </div>
                         <p style={{ color: '#4b5563', fontSize: '11px', marginTop: '6px', fontStyle: 'italic' }}>Extracts vehicle & owner details, including warrants, records, etc.</p>
-                        {/* EU AI Act transparency notice — plate parsing is performed by an automated AI text model. */}
+                        {/* EU AI Act transparency notice — plate text, APEX image and voice are all parsed by automated AI models. */}
                         <p style={{ color: '#475569', fontSize: '9px', marginTop: '4px', fontStyle: 'italic', letterSpacing: '0.3px', lineHeight: 1.4, display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
                             <span style={{ opacity: 0.8, flexShrink: 0 }}>✨</span>
-                            <span>AI-assisted — vehicle data is interpreted by an automated AI text model and may contain errors. Verify before acting.</span>
+                            <span>AI-assisted — vehicle data, APEX Scan and Voice to Plate are interpreted by automated AI models and may contain errors. Verify before acting.</span>
                         </p>
                     </div>
 
@@ -16639,7 +16673,7 @@ return (
                     <button
                         onClick={lookupUser}
                         disabled={loading || !tokenSaved || voiceActive}
-                        style={{ width:'100%',padding:'12px',background:loading?'linear-gradient(90deg,rgba(56,189,248,0.12) 0%,rgba(96,165,250,0.28) 50%,rgba(56,189,248,0.12) 100%)':'linear-gradient(180deg,rgba(30,58,138,0.6),rgba(15,30,60,0.7))',backgroundSize:loading?'200% 100%':'auto',border:`1px solid ${loading?'rgba(96,165,250,0.4)':'rgba(96,165,250,0.4)'}`,borderRadius:'8px',color:loading?'#bfdbfe':'#bfdbfe',fontSize:'12px',fontWeight:'800',cursor:loading?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'10px',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace',marginBottom:'8px',boxShadow:loading?'0 0 24px rgba(96,165,250,0.2), inset 0 1px 0 rgba(96,165,250,0.2)':'0 0 20px rgba(96,165,250,0.12), inset 0 1px 0 rgba(96,165,250,0.2)',transition:'transform 100ms cubic-bezier(0.23,1,0.32,1), filter 160ms ease-out, box-shadow 160ms ease-out',animation:loading?'searchScan 1.6s linear infinite':'none' }}
+                        style={{ width:'100%',padding:'12px',background:loading?'linear-gradient(90deg,rgba(56,189,248,0.12) 0%,rgba(96,165,250,0.28) 50%,rgba(56,189,248,0.12) 100%)':'linear-gradient(180deg,rgba(30,58,138,0.6),rgba(15,30,60,0.7))',backgroundSize:loading?'200% 100%':'auto',border:`1px solid ${loading?'rgba(96,165,250,0.4)':'rgba(96,165,250,0.4)'}`,borderRadius:'8px',color:loading?'#bfdbfe':'#bfdbfe',fontSize:'12px',fontWeight:'800',cursor:loading?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'10px',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace',boxShadow:loading?'0 0 24px rgba(96,165,250,0.2), inset 0 1px 0 rgba(96,165,250,0.2)':'0 0 20px rgba(96,165,250,0.12), inset 0 1px 0 rgba(96,165,250,0.2)',transition:'transform 100ms cubic-bezier(0.23,1,0.32,1), filter 160ms ease-out, box-shadow 160ms ease-out',animation:loading?'searchScan 1.6s linear infinite':'none' }}
                         onMouseEnter={e=>{ if(!loading){ e.currentTarget.style.filter='brightness(1.15)'; e.currentTarget.style.boxShadow='0 0 28px rgba(96,165,250,0.22), inset 0 1px 0 rgba(96,165,250,0.25)'; } }}
                         onMouseLeave={e=>{ if(!loading){ e.currentTarget.style.filter=''; e.currentTarget.style.boxShadow='0 0 20px rgba(96,165,250,0.12), inset 0 1px 0 rgba(96,165,250,0.2)'; } }}
                         onMouseDown={e=>{ if(!loading) e.currentTarget.style.transform='scale(0.98)'; }}
@@ -16647,45 +16681,6 @@ return (
                     >
                         {loading ? <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> SEARCHING...</> : <><Search size={18} /> SEARCH DATABASE</>}
                     </button>
-                    {/* Secondary tools row */}
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                        {/* APEX button */}
-                        <button
-                            className="apex-btn apex-scope"
-                            onClick={() => { setApexImage(null); setApexResult(null); setShowApexModal(true); }}
-                            disabled={loading || searchCooldown}
-                            title="APEX — Automated Plate Extraction & Recognition"
-                            style={{ flex: 1, padding: '10px 14px', borderRadius: '9px', color: (loading || searchCooldown) ? '#4b5563' : undefined, fontSize: '11px', fontWeight: '700', cursor: (loading || searchCooldown) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', letterSpacing: '1px', textTransform: 'uppercase', opacity: (loading || searchCooldown) ? 0.5 : 1 }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 7h.01M17 7h.01M12 7h.01M7 12h10"/></svg>
-                            APEX SCAN
-                        </button>
-                        {/* Voice button */}
-                        {useMicrophone && (
-                            <button
-                                onClick={() => {
-                                    if (loading || searchCooldown) {
-                                        if (soundSettings.MicNotAvailable && window.SOUNDS?.MIC_NOTAVAILABLESFX) {
-                                            try { const a = new Audio(window.SOUNDS.MIC_NOTAVAILABLESFX); a.volume = 0.5; a.play().catch(() => {}); } catch(_) {}
-                                        }
-                                        return;
-                                    }
-                                    voiceActive ? stopVoicePlate() : startVoicePlate();
-                                }}
-                                title="Voice to Plate"
-                                disabled={loading || searchCooldown}
-                                style={{ flex: 1, padding: '10px 14px', background: voiceActive ? 'linear-gradient(135deg,#dc2626,#991b1b)' : 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(37,99,235,0.08))', border: '1px solid ' + (voiceActive ? '#dc2626' : 'rgba(59,130,246,0.3)'), borderRadius: '9px', color: (loading || searchCooldown) ? '#4b5563' : voiceActive ? 'white' : '#93c5fd', fontSize: '11px', fontWeight: '700', cursor: (loading || searchCooldown) ? 'not-allowed' : 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', letterSpacing: '1px', textTransform: 'uppercase', boxShadow: voiceActive ? '0 4px 14px rgba(220,38,38,0.4)' : 'none' }}
-                                onMouseEnter={e => { if (!loading && !searchCooldown && !voiceActive) { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.28), rgba(37,99,235,0.16))'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(59,130,246,0.25)'; }}}
-                                onMouseLeave={e => { if (!voiceActive) { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(37,99,235,0.08))'; e.currentTarget.style.boxShadow = 'none'; }}}>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
-                                {voiceActive ? '● LISTENING' : 'VOICE'}
-                            </button>
-                        )}
-                    </div>
-                    {/* EU AI Act transparency notice — APEX uses AI image recognition; Voice to Plate uses AI speech recognition. */}
-                    <p style={{ color: '#475569', fontSize: '9px', marginTop: '6px', fontStyle: 'italic', letterSpacing: '0.3px', lineHeight: 1.4, display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
-                        <span style={{ opacity: 0.8, flexShrink: 0 }}>✨</span>
-                        <span>APEX Scan uses AI image recognition and Voice to Plate uses AI speech recognition — both may misread or mishear. Always verify the plate before acting.</span>
-                    </p>
                     {/* Voice status bar */}
                     {(voiceActive || voiceNotif) && (
                         <div style={{ marginTop: '8px', padding: '8px 12px', background: voiceActive ? 'rgba(220,38,38,0.08)' : 'rgba(59,130,246,0.08)', border: '1px solid ' + (voiceActive ? 'rgba(220,38,38,0.25)' : 'rgba(59,130,246,0.2)'), borderRadius: '8px', fontSize: '11px', color: voiceActive ? '#fca5a5' : '#93c5fd', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -16900,7 +16895,7 @@ return (
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div style={{ color: '#6b7280', fontSize: '11px', fontStyle: 'italic' }}>Raw message unavailable</div>
+                                            <div style={{ color: '#fca5a5', fontSize: '11px', fontStyle: 'italic' }}>The registration message could not be retrieved — please verify this registration manually.</div>
                                         )}
                                         <div style={{ marginTop: '8px', color: '#fbbf24', fontSize: '10px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <span>&#8594; Click to view registered owner</span>
@@ -16935,7 +16930,7 @@ return (
                 
 
                 {(result || registration || loadingRoblox || robloxError) && registration && !registration.notFound && !registration.multipleMatches && (
-                    <div className={`results-grid ${visualEffects ? 'pulse-animation' : ''}`}>
+                    <div className={`results-grid ${visualEffects ? 'pulse-animation' : ''}`} style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr)' }}>
 
                         {/* ══════════ UI: REGISTERED OWNER ══════════ */}
                         {/* ══════════ UI: REGISTERED OWNER — 1:1 replica of the Citizen-ID credential card ══════════ */}
@@ -17240,6 +17235,11 @@ return (
                                     </div>
                                 )}
 
+                                {!registration.rawDiscordMessage && (
+                                    <div style={{ margin:'0 14px 14px', padding:'12px 14px', background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.18)', borderRadius:'10px', color:'#fca5a5', fontSize:'11px', fontFamily:'monospace', lineHeight:1.5 }}>
+                                        The registration message could not be retrieved. Please verify this registration manually.
+                                    </div>
+                                )}
                                 {/* Footer badge */}
                                 <div style={{ margin: '0 14px 14px', padding: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', textAlign: 'center', fontSize: '11px', color: '#f87171', fontWeight: '700', letterSpacing: '1px' }}>
                                     ⛔ MANUAL SEARCH REQUIRED
@@ -18200,7 +18200,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <div style={{ color:'#64748b',fontSize:'10px',fontFamily:'monospace',fontStyle:'italic',padding:'10px 2px' }}>No readable registration content — manual search required.</div>
+                                                    <div style={{ color:'#fca5a5',fontSize:'10px',fontFamily:'monospace',fontStyle:'italic',padding:'10px 2px' }}>The registration message could not be retrieved — please verify this registration manually.</div>
                                                 )}
                                             </div>
                                             <div style={{ margin:'0 12px 12px', background:'rgba(245,158,11,0.06)', borderRadius:'8px', padding:'8px 12px' }}>
@@ -18289,7 +18289,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <div style={{ color:'#64748b',fontSize:'10px',fontFamily:'monospace',fontStyle:'italic',padding:'10px 2px' }}>No readable registration content — manual search required.</div>
+                                                    <div style={{ color:'#fca5a5',fontSize:'10px',fontFamily:'monospace',fontStyle:'italic',padding:'10px 2px' }}>The registration message could not be retrieved — please verify this registration manually.</div>
                                                 )}
                                             </div>
                                             <div style={{ margin:'0 12px 12px', background:'rgba(245,158,11,0.06)', borderRadius:'8px', padding:'8px 12px' }}>
