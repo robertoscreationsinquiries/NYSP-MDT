@@ -16921,238 +16921,252 @@ return (
                     <div className={`results-grid ${visualEffects ? 'pulse-animation' : ''}`}>
 
                         {/* ══════════ UI: REGISTERED OWNER ══════════ */}
-                        <div style={{ padding:'18px',background:'linear-gradient(180deg,rgba(6,78,59,0.28) 0%,rgba(10,18,24,0.6) 100%)',border:'1px solid rgba(52,211,153,0.2)',borderRadius:'14px',boxShadow:'inset 0 1px 0 rgba(52,211,153,0.08), 0 8px 28px -14px rgba(0,0,0,0.7)' }}>
-                            <div style={{ display:'flex',alignItems:'center',gap:'11px',marginBottom:'15px',paddingBottom:'13px',borderBottom:'1px solid rgba(52,211,153,0.14)' }}>
-                                <div style={{ width:'32px',height:'32px',borderRadius:'9px',background:'linear-gradient(135deg,rgba(52,211,153,0.9),rgba(16,185,129,0.6))',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 12px -3px rgba(16,185,129,0.6), inset 0 1px 0 rgba(255,255,255,0.3)' }}>
-                                    <User size={16} style={{ color:'#fff' }} />
+                        {/* ══════════ UI: REGISTERED OWNER — 1:1 replica of the Citizen-ID credential card ══════════ */}
+                        <div style={{ background:'linear-gradient(180deg,rgba(12,22,32,0.6),rgba(9,13,19,0.8))',border:'1px solid rgba(52,211,153,0.2)',borderRadius:'16px',overflow:'hidden',boxShadow:'0 10px 34px -16px rgba(0,0,0,0.8)',display:'flex',flexDirection:'column',minHeight:0 }}>
+
+                            {/* HEADER */}
+                            <div style={{ display:'flex',alignItems:'center',gap:'12px',padding:'15px 16px',borderBottom:'1px solid rgba(52,211,153,0.16)',background:'linear-gradient(180deg,rgba(52,211,153,0.07),transparent)',flexShrink:0 }}>
+                                <div style={{ width:'34px',height:'34px',borderRadius:'9px',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(135deg,#34d399,#0f9f6e)',boxShadow:'0 4px 14px -4px rgba(16,185,129,0.6)' }}>
+                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#06241a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/></svg>
                                 </div>
-                                <div>
-                                    <div style={{ color:'#6ee7b7',fontSize:'11px',fontWeight:'800',letterSpacing:'2px',textTransform:'uppercase',fontFamily:'monospace' }}>Registered Owner</div>
-                                    <div style={{ color:'#475569',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.5px',marginTop:'1px' }}>Registered Identity</div>
+                                <div style={{ flex:1,minWidth:0 }}>
+                                    <div style={{ color:'#6ee7b7',fontSize:'11.5px',fontWeight:'800',letterSpacing:'2px',fontFamily:'monospace' }}>REGISTERED OWNER</div>
+                                    <div style={{ color:'#5b6b7f',fontSize:'9px',fontFamily:'monospace',letterSpacing:'0.4px',marginTop:'2px' }}>Identity &amp; standing on file</div>
                                 </div>
+                                {result && (
+                                    <span style={{ fontSize:'8px',fontWeight:'800',letterSpacing:'1.5px',color:'#34d399',border:'1px solid rgba(52,211,153,0.4)',borderRadius:'5px',padding:'3px 7px',background:'rgba(52,211,153,0.08)',fontFamily:'monospace',flexShrink:0 }}>VERIFIED</span>
+                                )}
                             </div>
 
                             {registration?.parseWarning && (
-                                <div style={{ marginBottom: '14px', padding: '14px 18px', background: 'linear-gradient(135deg, #ff6b00, #ff4500)', border: '1px solid #ff0000', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 0 20px rgba(255,0,0,0.4)' }}>
-                                    <span style={{ fontSize: '24px' }}>⚠️</span>
-                                    <div>
-                                        <div style={{ color: '#fff', fontSize: '11px', fontWeight: '700', marginBottom: '4px', letterSpacing: '0.5px' }}>⚠️ WARNING - INCOMPLETE REGISTRATIONS</div>
-                                        <div style={{ color: '#fff', fontSize: '13px', lineHeight: '1.5' }}>{registration.parseWarning.message}</div>
-                                    </div>
+                                <div style={{ margin:'12px 16px 0', padding:'12px 14px', background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.3)', borderRadius:'10px', display:'flex', alignItems:'center', gap:'10px' }}>
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+                                    <div style={{ color:'#fde68a', fontSize:'11px', lineHeight:1.5, fontFamily:'monospace' }}>{registration.parseWarning.message}</div>
                                 </div>
                             )}
 
                             {loadingRoblox ? (
-                                <>
-                                    {/* Avatar + headline skeleton — horizontal */}
-                                    <div style={{ display:'flex',gap:'14px',alignItems:'center',marginBottom:'12px' }}>
-                                        <div className="skel" style={{ flexShrink:0,width:'78px',height:'78px',borderRadius:'10px' }} />
-                                        <div style={{ flex:1,display:'flex',flexDirection:'column',gap:'5px' }}>
-                                            <div className="skel" style={{ height:'15px',width:'70%',borderRadius:'4px' }} />
-                                            <div className="skel" style={{ height:'11px',width:'55%',borderRadius:'4px' }} />
-                                            <div className="skel" style={{ height:'10px',width:'45%',borderRadius:'4px' }} />
+                                <div style={{ padding:'16px' }}>
+                                    <div style={{ display:'flex',gap:'14px',alignItems:'center',marginBottom:'16px' }}>
+                                        <div className="skel" style={{ flexShrink:0,width:'64px',height:'64px',borderRadius:'14px' }} />
+                                        <div style={{ flex:1,display:'flex',flexDirection:'column',gap:'6px' }}>
+                                            <div className="skel" style={{ height:'18px',width:'70%',borderRadius:'4px' }} />
+                                            <div className="skel" style={{ height:'11px',width:'50%',borderRadius:'4px' }} />
                                         </div>
                                     </div>
-                                    {/* ID rows skeleton — 2-col */}
-                                    <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px',marginBottom:'10px' }}>
-                                        <div className="info-item" style={{ flexDirection:'column',alignItems:'flex-start',gap:'4px',padding:'7px 10px' }}>
-                                            <div className="skel" style={{ height:'8px',width:'60%',borderRadius:'3px' }} />
-                                            <div className="skel" style={{ height:'11px',width:'80%',borderRadius:'3px' }} />
-                                        </div>
-                                        <div className="info-item" style={{ flexDirection:'column',alignItems:'flex-start',gap:'4px',padding:'7px 10px' }}>
-                                            <div className="skel" style={{ height:'8px',width:'50%',borderRadius:'3px' }} />
-                                            <div className="skel" style={{ height:'11px',width:'90%',borderRadius:'3px' }} />
-                                        </div>
+                                    <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px',marginBottom:'14px' }}>
+                                        <div className="skel" style={{ height:'48px',borderRadius:'11px' }} />
+                                        <div className="skel" style={{ height:'48px',borderRadius:'11px' }} />
                                     </div>
-                                    {/* Warrant badge skeleton */}
-                                    <div className="skel" style={{ height:'40px',borderRadius:'8px' }} />
-                                </>
+                                    <div style={{ display:'flex',flexDirection:'column',gap:'8px' }}>
+                                        <div className="skel" style={{ height:'50px',borderRadius:'12px' }} />
+                                        <div className="skel" style={{ height:'50px',borderRadius:'12px' }} />
+                                        <div className="skel" style={{ height:'50px',borderRadius:'12px' }} />
+                                    </div>
+                                </div>
                             ) : robloxError ? (
-                                <>
-                                    <div style={{ padding: '16px', textAlign: 'center', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', marginBottom: '14px' }}>
-                                        <p style={{ color: '#fca5a5', fontSize: '15px', fontWeight: '700', marginBottom: '6px' }}>BACKEND ERROR</p>
-                                        <p style={{ color: '#fecaca', fontSize: '13px', marginBottom: '6px' }}>{robloxError}</p>
-                                        <p style={{ color: '#bfdbfe', fontSize: '12px', opacity: 0.8 }}>Citation can still be exported with Discord and vehicle data.</p>
+                                <div style={{ padding:'18px 16px 4px' }}>
+                                    <div style={{ padding:'14px',textAlign:'center',background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.28)',borderRadius:'10px',marginBottom:'12px' }}>
+                                        <div style={{ color:'#fca5a5',fontSize:'13px',fontWeight:'700',fontFamily:'monospace',marginBottom:'4px' }}>Backend Error</div>
+                                        <div style={{ color:'#94a3b8',fontSize:'11px' }}>A citation can still be exported with vehicle data.</div>
                                     </div>
-                                    <div className="info-item"><span className="info-label">CONTACT-ID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }}>{copiedField === 'discord' ? 'Copied!' : 'Copy'}</button></div></div>
-                                </>
+                                    <div style={{ background:'rgba(255,255,255,0.025)',border:'1px solid rgba(148,163,184,0.1)',borderRadius:'11px',padding:'10px 12px' }}>
+                                        <div style={{ color:'#5b6b7f',fontSize:'8px',fontWeight:'800',letterSpacing:'1.4px',textTransform:'uppercase',fontFamily:'monospace' }}>Contact-ID</div>
+                                        <div style={{ display:'flex',alignItems:'center',gap:'7px',marginTop:'6px',minWidth:0 }}>
+                                            <span style={{ color:'#cbd5e1',fontSize:'11px',fontWeight:'600',fontFamily:'monospace',fontVariantNumeric:'tabular-nums',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{registration?.discordUserId || 'UNKNOWN'}</span>
+                                            <button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(registration?.discordUserId || 'UNKNOWN', 'discord-owner'); }} style={{ flexShrink:0 }}>{copiedField === 'discord-owner' ? '✓' : '⧉'}</button>
+                                        </div>
+                                    </div>
+                                </div>
                             ) : result ? (
                                 <>
-                                    {/* Avatar + headline identity row — horizontal */}
-                                    <div style={{ display:'flex',gap:'14px',alignItems:'center',marginBottom:'13px' }}>
-                                        {result?.avatarUrl && (
-                                            <div style={{ position:'relative',flexShrink:0,width:'78px',height:'78px',borderRadius:'12px',overflow:'hidden',border:'1px solid rgba(52,211,153,0.4)',boxShadow:'0 0 0 4px rgba(52,211,153,0.07), 0 8px 20px -6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(52,211,153,0.15)' }}>
-                                                <img src={result.avatarUrl} alt="Avatar" style={{ width:'100%',height:'100%',objectFit:'cover',display:'block' }}
-                                                    onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.style.display = 'none'; }} />
-                                            </div>
-                                        )}
+                                    {/* HERO */}
+                                    <div style={{ display:'flex',gap:'14px',alignItems:'center',padding:'16px 16px 14px' }}>
+                                        <div style={{ width:'64px',height:'64px',borderRadius:'14px',flexShrink:0,overflow:'hidden',border:'1px solid rgba(52,211,153,0.45)',background:'rgba(52,211,153,0.07)',boxShadow:'0 0 0 4px rgba(52,211,153,0.06)',display:'flex',alignItems:'center',justifyContent:'center' }}>
+                                            {result.avatarUrl
+                                                ? <img src={result.avatarUrl} alt={`${result.username || 'owner'} avatar`} style={{ width:'100%',height:'100%',objectFit:'cover',display:'block' }} onError={(e)=>{ e.currentTarget.onerror=null; e.currentTarget.style.display='none'; }} />
+                                                : <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/></svg>}
+                                        </div>
                                         <div style={{ flex:1,minWidth:0 }}>
-                                            {result?.username && (
-                                                <div style={{ display:'flex',alignItems:'center',gap:'6px',marginBottom:'3px',minWidth:0 }}>
-                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/></svg>
-                                                    <span style={{ color:'#f1f5f9',fontSize:'16px',fontWeight:'800',fontFamily:'monospace',letterSpacing:'0.2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{result.username}</span>
-                                                </div>
-                                            )}
+                                            <div style={{ color:'#f8fafc',fontSize:'19px',fontWeight:'800',fontFamily:'monospace',letterSpacing:'0.2px',lineHeight:1.1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{result.username || 'Unknown'}</div>
                                             {result?.displayName && result.displayName !== result.username && (
-                                                <div style={{ color:'#94a3b8',fontSize:'11px',fontFamily:'monospace',marginBottom:'4px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',paddingLeft:'19px' }}>“{result.displayName}”</div>
+                                                <div style={{ color:'#8aa0b8',fontSize:'12px',fontFamily:'monospace',marginTop:'4px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>“{result.displayName}”</div>
                                             )}
-                                            {result?.joinDate && (
-                                                <div style={{ display:'flex',alignItems:'center',gap:'5px',color:'#64748b',fontSize:'10px',fontFamily:'monospace',letterSpacing:'0.5px',paddingLeft:'19px' }}>
-                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-                                                    Joined {result.joinDate}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* ID rows — 2-column grid, denser */}
-                                    <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',marginBottom:'8px' }}>
-                                        {result?.userId && (
-                                            <div className="info-item" style={{ flexDirection:'column',alignItems:'flex-start',gap:'3px',padding:'8px 11px' }}>
-                                                <span className="info-label" style={{ fontSize:'8px',display:'flex',alignItems:'center',gap:'4px' }}><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M15 8h3M15 12h3M7 16h10"/></svg>CITIZEN-ID</span>
-                                                <div style={{ display:'flex',alignItems:'center',gap:'6px',width:'100%',minWidth:0 }}>
-                                                    <span className="info-value" style={{ fontSize:'11px',textAlign:'left',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{result.userId}</span>
-                                                    <button className="copy-btn btn-ripple" onClick={() => copyToClipboard(result.userId, 'roblox')} style={{ flexShrink:0 }}>{copiedField === 'roblox' ? '✓' : '⧉'}</button>
-                                                </div>
-                                            </div>
-                                        )}
-                                        <div className="info-item" style={{ flexDirection:'column',alignItems:'flex-start',gap:'3px',padding:'8px 11px' }}>
-                                            <span className="info-label" style={{ fontSize:'8px',display:'flex',alignItems:'center',gap:'4px' }}><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>Contact-ID</span>
-                                            <div style={{ display:'flex',alignItems:'center',gap:'6px',width:'100%',minWidth:0 }}>
-                                                <span className="info-value" style={{ fontSize:'11px',textAlign:'left',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{registration?.discordUserId || 'UNKNOWN'}</span>
-                                                <button className="copy-btn btn-ripple" onClick={() => copyToClipboard(registration?.discordUserId, 'discord-owner')} style={{ flexShrink:0 }}>{copiedField === 'discord-owner' ? '✓' : '⧉'}</button>
+                                            <div style={{ display:'flex',alignItems:'center',gap:'10px',marginTop:'8px' }}>
+                                                {result?.joinDate && (
+                                                    <span style={{ display:'inline-flex',alignItems:'center',gap:'5px',color:'#5b6b7f',fontSize:'10px',fontFamily:'monospace',letterSpacing:'0.3px' }}>
+                                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                                                        Joined {result.joinDate}
+                                                    </span>
+                                                )}
+                                                <span style={{ fontSize:'8px',fontWeight:'800',letterSpacing:'1px',color:'#7f8ea3',border:'1px solid rgba(148,163,184,0.25)',borderRadius:'5px',padding:'2px 6px',fontFamily:'monospace' }}>ROBLOX</span>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* LICENSE status — roleplay driver's-license state (default ACTIVE) */}
-                                    {(() => {
-                                        const licenseStatus = registration?.licenseStatus || 'ACTIVE';
-                                        const lc = licenseStatus === 'ACTIVE'
-                                            ? { rgb:'52,211,153', fg:'#34d399', label:'ACTIVE' }
-                                            : licenseStatus === 'SUSPENDED'
-                                            ? { rgb:'245,158,11', fg:'#fbbf24', label:'SUSPENDED' }
-                                            : { rgb:'239,68,68', fg:'#f87171', label:'REVOKED' };
-                                        return (
-                                            <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',padding:'10px 14px',marginBottom:'8px',background:`rgba(${lc.rgb},0.08)`,border:`1px solid rgba(${lc.rgb},0.28)`,borderRadius:'9px',boxShadow:`inset 0 1px 0 rgba(${lc.rgb},0.1)` }}>
-                                                <div style={{ display:'flex',alignItems:'center',gap:'9px' }}>
-                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={lc.fg} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8" cy="12" r="2.2"/><path d="M14 10h4M14 14h4M6 16h4"/></svg>
-                                                    <span style={{ color:'#94a3b8',fontSize:'10px',fontWeight:'800',letterSpacing:'1.5px',textTransform:'uppercase',fontFamily:'monospace' }}>License</span>
+                                    {/* IDENTIFIERS */}
+                                    <div style={{ padding:'0 16px' }}>
+                                        <div style={{ display:'flex',alignItems:'center',gap:'9px',marginBottom:'10px' }}>
+                                            <span style={{ color:'#64748b',fontSize:'9px',fontWeight:'800',letterSpacing:'2px',fontFamily:'monospace' }}>IDENTIFIERS</span>
+                                            <span style={{ flex:1,height:'1px',background:'rgba(148,163,184,0.12)' }} />
+                                        </div>
+                                        <div style={{ display:'grid',gridTemplateColumns:'repeat(2, minmax(0, 1fr))',gap:'9px' }}>
+                                            <div style={{ background:'rgba(255,255,255,0.025)',border:'1px solid rgba(148,163,184,0.1)',borderRadius:'11px',padding:'10px 12px',minWidth:0 }}>
+                                                <div style={{ color:'#5b6b7f',fontSize:'8px',fontWeight:'800',letterSpacing:'1.4px',textTransform:'uppercase',fontFamily:'monospace' }}>Citizen-ID</div>
+                                                <div style={{ display:'flex',alignItems:'center',gap:'7px',marginTop:'6px',minWidth:0 }}>
+                                                    <span style={{ color:'#cbd5e1',fontSize:'11px',fontWeight:'600',fontFamily:'monospace',fontVariantNumeric:'tabular-nums',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{result?.userId || 'UNKNOWN'}</span>
+                                                    <button className="copy-btn btn-ripple" onClick={() => copyToClipboard(result?.userId, 'roblox')} style={{ flexShrink:0 }}>{copiedField === 'roblox' ? '✓' : '⧉'}</button>
                                                 </div>
-                                                <span style={{ display:'flex',alignItems:'center',gap:'7px',color:lc.fg,fontSize:'11px',fontWeight:'900',letterSpacing:'1.5px',fontFamily:'monospace' }}>
-                                                    <span style={{ width:'6px',height:'6px',borderRadius:'50%',background:lc.fg,boxShadow:`0 0 7px ${lc.fg}` }} />
-                                                    {lc.label}
-                                                </span>
                                             </div>
-                                        );
-                                    })()}
+                                            <div style={{ background:'rgba(255,255,255,0.025)',border:'1px solid rgba(148,163,184,0.1)',borderRadius:'11px',padding:'10px 12px',minWidth:0 }}>
+                                                <div style={{ color:'#5b6b7f',fontSize:'8px',fontWeight:'800',letterSpacing:'1.4px',textTransform:'uppercase',fontFamily:'monospace' }}>Contact-ID</div>
+                                                <div style={{ display:'flex',alignItems:'center',gap:'7px',marginTop:'6px',minWidth:0 }}>
+                                                    <span style={{ color:'#cbd5e1',fontSize:'11px',fontWeight:'600',fontFamily:'monospace',fontVariantNumeric:'tabular-nums',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{registration?.discordUserId || 'UNKNOWN'}</span>
+                                                    <button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(registration?.discordUserId || 'UNKNOWN', 'discord-owner'); }} style={{ flexShrink:0 }}>{copiedField === 'discord-owner' ? '✓' : '⧉'}</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
 
-                                    {/* CDL — Commercial Driver's License. Live lookup against the ORCR DOT API. */}
-                                    <CDLBadge username={result?.username} onOpen={setCdlModal} />
+                                    {/* STANDING */}
+                                    <div style={{ padding:'16px 16px 0' }}>
+                                        <div style={{ display:'flex',alignItems:'center',gap:'9px',marginBottom:'10px' }}>
+                                            <span style={{ color:'#64748b',fontSize:'9px',fontWeight:'800',letterSpacing:'2px',fontFamily:'monospace' }}>STANDING</span>
+                                            <span style={{ flex:1,height:'1px',background:'rgba(148,163,184,0.12)' }} />
+                                        </div>
+                                        <div style={{ display:'flex',flexDirection:'column',gap:'8px' }}>
+                                            {(() => {
+                                                const s = registration?.licenseStatus || 'ACTIVE';
+                                                const m = s==='ACTIVE' ? { fg:'#34d399', rgb:'52,211,153', label:'ACTIVE' } : s==='SUSPENDED' ? { fg:'#fbbf24', rgb:'245,158,11', label:'SUSPENDED' } : { fg:'#f87171', rgb:'239,68,68', label:'REVOKED' };
+                                                return (
+                                                    <div style={{ display:'flex',alignItems:'center',gap:'11px',padding:'9px 11px',borderRadius:'12px',background:`rgba(${m.rgb},0.07)`,border:`1px solid rgba(${m.rgb},0.24)` }}>
+                                                        <div style={{ width:'32px',height:'32px',borderRadius:'9px',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',background:`rgba(${m.rgb},0.14)`,border:`1px solid rgba(${m.rgb},0.3)` }}>
+                                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={m.fg} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8" cy="12" r="2.4"/><path d="M14 10h4M14 14h4M6 16.5h4"/></svg>
+                                                        </div>
+                                                        <div style={{ flex:1,minWidth:0 }}>
+                                                            <div style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'800',letterSpacing:'1px',fontFamily:'monospace' }}>LICENSE</div>
+                                                            <div style={{ color:'#64748b',fontSize:'9px',fontFamily:'monospace',marginTop:'2px' }}>Driver&#39;s license standing</div>
+                                                        </div>
+                                                        <span style={{ display:'flex',alignItems:'center',gap:'6px',padding:'5px 10px',borderRadius:'8px',background:`rgba(${m.rgb},0.15)`,border:`1px solid rgba(${m.rgb},0.33)`,color:m.fg,fontSize:'10px',fontWeight:'900',letterSpacing:'0.8px',fontFamily:'monospace',flexShrink:0 }}>
+                                                            <span style={{ width:'6px',height:'6px',borderRadius:'50%',background:m.fg,boxShadow:`0 0 6px ${m.fg}` }} />{m.label}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })()}
 
-                                    {/* Warrant badge */}
-                                    <div style={{ padding:'12px 14px',background:warrantFlash?'#dc2626':(warrantInfo?'linear-gradient(180deg,#dc2626,#991b1b)':'rgba(16,185,129,0.06)'),border:`1px solid ${warrantInfo?'rgba(239,68,68,0.5)':'rgba(52,211,153,0.2)'}`,borderRadius:'9px',transition:'background 160ms ease-out, border-color 160ms ease-out',animation:warrantInfo?'pulse-border-warrant 2s infinite':'none',boxShadow:warrantInfo?'0 0 20px rgba(239,68,68,0.35), inset 0 1px 0 rgba(255,255,255,0.1)':'inset 0 1px 0 rgba(52,211,153,0.08)' }}>
-                                        <div style={{ color:warrantInfo?'#fff':(warrantChecking?'#fbbf24':'#34d399'),fontSize:'11px',fontWeight:'800',fontFamily:'monospace',letterSpacing:'1.2px',textTransform:'uppercase',display:'flex',alignItems:'center',gap:'8px' }}>
-                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/>{!warrantInfo && !warrantChecking && <path d="M9 12l2 2 4-4"/>}{warrantInfo && <path d="M12 8v4M12 16h.01"/>}</svg>
-                                            {warrantChecking ? (
-                                                <WarrantDots />
-                                            ) : warrantInfo ? (
-                                                <>Warrant: Active {warrantInfo.bench > 0 && `Bench${warrantInfo.bench > 1 ? ` ×${warrantInfo.bench}` : ''}`}{warrantInfo.bench > 0 && warrantInfo.arrest > 0 && ', '}{warrantInfo.arrest > 0 && `Arrest${warrantInfo.arrest > 1 ? ` ×${warrantInfo.arrest}` : ''}`}</>
-                                            ) : ('No Active Warrants')}
+                                            <CDLBadge username={result?.username} onOpen={setCdlModal} />
+
+                                            {(() => {
+                                                const checking = !!warrantChecking;
+                                                const hasW = !!warrantInfo;
+                                                const fg = warrantFlash ? '#fff' : (checking ? '#fbbf24' : (hasW ? '#f87171' : '#34d399'));
+                                                const rgb = checking ? '245,158,11' : (hasW ? '239,68,68' : '52,211,153');
+                                                const val = checking ? 'CHECKING'
+                                                    : hasW
+                                                    ? `ACTIVE${warrantInfo.bench > 0 ? ' · B'+(warrantInfo.bench>1?'×'+warrantInfo.bench:'') : ''}${warrantInfo.arrest > 0 ? ' · A'+(warrantInfo.arrest>1?'×'+warrantInfo.arrest:'') : ''}`
+                                                    : 'CLEAR';
+                                                return (
+                                                    <div style={{ display:'flex',alignItems:'center',gap:'11px',padding:'9px 11px',borderRadius:'12px',background:warrantFlash?'#dc2626':`rgba(${rgb},0.07)`,border:`1px solid rgba(${rgb},${hasW?0.34:0.24})`,boxShadow:hasW&&!warrantFlash?'0 0 12px rgba(239,68,68,0.14)':'none',animation:hasW?'pulse-border-warrant 2s infinite':'none',transition:'background 160ms ease-out, border-color 160ms ease-out' }}>
+                                                        <div style={{ width:'32px',height:'32px',borderRadius:'9px',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',background:warrantFlash?'rgba(255,255,255,0.14)':`rgba(${rgb},0.14)`,border:`1px solid rgba(${rgb},0.3)` }}>
+                                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={fg} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/>{!hasW && !checking && <path d="M9 12l2 2 4-4"/>}{hasW && <path d="M12 8v4M12 16h.01"/>}</svg>
+                                                        </div>
+                                                        <div style={{ flex:1,minWidth:0 }}>
+                                                            <div style={{ color:warrantFlash?'#fff':'#e2e8f0',fontSize:'11px',fontWeight:'800',letterSpacing:'1px',fontFamily:'monospace' }}>WARRANT</div>
+                                                            <div style={{ color:warrantFlash?'rgba(255,255,255,0.75)':'#64748b',fontSize:'9px',fontFamily:'monospace',marginTop:'2px' }}>Outstanding warrants</div>
+                                                        </div>
+                                                        <span style={{ display:'flex',alignItems:'center',gap:'6px',padding:'5px 10px',borderRadius:'8px',background:warrantFlash?'rgba(255,255,255,0.16)':`rgba(${rgb},0.15)`,border:`1px solid ${warrantFlash?'rgba(255,255,255,0.4)':`rgba(${rgb},0.33)`}`,color:fg,fontSize:'10px',fontWeight:'900',letterSpacing:'0.8px',fontFamily:'monospace',flexShrink:0 }}>
+                                                            <span style={{ width:'6px',height:'6px',borderRadius:'50%',background:fg,boxShadow:`0 0 6px ${fg}` }} />{val}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
                                 </>
                             ) : (
                                 <>
-                                    <div style={{ padding: '16px', textAlign: 'center', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '10px', marginBottom: '14px' }}>
-                                        <p style={{ color: '#fde047', fontSize: '14px', marginBottom: '6px', fontWeight: '600' }}>Citizen Not Found</p>
-                                        <p style={{ color: '#bfdbfe', fontSize: '12px', opacity: 0.8 }}>Citation can still be exported.</p>
+                                    <div style={{ padding:'18px 16px 4px' }}>
+                                        <div style={{ padding:'14px',textAlign:'center',background:'rgba(251,191,36,0.08)',border:'1px solid rgba(251,191,36,0.22)',borderRadius:'10px',marginBottom:'12px' }}>
+                                            <div style={{ color:'#fde047',fontSize:'13px',fontWeight:'700',fontFamily:'monospace',marginBottom:'4px' }}>Owner Not Found</div>
+                                            <div style={{ color:'#94a3b8',fontSize:'11px' }}>A citation can still be exported.</div>
+                                        </div>
+                                        <div style={{ background:'rgba(255,255,255,0.025)',border:'1px solid rgba(148,163,184,0.1)',borderRadius:'11px',padding:'10px 12px' }}>
+                                            <div style={{ color:'#5b6b7f',fontSize:'8px',fontWeight:'800',letterSpacing:'1.4px',textTransform:'uppercase',fontFamily:'monospace' }}>Contact-ID</div>
+                                            <div style={{ display:'flex',alignItems:'center',gap:'7px',marginTop:'6px',minWidth:0 }}>
+                                                <span style={{ color:'#cbd5e1',fontSize:'11px',fontWeight:'600',fontFamily:'monospace',fontVariantNumeric:'tabular-nums',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{registration?.discordUserId || 'UNKNOWN'}</span>
+                                                <button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(registration?.discordUserId || 'UNKNOWN', 'discord-owner'); }} style={{ flexShrink:0 }}>{copiedField === 'discord-owner' ? '✓' : '⧉'}</button>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="info-item"><span className="info-label">CONTACT-ID:</span><div style={{ display: 'flex', alignItems: 'center' }}><span className="info-value">{searchResults?.discordUserId || 'UNKNOWN'}</span><button className="copy-btn btn-ripple" onClick={(e) => { e.stopPropagation(); copyToClipboard(searchResults?.discordUserId || 'UNKNOWN', 'discord'); }}>{copiedField === 'discord' ? 'Copied!' : 'Copy'}</button></div></div>
                                 </>
                             )}
 
                             {!loadingRoblox && (
                                 <>
-                                    {/* Spacer pushes action buttons to the bottom edge of the card */}
                                     <div style={{ flex:'1 1 auto',minHeight:'14px' }} data-spacer="true" />
 
-
-                                    
-                                    {!isDispatcher && (() => {
-                                        const exportLocked = !!featureLocks.exportCitation;
+                                    {(() => {
+                                        const locked = !!featureLocks.exportCitation;
+                                        const base = (rgb, fg) => ({ flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'6px',padding:'11px 6px',borderRadius:'11px',cursor:'pointer',background:`rgba(${rgb},0.06)`,border:`1px solid rgba(${rgb},0.2)`,color:fg,transition:'background 160ms ease-out, transform 120ms cubic-bezier(0.23,1,0.32,1)' });
+                                        const lockedStyle = { flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'6px',padding:'11px 6px',borderRadius:'11px',cursor:'not-allowed',background:'rgba(100,116,139,0.08)',border:'1px solid rgba(100,116,139,0.2)',color:'#64748b' };
+                                        const lbl = { fontSize:'9.5px',fontWeight:'800',letterSpacing:'0.6px',textTransform:'uppercase',fontFamily:'monospace' };
+                                        const on = (e, rgb) => { if (e.currentTarget.style.cursor==='not-allowed') return; e.currentTarget.style.background=`rgba(${rgb},0.14)`; };
+                                        const off = (e, rgb) => { if (e.currentTarget.style.cursor==='not-allowed') return; e.currentTarget.style.background=`rgba(${rgb},0.06)`; };
                                         return (
-                                        <button
-                                            onClick={() => {
-                                                if (exportLocked) { showLockedFeatureAlert('Export Pre-Filled Citation'); return; }
-                                                const citationReg = registration?.parseFailed
-                                                    ? { ...registration, timestamp: registration.registeredAt || '' }
-                                                    : registration;
-                                                generateCitation(result, citationReg);
-                                            }}
-                                            style={exportLocked
-                                                ? { width:'100%',marginTop:'8px',padding:'12px',background:'rgba(100,116,139,0.15)',border:'1px solid rgba(100,116,139,0.35)',borderRadius:'8px',color:'#64748b',fontSize:'12px',fontWeight:'800',cursor:'not-allowed',textTransform:'uppercase',letterSpacing:'1.5px',fontFamily:'monospace',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',opacity:0.75 }
-                                                : { width:'100%',marginTop:'8px',padding:'12px',background:'linear-gradient(180deg,#059669,#047857)',border:'1px solid rgba(52,211,153,0.5)',borderRadius:'8px',color:'white',fontSize:'12px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1.5px',fontFamily:'monospace',boxShadow:'0 0 18px rgba(16,185,129,0.18), inset 0 1px 0 rgba(255,255,255,0.15)',transition:'filter 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1), box-shadow 160ms ease-out',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px' }
-                                            }
-                                            onMouseEnter={e=>{ if (!exportLocked) { e.currentTarget.style.filter='brightness(1.12)'; e.currentTarget.style.boxShadow='0 0 26px rgba(16,185,129,0.3), inset 0 1px 0 rgba(255,255,255,0.2)'; }}}
-                                            onMouseLeave={e=>{ if (!exportLocked) { e.currentTarget.style.filter=''; e.currentTarget.style.boxShadow='0 0 18px rgba(16,185,129,0.18), inset 0 1px 0 rgba(255,255,255,0.15)'; }}}
-                                            onMouseDown={e=>{ if (!exportLocked) e.currentTarget.style.transform='scale(0.98)'; }}
-                                            onMouseUp={e=>{ if (!exportLocked) e.currentTarget.style.transform=''; }}>
-                                            {exportLocked && (
-                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
-                                            )}
-                                            Export Pre-Filled Citation
-                                        </button>
+                                            <div style={{ display:'flex',gap:'9px',padding:'13px 16px',borderTop:'1px solid rgba(148,163,184,0.08)',background:'rgba(0,0,0,0.18)' }}>
+                                                <button title={locked ? 'Exporting is restricted on your account' : 'Export a pre-filled citation with this vehicle registration'}
+                                                    onClick={() => {
+                                                        if (featureLocks.exportCitation) { showLockedFeatureAlert('Export Pre-Filled Citation'); return; }
+                                                        const citationReg = registration?.parseFailed ? { ...registration, timestamp: registration.registeredAt || '' } : registration;
+                                                        generateCitation(result, citationReg);
+                                                    }}
+                                                    style={locked ? lockedStyle : base('52,211,153','#6ee7b7')}
+                                                    onMouseEnter={e=>on(e,'52,211,153')} onMouseLeave={e=>off(e,'52,211,153')}
+                                                    onMouseDown={e=>{ if(!locked) e.currentTarget.style.transform='scale(0.96)'; }} onMouseUp={e=>{ e.currentTarget.style.transform=''; }}>
+                                                    {locked
+                                                        ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                                                        : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>}
+                                                    <span style={lbl}>{locked ? 'Locked' : 'Citation'}</span>
+                                                </button>
+
+                                                <button title={locked ? 'Exporting is restricted on your account' : 'File an arrest / summons report'}
+                                                    onClick={async () => {
+                                                        if (featureLocks.exportCitation) { showLockedFeatureAlert('File Arrest Report'); return; }
+                                                        let ownerData = null;
+                                                        if (result?.username) { ownerData = result; }
+                                                        else if (registration?.robloxUser?.username) { ownerData = registration.robloxUser; }
+                                                        else if (registration?.username) { ownerData = { username: registration.username, userId: registration.userId || registration.robloxUserId, displayName: registration.displayName, joinDate: registration.joinDate, avatarUrl: registration.avatarUrl }; }
+                                                        if (ownerData?.username) {
+                                                            addLog(`Filing arrest report for ${ownerData.username}`, 'info');
+                                                            try { await generateArrestReport({ ...ownerData, discordUserId: registration?.discordUserId || 'UNKNOWN' }); } catch (error) { showCustomError('Error', `Failed to generate arrest report: ${error.message}`); }
+                                                        } else {
+                                                            showCustomError('Error', 'Vehicle owner information not available.\n\nTry searching the license plate again.');
+                                                        }
+                                                    }}
+                                                    style={locked ? lockedStyle : base('248,113,113','#fca5a5')}
+                                                    onMouseEnter={e=>on(e,'248,113,113')} onMouseLeave={e=>off(e,'248,113,113')}
+                                                    onMouseDown={e=>{ if(!locked) e.currentTarget.style.transform='scale(0.96)'; }} onMouseUp={e=>{ e.currentTarget.style.transform=''; }}>
+                                                    {locked
+                                                        ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                                                        : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/><path d="M12 8v4M12 16h.01"/></svg>}
+                                                    <span style={lbl}>{locked ? 'Locked' : 'Arrest'}</span>
+                                                </button>
+
+                                                {!isDispatcher && (
+                                                    <button title={copiedField==='recordFmtPlate' ? 'Copied — paste in Discord with Ctrl + V' : 'Copy the Discord record messaging format'}
+                                                        onClick={() => copyRecordMessagingFormat(registration?.discordUserId, 'recordFmtPlate')}
+                                                        style={base('56,189,248','#7dd3fc')}
+                                                        onMouseEnter={e=>on(e,'56,189,248')} onMouseLeave={e=>off(e,'56,189,248')}
+                                                        onMouseDown={e=>{ e.currentTarget.style.transform='scale(0.96)'; }} onMouseUp={e=>{ e.currentTarget.style.transform=''; }}>
+                                                        {copiedField==='recordFmtPlate'
+                                                            ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                                                            : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>}
+                                                        <span style={lbl}>{copiedField==='recordFmtPlate' ? 'Copied' : 'Copy Msg'}</span>
+                                                    </button>
+                                                )}
+                                            </div>
                                         );
                                     })()}
-
-
-                                    {!isDispatcher && (() => {
-                                        const exportLocked = !!featureLocks.exportCitation;
-                                        return (
-                                        <button onClick={async () => {
-                                        if (exportLocked) { showLockedFeatureAlert('File Arrest Report'); return; }
-                                        console.log('🚨 [ARREST] FILE ARREST/SUMMONS REPORT clicked');
-                                        let ownerData = null, dataSource = null;
-                                        if (searchResults?.robloxUser?.username) { ownerData = searchResults.robloxUser; dataSource = 'searchResults.robloxUser'; }
-                                        else if (registration?.robloxUser?.username) { ownerData = registration.robloxUser; dataSource = 'registration.robloxUser'; }
-                                        else if (result?.username) { ownerData = result; dataSource = 'result'; }
-                                        else if (registration?.username) { ownerData = { username: registration.username, userId: registration.userId || registration.robloxUserId, displayName: registration.displayName, joinDate: registration.joinDate, avatarUrl: registration.avatarUrl }; dataSource = 'registration (direct)'; }
-                                        if (ownerData?.username) {
-                                            addLog(`🚨 Filing arrest report for ${ownerData.username}`, 'info');
-                                            try { await generateArrestReport(ownerData); } catch (error) { showCustomError('Error', `Failed to generate arrest report: ${error.message}`); }
-                                        } else {
-                                            showCustomError('Error', 'Vehicle owner information not available.\n\nTry searching the license plate again.');
-                                        }
-                                    }}
-                                        style={exportLocked
-                                            ? { width:'100%',marginTop:'8px',padding:'12px',background:'rgba(100,116,139,0.15)',border:'1px solid rgba(100,116,139,0.35)',borderRadius:'8px',color:'#64748b',fontSize:'12px',fontWeight:'800',cursor:'not-allowed',textTransform:'uppercase',letterSpacing:'1.5px',fontFamily:'monospace',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',opacity:0.75 }
-                                            : { width:'100%',marginTop:'8px',padding:'12px',background:'linear-gradient(180deg,#dc2626,#991b1b)',border:'1px solid rgba(239,68,68,0.5)',borderRadius:'8px',color:'white',fontSize:'12px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1.5px',fontFamily:'monospace',boxShadow:'0 0 18px rgba(239,68,68,0.2), inset 0 1px 0 rgba(255,255,255,0.15)',transition:'filter 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1), box-shadow 160ms ease-out',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px' }
-                                        }
-                                        onMouseEnter={e=>{ if (!exportLocked) { e.currentTarget.style.filter='brightness(1.12)'; e.currentTarget.style.boxShadow='0 0 26px rgba(239,68,68,0.3), inset 0 1px 0 rgba(255,255,255,0.2)'; }}}
-                                        onMouseLeave={e=>{ if (!exportLocked) { e.currentTarget.style.filter=''; e.currentTarget.style.boxShadow='0 0 18px rgba(239,68,68,0.2), inset 0 1px 0 rgba(255,255,255,0.15)'; }}}
-                                        onMouseDown={e=>{ if (!exportLocked) e.currentTarget.style.transform='scale(0.98)'; }}
-                                        onMouseUp={e=>{ if (!exportLocked) e.currentTarget.style.transform=''; }}>
-                                        {exportLocked && (
-                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
-                                        )}
-                                        File Arrest Report
-                                    </button>
-                                        );
-                                    })()}
-
-                                    {/* Copy the Discord record messaging format — paste straight into chat with Ctrl+V */}
-                                    {!isDispatcher && (
-                                        <button onClick={() => copyRecordMessagingFormat(registration?.discordUserId, 'recordFmtPlate')}
-                                            style={{ width:'100%',marginTop:'8px',padding:'12px',background: copiedField==='recordFmtPlate' ? 'linear-gradient(180deg,#0ea5e9,#0369a1)' : 'linear-gradient(180deg,rgba(56,189,248,0.16),rgba(14,116,144,0.1))',border:'1px solid rgba(56,189,248,0.4)',borderRadius:'8px',color: copiedField==='recordFmtPlate' ? '#fff' : '#7dd3fc',fontSize:'12px',fontWeight:'800',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1.5px',fontFamily:'monospace',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',boxShadow:'inset 0 1px 0 rgba(56,189,248,0.12)',transition:'filter 160ms ease-out, transform 100ms cubic-bezier(0.23,1,0.32,1), background 160ms ease-out' }}
-                                            onMouseEnter={e=>{ e.currentTarget.style.filter='brightness(1.12)'; }}
-                                            onMouseLeave={e=>{ e.currentTarget.style.filter=''; }}
-                                            onMouseDown={e=>{ e.currentTarget.style.transform='scale(0.98)'; }}
-                                            onMouseUp={e=>{ e.currentTarget.style.transform=''; }}>
-                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                                            {copiedField==='recordFmtPlate' ? '✓ Copied — paste with Ctrl + V' : 'Copy Record Messaging Format'}
-                                        </button>
-                                    )}
                                 </>
                             )}
                         </div>
@@ -18131,24 +18145,21 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                             )}
 
                                             {isImproper ? (<>
-                                            {/* IMPROPER REGISTRATION — shows registered date + the Discord message, gov-records style */}
-                                            <div style={{ display:'flex',alignItems:'center',gap:'10px',padding:'13px 14px',borderBottom:'1px solid rgba(245,158,11,0.18)',background:'linear-gradient(180deg,rgba(245,158,11,0.07),transparent)' }}>
-                                                <div style={{ width:'30px',height:'30px',borderRadius:'8px',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(245,158,11,0.14)',border:'1px solid rgba(245,158,11,0.3)' }}>
-                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
-                                                </div>
-                                                <div style={{ flex:1,minWidth:0 }}>
-                                                    <div style={{ color:'#fbbf24',fontSize:'11px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace' }}>IMPROPER REGISTRATION</div>
-                                                    <div style={{ color:'#64748b',fontSize:'9px',fontFamily:'monospace',marginTop:'2px' }}>Could not be parsed · manual verification required</div>
+                                            {/* IMPROPER — same frame as a proper vehicle card (banner + body + footer) */}
+                                            <div style={{ background:'radial-gradient(ellipse at 50% 50%, rgba(245,158,11,0.14) 0%, rgba(69,26,3,0.45) 70%)', borderBottom:'1px solid rgba(245,158,11,0.3)', borderRadius:'11px 11px 0 0', padding:'16px', textAlign:'center', position:'relative', overflow:'hidden' }}>
+                                                <div style={{ position:'absolute',inset:0,background:'repeating-linear-gradient(180deg,transparent 0px,transparent 3px,rgba(255,255,255,0.015) 3px,rgba(255,255,255,0.015) 4px)',pointerEvents:'none' }} />
+                                                <div style={{ position:'relative' }}>
+                                                    <div style={{ fontSize:'9px', color:'#fcd34d', fontWeight:'800', marginBottom:'6px', letterSpacing:'3px', fontFamily:'monospace' }}>REGISTRATION</div>
+                                                    <div style={{ display:'flex',alignItems:'center',justifyContent:'center',gap:'9px' }}>
+                                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+                                                        <span style={{ fontSize:'17px', fontWeight:'900', color:'#fff', letterSpacing:'3px', fontFamily:'monospace' }}>IMPROPER</span>
+                                                    </div>
+                                                    <div style={{ fontSize:'10px', color:'#fcd34d', fontWeight:'700', marginTop:'6px', letterSpacing:'1.5px', fontFamily:'monospace', opacity:0.85 }}>Manual search required</div>
                                                 </div>
                                             </div>
-                                            <div style={{ padding:'12px 14px' }}>
-                                                <div style={{ display:'flex',alignItems:'center',gap:'7px',padding:'8px 10px',marginBottom:'10px',background:'rgba(0,0,0,0.25)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:'8px',fontFamily:'monospace' }}>
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-                                                    <span style={{ color:'#64748b',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase' }}>Registered</span>
-                                                    <span style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'700',marginLeft:'auto',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{vehicle.timestamp ? (String(vehicle.timestamp).includes('/') ? vehicle.timestamp : new Date(vehicle.timestamp).toLocaleString()) : 'Unknown'}</span>
-                                                </div>
+                                            <div style={{ padding:'12px' }}>
                                                 {vehRaw ? (
-                                                    <div style={{ background:'rgba(0,0,0,0.25)',border:'1px solid rgba(255,255,255,0.07)',borderRadius:'8px',overflow:'hidden' }}>
+                                                    <div style={{ background:'rgba(0,0,0,0.25)',border:'1px solid rgba(255,255,255,0.07)',borderRadius:'9px',overflow:'hidden' }}>
                                                         <div style={{ padding:'4px 10px',background:'rgba(255,255,255,0.03)',borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
                                                             <span style={{ color:'#4b5563',fontSize:'8px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase' }}>Record Content</span>
                                                         </div>
@@ -18172,8 +18183,11 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <div style={{ color:'#64748b',fontSize:'10px',fontFamily:'monospace',fontStyle:'italic',padding:'2px' }}>No readable registration content — manual search required.</div>
+                                                    <div style={{ color:'#64748b',fontSize:'10px',fontFamily:'monospace',fontStyle:'italic',padding:'10px 2px' }}>No readable registration content — manual search required.</div>
                                                 )}
+                                            </div>
+                                            <div style={{ margin:'0 12px 12px', background:'rgba(245,158,11,0.06)', borderRadius:'8px', padding:'8px 12px' }}>
+                                                <div style={{ fontSize:'11px', color:'#fcd34d', fontWeight:'600' }}>Registered: <span style={{ color:'white', fontWeight:'700' }}>vehicle.timestamp ? (String(vehicle.timestamp).includes('/') ? vehicle.timestamp : new Date(vehicle.timestamp).toLocaleString()) : 'Unknown'</span></div>
                                             </div>
                                             </>
                                             ) : (<>
@@ -18220,24 +18234,21 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                         const rawTimestamp = typeof raw === 'object' && raw.timestamp ? new Date(raw.timestamp).toLocaleString() : null;
                                         return (
                                         <div key={`improper-${idx}`} style={{ display:'flex',flexDirection:'column',background:'linear-gradient(180deg,rgba(30,37,48,0.5),rgba(12,16,22,0.6))',border:'1px solid rgba(245,158,11,0.28)',borderRadius:'10px',overflow:'hidden' }}>
-                                            {/* IMPROPER REGISTRATION — shows registered date + the Discord message, gov-records style */}
-                                            <div style={{ display:'flex',alignItems:'center',gap:'10px',padding:'13px 14px',borderBottom:'1px solid rgba(245,158,11,0.18)',background:'linear-gradient(180deg,rgba(245,158,11,0.07),transparent)' }}>
-                                                <div style={{ width:'30px',height:'30px',borderRadius:'8px',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(245,158,11,0.14)',border:'1px solid rgba(245,158,11,0.3)' }}>
-                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
-                                                </div>
-                                                <div style={{ flex:1,minWidth:0 }}>
-                                                    <div style={{ color:'#fbbf24',fontSize:'11px',fontWeight:'800',letterSpacing:'1.5px',fontFamily:'monospace' }}>IMPROPER REGISTRATION</div>
-                                                    <div style={{ color:'#64748b',fontSize:'9px',fontFamily:'monospace',marginTop:'2px' }}>Could not be parsed · manual verification required</div>
+                                            {/* IMPROPER — same frame as a proper vehicle card (banner + body + footer) */}
+                                            <div style={{ background:'radial-gradient(ellipse at 50% 50%, rgba(245,158,11,0.14) 0%, rgba(69,26,3,0.45) 70%)', borderBottom:'1px solid rgba(245,158,11,0.3)', borderRadius:'11px 11px 0 0', padding:'16px', textAlign:'center', position:'relative', overflow:'hidden' }}>
+                                                <div style={{ position:'absolute',inset:0,background:'repeating-linear-gradient(180deg,transparent 0px,transparent 3px,rgba(255,255,255,0.015) 3px,rgba(255,255,255,0.015) 4px)',pointerEvents:'none' }} />
+                                                <div style={{ position:'relative' }}>
+                                                    <div style={{ fontSize:'9px', color:'#fcd34d', fontWeight:'800', marginBottom:'6px', letterSpacing:'3px', fontFamily:'monospace' }}>REGISTRATION</div>
+                                                    <div style={{ display:'flex',alignItems:'center',justifyContent:'center',gap:'9px' }}>
+                                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+                                                        <span style={{ fontSize:'17px', fontWeight:'900', color:'#fff', letterSpacing:'3px', fontFamily:'monospace' }}>IMPROPER</span>
+                                                    </div>
+                                                    <div style={{ fontSize:'10px', color:'#fcd34d', fontWeight:'700', marginTop:'6px', letterSpacing:'1.5px', fontFamily:'monospace', opacity:0.85 }}>Manual search required</div>
                                                 </div>
                                             </div>
-                                            <div style={{ padding:'12px 14px' }}>
-                                                <div style={{ display:'flex',alignItems:'center',gap:'7px',padding:'8px 10px',marginBottom:'10px',background:'rgba(0,0,0,0.25)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:'8px',fontFamily:'monospace' }}>
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-                                                    <span style={{ color:'#64748b',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',textTransform:'uppercase' }}>Registered</span>
-                                                    <span style={{ color:'#e2e8f0',fontSize:'11px',fontWeight:'700',marginLeft:'auto',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{rawTimestamp || 'Unknown'}</span>
-                                                </div>
+                                            <div style={{ padding:'12px' }}>
                                                 {rawContent ? (
-                                                    <div style={{ background:'rgba(0,0,0,0.25)',border:'1px solid rgba(255,255,255,0.07)',borderRadius:'8px',overflow:'hidden' }}>
+                                                    <div style={{ background:'rgba(0,0,0,0.25)',border:'1px solid rgba(255,255,255,0.07)',borderRadius:'9px',overflow:'hidden' }}>
                                                         <div style={{ padding:'4px 10px',background:'rgba(255,255,255,0.03)',borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
                                                             <span style={{ color:'#4b5563',fontSize:'8px',fontWeight:'700',letterSpacing:'2px',textTransform:'uppercase' }}>Record Content</span>
                                                         </div>
@@ -18261,8 +18272,11 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <div style={{ color:'#64748b',fontSize:'10px',fontFamily:'monospace',fontStyle:'italic',padding:'2px' }}>No readable registration content — manual search required.</div>
+                                                    <div style={{ color:'#64748b',fontSize:'10px',fontFamily:'monospace',fontStyle:'italic',padding:'10px 2px' }}>No readable registration content — manual search required.</div>
                                                 )}
+                                            </div>
+                                            <div style={{ margin:'0 12px 12px', background:'rgba(245,158,11,0.06)', borderRadius:'8px', padding:'8px 12px' }}>
+                                                <div style={{ fontSize:'11px', color:'#fcd34d', fontWeight:'600' }}>Registered: <span style={{ color:'white', fontWeight:'700' }}>rawTimestamp || 'Unknown'</span></div>
                                             </div>
                                         </div>
                         );
