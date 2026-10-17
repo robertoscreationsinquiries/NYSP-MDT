@@ -687,6 +687,36 @@ ipcMain.handle('register-pursuit-shortcut', async (event, { key, requireFocus })
     }
 });
 
+// ── Siren Blip shortcut ──
+// Separate key + channel from panic/pursuit/mic so all can coexist. requireFocus is
+// supported (passed false by the renderer) so it fires while tabbed into Roblox.
+let _sirenShortcutKey = null;
+ipcMain.handle('register-siren-shortcut', async (event, { key, requireFocus }) => {
+    try {
+        if (_sirenShortcutKey && globalShortcut.isRegistered(_sirenShortcutKey)) {
+            globalShortcut.unregister(_sirenShortcutKey);
+        }
+    } catch(_) {}
+    _sirenShortcutKey = null;
+    if (!key) return { success: true };
+    try {
+        const converted = key
+            .replace('CTRL', 'CommandOrControl')
+            .replace('ALT', 'Alt')
+            .replace('SHIFT', 'Shift');
+        const registered = globalShortcut.register(converted, () => {
+            if (!mainWindow || mainWindow.isDestroyed()) return;
+            if (requireFocus && !mainWindow.isFocused()) return;
+            mainWindow.webContents.send('siren-shortcut-fired');
+        });
+        if (!registered) return { success: false, error: 'Shortcut is unavailable or already in use.' };
+        _sirenShortcutKey = converted;
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
 let _micShortcutKey = null;
 ipcMain.handle('register-global-shortcut', async (event, { key, id, requireFocus }) => {
     try {
@@ -808,6 +838,128 @@ class PanicSender {
                 if (compErr) { resolve({ success: false, error: 'Compile failed: ' + compErr.message }); return; }
                 mainWindow.blur();
                 exec(`"${exePath}"`, { timeout: 15000 }, (runErr) => {
+                    setTimeout(() => { try { mainWindow.focus(); } catch(_) {} }, 500);
+                    try { fs.unlinkSync(csPath); } catch(_) {}
+                    try { fs.unlinkSync(exePath); } catch(_) {}
+                    if (runErr?.code === 1) resolve({ success: false, error: 'Roblox not found.' });
+                    else if (runErr) resolve({ success: false, error: runErr.message });
+                    else resolve({ success: true });
+                });
+            });
+        });
+    });
+});
+
+// ── IPC: siren blip ──
+// Mirrors trigger-panic-roblox (AutoHotkey preferred, C# SendInput fallback). Focuses
+// Roblox, then sends: J ×3 (100ms apart) → R → wait 1s → J → R (sequential, not together).
+ipcMain.handle('trigger-siren-blip', async () => {
+    console.log('[SIREN] trigger-siren-blip IPC called');
+
+    const ahkPaths = [
+        'C:\\Program Files\\AutoHotkey\\v2\\AutoHotkey64.exe',
+        'C:\\Program Files\\AutoHotkey\\v2\\AutoHotkey.exe',
+        'C:\\Program Files\\AutoHotkey\\AutoHotkey.exe',
+        'C:\\Program Files (x86)\\AutoHotkey\\AutoHotkey.exe',
+        'C:\\Program Files\\AutoHotkey\\AutoHotkeyU64.exe',
+    ];
+    const ahkExe = ahkPaths.find(p => fs.existsSync(p));
+
+    const cscPaths = [
+        'C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe',
+        'C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\csc.exe',
+        'C:\\Windows\\Microsoft.NET\\Framework64\\v3.5\\csc.exe',
+        'C:\\Windows\\Microsoft.NET\\Framework\\v3.5\\csc.exe',
+    ];
+    const cscExe = cscPaths.find(p => fs.existsSync(p));
+
+    return new Promise((resolve) => {
+        if (ahkExe) {
+            const ahkScript = [
+                '#Requires AutoHotkey v2.0',
+                'if !WinExist("Roblox") {',
+                '    ExitApp 1',
+                '}',
+                'WinActivate "Roblox"',
+                'WinWaitActive "Roblox",, 3',
+                'Sleep 100',
+                'SendEvent "{j}"',
+                'Sleep 100',
+                'SendEvent "{j}"',
+                'Sleep 100',
+                'SendEvent "{j}"',
+                'Sleep 100',
+                'SendEvent "{r}"',
+                'Sleep 1000',
+                'SendEvent "{j}"',
+                'Sleep 150',
+                'SendEvent "{r}"',
+                'ExitApp 0'
+            ].join('\n');
+            const ahkPath = path.join(os.tmpdir(), 'nysp_siren.ahk');
+            fs.writeFileSync(ahkPath, ahkScript, 'utf8');
+            mainWindow.blur();
+            exec(`"${ahkExe}" "${ahkPath}"`, { timeout: 15000 }, (err) => {
+                setTimeout(() => { try { mainWindow.focus(); } catch(_) {} }, 500);
+                try { fs.unlinkSync(ahkPath); } catch(_) {}
+                if (err?.code === 1) resolve({ success: false, error: 'Roblox not found. Make sure Roblox is open.' });
+                else if (err) resolve({ success: false, error: err.message });
+                else resolve({ success: true });
+            });
+            return;
+        }
+
+        if (!cscExe) {
+            resolve({ success: false, error: 'Neither AutoHotkey nor .NET compiler found.' });
+            return;
+        }
+
+        const csPath = path.join(os.tmpdir(), 'nysp_siren.cs');
+        const exePath = path.join(os.tmpdir(), 'nysp_siren.exe');
+        const csCode = `
+using System; using System.Runtime.InteropServices; using System.Threading; using System.Diagnostics;
+class SirenSender {
+    [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
+    [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int n);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint p);
+    [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
+    [DllImport("user32.dll")] static extern bool AttachThreadInput(uint a, uint b, bool c);
+    [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] static extern bool AllowSetForegroundWindow(uint p);
+    [DllImport("user32.dll")] static extern uint SendInput(uint n, INPUT[] i, int s);
+    [StructLayout(LayoutKind.Sequential)] struct INPUT { public uint type; public KEYBDINPUT ki; [MarshalAs(UnmanagedType.ByValArray,SizeConst=8)] public byte[] padding; }
+    [StructLayout(LayoutKind.Sequential)] struct KEYBDINPUT { public ushort wVk,wScan; public uint dwFlags,time; public IntPtr dwExtraInfo; }
+    static int SZ = System.Runtime.InteropServices.Marshal.SizeOf(typeof(INPUT));
+    static void Tap(ushort vk) {
+        INPUT[] d=new INPUT[1]; d[0].type=1; d[0].ki.wVk=vk; d[0].ki.dwFlags=0; d[0].padding=new byte[8]; SendInput(1,d,SZ);
+        Thread.Sleep(45);
+        INPUT[] u=new INPUT[1]; u[0].type=1; u[0].ki.wVk=vk; u[0].ki.dwFlags=2; u[0].padding=new byte[8]; SendInput(1,u,SZ);
+    }
+    static bool ForceFocus(IntPtr hwnd) { uint pid; IntPtr fg=GetForegroundWindow(); uint fgT=GetWindowThreadProcessId(fg,out pid),myT=GetCurrentThreadId(),tgT=GetWindowThreadProcessId(hwnd,out pid); AllowSetForegroundWindow(0xFFFFFFFF); AttachThreadInput(myT,fgT,true); AttachThreadInput(tgT,fgT,true); ShowWindow(hwnd,9); bool r=SetForegroundWindow(hwnd); AttachThreadInput(myT,fgT,false); AttachThreadInput(tgT,fgT,false); return r; }
+    static void Main() {
+        Process roblox=null;
+        foreach(Process p in Process.GetProcesses()) { if(p.MainWindowTitle.Contains("Roblox")&&p.ProcessName!="RobloxPlayerLauncher"&&p.MainWindowHandle!=IntPtr.Zero){roblox=p;break;} }
+        if(roblox==null){Console.WriteLine("Not found");Environment.Exit(1);}
+        ForceFocus(roblox.MainWindowHandle); Thread.Sleep(1200);
+        ushort J=0x4A, R=0x52;
+        Tap(J); Thread.Sleep(100);
+        Tap(J); Thread.Sleep(100);
+        Tap(J); Thread.Sleep(100);
+        Tap(R); Thread.Sleep(1000);
+        Tap(J); Thread.Sleep(150);
+        Tap(R);
+        Console.WriteLine("Done");
+    }
+}`;
+        fs.writeFileSync(csPath, csCode, 'utf8');
+        const grantPath = path.join(os.tmpdir(), 'nysp_siren_grant.ps1');
+        fs.writeFileSync(grantPath, 'Add-Type @"\nusing System; using System.Runtime.InteropServices;\npublic class FGS { [DllImport("user32.dll")] public static extern bool AllowSetForegroundWindow(uint pid); }\n"@\n[FGS]::AllowSetForegroundWindow(0xFFFFFFFF)\nWrite-Host "granted"', 'utf8');
+        exec(`powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${grantPath}"`, { timeout: 5000 }, () => {
+            try { fs.unlinkSync(grantPath); } catch(_) {}
+            exec(`"${cscExe}" /nologo /out:"${exePath}" "${csPath}"`, { timeout: 15000 }, (compErr) => {
+                if (compErr) { resolve({ success: false, error: 'Compile failed: ' + compErr.message }); return; }
+                mainWindow.blur();
+                exec(`"${exePath}"`, { timeout: 20000 }, (runErr) => {
                     setTimeout(() => { try { mainWindow.focus(); } catch(_) {} }, 500);
                     try { fs.unlinkSync(csPath); } catch(_) {}
                     try { fs.unlinkSync(exePath); } catch(_) {}
