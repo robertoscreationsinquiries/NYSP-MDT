@@ -578,6 +578,58 @@ ipcMain.handle('force-quit-with-dialog', async (_e, { title, message, detail }) 
 ipcMain.on('open-dev-tools', () => mainWindow?.webContents.openDevTools());
 ipcMain.on('toggle-compact-mode', () => {});
 
+// Acknowledge uses its own registration so it cannot replace the mic binding.
+let _acknowledgeShortcutKey = null;
+ipcMain.handle('register-acknowledge-shortcut', async (_event, { key }) => {
+    if (_acknowledgeShortcutKey) {
+        globalShortcut.unregister(_acknowledgeShortcutKey);
+        _acknowledgeShortcutKey = null;
+    }
+    if (!key) return { success: true };
+    try {
+        const converted = key.replace('CTRL', 'CommandOrControl')
+            .replace('ALT', 'Alt').replace('SHIFT', 'Shift');
+        const registered = globalShortcut.register(converted, () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('acknowledge-shortcut-fired');
+            }
+        });
+        if (!registered) {
+            return { success: false, error: 'Shortcut is unavailable or already in use.' };
+        }
+        _acknowledgeShortcutKey = converted;
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+let _commandShortcutKey = null;
+ipcMain.handle('register-command-shortcut', async (_event, { key, requireFocus }) => {
+    if (_commandShortcutKey) {
+        globalShortcut.unregister(_commandShortcutKey);
+        _commandShortcutKey = null;
+    }
+    if (!key) return { success: true };
+    try {
+        const converted = key.replace('CTRL', 'CommandOrControl')
+            .replace('ALT', 'Alt').replace('SHIFT', 'Shift');
+        const registered = globalShortcut.register(converted, () => {
+            if (!mainWindow || mainWindow.isDestroyed()) return;
+            if (requireFocus && !mainWindow.isFocused()) return;
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.show();
+            mainWindow.focus();
+            mainWindow.webContents.send('command-shortcut-fired');
+        });
+        if (!registered) return { success: false, error: 'Shortcut is unavailable or already in use.' };
+        _commandShortcutKey = converted;
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
 let _panicShortcutKey = null;
 ipcMain.handle('register-panic-shortcut', async (event, { key }) => {
     try {
@@ -589,9 +641,12 @@ ipcMain.handle('register-panic-shortcut', async (event, { key }) => {
     if (!key) return { success: true };
     try {
         const converted = key.replace('CTRL', 'CommandOrControl').replace('ALT', 'Alt').replace('SHIFT', 'Shift');
-        globalShortcut.register(converted, () => {
-            mainWindow?.webContents.send('global-shortcut-fired', 'panic-trigger');
+        const registered = globalShortcut.register(converted, () => {
+            // Keep focused hold/key-release handling in the renderer.
+            if (!mainWindow || mainWindow.isDestroyed() || mainWindow.isFocused()) return;
+            mainWindow.webContents.send('panic-shortcut-fired');
         });
+        if (!registered) return { success: false, error: 'Shortcut is unavailable or already in use.' };
         _panicShortcutKey = converted;
         return { success: true };
     } catch(e) {
@@ -617,12 +672,14 @@ ipcMain.handle('register-pursuit-shortcut', async (event, { key, requireFocus })
             .replace('CTRL', 'CommandOrControl')
             .replace('ALT', 'Alt')
             .replace('SHIFT', 'Shift');
-        globalShortcut.register(converted, () => {
+        const registered = globalShortcut.register(converted, () => {
             // When requireFocus is true, only fire if our window has focus.
             // When false, fire regardless — that's the whole point of the 🖥️ keybinds.
-            if (requireFocus && !windowFocused) return;
-            mainWindow?.webContents.send('global-shortcut-fired', 'pursuit-trigger');
+            if (!mainWindow || mainWindow.isDestroyed()) return;
+            if (requireFocus && !mainWindow.isFocused()) return;
+            mainWindow.webContents.send('pursuit-shortcut-fired');
         });
+        if (!registered) return { success: false, error: 'Shortcut is unavailable or already in use.' };
         _pursuitShortcutKey = converted;
         return { success: true };
     } catch (e) {
@@ -644,10 +701,12 @@ ipcMain.handle('register-global-shortcut', async (event, { key, id, requireFocus
             .replace('CTRL', 'CommandOrControl')
             .replace('ALT', 'Alt')
             .replace('SHIFT', 'Shift');
-        globalShortcut.register(converted, () => {
-            if (requireFocus && !windowFocused) return;
-            mainWindow?.webContents.send('global-shortcut-fired', id);
+        const registered = globalShortcut.register(converted, () => {
+            if (!mainWindow || mainWindow.isDestroyed()) return;
+            if (requireFocus && !mainWindow.isFocused()) return;
+            mainWindow.webContents.send('mic-shortcut-fired');
         });
+        if (!registered) return { success: false, error: 'Shortcut is unavailable or already in use.' };
         _micShortcutKey = converted;
         return { success: true };
     } catch (e) {

@@ -5833,10 +5833,21 @@ const triggerCommandBarError = (msg) => {
     }, 300);
 };
 
-useEffect(() => {
-const handler = (e) => {
-if (isRecordingKeybind || isRecordingMicHotkey) return;
+React.useEffect(() => {
+    // Command palette keeps a local fallback and an independent background binding.
+    let disposed = false;
+    let globallyRegistered = !!window.electron?.ipcRenderer && !!actionBarKeybind && !keybindsRequireFocus && !isRecordingKeybind && !isRecordingMicHotkey;
+    const ipc = window.electron?.ipcRenderer;
+    const toggleCommand = () => {
+        if (disposed || !actionBarKeybind || isRecordingKeybind || isRecordingMicHotkey) return;
         if (keybindsRequireFocus && !document.hasFocus()) return;
+        setCommandBarOpen(o => !o);
+        setCommandBarInput('/');
+        setCommandBarError('');
+        setCommandBarHint('');
+    };
+    const handler = (e) => {
+        if (globallyRegistered || e.repeat) return;
         const ctrl = actionBarKeybind.includes('CTRL') ? e.ctrlKey : true;
         const shift = actionBarKeybind.includes('SHIFT') ? e.shiftKey : !e.shiftKey || actionBarKeybind.includes('SHIFT');
         const alt = actionBarKeybind.includes('ALT') ? e.altKey : !e.altKey;
@@ -5847,18 +5858,31 @@ if (isRecordingKeybind || isRecordingMicHotkey) return;
         if (isF) keyMatch = e.key === keyChar;
         else keyMatch = e.key.toUpperCase() === keyChar;
 
-if (ctrl && shift && alt && keyMatch) {
+        if (ctrl && shift && alt && keyMatch) {
             e.preventDefault();
-            if (isRecordingKeybind) return;
-            setCommandBarOpen(o => !o);
-            setCommandBarInput('/');
-            setCommandBarError('');
-            setCommandBarHint('');
+            toggleCommand();
         }
     };
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-}, [actionBarKeybind]);
+    ipc?.on('command-shortcut-fired', toggleCommand);
+    ipc?.invoke('register-command-shortcut', {
+        key: !keybindsRequireFocus && !isRecordingKeybind && !isRecordingMicHotkey ? actionBarKeybind : null,
+        requireFocus: keybindsRequireFocus
+    }).then(result => {
+        if (disposed) return;
+        globallyRegistered = !!result?.success && !!actionBarKeybind && !keybindsRequireFocus && !isRecordingKeybind && !isRecordingMicHotkey;
+        if (result && !result.success) addLog(`⚠️ Command palette background hotkey: ${result.error}`, 'warning');
+    }).catch(() => {
+        globallyRegistered = false;
+        if (!disposed) addLog('⚠️ Command palette background hotkey could not be registered.', 'warning');
+    });
+    return () => {
+        disposed = true;
+        window.removeEventListener('keydown', handler);
+        ipc?.removeListener('command-shortcut-fired', toggleCommand);
+        ipc?.invoke('register-command-shortcut', { key: null }).catch(() => {});
+    };
+}, [actionBarKeybind, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey]);
 
 const formatDate = (date, includeTime = false) => {
       const d = new Date(date);
@@ -6768,14 +6792,10 @@ React.useEffect(() => {
 }, [ecoMode, ecoFrameRate, hoverEffects, clickEffects, backgroundGradients, blurEffects, reduceMotion, throttleBackground]);
 
 React.useEffect(() => {
-    if (micHotkey) {
-        window.electron?.ipcRenderer?.invoke('register-global-shortcut', { key: micHotkey, id: 'mic-toggle', requireFocus: keybindsRequireFocus });
-    }
-    window.electron?.on('global-shortcut-fired', (id) => {
-        if (id === 'mic-toggle' && activeView === 'search' && useMicrophone && !loading && !searchCooldown && !voiceCooldown) {
-            voiceActive ? stopVoicePlate() : startVoicePlate();
-        }
-        if (id === 'panic-trigger' && panicEnabledRef.current && !isDispatcher && Date.now() >= panicCooldownUntilRef.current) {
+    // Panic background dispatch has its own listener and eligibility checks.
+    const onPanic = () => {
+        if (document.hasFocus() || keybindsRequireFocus || isRecordingKeybind || isRecordingMicHotkey) return;
+        if (panicEnabledRef.current && !isDispatcher && Date.now() >= panicCooldownUntilRef.current) {
             if (panicTriggerModeRef.current === 'HOLD') {
                 // Tabbed-out HOLD: replicate the in-window 2s hold timing.
                 // First press starts arming; pressing the hotkey again during arming cancels.
@@ -6795,10 +6815,11 @@ React.useEffect(() => {
                 window._panicArmingTimer = setTimeout(() => {
                     window._panicArmingTimer = null;
                     window._panicArmedAt = null;
-                    if (Date.now() >= panicCooldownUntilRef.current) {
+                    if (!document.hasFocus() && panicEnabledRef.current && Date.now() >= panicCooldownUntilRef.current) {
                         setPanicNotif('');
                         setPanicModalOpen(true);
                         startPanicAlarm();
+                        panicCooldownUntilRef.current = Date.now() + 60000;
                         setPanicCooldownUntil(Date.now() + 60000);
                     }
                 }, 2000);
@@ -6808,6 +6829,7 @@ React.useEffect(() => {
                 if (panicTapTimerRef.current) clearTimeout(panicTapTimerRef.current);
                 if (panicTapCountRef.current >= 3) {
                     panicTapCountRef.current = 0;
+                    panicCooldownUntilRef.current = Date.now() + 60000;
                     setPanicCooldownUntil(Date.now() + 60000);
                     triggerPanicActivate();
                 } else {
@@ -6815,15 +6837,18 @@ React.useEffect(() => {
                 }
             }
         }
-        // ── Pursuit Mode toggle ──
-        // Single keypress flips the state. Ref read because this listener was bound
-        // with stale state; ref always reflects the latest.
-        if (id === 'pursuit-trigger' && pursuitEnabledRef.current) {
-            togglePursuitMode();
-        }
-    });
-    return () => window.electron?.removeAllListeners?.('global-shortcut-fired');
-}, [micHotkey, voiceActive, useMicrophone, loading, searchCooldown, voiceCooldown, activeView, keybindsRequireFocus]);
+    };
+    const ipc = window.electron?.ipcRenderer;
+    ipc?.on('panic-shortcut-fired', onPanic);
+    return () => {
+        ipc?.removeListener('panic-shortcut-fired', onPanic);
+        if (window._panicArmingTimer) clearTimeout(window._panicArmingTimer);
+        window._panicArmingTimer = null;
+        window._panicArmedAt = null;
+        if (panicTapTimerRef.current) clearTimeout(panicTapTimerRef.current);
+        panicTapCountRef.current = 0;
+    };
+}, [keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey, isDispatcher, panicEnabled, panicTriggerMode]);
 
 
 React.useEffect(() => {
@@ -8529,10 +8554,18 @@ React.useEffect(() => {
 }, [calls]);
 
 React.useEffect(() => {
-    if (!micHotkey) return;
-    const handler = (e) => {
-if (isRecordingKeybind || isRecordingMicHotkey) return;
+    // Mic registration and dispatch share one lifetime, separate from other hotkeys.
+    let disposed = false;
+    let globallyRegistered = !!window.electron?.ipcRenderer && !!micHotkey && !isRecordingKeybind && !isRecordingMicHotkey;
+    const ipc = window.electron?.ipcRenderer;
+    const toggleMic = () => {
+        if (disposed || !micHotkey || isRecordingKeybind || isRecordingMicHotkey) return;
         if (keybindsRequireFocus && !document.hasFocus()) return;
+        if (activeView !== 'search' || !useMicrophone || loading || searchCooldown || voiceCooldown) return;
+        voiceActive ? stopVoicePlate() : startVoicePlate();
+    };
+    const handler = (e) => {
+        if (globallyRegistered || e.repeat) return;
         const parts = [];
         if (e.ctrlKey) parts.push('CTRL');
         if (e.shiftKey) parts.push('SHIFT');
@@ -8540,19 +8573,37 @@ if (isRecordingKeybind || isRecordingMicHotkey) return;
         const key = e.key.toUpperCase();
         if (!['CONTROL','SHIFT','ALT','META'].includes(key)) parts.push(key);
         const pressed = parts.join('+');
-        if (pressed === micHotkey && activeView === 'search') {
+        if (pressed === micHotkey) {
             e.preventDefault();
-            if (!useMicrophone) return;
-            if (loading || searchCooldown) return;
-            voiceActive ? stopVoicePlate() : startVoicePlate();
+            toggleMic();
         }
     };
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-}, [micHotkey, voiceActive, useMicrophone, loading, searchCooldown, activeView, isRecordingKeybind, isRecordingMicHotkey]);
+    ipc?.on('mic-shortcut-fired', toggleMic);
+    ipc?.invoke('register-global-shortcut', {
+        key: micHotkey && !isRecordingKeybind && !isRecordingMicHotkey ? micHotkey : null,
+        id: 'mic-toggle', requireFocus: keybindsRequireFocus
+    }).then(result => {
+        if (disposed) return;
+        globallyRegistered = !!result?.success && !!micHotkey && !isRecordingKeybind && !isRecordingMicHotkey;
+        if (result && !result.success) addLog(`⚠️ Mic background hotkey: ${result.error}`, 'warning');
+    }).catch(() => {
+        globallyRegistered = false;
+        if (!disposed) addLog('⚠️ Mic background hotkey could not be registered.', 'warning');
+    });
+    return () => {
+        disposed = true;
+        window.removeEventListener('keydown', handler);
+        ipc?.removeListener('mic-shortcut-fired', toggleMic);
+        ipc?.invoke('register-global-shortcut', { key: null }).catch(() => {});
+    };
+}, [micHotkey, voiceActive, useMicrophone, loading, searchCooldown, voiceCooldown, activeView, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey]);
 
 React.useEffect(() => {
     if (!panicEnabled || !panicHotkey || isDispatcher) return;
+    // Register Panic only while unfocused, preserving physical keyup when focused.
+    let disposed = false;
+    const ipc = window.electron?.ipcRenderer;
     let holdTimer = null;
     const handler = (e) => {
         if (isRecordingKeybind || isRecordingMicHotkey) return;
@@ -8565,13 +8616,14 @@ React.useEffect(() => {
         if (!['CONTROL','SHIFT','ALT','META'].includes(k)) parts.push(k);
         const pressed = parts.join('+');
         if (pressed !== panicHotkey) return;
-        if (Date.now() < panicCooldownUntil) return;
+        if (Date.now() < panicCooldownUntilRef.current) return;
 
         if (panicTriggerMode === 'HOLD') {
             if (!holdTimer) {
                 holdTimer = setTimeout(() => {
                     setPanicModalOpen(true);
                     startPanicAlarm();
+                    panicCooldownUntilRef.current = Date.now() + 60000;
                     setPanicCooldownUntil(Date.now() + 60000);
                 }, 2000);
             }
@@ -8584,6 +8636,7 @@ React.useEffect(() => {
             if (panicTapCountRef.current >= 3) {
                 panicTapCountRef.current = 0;
                 setPanicTapCount(0);
+                panicCooldownUntilRef.current = Date.now() + 60000;
                 setPanicCooldownUntil(Date.now() + 60000);
                 window.electron?.ipcRenderer?.invoke('trigger-panic-roblox').catch(() => {});
                 setPanicNotif('🚨 Panic button activated. All units have been notified. Update responding units with your location.');
@@ -8605,17 +8658,35 @@ React.useEffect(() => {
     };
     window.addEventListener('keydown', handler);
     window.addEventListener('keyup', cancelHandler);
-    // Also register as global shortcut so it works when tabbed out
-    if (panicEnabled && panicHotkey && !isDispatcher) {
-        window.electron?.ipcRenderer?.invoke('register-panic-shortcut', { key: panicHotkey, requireFocus: false });
-    }
+    const updateRegistration = () => {
+        cancelHandler();
+        if (document.hasFocus() && window._panicArmingTimer) {
+            clearTimeout(window._panicArmingTimer);
+            window._panicArmingTimer = null;
+            window._panicArmedAt = null;
+            setPanicNotif('');
+        }
+        ipc?.invoke('register-panic-shortcut', {
+            key: !document.hasFocus() && !keybindsRequireFocus && !isRecordingKeybind && !isRecordingMicHotkey ? panicHotkey : null
+        }).then(result => {
+            if (!disposed && result && !result.success) addLog(`⚠️ Panic background hotkey: ${result.error}`, 'warning');
+        }).catch(() => {
+            if (!disposed) addLog('⚠️ Panic background hotkey could not be registered.', 'warning');
+        });
+    };
+    window.addEventListener('focus', updateRegistration);
+    window.addEventListener('blur', updateRegistration);
+    updateRegistration();
     return () => {
+        disposed = true;
         window.removeEventListener('keydown', handler);
         window.removeEventListener('keyup', cancelHandler);
+        window.removeEventListener('focus', updateRegistration);
+        window.removeEventListener('blur', updateRegistration);
         if (holdTimer) clearTimeout(holdTimer);
-        window.electron?.ipcRenderer?.invoke('register-panic-shortcut', { key: null });
+        ipc?.invoke('register-panic-shortcut', { key: null }).catch(() => {});
     };
-}, [panicEnabled, panicHotkey, panicTriggerMode, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey, panicCooldownUntil]);
+}, [panicEnabled, panicHotkey, panicTriggerMode, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey, panicCooldownUntil, isDispatcher]);
 
 // ══════════════════════════════════════════════════════════════════
 // PURSUIT MODE — toggle handler, registration effect, sound + alert
@@ -8627,6 +8698,7 @@ React.useEffect(() => {
 // the callback shape is still cleaner this way.
 const togglePursuitMode = React.useCallback(() => {
     const turningOn = !pursuitActiveRef.current;
+    pursuitActiveRef.current = turningOn;
     setPursuitActive(turningOn);
     if (turningOn) {
         // Activating: stop any currently-playing call alert immediately. Don't wait
@@ -8675,16 +8747,44 @@ const togglePursuitMode = React.useCallback(() => {
 // requireFocus is honoured per the user's "Only Fire When App is Focused" setting,
 // just like the mic hotkey — that's why the 🖥️ emoji appears in the description.
 React.useEffect(() => {
-    if (pursuitEnabled && pursuitHotkey && !isRecordingKeybind && !isRecordingMicHotkey) {
-        window.electron?.ipcRenderer?.invoke('register-pursuit-shortcut', {
-            key: pursuitHotkey,
-            requireFocus: keybindsRequireFocus
-        });
-    } else {
-        window.electron?.ipcRenderer?.invoke('register-pursuit-shortcut', { key: null });
-    }
+    // Pursuit owns its listener so mic state changes cannot remove it.
+    let disposed = false;
+    let globallyRegistered = !!window.electron?.ipcRenderer && !!pursuitEnabled && !!pursuitHotkey && !isRecordingKeybind && !isRecordingMicHotkey;
+    const ipc = window.electron?.ipcRenderer;
+    const toggle = () => {
+        if (disposed || !pursuitEnabled || !pursuitHotkey || isRecordingKeybind || isRecordingMicHotkey) return;
+        if (keybindsRequireFocus && !document.hasFocus()) return;
+        togglePursuitMode();
+    };
+    const handler = e => {
+        if (globallyRegistered || e.repeat) return;
+        const parts = [];
+        if (e.ctrlKey) parts.push('CTRL');
+        if (e.shiftKey) parts.push('SHIFT');
+        if (e.altKey) parts.push('ALT');
+        if (!['CONTROL','SHIFT','ALT','META'].includes(e.key.toUpperCase())) parts.push(e.key.toUpperCase());
+        if (parts.join('+') !== pursuitHotkey) return;
+        e.preventDefault();
+        toggle();
+    };
+    window.addEventListener('keydown', handler);
+    ipc?.on('pursuit-shortcut-fired', toggle);
+    ipc?.invoke('register-pursuit-shortcut', {
+        key: pursuitEnabled && pursuitHotkey && !isRecordingKeybind && !isRecordingMicHotkey ? pursuitHotkey : null,
+        requireFocus: keybindsRequireFocus
+    }).then(result => {
+        if (disposed) return;
+        globallyRegistered = !!result?.success && !!pursuitEnabled && !!pursuitHotkey && !isRecordingKeybind && !isRecordingMicHotkey;
+        if (result && !result.success) addLog(`⚠️ Pursuit background hotkey: ${result.error}`, 'warning');
+    }).catch(() => {
+        globallyRegistered = false;
+        if (!disposed) addLog('⚠️ Pursuit background hotkey could not be registered.', 'warning');
+    });
     return () => {
-        window.electron?.ipcRenderer?.invoke('register-pursuit-shortcut', { key: null });
+        disposed = true;
+        window.removeEventListener('keydown', handler);
+        ipc?.removeListener('pursuit-shortcut-fired', toggle);
+        ipc?.invoke('register-pursuit-shortcut', { key: null }).catch(() => {});
     };
 }, [pursuitEnabled, pursuitHotkey, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey]);
 
@@ -8714,11 +8814,24 @@ React.useEffect(() => {
 }, [acknowledgedCalls]);
 
 React.useEffect(() => {
-    const handler = (e) => {
-        const hotkey = acknowledgeKeybindRef.current;
-        if (!hotkey) return;
+    let disposed = false;
+    const acknowledge = () => {
+        if (disposed || !acknowledgeKeybindRef.current) return;
         if (isRecordingKeybind || isRecordingMicHotkey) return;
         if (keybindsRequireFocus && !document.hasFocus()) return;
+        const allIds = currentCallsRef.current.map(c => c.id);
+        const currentAcked = acknowledgedCallsRef.current;
+        const unacked = allIds.filter(id => !currentAcked.includes(id));
+        if (unacked.length === 0) return;
+        const updated = [...currentAcked, ...unacked];
+        // A focused keypress may arrive through both keyboard and IPC listeners.
+        acknowledgedCallsRef.current = updated;
+        setAcknowledgedCalls(updated);
+        addLog(`✅ ${unacked.length} call(s) acknowledged via hotkey`, 'success');
+    };
+    const handler = (e) => {
+        const hotkey = acknowledgeKeybindRef.current;
+        if (!hotkey || isRecordingKeybind || isRecordingMicHotkey) return;
         const parts = [];
         if (e.ctrlKey) parts.push('CTRL');
         if (e.shiftKey) parts.push('SHIFT');
@@ -8726,21 +8839,31 @@ React.useEffect(() => {
         const k = e.key.toUpperCase();
         if (!['CONTROL','SHIFT','ALT','META'].includes(k)) parts.push(k);
         const pressed = parts.join('+');
-        console.log('[ACK KEY] keydown:', pressed, '| hotkey:', hotkey, '| calls:', currentCallsRef.current.length, '| tab:', document.visibilityState);
         if (pressed !== hotkey) return;
         e.preventDefault();
-        const allIds = currentCallsRef.current.map(c => c.id);
-        const currentAcked = acknowledgedCallsRef.current;
-        const unacked = allIds.filter(id => !currentAcked.includes(id));
-        console.log('[ACK KEY] ✅ Match - total calls:', allIds.length, '| unacked:', unacked.length);
-        if (unacked.length === 0) { console.log('[ACK KEY] Nothing to acknowledge'); return; }
-        setAcknowledgedCalls([...currentAcked, ...unacked]);
-        addLog(`✅ ${unacked.length} call(s) acknowledged via hotkey`, 'success');
+        acknowledge();
     };
+    const ipc = window.electron?.ipcRenderer;
     window.addEventListener('keydown', handler);
-    console.log('[ACK KEY] 🎧 Acknowledge hotkey listener registered');
-    return () => window.removeEventListener('keydown', handler);
-}, [keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey]);
+    ipc?.on('acknowledge-shortcut-fired', acknowledge);
+    // Focus-only mode keeps the ordinary keyboard handler and releases the OS key.
+    ipc?.invoke('register-acknowledge-shortcut', {
+        key: !keybindsRequireFocus && !isRecordingKeybind && !isRecordingMicHotkey
+            ? acknowledgeKeybind : null
+    }).then(result => {
+        if (!disposed && result && !result.success) {
+            addLog(`⚠️ Acknowledge background hotkey: ${result.error}`, 'warning');
+        }
+    }).catch(() => {
+        if (!disposed) addLog('⚠️ Acknowledge background hotkey could not be registered.', 'warning');
+    });
+    return () => {
+        disposed = true;
+        window.removeEventListener('keydown', handler);
+        ipc?.removeListener('acknowledge-shortcut-fired', acknowledge);
+        ipc?.invoke('register-acknowledge-shortcut', { key: null }).catch(() => {});
+    };
+}, [acknowledgeKeybind, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey]);
 
 React.useEffect(() => {
     const handler = (e) => {
