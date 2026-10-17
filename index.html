@@ -3249,8 +3249,8 @@ const [commandBarInput, setCommandBarInput] = useState('/');
 const [commandBarError, setCommandBarError] = useState('');
 const [commandBarHint, setCommandBarHint] = useState('');
 const [actionBarKeybind, setActionBarKeybind] = useState('CTRL+K');
-const [acknowledgeKeybind, setAcknowledgeKeybind] = useState('');
-const [acknowledgeKeybindDraft, setAcknowledgeKeybindDraft] = useState('');
+const [acknowledgeKeybind, setAcknowledgeKeybind] = useState('CTRL+Y');
+const [acknowledgeKeybindDraft, setAcknowledgeKeybindDraft] = useState('CTRL+Y');
 const [escToHome, setEscToHome] = useState(true);
 const acknowledgedCallsRef = React.useRef([]);
 
@@ -3729,11 +3729,11 @@ const micAudioCtxRef = React.useRef(null);
 const voiceStreamRef = React.useRef(null);
 const voiceAudioCtxRef = React.useRef(null);
 const voiceProcessorRef = React.useRef(null);
-const [micHotkey, setMicHotkey] = useState('');
-const [micHotkeyDraft, setMicHotkeyDraft] = useState('');
+const [micHotkey, setMicHotkey] = useState('CTRL+M');
+const [micHotkeyDraft, setMicHotkeyDraft] = useState('CTRL+M');
 const [panicEnabled, setPanicEnabled] = useState(false);
-const [panicHotkey, setPanicHotkey] = useState('');
-const [panicHotkeyDraft, setPanicHotkeyDraft] = useState('');
+const [panicHotkey, setPanicHotkey] = useState('CTRL+P');
+const [panicHotkeyDraft, setPanicHotkeyDraft] = useState('CTRL+P');
 const [panicCooldownUntil, setPanicCooldownUntil] = useState(0);
 const panicEnabledRef = React.useRef(false);
 const panicCooldownUntilRef = React.useRef(0);
@@ -3753,8 +3753,13 @@ React.useEffect(() => { panicEnabledRef.current = panicEnabled; }, [panicEnabled
 // Refs mirror the live state so the global-shortcut handler (which is bound once with
 // stale closure state) can read the current value without re-binding on every change.
 const [pursuitEnabled, setPursuitEnabled] = useState(false);
-const [pursuitHotkey, setPursuitHotkey] = useState('');
-const [pursuitHotkeyDraft, setPursuitHotkeyDraft] = useState('');
+const [pursuitHotkey, setPursuitHotkey] = useState('CTRL+U');
+const [pursuitHotkeyDraft, setPursuitHotkeyDraft] = useState('CTRL+U');
+// ── Siren Blip — quick lights/siren burst sent into Roblox ──
+const [sirenHotkey, setSirenHotkey] = useState('CTRL+B');
+const [sirenHotkeyDraft, setSirenHotkeyDraft] = useState('CTRL+B');
+const [sirenNotif, setSirenNotif] = useState('');
+const sirenCooldownUntilRef = React.useRef(0);
 const [pursuitActive, setPursuitActive] = useState(false);
 const pursuitEnabledRef = React.useRef(false);
 const pursuitActiveRef = React.useRef(false);
@@ -5050,6 +5055,10 @@ if (trimmedLine.startsWith('PURSUIT_ENABLED=')) {
 if (trimmedLine.startsWith('PURSUIT_HOTKEY=')) {
     const val = trimmedLine.split('=')[1]?.trim();
     if (val) { setPursuitHotkey(val); setPursuitHotkeyDraft(val); }
+}
+if (trimmedLine.startsWith('SIREN_HOTKEY=')) {
+    const val = trimmedLine.split('=')[1]?.trim();
+    if (val) { setSirenHotkey(val); setSirenHotkeyDraft(val); }
 }
 if (trimmedLine.startsWith('PANIC_TRIGGER_MODE=')) {
     const val = trimmedLine.split('=')[1]?.trim();
@@ -7659,6 +7668,7 @@ PANIC_HOTKEY=${panicHotkey || ''}
 PANIC_TRIGGER_MODE=${panicTriggerMode || 'HOLD'}
 PURSUIT_ENABLED=${pursuitEnabled ? 'TRUE' : 'FALSE'}
 PURSUIT_HOTKEY=${pursuitHotkey || ''}
+SIREN_HOTKEY=${sirenHotkey || ''}
 PHONETIC_MODE=${phoneticMode || 'POLICE'}
 EXPORT_TYPE=${exportType || 'EXTERNAL'}
 TIMER_SOUND=${timerSound || 'DEFAULT'}
@@ -7723,6 +7733,7 @@ if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
                     if (key === 'PANIC_TRIGGER_MODE') { setPanicTriggerMode(val); setPanicTriggerModeDraft(val); }
                     if (key === 'PURSUIT_ENABLED') setPursuitEnabled(val === 'TRUE');
                     if (key === 'PURSUIT_HOTKEY') { setPursuitHotkey(val); setPursuitHotkeyDraft(val); }
+                    if (key === 'SIREN_HOTKEY') { setSirenHotkey(val); setSirenHotkeyDraft(val); }
                     if (key === 'PHONETIC_MODE') setPhoneticMode(val);
                     if (key === 'EXPORT_TYPE' && (val === 'INAPP' || val === 'EXTERNAL')) setExportType(val);
                     if (key === 'TIMER_SOUND' && (val === 'DEFAULT' || val === 'FOLDED')) setTimerSound(val);
@@ -8687,6 +8698,33 @@ React.useEffect(() => {
         window.electron?.ipcRenderer?.invoke('register-pursuit-shortcut', { key: null });
     };
 }, [pursuitEnabled, pursuitHotkey, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey]);
+
+// ── Siren Blip hotkey ──
+// Registers a global shortcut (fires even while tabbed into Roblox) and, when pressed,
+// asks the main process to send the blip key sequence into the game (AHK / SendInput).
+// Self-contained channel pair so it never collides with the other hotkeys.
+React.useEffect(() => {
+    if (sirenHotkey && !isRecordingKeybind && !isRecordingMicHotkey) {
+        window.electron?.ipcRenderer?.invoke('register-siren-shortcut', { key: sirenHotkey, requireFocus: false });
+    } else {
+        window.electron?.ipcRenderer?.invoke('register-siren-shortcut', { key: null });
+    }
+    const onSiren = () => {
+        if (Date.now() < sirenCooldownUntilRef.current) return;
+        sirenCooldownUntilRef.current = Date.now() + 3500; // debounce while the sequence runs
+        setSirenNotif('🚨 Siren blip sent');
+        try { addLog('🚨 Siren blip triggered', 'info'); } catch(_) {}
+        window.electron?.ipcRenderer?.invoke('trigger-siren-blip').then((r) => {
+            if (r && r.success === false) {
+                setSirenNotif('⚠ ' + (r.error || 'Siren blip failed'));
+                try { addLog('⚠ Siren blip: ' + (r.error || 'failed'), 'warn'); } catch(_) {}
+            }
+        }).catch(() => {});
+        setTimeout(() => setSirenNotif(''), 2500);
+    };
+    window.electron?.on('siren-shortcut-fired', onSiren);
+    return () => window.electron?.removeAllListeners?.('siren-shortcut-fired');
+}, [sirenHotkey, isRecordingKeybind, isRecordingMicHotkey]);
 
 // Disable-the-setting safeguard: if the user turns off the Pursuit Mode toggle while
 // pursuit is currently active, deactivate it immediately so they don't get stuck muted.
@@ -19104,6 +19142,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
 <KeybindRecorder label="Action Bar / Command Palette"desc="Opens the command palette overlay" active={actionBarKeybind} draft={keybindDraft} setDraft={setKeybindDraft} onSave={() => { setActionBarKeybind(keybindDraft); addLog(`✅ Action bar: ${keybindDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#3b82f6" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
                                 <KeybindRecorder label="Mic Toggle (Plate Search)" desc="Toggles voice-to-plate on the plate search page 🖥️" active={micHotkey} draft={micHotkeyDraft} setDraft={setMicHotkeyDraft} onSave={() => { setMicHotkey(micHotkeyDraft); addLog(`✅ Mic hotkey: ${micHotkeyDraft}`, 'success'); }} setRecording={setIsRecordingMicHotkey} accent="#10b981" conflictKey={actionBarKeybind} conflictLabel="Action Bar" />
 <KeybindRecorder label="Acknowledge Call(s)" desc="Instantly acknowledges all active unacknowledged dispatch calls 🖥️" active={acknowledgeKeybind} draft={acknowledgeKeybindDraft} setDraft={setAcknowledgeKeybindDraft} onSave={() => { setAcknowledgeKeybind(acknowledgeKeybindDraft); addLog(`✅ Acknowledge hotkey set to: ${acknowledgeKeybindDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#10b981" conflictKey={micHotkey} conflictLabel="Mic Toggle" />
+<KeybindRecorder label="Siren Blip" desc="Press to blip the lights & sirens; a short, quick burst. 🖥️" active={sirenHotkey} draft={sirenHotkeyDraft} setDraft={setSirenHotkeyDraft} onSave={() => { setSirenHotkey(sirenHotkeyDraft); addLog(`✅ Siren Blip hotkey set to: ${sirenHotkeyDraft}`, 'success'); }} setRecording={setIsRecordingKeybind} accent="#f59e0b" conflictKey={pursuitHotkey} conflictLabel="Pursuit Mode" />
                             </div>
                             </>)}
 
@@ -19443,7 +19482,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                 <div style={S.sectionHead('#4ade80')}>💾 Export Settings</div>
                                 <div style={S.sectionSub}>Write all current settings to your CADSystemSettings.txt file</div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '12px' }}>
-                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','TeamSpeakAPIKey','EnableTeamSpeakIntegration','EnableSpotifyIntegration','SpotifyClientID','SpotifyRefreshToken','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE','PANIC_ENABLED','PANIC_HOTKEY','PANIC_TRIGGER_MODE','PURSUIT_ENABLED','PURSUIT_HOTKEY','ACKNOWLEDGE_KEYBIND','PHONETIC_MODE','RECORDS_PREFILL','OFFENSE_TIME_OFFSET_ENABLED','OFFENSE_TIME_OFFSET_MINUTES','MINI_MODE','ESC_TO_HOME','MIC_DEVICE','SFX_MIC_ACTIVE','SFX_MIC_INACTIVE','SFX_MIC_NOTAVAILABLE','CallLoopCount','DiscordRichPresence','EcoMode','ViewOrder','PanelOrder'].map(k => (
+                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','TeamSpeakAPIKey','EnableTeamSpeakIntegration','EnableSpotifyIntegration','SpotifyClientID','SpotifyRefreshToken','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE','PANIC_ENABLED','PANIC_HOTKEY','PANIC_TRIGGER_MODE','PURSUIT_ENABLED','PURSUIT_HOTKEY','SIREN_HOTKEY','ACKNOWLEDGE_KEYBIND','PHONETIC_MODE','RECORDS_PREFILL','OFFENSE_TIME_OFFSET_ENABLED','OFFENSE_TIME_OFFSET_MINUTES','MINI_MODE','ESC_TO_HOME','MIC_DEVICE','SFX_MIC_ACTIVE','SFX_MIC_INACTIVE','SFX_MIC_NOTAVAILABLE','CallLoopCount','DiscordRichPresence','EcoMode','ViewOrder','PanelOrder'].map(k => (
                                         <span key={k} style={{ padding: '2px 7px', background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.18)', borderRadius: '4px', color: '#4ade80', fontSize: '10px', fontFamily: 'monospace' }}>{k}</span>
                                     ))}
                                     <span style={{ padding: '2px 7px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '4px', color: '#f87171', fontSize: '10px', fontFamily: 'monospace' }}>ActiveSession*</span>
