@@ -3327,8 +3327,6 @@ const notifiedPriorityIdsRef = React.useRef(new Set());
 const acknowledgeKeybindRef = React.useRef('');
 const currentCallsRef = React.useRef([]);
 const [keybindsRequireFocus, setKeybindsRequireFocus] = useState(true);
-// ── Software brightness (app-wide dim/brighten), persisted + applied on launch ──
-const [appBrightness, setAppBrightness] = useState(100);
 
 const [keybindDraft, setKeybindDraft] = useState('CTRL+K');
 const [showUpdateLog, setShowUpdateLog] = useState(false);
@@ -5052,10 +5050,6 @@ if (trimmedLine.startsWith('PURSUIT_ENABLED=')) {
 if (trimmedLine.startsWith('PURSUIT_HOTKEY=')) {
     const val = trimmedLine.split('=')[1]?.trim();
     if (val) { setPursuitHotkey(val); setPursuitHotkeyDraft(val); }
-}
-if (trimmedLine.startsWith('APP_BRIGHTNESS=')) {
-    const n = parseInt(trimmedLine.split('=')[1]?.trim(), 10);
-    if (!isNaN(n)) setAppBrightness(Math.max(40, Math.min(150, n)));
 }
 if (trimmedLine.startsWith('PANIC_TRIGGER_MODE=')) {
     const val = trimmedLine.split('=')[1]?.trim();
@@ -7657,7 +7651,6 @@ PanelOrder=${panelOrder.join(',')}
 CallLoopCount=${callLoopCount}
 DiscordRichPresence=${discordRichPresence ? 'TRUE' : 'FALSE'}
 SIDETAB_NAVIGATION=${compactMode ? 'TRUE' : 'FALSE'}
-APP_BRIGHTNESS=${appBrightness}
 ActiveSession=NONE
 USE_MICROPHONE=${useMicrophone ? 'TRUE' : 'FALSE'}
 MIC_HOTKEY=${micHotkey || ''}
@@ -7730,7 +7723,6 @@ if (key === 'KEYBINDS_REQUIRE_FOCUS') setKeybindsRequireFocus(val === 'TRUE');
                     if (key === 'PANIC_TRIGGER_MODE') { setPanicTriggerMode(val); setPanicTriggerModeDraft(val); }
                     if (key === 'PURSUIT_ENABLED') setPursuitEnabled(val === 'TRUE');
                     if (key === 'PURSUIT_HOTKEY') { setPursuitHotkey(val); setPursuitHotkeyDraft(val); }
-                    if (key === 'APP_BRIGHTNESS') { const n = parseInt(val, 10); if (!isNaN(n)) setAppBrightness(Math.max(40, Math.min(150, n))); }
                     if (key === 'PHONETIC_MODE') setPhoneticMode(val);
                     if (key === 'EXPORT_TYPE' && (val === 'INAPP' || val === 'EXTERNAL')) setExportType(val);
                     if (key === 'TIMER_SOUND' && (val === 'DEFAULT' || val === 'FOLDED')) setTimerSound(val);
@@ -8695,29 +8687,6 @@ React.useEffect(() => {
         window.electron?.ipcRenderer?.invoke('register-pursuit-shortcut', { key: null });
     };
 }, [pursuitEnabled, pursuitHotkey, keybindsRequireFocus, isRecordingKeybind, isRecordingMicHotkey]);
-
-// ── Software brightness overlay ──
-// A fixed, click-through overlay layered above everything dims (black) or brightens
-// (white, screen-blend) the whole app. Driven by appBrightness, which is loaded from
-// CADSystemSettings at launch, so the chosen level applies the moment the app opens.
-React.useEffect(() => {
-    let el = document.getElementById('app-brightness-overlay');
-    if (!el) {
-        el = document.createElement('div');
-        el.id = 'app-brightness-overlay';
-        el.setAttribute('aria-hidden', 'true');
-        el.style.position = 'fixed';
-        el.style.inset = '0';
-        el.style.pointerEvents = 'none';
-        el.style.zIndex = '2147483000';
-        el.style.transition = 'opacity 120ms ease-out';
-        try { document.body.appendChild(el); } catch(_) {}
-    }
-    const b = Math.max(40, Math.min(150, Number(appBrightness) || 100));
-    if (b < 100) { el.style.background = '#000'; el.style.mixBlendMode = 'normal'; el.style.opacity = String((100 - b) / 100); }
-    else if (b > 100) { el.style.background = '#fff'; el.style.mixBlendMode = 'screen'; el.style.opacity = String((b - 100) / 120); }
-    else { el.style.opacity = '0'; }
-}, [appBrightness]);
 
 // Disable-the-setting safeguard: if the user turns off the Pursuit Mode toggle while
 // pursuit is currently active, deactivate it immediately so they don't get stuck muted.
@@ -18981,20 +18950,6 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                 <div style={S.sectionHead('#a78bfa')}>🎨 Appearance</div>
                                 <RestartBanner text="Mini Mode, dyslexia font, and sidebar layout changes fully apply after an app restart." />
                                 <div style={S.sectionSub}>Display and visual preferences</div>
-                                {/* Software Brightness — app-wide dim/brighten, saved to settings and applied on launch */}
-                                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', background:'rgba(139,92,246,0.06)', border:'1px solid rgba(139,92,246,0.18)', borderRadius:'9px', marginBottom:'7px' }}>
-                                    <div>
-                                        <div style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'600' }}>Brightness</div>
-                                        <div style={{ color:'#6b7280', fontSize:'11px', marginTop:'2px' }}>Control the software brightness</div>
-                                    </div>
-                                    <div style={{ display:'flex', alignItems:'center', gap:'8px', flexShrink:0, marginLeft:'14px' }}>
-                                        <button onClick={() => setAppBrightness(b => Math.max(40, (Number(b)||100) - 10))} title="Reduce brightness"
-                                            style={{ width:'34px', height:'34px', borderRadius:'8px', border:'1px solid rgba(139,92,246,0.35)', background:'rgba(139,92,246,0.12)', color:'#c4b5fd', fontSize:'18px', fontWeight:'800', cursor:'pointer', lineHeight:1, display:'flex', alignItems:'center', justifyContent:'center' }}>−</button>
-                                        <span style={{ minWidth:'46px', textAlign:'center', color:'#e2e8f0', fontSize:'13px', fontWeight:'800', fontFamily:'monospace' }}>{appBrightness}%</span>
-                                        <button onClick={() => setAppBrightness(b => Math.min(150, (Number(b)||100) + 10))} title="Increase brightness"
-                                            style={{ width:'34px', height:'34px', borderRadius:'8px', border:'1px solid rgba(139,92,246,0.35)', background:'rgba(139,92,246,0.12)', color:'#c4b5fd', fontSize:'18px', fontWeight:'800', cursor:'pointer', lineHeight:1, display:'flex', alignItems:'center', justifyContent:'center' }}>+</button>
-                                    </div>
-                                </div>
                                 <ToggleRow label="Normal Font" desc="Disables the MDT-style monospace font" on={dyslexiaFont} accent="#8b5cf6" onToggle={() => { const v = !dyslexiaFont; setDyslexiaFont(v); v ? document.body.classList.add('dyslexia-font') : document.body.classList.remove('dyslexia-font'); }} />
                                 <ToggleRow label="Visual Feedback Effects" desc="Pulse animations, shake effects, glowing borders" on={visualEffects} accent="#8b5cf6" onToggle={() => setVisualEffects(!visualEffects)} />
                                 <ToggleRow label="Eco Mode" desc="Master switch: caps frame rate (below) and disables effects to reduce RAM, CPU, and GPU usage" on={ecoMode} accent="#10b981" onToggle={() => setEcoMode(!ecoMode)} />
@@ -19488,7 +19443,7 @@ onClick={() => searchByUsername(searchCitizenId || searchUsername)}
                                 <div style={S.sectionHead('#4ade80')}>💾 Export Settings</div>
                                 <div style={S.sectionSub}>Write all current settings to your CADSystemSettings.txt file</div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '12px' }}>
-                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','TeamSpeakAPIKey','EnableTeamSpeakIntegration','EnableSpotifyIntegration','SpotifyClientID','SpotifyRefreshToken','AmericanDateFormat','APP_BRIGHTNESS','ACTIONBAR_KEYBIND','MIC_HOTKEY','KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE','PANIC_ENABLED','PANIC_HOTKEY','PANIC_TRIGGER_MODE','PURSUIT_ENABLED','PURSUIT_HOTKEY','ACKNOWLEDGE_KEYBIND','PHONETIC_MODE','RECORDS_PREFILL','OFFENSE_TIME_OFFSET_ENABLED','OFFENSE_TIME_OFFSET_MINUTES','MINI_MODE','ESC_TO_HOME','MIC_DEVICE','SFX_MIC_ACTIVE','SFX_MIC_INACTIVE','SFX_MIC_NOTAVAILABLE','CallLoopCount','DiscordRichPresence','EcoMode','ViewOrder','PanelOrder'].map(k => (
+                                    {['RegistrationChannelID','DatabaseChannelID','GuildID','expDate','DyslexiaFont','VisualEffects','MiniMode','DevConsoleEnabled','DiscordAccountToken','GroqConsoleAPIKey','TeamSpeakAPIKey','EnableTeamSpeakIntegration','EnableSpotifyIntegration','SpotifyClientID','SpotifyRefreshToken','AmericanDateFormat','ACTIONBAR_KEYBIND','MIC_HOTKEY','KEYBINDS_REQUIRE_FOCUS','USE_MICROPHONE','PANIC_ENABLED','PANIC_HOTKEY','PANIC_TRIGGER_MODE','PURSUIT_ENABLED','PURSUIT_HOTKEY','ACKNOWLEDGE_KEYBIND','PHONETIC_MODE','RECORDS_PREFILL','OFFENSE_TIME_OFFSET_ENABLED','OFFENSE_TIME_OFFSET_MINUTES','MINI_MODE','ESC_TO_HOME','MIC_DEVICE','SFX_MIC_ACTIVE','SFX_MIC_INACTIVE','SFX_MIC_NOTAVAILABLE','CallLoopCount','DiscordRichPresence','EcoMode','ViewOrder','PanelOrder'].map(k => (
                                         <span key={k} style={{ padding: '2px 7px', background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.18)', borderRadius: '4px', color: '#4ade80', fontSize: '10px', fontFamily: 'monospace' }}>{k}</span>
                                     ))}
                                     <span style={{ padding: '2px 7px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '4px', color: '#f87171', fontSize: '10px', fontFamily: 'monospace' }}>ActiveSession*</span>
