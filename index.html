@@ -3326,7 +3326,7 @@ const finishedNormalLoopSigRef = React.useRef(null);
 const notifiedPriorityIdsRef = React.useRef(new Set());
 const acknowledgeKeybindRef = React.useRef('');
 const currentCallsRef = React.useRef([]);
-const [keybindsRequireFocus, setKeybindsRequireFocus] = useState(true);
+const [keybindsRequireFocus, setKeybindsRequireFocus] = useState(false);
 
 const [keybindDraft, setKeybindDraft] = useState('CTRL+K');
 const [showUpdateLog, setShowUpdateLog] = useState(false);
@@ -6771,8 +6771,10 @@ React.useEffect(() => {
     if (micHotkey) {
         window.electron?.ipcRenderer?.invoke('register-global-shortcut', { key: micHotkey, id: 'mic-toggle', requireFocus: keybindsRequireFocus });
     }
-    window.electron?.on('global-shortcut-fired', (id) => {
-        if (id === 'mic-toggle' && activeView === 'search' && useMicrophone && !loading && !searchCooldown && !voiceCooldown) {
+    const onGlobalFired = (id) => {
+        if (id === 'mic-toggle' && useMicrophone && !loading && !searchCooldown && !voiceCooldown) {
+            // Jump to the plate search view first (if not already there), then toggle voice-to-plate.
+            if (activeView !== 'search') setActiveView('search');
             voiceActive ? stopVoicePlate() : startVoicePlate();
         }
         if (id === 'panic-trigger' && panicEnabledRef.current && !isDispatcher && Date.now() >= panicCooldownUntilRef.current) {
@@ -6821,8 +6823,21 @@ React.useEffect(() => {
         if (id === 'pursuit-trigger' && pursuitEnabledRef.current) {
             togglePursuitMode();
         }
-    });
-    return () => window.electron?.removeAllListeners?.('global-shortcut-fired');
+    };
+    // main-remote.js emits per-feature channels (mic-/panic-/pursuit-shortcut-fired). The old
+    // code only listened on 'global-shortcut-fired', so those global hotkeys never reached the
+    // renderer — that's why only the in-app keydown binds (Action Bar, Acknowledge) worked.
+    // Route every channel through the same dispatcher.
+    window.electron?.on('global-shortcut-fired', onGlobalFired);
+    window.electron?.on('mic-shortcut-fired', () => onGlobalFired('mic-toggle'));
+    window.electron?.on('panic-shortcut-fired', () => onGlobalFired('panic-trigger'));
+    window.electron?.on('pursuit-shortcut-fired', () => onGlobalFired('pursuit-trigger'));
+    return () => {
+        window.electron?.removeAllListeners?.('global-shortcut-fired');
+        window.electron?.removeAllListeners?.('mic-shortcut-fired');
+        window.electron?.removeAllListeners?.('panic-shortcut-fired');
+        window.electron?.removeAllListeners?.('pursuit-shortcut-fired');
+    };
 }, [micHotkey, voiceActive, useMicrophone, loading, searchCooldown, voiceCooldown, activeView, keybindsRequireFocus]);
 
 
